@@ -117,14 +117,14 @@ function updateDashboardStats(totals) {
   if (!distanceValueElement || !distanceWeekGainElement || !elevationValueElement || !elevationWeekGainElement || !caloriesValueElement || !caloriesWeekGainElement) {
     console.error('One or more lifetime stats DOM elements are missing.');
   } else {
-    distanceValueElement.textContent = `${Math.round(totals.distance / 1000)} 🚴‍♂️`; // Rounded
-    distanceWeekGainElement.textContent = `+${Math.round(totals.distanceThisWeek / 1000)} this week`;
+    distanceValueElement.textContent = `${(totals.distance / 1000).toFixed(1)} 🚴‍♂️`; // Rounded to 1 decimal
+    distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(1)} this week`;
 
-    elevationValueElement.textContent = `${Math.round(totals.elevation)} 🏔️`;
-    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek)} this week`;
+    elevationValueElement.textContent = `${Math.round(totals.elevation / 1000 )} 🏔️`;
+    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 1000)} this week`;
 
-    caloriesValueElement.textContent = `${Math.round(totals.calories)} 🍕`;
-    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek)} this week`;
+    caloriesValueElement.textContent = `${Math.round(totals.calories / 1000)} 🍕`;
+    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000 )} this week`;
   }
 
   // Update YTD Stats
@@ -142,6 +142,7 @@ function updateDashboardStats(totals) {
     weeklyCaloriesElement.textContent = isNaN(totals.caloriesThisWeek) ? '0 kcal' : `${totals.caloriesThisWeek} kcal`;
   }
 }
+
 
 
 function displayDashboard(data) {
@@ -246,7 +247,7 @@ function displayDashboard(data) {
   addTooltipListeners();
 }
 
-function displayActivities(activities) {
+function displayActivities(activities, isInitialLoad = false) {
   const activitiesContainer = document.getElementById('activities-container');
   activities.forEach(activity => {
     const activityElement = document.createElement('div');
@@ -254,12 +255,17 @@ function displayActivities(activities) {
     activityElement.innerHTML = `
       <h3>${activity.name}</h3>
       <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
-      <p>Distance: ${(activity.distance / 1000).toFixed(2)} km</p>
-      <p>Duration: ${(activity.moving_time / 3600).toFixed(2)} hrs</p>
+      <p>Distance: ${(activity.distance / 1000).toFixed(1)} km</p>
+      <p>Duration: ${(activity.moving_time / 3600).toFixed(1)} hrs</p>
       <p>Elevation Gain: ${activity.total_elevation_gain} m</p>
       <p>Calories: ${activity.kilojoules || 0} kcal</p>
     `;
-    activitiesContainer.appendChild(activityElement);
+
+    if (isInitialLoad) {
+      activitiesContainer.appendChild(activityElement); // Append for initial load
+    } else {
+      activitiesContainer.insertBefore(activityElement, activitiesContainer.firstChild); // Prepend for load more
+    }
   });
 }
 

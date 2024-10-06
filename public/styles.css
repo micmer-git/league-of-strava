@@ -154,7 +154,6 @@ body {
 }
 
 
-/* Style for Achievements to be on the same line */
 .lifetime-stats {
   display: flex;
   justify-content: space-around;
@@ -167,6 +166,12 @@ body {
   text-align: center;
   flex: 1 1 30%; /* Three items per row */
   margin: 10px 0;
+}
+
+/* Ensure icons are inline and have consistent styling */
+.icon {
+  font-size: 30px;
+  margin-bottom: 10px;
 }
 
 /* Remove individual emoji titles and use gem icon for tooltip */

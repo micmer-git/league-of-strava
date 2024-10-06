@@ -208,21 +208,6 @@ body {
   margin-bottom: 5px;
 }
 
-/* Lifetime Stats */
-.lifetime-stats {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 30px;
-  align-items: center;
-  flex-wrap: wrap; /* Ensure wrapping on smaller screens */
-}
-
-.stat-item {
-  text-align: center;
-  flex: 1 1 30%; /* Allows three items per row */
-  margin: 10px 0;
-}
-
 .stat-item .icon {
   font-size: 40px;
 }

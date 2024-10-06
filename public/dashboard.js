@@ -10,19 +10,19 @@ async function fetchStravaData(page = 1, per_page = 200) {
     if (!response.ok) {
       if (response.status === 401) {
         console.warn('Unauthorized access, redirecting to landing page');
-        window.location.href = '/'; // Redirect to landing page if unauthorized
+        window.location.href = '/'; // Redirect if unauthorized
       }
       throw new Error(`Network response was not ok: ${response.statusText}`);
     }
     const data = await response.json();
     console.log('Strava data fetched successfully:', data);
-    console.log('Response JSON:', JSON.stringify(data, null, 2)); // Print response JSON to console
+    console.log('Response JSON:', JSON.stringify(data, null, 2)); // Print response JSON
 
     // Append new activities to allActivities
     allActivities = allActivities.concat(data.activities);
 
-    // Display fetched activities
-    displayActivities(data.activities);
+    // Display activities (prepend to show newest on top)
+    displayActivities(data.activities, page === 1);
 
     // Update totals and ranks
     updateTotalsAndRanks();
@@ -38,7 +38,7 @@ async function fetchStravaData(page = 1, per_page = 200) {
       loadMoreButton.style.display = 'none';
     }
 
-    // Hide "Loading..." indicator after the first load
+    // Hide "Loading..." indicator after first load
     if (page === 1) {
       document.getElementById('loading').style.display = 'none'; // Hide loading indicator
       // Show dashboard sections

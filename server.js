@@ -45,7 +45,6 @@ app.get('/auth/strava/callback', async (req, res) => {
   }
 
   try {
-    // Exchange authorization code for access token
     const response = await axios.post('https://www.strava.com/oauth/token', {
       client_id: process.env.STRAVA_CLIENT_ID,
       client_secret: process.env.STRAVA_CLIENT_SECRET,
@@ -61,13 +60,11 @@ app.get('/auth/strava/callback', async (req, res) => {
     console.log(`Access Token: ${accessToken}`);
     console.log(`Refresh Token: ${refreshToken}`);
 
-    // Store access token and refresh token in secure HTTP-only cookies
-    res.cookie('strava_token', accessToken, { httpOnly: true, secure: false }); // Set 'secure: true' in production
+    res.cookie('strava_token', accessToken, { httpOnly: true, secure: false });
     res.cookie('strava_refresh_token', refreshToken, { httpOnly: true, secure: false });
 
     console.log('Access token and refresh token stored in cookies');
 
-    // Redirect to the dashboard page
     res.redirect('/dashboard');
   } catch (error) {
     console.error('Error exchanging code for token:', error.response ? error.response.data : error.message);

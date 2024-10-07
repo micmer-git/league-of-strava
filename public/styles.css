@@ -15,6 +15,31 @@ body {
   color: #333;
 }
 
+.achievements-section {
+  margin-top: 20px;
+}
+
+.achievements-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.achievement-card {
+  background-color: #f0f0f0;
+  padding: 10px 15px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.achievement-card span:first-child {
+  font-size: 24px;
+}
+
+
 /* Container */
 #dashboard-container {
   max-width: 800px;

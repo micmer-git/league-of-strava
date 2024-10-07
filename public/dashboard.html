@@ -12,6 +12,31 @@
     <!-- Loading Indicator -->
     <div id="loading">Loading your dashboard...</div>
 
+    <!-- Add Name and Surname above Rank Section -->
+    <div class="athlete-info" style="display: none;">
+      <h1 id="athlete-name">Michele Merelli</h1>
+    </div>
+
+    <div class="rank-section" style="display: none;">
+      <!-- Existing Rank Section Content -->
+      <!-- ... -->
+
+      <!-- Add Coin Metrics below Rank Section -->
+      <div class="coin-metrics" id="coin-metrics">
+        <p>EVEREST_COINS: <span id="everest-coins">0</span> 🏔️</p>
+        <p>PIZZA_COINS: <span id="pizza-coins">0</span> 🍕</p>
+        <p>HEARTBEAT_COINS: <span id="heartbeat-coins">0</span> ❤️</p>
+      </div>
+    </div>
+
+    <!-- Add Achievements Section below Coin Metrics -->
+    <div class="achievements-section" style="display: none;">
+      <h2>Achievements 🏅</h2>
+      <div class="achievements-grid" id="achievements-grid">
+        <!-- Badges will be appended here -->
+      </div>
+    </div>
+
     <!-- Rank Section -->
     <div class="rank-section" style="display: none;">
       <div class="rank-title">Current Rank: <span id="current-rank"></span></div>
@@ -51,9 +76,21 @@
       </div>
     </div>
 
-    <!-- YTD Stats -->
+    <!-- Add Timeframe Switch Above YTD Stats -->
+    <div class="timeframe-switch" style="display: none;">
+      <button class="timeframe-btn" data-timeframe="weekly">Weekly</button>
+      <button class="timeframe-btn" data-timeframe="last6months">Last 6 Months</button>
+      <button class="timeframe-btn" data-timeframe="lastyear">Last Year</button>
+    </div>
+
+    <!-- Modify YTD Stats Section -->
     <div class="weekly-stats" style="display: none;">
-      <h2>Weekly Stats</h2>
+      <h2>Statistics</h2>
+      <div class="timeframe-switch" id="timeframe-switch">
+        <button class="timeframe-btn active" data-timeframe="weekly">Weekly</button>
+        <button class="timeframe-btn" data-timeframe="last6months">Last 6 Months</button>
+        <button class="timeframe-btn" data-timeframe="lastyear">Last Year</button>
+      </div>
       <div class="stats-grid">
         <div class="stat-card">
           <h3>Total Hours</h3>
@@ -73,6 +110,29 @@
         </div>
       </div>
     </div>
+
+    <!-- Add this section below YTD Stats -->
+    <div class="max-metrics" style="display: none;">
+      <h2>Top Activities</h2>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <h3>Max Elevation Gain</h3>
+          <p id="max-elevation">-- m</p>
+          <p><a href="#" id="max-elevation-link" target="_blank">View Activity</a></p>
+        </div>
+        <div class="metric-card">
+          <h3>Longest Duration</h3>
+          <p id="max-duration">-- mins</p>
+          <p><a href="#" id="max-duration-link" target="_blank">View Activity</a></p>
+        </div>
+        <div class="metric-card">
+          <h3>Greatest Distance</h3>
+          <p id="max-distance">-- km</p>
+          <p><a href="#" id="max-distance-link" target="_blank">View Activity</a></p>
+        </div>
+      </div>
+    </div>
+
 
     <button id="load-more-button" style="display: none;">Load More</button>
 

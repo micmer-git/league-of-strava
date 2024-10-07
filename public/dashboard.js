@@ -50,14 +50,17 @@ const achievementConfig = {
   specialOccasions: [
     { name: 'New Year Run', emoji: '🎉', dates: ['01-01'], count: 0 },
     { name: 'Christmas Run', emoji: '🎄', dates: ['12-25'], count: 0 },
-    // Additional Achievements
-    { name: 'Marathon Master', emoji: '🏅', dates: [], count: 0 },
-    { name: 'Century Rider', emoji: '🚴‍♂️', dates: [], count: 0 },
-    { name: 'Climbing Champion', emoji: '🧗‍♂️', dates: [], count: 0 },
-    { name: 'Speedster', emoji: '⚡', dates: [], count: 0 },
-    { name: 'Trailblazer', emoji: '🌲', dates: [], count: 0 },
+    // Add more special occasions as needed
+  ],
+  additionalAchievements: [ // New Achievements
+    { name: 'Marathon Master', emoji: '🏅', description: 'Completed a marathon (42.195 km)', count: 0 },
+    { name: 'Climbing King', emoji: '🧗‍♂️', description: 'Total elevation gain over 5000m', count: 0 },
+    { name: 'Speedster', emoji: '⚡', description: 'Achieved an average speed over 20 km/h', count: 0 },
+    { name: 'Consistency Champion', emoji: '📈', description: 'Logged activities every day for a month', count: 0 },
+    { name: 'Calorie Burner', emoji: '🔥', description: 'Burned over 5000 kcal', count: 0 },
   ]
 };
+
 
 // Fetch Strava Data Function
 async function fetchStravaData(page = 1, per_page = 200) {
@@ -170,9 +173,10 @@ function displayAchievements(achievements) {
   const streakCard = document.createElement('div');
   streakCard.classList.add('achievement-card');
   streakCard.innerHTML = `
-    <span class="count">+${achievements.longestStreak.value}</span> <span>${achievements.longestStreak.emoji}</span>
+    <span class="achievement-count">${achievements.longestStreak.value}+</span>
+    <span class="achievement-emoji">${achievements.longestStreak.emoji}</span>
+    <span class="achievement-name">${achievements.longestStreak.name}</span>
   `;
-  streakCard.setAttribute('title', `Your longest consecutive days with activities: ${achievements.longestStreak.value}`);
   achievementsGrid.appendChild(streakCard);
 
   // Distance Badges
@@ -180,9 +184,12 @@ function displayAchievements(achievements) {
     const badgeCard = document.createElement('div');
     badgeCard.classList.add('achievement-card');
     badgeCard.innerHTML = `
-      <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+      <span class="achievement-count">${badge.count}+</span>
+      <span class="achievement-emoji">${badge.emoji}</span>
+      <span class="achievement-name">${badge.name}</span>
     `;
-    badgeCard.setAttribute('title', `${badge.name}`);
+    // Add tooltip
+    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
     achievementsGrid.appendChild(badgeCard);
   });
 
@@ -191,9 +198,11 @@ function displayAchievements(achievements) {
     const badgeCard = document.createElement('div');
     badgeCard.classList.add('achievement-card');
     badgeCard.innerHTML = `
-      <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+      <span class="achievement-count">${badge.count}+</span>
+      <span class="achievement-emoji">${badge.emoji}</span>
+      <span class="achievement-name">${badge.name}</span>
     `;
-    badgeCard.setAttribute('title', `${badge.name}`);
+    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
     achievementsGrid.appendChild(badgeCard);
   });
 
@@ -202,36 +211,39 @@ function displayAchievements(achievements) {
     const badgeCard = document.createElement('div');
     badgeCard.classList.add('achievement-card');
     badgeCard.innerHTML = `
-      <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+      <span class="achievement-count">${badge.count}+</span>
+      <span class="achievement-emoji">${badge.emoji}</span>
+      <span class="achievement-name">${badge.name}</span>
     `;
-    badgeCard.setAttribute('title', `${badge.name}`);
+    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
     achievementsGrid.appendChild(badgeCard);
   });
 
   // Special Occasion Badges
   achievements.specialOccasions.forEach(badge => {
-    if (badge.count > 0) { // Only display if achieved
-      const badgeCard = document.createElement('div');
-      badgeCard.classList.add('achievement-card');
-      badgeCard.innerHTML = `
-        <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
-      `;
-      badgeCard.setAttribute('title', `${badge.name}`);
-      achievementsGrid.appendChild(badgeCard);
-    }
+    const badgeCard = document.createElement('div');
+    badgeCard.classList.add('achievement-card');
+    badgeCard.innerHTML = `
+      <span class="achievement-count">${badge.count}+</span>
+      <span class="achievement-emoji">${badge.emoji}</span>
+      <span class="achievement-name">${badge.name}</span>
+    `;
+    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
+    achievementsGrid.appendChild(badgeCard);
   });
 
-  // Additional Achievements
-  achievementsConfig.additionalBadges.forEach(badge => {
-    if (badge.count > 0) { // Only display if achieved
-      const badgeCard = document.createElement('div');
-      badgeCard.classList.add('achievement-card');
-      badgeCard.innerHTML = `
-        <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
-      `;
-      badgeCard.setAttribute('title', `${badge.name}`);
-      achievementsGrid.appendChild(badgeCard);
-    }
+  // Add more achievements as needed
+  // Example:
+  achievements.additionalAchievements.forEach(badge => {
+    const badgeCard = document.createElement('div');
+    badgeCard.classList.add('achievement-card');
+    badgeCard.innerHTML = `
+      <span class="achievement-count">${badge.count}+</span>
+      <span class="achievement-emoji">${badge.emoji}</span>
+      <span class="achievement-name">${badge.name}</span>
+    `;
+    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
+    achievementsGrid.appendChild(badgeCard);
   });
 
   // Show Achievements Section
@@ -248,14 +260,7 @@ function calculateAchievements(activities) {
   achievementConfig.durationBadges.forEach(badge => badge.count = 0);
   achievementConfig.weeklyBadges.forEach(badge => badge.count = 0);
   achievementConfig.specialOccasions.forEach(badge => badge.count = 0);
-  // Reset additional achievements
-  achievementConfig.additionalBadges = [
-    { name: 'Marathon Master', emoji: '🏅', count: 0 },
-    { name: 'Century Rider', emoji: '🚴‍♂️', count: 0 },
-    { name: 'Climbing Champion', emoji: '🧗‍♂️', count: 0 },
-    { name: 'Speedster', emoji: '⚡', count: 0 },
-    { name: 'Trailblazer', emoji: '🌲', count: 0 },
-  ];
+  achievementConfig.additionalAchievements.forEach(badge => badge.count = 0); // Reset additional achievements
 
   // Calculate Longest Streak
   const dates = activities.map(act => new Date(act.start_date).toDateString());
@@ -278,7 +283,7 @@ function calculateAchievements(activities) {
 
   // Calculate Distance Badges
   activities.forEach(activity => {
-    const distanceKm = activity.distance;
+    const distanceKm = activity.distance / 1000;
     achievementConfig.distanceBadges.forEach(badge => {
       if (distanceKm >= badge.threshold / 1000) badge.count += 1;
     });
@@ -320,27 +325,58 @@ function calculateAchievements(activities) {
   });
 
   // Calculate Additional Achievements
-  activities.forEach(activity => {
-    // Marathon Master: Activities >= 42.195 km
-    if (activity.distance >= 42195) achievementConfig.additionalBadges[0].count += 1;
-
-    // Century Rider: Cycling activities >= 100 km
-    if (activity.type === 'Ride' && activity.distance >= 100000) achievementConfig.additionalBadges[1].count += 1;
-
-    // Climbing Champion: Elevation gain >= 1000 m
-    if (activity.total_elevation_gain >= 1000) achievementConfig.additionalBadges[2].count += 1;
-
-    // Speedster: Average speed >= 30 km/h
-    const averageSpeed = (activity.distance / 1000) / (activity.moving_time / 3600);
-    if (averageSpeed >= 30) achievementConfig.additionalBadges[3].count += 1;
-
-    // Trailblazer: Activities in trails or specific locations (assuming a field 'is_trail')
-    if (activity.is_trail) achievementConfig.additionalBadges[4].count += 1;
+  achievementConfig.additionalAchievements.forEach(badge => {
+    switch (badge.name) {
+      case 'Marathon Master':
+        // Count activities >= 42.195 km
+        badge.count = activities.filter(act => act.distance >= 42195).length;
+        break;
+      case 'Climbing King':
+        // Total elevation gain over 5000m
+        const totalElevation = activities.reduce((sum, act) => sum + act.total_elevation_gain, 0);
+        badge.count = Math.floor(totalElevation / 5000);
+        break;
+      case 'Speedster':
+        // Average speed over 20 km/h
+        const speedActivities = activities.filter(act => (act.distance / 1000) / (act.moving_time / 3600) > 20);
+        badge.count = speedActivities.length;
+        break;
+      case 'Consistency Champion':
+        // Logged activities every day for a month
+        // This requires more complex logic; here's a simplified version
+        const activityDates = new Set(activities.map(act => new Date(act.start_date).toDateString()));
+        const months = Array.from(new Set(activities.map(act => `${new Date(act.start_date).getFullYear()}-${new Date(act.start_date).getMonth() + 1}`)));
+        months.forEach(month => {
+          const [year, monthNum] = month.split('-').map(Number);
+          const daysInMonth = new Date(year, monthNum, 0).getDate();
+          let streak = 0;
+          for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = new Date(year, monthNum - 1, day).toDateString();
+            if (activityDates.has(dateStr)) {
+              streak += 1;
+              if (streak === daysInMonth) {
+                badge.count += 1;
+              }
+            } else {
+              streak = 0;
+            }
+          }
+        });
+        break;
+      case 'Calorie Burner':
+        // Burned over 5000 kcal
+        const totalCalories = activities.reduce((sum, act) => sum + (act.kilojoules || 0), 0);
+        badge.count = Math.floor(totalCalories / 5000);
+        break;
+      default:
+        break;
+    }
   });
 
   console.log('Achievements Calculated:', achievementConfig);
   return achievementConfig;
 }
+
 
 // Helper function to get ISO week number
 function getWeekNumber(d) {

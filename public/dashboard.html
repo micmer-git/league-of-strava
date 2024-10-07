@@ -7,7 +7,7 @@
   <!-- Link to your CSS file -->
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* Additional CSS for styling tooltips and layout adjustments */
+    /* Add necessary styles for the adjustments */
 
     /* Achievements Grid */
     .achievements-grid {
@@ -31,35 +31,27 @@
       background-color: #e0e0e0;
     }
 
-    .achievement-card .count {
+    .achievement-count {
       font-weight: bold;
       margin-right: 8px;
     }
 
-    .achievement-tooltip {
-      display: none;
-      position: absolute;
-      top: -10px;
-      left: 105%;
-      background-color: #333;
-      color: #fff;
-      padding: 8px;
-      border-radius: 4px;
-      white-space: nowrap;
-      z-index: 100;
-      font-size: 12px;
+    .achievement-emoji {
+      margin-right: 5px;
     }
 
-    .achievement-card:hover .achievement-tooltip {
-      display: block;
-    }
-
-    /* Rank and Coins Section */
-    .rank-coins-container {
+    /* Rank and Coins */
+    .header-section {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
     }
 
     .coin-metrics {
@@ -67,17 +59,15 @@
       gap: 15px;
     }
 
-    .coin-metrics .coin {
-      display: flex;
-      align-items: center;
+    .coin {
       position: relative;
       cursor: pointer;
     }
 
-    .coin-metrics .coin .tooltip {
-      display: none;
+    .coin::after {
+      content: attr(title);
       position: absolute;
-      top: -30px;
+      bottom: 125%;
       left: 50%;
       transform: translateX(-50%);
       background-color: #333;
@@ -86,18 +76,35 @@
       border-radius: 4px;
       white-space: nowrap;
       font-size: 12px;
-      z-index: 100;
+      display: none;
+      z-index: 1000;
     }
 
-    .coin-metrics .coin:hover .tooltip {
+    .coin:hover::after {
       display: block;
     }
 
-    /* Top Activities Grid */
+    /* Statistics Buttons */
+    .timeframe-btn {
+      padding: 8px 12px;
+      margin-right: 5px;
+      border: none;
+      border-radius: 4px;
+      background-color: #ddd;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .timeframe-btn.active,
+    .timeframe-btn:hover {
+      background-color: #bbb;
+    }
+
+    /* Top Activities */
     .metrics-grid {
       display: flex;
-      flex-wrap: wrap;
       gap: 20px;
+      flex-wrap: wrap;
     }
 
     .metric-card {
@@ -105,24 +112,36 @@
       border-radius: 8px;
       padding: 15px;
       flex: 1;
-      min-width: 250px;
+      min-width: 200px;
       position: relative;
     }
 
     .metric-card a {
-      text-decoration: none;
       color: #007bff;
+      text-decoration: none;
+    }
+
+    .metric-card a:hover {
+      text-decoration: underline;
     }
 
     /* Activities Container */
+    #activities-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
     .activity-item {
+      background-color: #ffffff;
       border: 1px solid #ddd;
       border-radius: 8px;
       padding: 15px;
-      margin-bottom: 10px;
       position: relative;
       display: flex;
       justify-content: space-between;
+      align-items: center;
     }
 
     .activity-details {
@@ -133,61 +152,55 @@
       position: absolute;
       bottom: 10px;
       right: 10px;
+      font-size: 12px;
       display: flex;
       gap: 5px;
     }
 
-    .activity-coins .coin {
+    .activity-coins span {
       display: flex;
       align-items: center;
-      font-size: 14px;
-    }
-
-    /* Duration Formatting */
-    .duration {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    /* Statistics Buttons */
-    .timeframe-btn {
-      background-color: #007bff;
-      color: #fff;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-right: 5px;
-      transition: background-color 0.3s;
-    }
-
-    .timeframe-btn.active, .timeframe-btn:hover {
-      background-color: #0056b3;
+      gap: 3px;
     }
 
     /* Tooltip Styling */
-    .tooltip-text {
-      visibility: hidden;
-      width: max-content;
-      background-color: #555;
-      color: #fff;
-      text-align: center;
-      border-radius: 6px;
-      padding: 5px 8px;
+    .tooltip {
       position: absolute;
-      z-index: 1;
-      bottom: 125%; /* Position above the element */
-      left: 50%;
-      transform: translateX(-50%);
-      opacity: 0;
-      transition: opacity 0.3s;
+      background-color: #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 4px;
       font-size: 12px;
+      display: none;
+      z-index: 1000;
     }
 
-    .coin:hover .tooltip-text, .achievement-card:hover .achievement-tooltip {
-      visibility: visible;
-      opacity: 1;
+    .achievement-card:hover .tooltip,
+    .coin:hover .tooltip,
+    .activity-item:hover .tooltip {
+      display: block;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .header-section {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .metrics-grid {
+        flex-direction: column;
+      }
+
+      .activity-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .activity-coins {
+        position: static;
+        margin-top: 10px;
+      }
     }
   </style>
 </head>
@@ -196,30 +209,25 @@
     <!-- Loading Indicator -->
     <div id="loading">Loading your dashboard...</div>
 
-    <!-- Athlete Info with Name, Surname, and Current Rank -->
-    <div class="athlete-info" style="display: none;">
-      <h1 id="athlete-name">Michele Merelli</h1>
-      <div class="rank-coins-container">
-        <!-- Current Rank -->
-        <div class="current-rank">
-          <span>Current Rank: </span>
-          <span id="current-rank"></span>
-          <span id="rank-emoji">🥉</span>
+    <!-- Header Section: Athlete Info and Coins -->
+    <div class="header-section" style="display: none;">
+      <div class="header-left">
+        <div class="athlete-info">
+          <h1 id="athlete-name">Michele Merelli</h1>
+          <div class="current-rank">
+            <span id="current-rank"></span>
+          </div>
         </div>
-        <!-- Coins -->
-        <div class="coin-metrics" id="coin-metrics">
-          <div class="coin">
-            <span id="everest-coins">0</span> 🏔️
-            <div class="tooltip-text">Elevation Coins: Earned by climbing elevation</div>
-          </div>
-          <div class="coin">
-            <span id="pizza-coins">0</span> 🍕
-            <div class="tooltip-text">Pizza Coins: Earned by burning calories</div>
-          </div>
-          <div class="coin">
-            <span id="heartbeat-coins">0</span> ❤️
-            <div class="tooltip-text">Heartbeat Coins: Earned by maintaining heart rate</div>
-          </div>
+      </div>
+      <div class="coin-metrics">
+        <div class="coin" title="EVEREST_COINS: Represents your total elevation">
+          <span id="everest-coins">0</span> 🏔️
+        </div>
+        <div class="coin" title="PIZZA_COINS: Represents your total calories burned">
+          <span id="pizza-coins">0</span> 🍕
+        </div>
+        <div class="coin" title="HEARTBEAT_COINS: Represents your total heartbeats">
+          <span id="heartbeat-coins">0</span> ❤️
         </div>
       </div>
     </div>
@@ -228,18 +236,14 @@
     <div class="achievements-section" style="display: none;">
       <h2>Achievements 🏅</h2>
       <div class="achievements-grid" id="achievements-grid">
-        <!-- Example Achievement -->
-        <div class="achievement-card">
-          <span class="count">+5</span>
-          <span class="emoji">🏃‍♂️</span>
-          <div class="achievement-tooltip">Completed 5 marathons</div>
-        </div>
-        <!-- More achievements will be appended here by JavaScript -->
+        <!-- Badges will be appended here -->
       </div>
     </div>
 
     <!-- Rank Section -->
     <div class="rank-section" style="display: none;">
+      <div class="rank-title">Current Rank: <span id="current-rank"></span></div>
+      <div class="rank-emoji" id="rank-emoji">🥉</div>
       <div class="progress-container" id="progress-container">
         <div class="progress-labels">
           <span id="current-rank-label"></span>
@@ -277,12 +281,12 @@
 
     <!-- Timeframe Switch -->
     <div class="timeframe-switch" style="display: none;">
-      <button class="timeframe-btn" data-timeframe="weekly">Weekly</button>
+      <button class="timeframe-btn active" data-timeframe="weekly">Weekly</button>
       <button class="timeframe-btn" data-timeframe="last6months">Last 6 Months</button>
       <button class="timeframe-btn" data-timeframe="lastyear">Last Year</button>
     </div>
 
-    <!-- Statistics Section -->
+    <!-- Modify YTD Stats Section -->
     <div class="weekly-stats" style="display: none;">
       <h2>Statistics</h2>
       <div class="timeframe-switch" id="timeframe-switch">
@@ -293,11 +297,11 @@
       <div class="stats-grid">
         <div class="stat-card">
           <h3>Total Hours</h3>
-          <p id="weekly-hours">--.0 hrs</p>
+          <p id="weekly-hours">-- hrs</p>
         </div>
         <div class="stat-card">
           <h3>Total Distance</h3>
-          <p id="weekly-distance">--.0 km</p>
+          <p id="weekly-distance">-- km</p>
         </div>
         <div class="stat-card">
           <h3>Total Elevation Gain</h3>
@@ -336,7 +340,7 @@
     <button id="load-more-button" style="display: none;">Load More</button>
 
     <!-- Activities Container -->
-    <div id="activities-container" style="display: none;">
+    <div id="activities-container">
       <!-- Activities will be appended here -->
     </div>
   </div>

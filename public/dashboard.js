@@ -32,7 +32,7 @@ const rankConfig = [
 
 // Fetch Strava Data Function
 
-/*
+
 async function fetchStravaData(page = 1, per_page = 200) {
   console.log(`Fetching Strava data - Page: ${page}, Per Page: ${per_page}`);
   try {
@@ -85,7 +85,7 @@ async function fetchStravaData(page = 1, per_page = 200) {
     document.getElementById('dashboard-container').innerHTML = '<p>Error loading data.</p>';
   }
 }
-*/
+
 
 function loadActivitiesPage(page) {
   const startIndex = (page - 1) * perPage;

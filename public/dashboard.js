@@ -36,33 +36,29 @@ const rankConfig = [
 async function fetchStravaData(page = 1, per_page = 200) {
   console.log(`Fetching Strava data - Page: ${page}, Per Page: ${per_page}`);
   try {
-    // Calculate start and end indices for pagination
-    const start = (page - 1) * per_page;
-    const end = start + per_page;
-
-    // Fetch the local JSON file
-    const response = await fetch('EXAMPLE_JSON.json');
+    const response = await fetch(`/api/strava-data?page=${page}&per_page=${per_page}`);
     if (!response.ok) {
-      throw new Error(`Failed to load local JSON: ${response.statusText}`);
+      if (response.status === 401) {
+        console.warn('Unauthorized access, redirecting to landing page');
+        window.location.href = '/'; // Redirect if unauthorized
+      }
+      throw new Error(`Network response was not ok: ${response.statusText}`);
     }
     const data = await response.json();
-    console.log('Local JSON data fetched successfully:', data);
-
-    // Implement pagination manually
-    const paginatedActivities = data.activities.slice(start, end);
-    const hasMore = end < data.activities.length;
+    console.log('Strava data fetched successfully:', data);
+    console.log('Response JSON:', JSON.stringify(data, null, 2)); // Print response JSON
 
     // Append new activities to allActivities
-    allActivities = allActivities.concat(paginatedActivities);
+    allActivities = allActivities.concat(data.activities);
 
     // Display activities (prepend to show newest on top)
-    displayActivities(paginatedActivities, page === 1);
+    displayActivities(data.activities, page === 1);
 
     // Update totals and ranks
-    updateTotalsAndRanks();
+    updateTotalsAndRanks(); // This ensures cumulative totals are recalculated
 
     // Update hasMoreActivities flag
-    hasMoreActivities = hasMore;
+    hasMoreActivities = data.hasMore;
 
     // Show or hide "Load More" button based on hasMoreActivities
     const loadMoreButton = document.getElementById('load-more-button');
@@ -81,7 +77,7 @@ async function fetchStravaData(page = 1, per_page = 200) {
       });
     }
   } catch (error) {
-    console.error('Error fetching local JSON data:', error);
+    console.error('Error fetching Strava data:', error);
     document.getElementById('dashboard-container').innerHTML = '<p>Error loading data.</p>';
   }
 }

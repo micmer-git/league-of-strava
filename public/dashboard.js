@@ -419,14 +419,14 @@ function updateDashboardStats(totals) {
   if (!distanceValueElement || !distanceWeekGainElement || !elevationValueElement || !elevationWeekGainElement || !caloriesValueElement || !caloriesWeekGainElement) {
     console.error('One or more lifetime stats DOM elements are missing.');
   } else {
-    distanceValueElement.textContent = `${(totals.distance / 1000).toFixed(1)} 🚴‍♂️`; // Rounded to 1 decimal
-    distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(1)} this week`;
+    distanceValueElement.textContent = `${(totals.distance / 1000).toFixed(0)} km`; // Rounded to 1 decimal
+    distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(0)}km this week`;
 
-    elevationValueElement.textContent = `${Math.round(totals.elevation)} 🏔️`; // Assuming elevation is already in meters
-    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek)} this week`;
+    elevationValueElement.textContent = `${Math.round(totals.elevation / 8868)} Everest`; // Assuming elevation is already in meters
+    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 8868*100)} E-cent this week`;
 
-    caloriesValueElement.textContent = `${Math.round(totals.calories)} 🍕`; // Assuming calories are already in kcal
-    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek)} this week`;
+    caloriesValueElement.textContent = `${Math.round(totals.calories / 1000)} Pizza`; // Assuming calories are already in kcal
+    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000*100)} P-cent this week`;
   }
 
   // Update YTD Stats (Statistics Section)

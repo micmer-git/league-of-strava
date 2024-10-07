@@ -3,7 +3,6 @@ let allActivities = [];
 let currentPage = 1;
 const perPage = 200;
 let hasMoreActivities = true;
-let athlete = null; // To store athlete data
 
 // Rank System Configuration
 const rankConfig = [
@@ -31,7 +30,7 @@ const rankConfig = [
   { name: 'Challenger', emoji: '🌟', minPoints: 1050 },
 ];
 
-// Achievement System Configuration
+// Achievement Configuration
 const achievementConfig = {
   longestStreak: { name: 'Longest Streak', emoji: '🔥', value: 0 },
   distanceBadges: [
@@ -51,7 +50,12 @@ const achievementConfig = {
   specialOccasions: [
     { name: 'New Year Run', emoji: '🎉', dates: ['01-01'], count: 0 },
     { name: 'Christmas Run', emoji: '🎄', dates: ['12-25'], count: 0 },
-    // Add more special occasions as needed
+    // Additional Achievements
+    { name: 'Marathon Master', emoji: '🏅', dates: [], count: 0 },
+    { name: 'Century Rider', emoji: '🚴‍♂️', dates: [], count: 0 },
+    { name: 'Climbing Champion', emoji: '🧗‍♂️', dates: [], count: 0 },
+    { name: 'Speedster', emoji: '⚡', dates: [], count: 0 },
+    { name: 'Trailblazer', emoji: '🌲', dates: [], count: 0 },
   ]
 };
 
@@ -70,11 +74,6 @@ async function fetchStravaData(page = 1, per_page = 200) {
     const data = await response.json();
     console.log('Strava data fetched successfully:', data);
     console.log('Response JSON:', JSON.stringify(data, null, 2)); // Print response JSON
-
-    // Store athlete data if available
-    if (data.athlete) {
-      athlete = data.athlete;
-    }
 
     // Append new activities to allActivities
     allActivities = allActivities.concat(data.activities);
@@ -103,13 +102,6 @@ async function fetchStravaData(page = 1, per_page = 200) {
       document.querySelectorAll('.rank-section, .lifetime-stats, .weekly-stats, .achievements-section').forEach(section => {
         section.style.display = 'block';
       });
-
-      // Display Athlete's Name
-      const athleteNameElement = document.getElementById('athlete-name');
-      if (athleteNameElement && athlete) {
-        athleteNameElement.textContent = `${athlete.firstname} ${athlete.lastname}`;
-        document.querySelector('.athlete-info').style.display = 'block';
-      }
     }
   } catch (error) {
     console.error('Error fetching Strava data:', error);
@@ -130,14 +122,29 @@ function displayActivities(activities, isInitialLoad = false) {
 
     const activityElement = document.createElement('div');
     activityElement.classList.add('activity-item');
+
+    // Calculate coins for the activity
+    const everestCoins = (activity.total_elevation_gain / 8848 * 100).toFixed(2); // 1/100 of Everest height
+    const pizzaCoins = (activity.kilojoules / 1000 * 100).toFixed(2); // 1/100 of pizza
+    const heartbeatCoins = Math.round(totalHeartbeats / 150 * 100) / 100; // 1/100 of heartbeats
+
     activityElement.innerHTML = `
-      <h3><a href="${activityLink}" target="_blank">${activity.name}</a></h3>
-      <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
-      <p>Distance: ${(activity.distance / 1000).toFixed(1)} km</p>
-      <p>Duration: ${(activity.moving_time / 60).toFixed(1)} mins</p>
-      <p>Elevation Gain: ${activity.total_elevation_gain} m</p>
-      <p>Calories: ${activity.kilojoules || 0} kcal</p>
-      <p>Heartbeats: ${totalHeartbeats} ❤️</p>
+      <div class="activity-main">
+        <h3><a href="${activityLink}" target="_blank">${activity.name}</a></h3>
+        <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
+        <p>Distance: ${(activity.distance / 1000).toFixed(1)} km</p>
+        <p>Duration: ${Math.floor(activity.moving_time / 3600)}h ${Math.floor((activity.moving_time % 3600) / 60)}m</p>
+        <div class="activity-details">
+          <span>Elevation Gain: ${activity.total_elevation_gain} m</span>
+          <span>Calories: ${activity.kilojoules || 0} kcal</span>
+          <span>Heartbeats: ${totalHeartbeats} ❤️</span>
+        </div>
+      </div>
+      <div class="activity-coins">
+        <span class="coin">+${everestCoins} 🏔️</span>
+        <span class="coin">+${pizzaCoins} 🍕</span>
+        <span class="coin">+${heartbeatCoins} ❤️</span>
+      </div>
     `;
 
     if (isInitialLoad) {
@@ -148,67 +155,90 @@ function displayActivities(activities, isInitialLoad = false) {
   });
 }
 
-// Calculate Totals Function
-function calculateTotals(activities) {
-  let totals = {
-    hours: 0,
-    distance: 0, // in meters
-    elevation: 0, // in meters
-    calories: 0, // in kilojoules
-    activities: activities.length,
-    hoursThisWeek: 0,
-    distanceThisWeek: 0,
-    elevationThisWeek: 0,
-    caloriesThisWeek: 0,
-    totalHeartbeats: 0,
-    maxElevationActivity: null,
-    maxDurationActivity: null,
-    maxDistanceActivity: null,
-  };
+// Display Achievements Function
+function displayAchievements(achievements) {
+  const achievementsGrid = document.getElementById('achievements-grid');
+  if (!achievementsGrid) {
+    console.error('Achievements grid element is missing.');
+    return;
+  }
 
-  const today = new Date();
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(today.getDate() - 7);
+  // Clear existing badges
+  achievementsGrid.innerHTML = '';
 
-  activities.forEach(activity => {
-    totals.hours += activity.moving_time / 3600;
-    totals.distance += activity.distance;
-    totals.elevation += activity.total_elevation_gain;
-    totals.calories += activity.kilojoules || 0;
+  // Longest Streak
+  const streakCard = document.createElement('div');
+  streakCard.classList.add('achievement-card');
+  streakCard.innerHTML = `
+    <span class="count">+${achievements.longestStreak.value}</span> <span>${achievements.longestStreak.emoji}</span>
+  `;
+  streakCard.setAttribute('title', `Your longest consecutive days with activities: ${achievements.longestStreak.value}`);
+  achievementsGrid.appendChild(streakCard);
 
-    const minutes = activity.moving_time / 60;
-    const heartbeats = activity.average_heartrate * minutes;
-    totals.totalHeartbeats += heartbeats;
+  // Distance Badges
+  achievements.distanceBadges.forEach(badge => {
+    const badgeCard = document.createElement('div');
+    badgeCard.classList.add('achievement-card');
+    badgeCard.innerHTML = `
+      <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+    `;
+    badgeCard.setAttribute('title', `${badge.name}`);
+    achievementsGrid.appendChild(badgeCard);
+  });
 
-    const activityDate = new Date(activity.start_date);
-    if (activityDate >= oneWeekAgo && activityDate <= today) {
-      totals.hoursThisWeek += activity.moving_time / 3600;
-      totals.distanceThisWeek += activity.distance;
-      totals.elevationThisWeek += activity.total_elevation_gain;
-      totals.caloriesThisWeek += activity.kilojoules || 0;
-    }
+  // Duration Badges
+  achievements.durationBadges.forEach(badge => {
+    const badgeCard = document.createElement('div');
+    badgeCard.classList.add('achievement-card');
+    badgeCard.innerHTML = `
+      <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+    `;
+    badgeCard.setAttribute('title', `${badge.name}`);
+    achievementsGrid.appendChild(badgeCard);
+  });
 
-    // Determine Max Elevation Activity
-    if (!totals.maxElevationActivity || activity.total_elevation_gain > totals.maxElevationActivity.total_elevation_gain) {
-      totals.maxElevationActivity = activity;
-    }
+  // Weekly Badges
+  achievements.weeklyBadges.forEach(badge => {
+    const badgeCard = document.createElement('div');
+    badgeCard.classList.add('achievement-card');
+    badgeCard.innerHTML = `
+      <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+    `;
+    badgeCard.setAttribute('title', `${badge.name}`);
+    achievementsGrid.appendChild(badgeCard);
+  });
 
-    // Determine Max Duration Activity
-    if (!totals.maxDurationActivity || activity.moving_time > totals.maxDurationActivity.moving_time) {
-      totals.maxDurationActivity = activity;
-    }
-
-    // Determine Max Distance Activity
-    if (!totals.maxDistanceActivity || activity.distance > totals.maxDistanceActivity.distance) {
-      totals.maxDistanceActivity = activity;
+  // Special Occasion Badges
+  achievements.specialOccasions.forEach(badge => {
+    if (badge.count > 0) { // Only display if achieved
+      const badgeCard = document.createElement('div');
+      badgeCard.classList.add('achievement-card');
+      badgeCard.innerHTML = `
+        <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+      `;
+      badgeCard.setAttribute('title', `${badge.name}`);
+      achievementsGrid.appendChild(badgeCard);
     }
   });
 
-  console.log('Calculated Cumulative Totals:', totals);
-  return totals;
+  // Additional Achievements
+  achievementsConfig.additionalBadges.forEach(badge => {
+    if (badge.count > 0) { // Only display if achieved
+      const badgeCard = document.createElement('div');
+      badgeCard.classList.add('achievement-card');
+      badgeCard.innerHTML = `
+        <span class="count">+${badge.count}</span> <span>${badge.emoji}</span>
+      `;
+      badgeCard.setAttribute('title', `${badge.name}`);
+      achievementsGrid.appendChild(badgeCard);
+    }
+  });
+
+  // Show Achievements Section
+  document.querySelector('.achievements-section').style.display = 'block';
 }
 
-// Achievement Calculation Function
+// Calculate Achievements Function
 function calculateAchievements(activities) {
   console.log('Calculating Achievements...');
 
@@ -218,6 +248,14 @@ function calculateAchievements(activities) {
   achievementConfig.durationBadges.forEach(badge => badge.count = 0);
   achievementConfig.weeklyBadges.forEach(badge => badge.count = 0);
   achievementConfig.specialOccasions.forEach(badge => badge.count = 0);
+  // Reset additional achievements
+  achievementConfig.additionalBadges = [
+    { name: 'Marathon Master', emoji: '🏅', count: 0 },
+    { name: 'Century Rider', emoji: '🚴‍♂️', count: 0 },
+    { name: 'Climbing Champion', emoji: '🧗‍♂️', count: 0 },
+    { name: 'Speedster', emoji: '⚡', count: 0 },
+    { name: 'Trailblazer', emoji: '🌲', count: 0 },
+  ];
 
   // Calculate Longest Streak
   const dates = activities.map(act => new Date(act.start_date).toDateString());
@@ -281,6 +319,25 @@ function calculateAchievements(activities) {
     });
   });
 
+  // Calculate Additional Achievements
+  activities.forEach(activity => {
+    // Marathon Master: Activities >= 42.195 km
+    if (activity.distance >= 42195) achievementConfig.additionalBadges[0].count += 1;
+
+    // Century Rider: Cycling activities >= 100 km
+    if (activity.type === 'Ride' && activity.distance >= 100000) achievementConfig.additionalBadges[1].count += 1;
+
+    // Climbing Champion: Elevation gain >= 1000 m
+    if (activity.total_elevation_gain >= 1000) achievementConfig.additionalBadges[2].count += 1;
+
+    // Speedster: Average speed >= 30 km/h
+    const averageSpeed = (activity.distance / 1000) / (activity.moving_time / 3600);
+    if (averageSpeed >= 30) achievementConfig.additionalBadges[3].count += 1;
+
+    // Trailblazer: Activities in trails or specific locations (assuming a field 'is_trail')
+    if (activity.is_trail) achievementConfig.additionalBadges[4].count += 1;
+  });
+
   console.log('Achievements Calculated:', achievementConfig);
   return achievementConfig;
 }
@@ -292,74 +349,6 @@ function getWeekNumber(d) {
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   return weekNo;
-}
-
-// Display Achievements Function
-function displayAchievements(achievements) {
-  const achievementsGrid = document.getElementById('achievements-grid');
-  if (!achievementsGrid) {
-    console.error('Achievements grid element is missing.');
-    return;
-  }
-
-  // Clear existing badges
-  achievementsGrid.innerHTML = '';
-
-  // Longest Streak
-  const streakCard = document.createElement('div');
-  streakCard.classList.add('achievement-card');
-  streakCard.innerHTML = `
-    <span>${achievements.longestStreak.emoji}</span>
-    <span>${achievements.longestStreak.name}: ${achievements.longestStreak.value} days</span>
-  `;
-  achievementsGrid.appendChild(streakCard);
-
-  // Distance Badges
-  achievements.distanceBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Duration Badges
-  achievements.durationBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Weekly Badges
-  achievements.weeklyBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Special Occasion Badges
-  achievements.specialOccasions.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Show Achievements Section
-  document.querySelector('.achievements-section').style.display = 'block';
 }
 
 // Update Totals and Ranks Function
@@ -404,7 +393,7 @@ function updateDashboardStats(totals) {
     caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek)} this week`;
   }
 
-  // Update YTD Stats (Cumulative)
+  // Update YTD Stats (Statistics Section)
   const ytdHoursElement = document.getElementById('weekly-hours');
   const ytdDistanceElement = document.getElementById('weekly-distance');
   const ytdElevationElement = document.getElementById('weekly-elevation');
@@ -443,20 +432,27 @@ function updateDashboardStats(totals) {
     maxDistanceLink.href = `https://www.strava.com/activities/${totals.maxDistanceActivity.id}`;
   }
 
+  // Display Athlete's Name
+  const athleteNameElement = document.getElementById('athlete-name');
+  if (athleteNameElement && totals.athlete) { // Assuming 'athlete' data is part of totals
+    athleteNameElement.textContent = `${totals.athlete.firstname} ${totals.athlete.lastname}`;
+    document.querySelector('.athlete-info').style.display = 'block';
+  }
+
   // Calculate Coins
   const EVEREST_HEIGHT = 8848; // in meters
-  const everestCoins = (totals.elevation / EVEREST_HEIGHT).toFixed(2);
-  const pizzaCoins = (totals.calories / 1000).toFixed(2);
-  const heartbeatCoins = Math.round((totals.totalHeartbeats || 0) / 150);
+  const everestCoins = (totals.elevation / EVEREST_HEIGHT).toFixed(2); // in cents
+  const pizzaCoins = (totals.calories / 1000).toFixed(2); // in cents
+  const heartbeatCoins = (totals.totalHeartbeats / 150).toFixed(2); // in cents
 
   // Update Coin Metrics
   const everestCoinsElement = document.getElementById('everest-coins');
   const pizzaCoinsElement = document.getElementById('pizza-coins');
   const heartbeatCoinsElement = document.getElementById('heartbeat-coins');
 
-  if (everestCoinsElement) everestCoinsElement.textContent = everestCoins;
-  if (pizzaCoinsElement) pizzaCoinsElement.textContent = pizzaCoins;
-  if (heartbeatCoinsElement) heartbeatCoinsElement.textContent = heartbeatCoins;
+  if (everestCoinsElement) everestCoinsElement.textContent = `${everestCoins}`;
+  if (pizzaCoinsElement) pizzaCoinsElement.textContent = `${pizzaCoins}`;
+  if (heartbeatCoinsElement) heartbeatCoinsElement.textContent = `${heartbeatCoins}`;
 
   // Show Max Metrics Section
   document.querySelector('.max-metrics').style.display = 'block';
@@ -538,155 +534,71 @@ function calculateRank(totalHours) {
   };
 }
 
-// Calculate Achievements Function
-function calculateAchievements(activities) {
-  console.log('Calculating Achievements...');
+// Calculate Totals Function
+function calculateTotals(activities) {
+  // Remove YTD filtering; include all loaded activities
+  let totals = {
+    hours: 0,
+    distance: 0, // in meters
+    elevation: 0, // in meters
+    calories: 0, // in kilojoules or as per Strava's data
+    activities: activities.length,
+    hoursThisWeek: 0,
+    distanceThisWeek: 0,
+    elevationThisWeek: 0,
+    caloriesThisWeek: 0,
+    totalHeartbeats: 0,
+    maxElevationActivity: null,
+    maxDurationActivity: null,
+    maxDistanceActivity: null,
+    athlete: null, // To store athlete's data
+  };
 
-  // Reset counts
-  achievementConfig.longestStreak.value = 0;
-  achievementConfig.distanceBadges.forEach(badge => badge.count = 0);
-  achievementConfig.durationBadges.forEach(badge => badge.count = 0);
-  achievementConfig.weeklyBadges.forEach(badge => badge.count = 0);
-  achievementConfig.specialOccasions.forEach(badge => badge.count = 0);
+  const today = new Date();
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(today.getDate() - 7);
 
-  // Calculate Longest Streak
-  const dates = activities.map(act => new Date(act.start_date).toDateString());
-  const uniqueDates = Array.from(new Set(dates)).sort((a, b) => new Date(a) - new Date(b));
-  let currentStreak = 1;
-  let maxStreak = 1;
-  for (let i = 1; i < uniqueDates.length; i++) {
-    const prevDate = new Date(uniqueDates[i - 1]);
-    const currentDate = new Date(uniqueDates[i]);
-    const diffTime = currentDate - prevDate;
-    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-    if (diffDays === 1) {
-      currentStreak += 1;
-      if (currentStreak > maxStreak) maxStreak = currentStreak;
-    } else {
-      currentStreak = 1;
+  activities.forEach(activity => {
+    totals.hours += activity.moving_time / 3600;
+    totals.distance += activity.distance;
+    totals.elevation += activity.total_elevation_gain;
+    totals.calories += activity.kilojoules || 0;
+
+    const minutes = activity.moving_time / 60;
+    const heartbeats = activity.average_heartrate * minutes;
+    totals.totalHeartbeats += heartbeats;
+
+    const activityDate = new Date(activity.start_date);
+    if (activityDate >= oneWeekAgo && activityDate <= today) {
+      totals.hoursThisWeek += activity.moving_time / 3600;
+      totals.distanceThisWeek += activity.distance;
+      totals.elevationThisWeek += activity.total_elevation_gain;
+      totals.caloriesThisWeek += activity.kilojoules || 0;
     }
-  }
-  achievementConfig.longestStreak.value = maxStreak;
 
-  // Calculate Distance Badges
-  activities.forEach(activity => {
-    const distanceKm = activity.distance / 1000; // Convert to km
-    achievementConfig.distanceBadges.forEach(badge => {
-      if (distanceKm >= badge.threshold / 1000) badge.count += 1;
-    });
+    // Determine Max Elevation Activity
+    if (!totals.maxElevationActivity || activity.total_elevation_gain > totals.maxElevationActivity.total_elevation_gain) {
+      totals.maxElevationActivity = activity;
+    }
+
+    // Determine Max Duration Activity
+    if (!totals.maxDurationActivity || activity.moving_time > totals.maxDurationActivity.moving_time) {
+      totals.maxDurationActivity = activity;
+    }
+
+    // Determine Max Distance Activity
+    if (!totals.maxDistanceActivity || activity.distance > totals.maxDistanceActivity.distance) {
+      totals.maxDistanceActivity = activity;
+    }
+
+    // Store athlete data (assuming it's part of the activity data)
+    if (activity.athlete) {
+      totals.athlete = activity.athlete;
+    }
   });
 
-  // Calculate Duration Badges
-  activities.forEach(activity => {
-    const durationMins = activity.moving_time / 60;
-    achievementConfig.durationBadges.forEach(badge => {
-      if (durationMins >= badge.threshold) badge.count += 1;
-    });
-  });
-
-  // Calculate Weekly Badges
-  const weeks = {};
-  activities.forEach(activity => {
-    const date = new Date(activity.start_date);
-    const year = date.getFullYear();
-    const week = getWeekNumber(date);
-    const key = `${year}-W${week}`;
-    if (!weeks[key]) weeks[key] = 0;
-    weeks[key] += activity.moving_time / 3600;
-  });
-
-  for (const week in weeks) {
-    const hours = weeks[week];
-    achievementConfig.weeklyBadges.forEach(badge => {
-      if (hours >= badge.threshold) badge.count += 1;
-    });
-  }
-
-  // Calculate Special Occasion Badges
-  activities.forEach(activity => {
-    const date = new Date(activity.start_date);
-    const monthDay = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    achievementConfig.specialOccasions.forEach(badge => {
-      if (badge.dates.includes(monthDay)) badge.count += 1;
-    });
-  });
-
-  console.log('Achievements Calculated:', achievementConfig);
-  return achievementConfig;
-}
-
-// Display Achievements Function
-function displayAchievements(achievements) {
-  const achievementsGrid = document.getElementById('achievements-grid');
-  if (!achievementsGrid) {
-    console.error('Achievements grid element is missing.');
-    return;
-  }
-
-  // Clear existing badges
-  achievementsGrid.innerHTML = '';
-
-  // Longest Streak
-  const streakCard = document.createElement('div');
-  streakCard.classList.add('achievement-card');
-  streakCard.innerHTML = `
-    <span>${achievements.longestStreak.emoji}</span>
-    <span>${achievements.longestStreak.name}: ${achievements.longestStreak.value} days</span>
-  `;
-  achievementsGrid.appendChild(streakCard);
-
-  // Distance Badges
-  achievements.distanceBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Duration Badges
-  achievements.durationBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Weekly Badges
-  achievements.weeklyBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Special Occasion Badges
-  achievements.specialOccasions.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span>${badge.emoji}</span>
-      <span>${badge.name}: ${badge.count}</span>
-    `;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Show Achievements Section
-  document.querySelector('.achievements-section').style.display = 'block';
-}
-
-// Calculate and Display Rank
-function calculateAndDisplayRank(totalHours) {
-  const rankInfo = calculateRank(totalHours);
-  updateRankSection(rankInfo);
+  console.log('Calculated Cumulative Totals:', totals);
+  return totals;
 }
 
 // Add Event Listener for "Load More" Button
@@ -718,7 +630,7 @@ function addTooltipListeners() {
   }
 
   // Tooltip for Achievements
-  const achievementIcons = document.querySelectorAll('.gem-icon, .pizza-icon, .distance-icon');
+  const achievementIcons = document.querySelectorAll('.achievement-card');
   achievementIcons.forEach(icon => {
     icon.addEventListener('mouseenter', () => {
       const title = icon.getAttribute('title');
@@ -726,6 +638,19 @@ function addTooltipListeners() {
     });
 
     icon.addEventListener('mouseleave', () => {
+      hideTooltip();
+    });
+  });
+
+  // Tooltip for Coins
+  const coinMetrics = document.querySelectorAll('.coin-metrics p');
+  coinMetrics.forEach(coin => {
+    coin.addEventListener('mouseenter', () => {
+      const title = coin.getAttribute('title');
+      showTooltip(coin, title);
+    });
+
+    coin.addEventListener('mouseleave', () => {
       hideTooltip();
     });
   });

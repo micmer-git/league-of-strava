@@ -10,7 +10,7 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 
 const PORT = process.env.PORT || 3000;
 
-
+// Routes
 
 // Serve the landing page
 app.get('/', (req, res) => {
@@ -23,7 +23,7 @@ app.get('/auth/strava', (req, res) => {
   console.log('Redirecting to Strava for authentication');
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID,
-    redirect_uri: `${process.env.BASE_URL}/auth/strava/callback`,
+    redirect_uri: `${process.env.BASE_URL}/auth/strava/callback`, // Update this line
     response_type: 'code',
     approval_prompt: 'auto',
     scope: 'read,activity:read_all',

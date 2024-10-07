@@ -10,7 +10,7 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 
 const PORT = process.env.PORT || 3000;
 
-// Routes
+
 
 // Serve the landing page
 app.get('/', (req, res) => {

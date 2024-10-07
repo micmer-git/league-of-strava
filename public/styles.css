@@ -155,10 +155,10 @@ body {
 
 
 .lifetime-stats {
-  display: flex;
-  justify-content: space-around;
+  display: flex; /* Use flexbox for horizontal layout */
+  justify-content: space-around; /* Space items evenly */
   margin-bottom: 30px;
-  align-items: center;
+  align-items: center; /* Center items vertically */
   flex-wrap: wrap; /* Allow wrapping on smaller screens */
 }
 

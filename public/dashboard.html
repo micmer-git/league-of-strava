@@ -205,13 +205,15 @@
     <div class="overview-section" style="display: none;">
       <div class="overview-left">
         <div class="athlete-info">
-          <h1 id="athlete-name">Michele Merelli</h1>
+          <h1 id="athlete-name">undefined undefined</h1>
+          <div class="achievements-carousel" id="achievements-carousel" style="padding-top:40px">
+            <!-- Achievements will be appended here in a carousel format -->
+          </div>
           <div class="current-rank">
             <div class="rank-header">
               <div class="rank-title">
-                Current Rank: <span id="current-rank"></span>
+                Current Rank: <span id="current-rank"></span> <span id="rank-emoji">🥉</span>
               </div>
-              <div class="rank-emoji" id="rank-emoji">🥉</div>
             </div>
             <span class="rank-header" id="current-rank"></span>
           </div>
@@ -293,17 +295,6 @@
           <p id="weekly-calories">-- kcal</p>
         </div>
       </div>
-    </div>
-
-    <!-- Achievements Section -->
-    <div class="achievements-section" style="display: none;">
-      <h2>Achievements 🏅</h2>
-      <div class="achievements-carousel" id="achievements-carousel" style="padding-top:40px">
-        <!-- Achievements will be appended here in a carousel format -->
-      </div>
-      <!-- Navigation Buttons -->
-      <button class="carousel-nav left" id="carousel-prev">&#9664;</button>
-      <button class="carousel-nav right" id="carousel-next">&#9654;</button>
     </div>
 
     <!-- Top Activities Section -->

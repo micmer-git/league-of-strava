@@ -198,7 +198,7 @@ function displayActivities(activities, isInitialLoad = false) {
     }
 
     // Calculate calories using ACSM formula
-    let estimatedKcal = calculateCaloriesPerMinute(activity.average_heartrate) * (activity.moving_time / 60) / 1000; // Total calories for the activity
+    let estimatedKcal = calculateCaloriesPerMinute(activity.average_heartrate) * (activity.moving_time / 60) / 100; // Total calories for the activity
 
     // Use existing kcal if heartbeats are missing
     if (!activity.kilojoules && totalHeartbeats === 0) {
@@ -570,8 +570,8 @@ function updateDashboardStats(totals) {
     distanceValueElement.textContent = `${(totals.distance / 1000).toFixed(0)} km`; // Rounded to 0 decimals
     distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(0)} km this week`;
 
-    elevationValueElement.textContent = `${Math.round(totals.elevation / 1000)} Everest`; // Assuming elevation is already in meters
-    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 1000)} this week`;
+    elevationValueElement.textContent = `${Math.round(totals.elevation / 8868)} Everest`; // Assuming elevation is already in meters
+    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 8868)} this week`;
 
     caloriesValueElement.textContent = `${Math.round(totals.calories / 1000)} Pizza`; // Assuming calories are already in kcal
     caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000)} this week`;

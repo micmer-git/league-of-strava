@@ -66,7 +66,7 @@ const achievementConfig = {
   additionalAchievements: [
     {
       name: 'Marathon Master',
-      emoji: '4️⃣2️⃣',
+      emoji: '4️⃣2️⃣🏃',
       description: 'Completed a marathon (42.195 km)',
       count: 0,
       type: 'Run', // Specify the activity type
@@ -74,7 +74,7 @@ const achievementConfig = {
     },
     {
       name: 'Half Marathon Master',
-      emoji: '️️⃣1️⃣',
+      emoji: '️2️⃣1️⃣🏃',
       description: 'Completed a half marathon (21.0975 km)',
       count: 0,
       type: 'Run', // Specify the activity type

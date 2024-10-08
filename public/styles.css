@@ -24,7 +24,7 @@
   display: inline-flex;
   align-items: center;
   cursor: default;
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .achievement-card:hover {
@@ -330,7 +330,7 @@ body {
 
 /* Rank Section */
 .rank-section {
-  margin-bottom: 30px;
+  margin-bottom: 15px;
   text-align: center;
 }
 
@@ -476,7 +476,7 @@ body {
 .lifetime-stats {
   display: flex; /* Use flexbox for horizontal layout */
   justify-content: space-around; /* Space items evenly */
-  margin-bottom: 30px;
+  margin-bottom: 15px;
   align-items: center; /* Center items vertically */
   flex-wrap: wrap; /* Allow wrapping on smaller screens */
 }
@@ -569,7 +569,7 @@ body {
 
 /* Weekly Stats */
 .weekly-stats {
-  margin-bottom: 30px;
+  margin-bottom: 15px;
 }
 
 .weekly-stats h2 {

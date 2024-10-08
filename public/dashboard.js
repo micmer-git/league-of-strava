@@ -157,9 +157,9 @@ async function fetchStravaData(page = 1, per_page = 200) {
 }
 
 // Constants
-const BODY_WEIGHT_KG = 80; // in kilograms
-const AGE = 30; // in years
-const GENDER = 'male'; // 'male' or 'female'
+let BODY_WEIGHT_KG = 80; // in kilograms
+let AGE = 30; // in years
+let GENDER = 'male'; // 'male' or 'female'
 
 // Function to calculate calories burned per minute using ACSM formula
 function calculateCaloriesPerMinute(heartRate) {

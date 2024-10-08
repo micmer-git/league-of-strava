@@ -156,9 +156,9 @@ function displayActivities(activities, isInitialLoad = false) {
     activityElement.classList.add('activity-item');
 
     // Calculate coins for the activity
-    const everestCoins = (activity.total_elevation_gain / 8848 * 100).toFixed(2); // 1/100 of Everest height
-    const pizzaCoins = (estimatedKcal / 1000 * 100).toFixed(2); // 1/100 of pizza
-    const heartbeatCoins = totalHeartbeats > 0 ? (totalHeartbeats / 150 * 100).toFixed(2) : '0.00'; // 1/100 of heartbeats
+    const everestCoins = (activity.total_elevation_gain / 8848).toFixed(2); // 1/100 of Everest height
+    const pizzaCoins = (estimatedKcal / 1000).toFixed(2); // 1/100 of pizza
+    const heartbeatCoins = totalHeartbeats > 0 ? (totalHeartbeats / 150).toFixed(2) : '0.00'; // 1/100 of heartbeats
 
     activityElement.innerHTML = `
       <div class="activity-main">

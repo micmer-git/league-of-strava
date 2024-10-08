@@ -253,6 +253,76 @@ function displayActivities(activities, isInitialLoad = false) {
   });
 }
 
+document.querySelectorAll('.timeframe-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    // Remove 'active' class from all buttons
+    document.querySelectorAll('.timeframe-btn').forEach(btn => btn.classList.remove('active'));
+    // Add 'active' class to the clicked button
+    button.classList.add('active');
+
+    const timeframe = button.getAttribute('data-timeframe');
+    filterAndUpdateStats(timeframe);
+  });
+});
+function filterAndUpdateStats(timeframe) {
+  let filteredActivities = [];
+  const now = new Date();
+
+  switch(timeframe) {
+    case 'weekly':
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(now.getDate() - 7);
+      filteredActivities = allActivities.filter(act => new Date(act.start_date) >= oneWeekAgo);
+      break;
+    case 'last6months':
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(now.getMonth() - 6);
+      filteredActivities = allActivities.filter(act => new Date(act.start_date) >= sixMonthsAgo);
+      break;
+    case 'lastyear':
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+      filteredActivities = allActivities.filter(act => new Date(act.start_date) >= oneYearAgo);
+      break;
+    default:
+      filteredActivities = allActivities;
+  }
+
+  // Update statistics with filtered activities
+  const totals = calculateTotals(filteredActivities);
+  updateDashboardStats(totals);
+
+  // Calculate and display coins gained in the timeframe
+  displayCoinsGained(totals);
+}
+
+function displayCoinsGained(totals) {
+  const statsGrid = document.querySelector('.stats-grid');
+
+  // Check if coins display already exists
+  let coinsCard = document.getElementById('coins-gained-card');
+  if (!coinsCard) {
+    // Create a new stat-card for Coins Gained
+    coinsCard = document.createElement('div');
+    coinsCard.classList.add('stat-card');
+    coinsCard.id = 'coins-gained-card';
+    coinsCard.innerHTML = `
+      <h3>Coins Gained</h3>
+      <p>Everest Coins: ${totals.coinsGained.everest.toFixed(1)} 🏔️</p>
+      <p>Pizza Coins: ${totals.coinsGained.pizza.toFixed(1)} 🍕</p>
+      <p>Heartbeat Coins: ${totals.coinsGained.heartbeat.toFixed(1)} ❤️</p>
+    `;
+    statsGrid.appendChild(coinsCard);
+  } else {
+    // Update existing coins display
+    coinsCard.querySelector('p:nth-child(2)').textContent = `Everest Coins: ${totals.coinsGained.everest.toFixed(1)} 🏔️`;
+    coinsCard.querySelector('p:nth-child(3)').textContent = `Pizza Coins: ${totals.coinsGained.pizza.toFixed(1)} 🍕`;
+    coinsCard.querySelector('p:nth-child(4)').textContent = `Heartbeat Coins: ${totals.coinsGained.heartbeat.toFixed(1)} ❤️`;
+  }
+}
+
+
+
 function createAchievementCard(badge) {
   const badgeCard = document.createElement('div');
   badgeCard.classList.add('achievement-card');
@@ -521,6 +591,12 @@ function updateDashboardStats(totals) {
     ytdElevationElement.textContent = isNaN(totals.elevation) ? '0 m' : `${totals.elevation} m`;
     ytdCaloriesElement.textContent = isNaN(totals.calories) ? '0 kcal' : `${totals.calories} kcal`;
   }
+  if (ytdHoursElement && ytdDistanceElement && ytdElevationElement && ytdCaloriesElement) {
+  ytdHoursElement.textContent = isNaN(totals.hours) ? '0.0 hrs' : `${totals.hours.toFixed(1)} hrs`;
+  ytdDistanceElement.textContent = isNaN(totals.distance) ? '0.0 km' : `${(totals.distance / 1000).toFixed(1)} km`;
+  ytdElevationElement.textContent = isNaN(totals.elevation) ? '0 m' : `${totals.elevation.toFixed(1)} m`;
+  ytdCaloriesElement.textContent = isNaN(totals.calories) ? '0 kcal' : `${totals.calories.toFixed(1)} kcal`;
+  }
 
   // Update Max Metrics
   const maxElevationElement = document.getElementById('max-elevation');
@@ -665,7 +741,6 @@ function calculateRank(totalHours, weeklyGain = 0) {
 
 // Calculate Totals Function
 function calculateTotals(activities) {
-  // Remove YTD filtering; include all loaded activities
   let totals = {
     hours: 0,
     distance: 0, // in meters
@@ -681,11 +756,12 @@ function calculateTotals(activities) {
     maxDurationActivity: null,
     maxDistanceActivity: null,
     athlete: null, // To store athlete's data
+    coinsGained: {
+      everest: 0,
+      pizza: 0,
+      heartbeat: 0
+    }
   };
-
-  const today = new Date();
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(today.getDate() - 7);
 
   activities.forEach(activity => {
     totals.hours += activity.moving_time / 3600;
@@ -693,7 +769,7 @@ function calculateTotals(activities) {
     totals.elevation += activity.total_elevation_gain;
 
     // Handle kcal parsing
-    let activityKcal = activity.kilojoules/4.18;
+    let activityKcal = activity.kilojoules;
     const minutes = activity.moving_time / 60;
     let totalHeartbeats = 0;
     if (activity.average_heartrate && !isNaN(activity.average_heartrate)) {
@@ -714,15 +790,6 @@ function calculateTotals(activities) {
 
     totals.calories += activityKcal;
 
-    // Weekly totals
-    const activityDate = new Date(activity.start_date);
-    if (activityDate >= oneWeekAgo && activityDate <= today) {
-      totals.hoursThisWeek += activity.moving_time / 3600;
-      totals.distanceThisWeek += activity.distance;
-      totals.elevationThisWeek += activity.total_elevation_gain;
-      totals.caloriesThisWeek += activityKcal;
-    }
-
     // Determine Max Elevation Activity
     if (!totals.maxElevationActivity || activity.total_elevation_gain > totals.maxElevationActivity.total_elevation_gain) {
       totals.maxElevationActivity = activity;
@@ -742,12 +809,16 @@ function calculateTotals(activities) {
     if (activity.athlete) {
       totals.athlete = activity.athlete;
     }
+
+    // Calculate Coins Gained
+    totals.coinsGained.everest += activity.total_elevation_gain / 8848; // 1 Everest = 8848m
+    totals.coinsGained.pizza += activityKcal / 1000; // 1 Pizza = 1000 kcal
+    totals.coinsGained.heartbeat += totalHeartbeats; // 1 Heartbeat Coin = 150 heartbeats
   });
 
   console.log('Calculated Cumulative Totals:', totals);
   return totals;
 }
-
 // Add Event Listener for "Load More" Button
 document.getElementById('load-more-button').addEventListener('click', () => {
   if (hasMoreActivities) {

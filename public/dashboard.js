@@ -42,7 +42,7 @@ for (let i = 2; i <= 100; i++) {
 
 // Achievement Configuration
 const achievementConfig = {
-  longestStreak: { name: 'Longest Streak', emoji: '🔥', value: 0 },
+  longestStreak: { name: 'Longest Streak', emoji: '🔥', count: 0 },
   distanceBadges: [
     { name: '100 km', emoji: '💯', threshold: 100000, count: 0 },
     { name: '200 km', emoji: '🔱', threshold: 200000, count: 0 },
@@ -419,7 +419,8 @@ function calculateAchievements(activities) {
       currentStreak = 1;
     }
   }
-  achievementConfig.longestStreak.value = maxStreak;
+  achievementConfig.longestStreak.count = maxStreak; // Changed from 'value' to 'count'
+
 
   // Calculate Distance Badges
   activities.forEach(activity => {

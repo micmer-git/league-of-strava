@@ -11,14 +11,20 @@
 }
 
 .achievement-card {
-  background-color: #f0f0f0;
-  border-radius: 8px;
-  padding: 10px 15px;
-  display: flex;
+  /* Removed box styling */
+  /* background-color: #f0f0f0; */
+  /* border-radius: 8px; */
+  /* padding: 5px 10px; */
+  /* min-width: 60px; */
+  /* flex-shrink: 0; */
+
+  /* Added compact styling */
+  margin: 2px;
+  padding: 2px 4px;
+  display: inline-flex;
   align-items: center;
-  cursor: pointer;
-  position: relative;
-  transition: background-color 0.3s;
+  cursor: default;
+  font-size: 14px;
 }
 
 .achievement-card:hover {
@@ -266,22 +272,7 @@ body {
 }
 
 /* Achievement Card */
-.achievement-card {
-  /* Removed box styling */
-  /* background-color: #f0f0f0; */
-  /* border-radius: 8px; */
-  /* padding: 5px 10px; */
-  /* min-width: 60px; */
-  /* flex-shrink: 0; */
 
-  /* Added compact styling */
-  margin: 2px;
-  padding: 2px 4px;
-  display: inline-flex;
-  align-items: center;
-  cursor: default;
-  font-size: 14px;
-}
 
 /* Achievement Count and Emoji */
 .achievement-count {

@@ -624,6 +624,7 @@ function updateDashboardStats(totals) {
 
   // Display Athlete's Name
   const athleteNameElement = document.getElementById('athlete-name');
+  
   if (athleteNameElement && totals.athlete) { // Assuming 'athlete' data is part of totals
     athleteNameElement.textContent = `${totals.athlete.firstname} ${totals.athlete.lastname}`;
     document.querySelector('.athlete-info').style.display = 'block';

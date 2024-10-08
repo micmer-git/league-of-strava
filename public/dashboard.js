@@ -417,10 +417,10 @@ function updateDashboardStats(totals) {
     distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(0)} km this week`;
 
     elevationValueElement.textContent = `${Math.round(totals.elevation / 8868)} Everest`; // Assuming elevation is already in meters
-    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 8868 * 100)} E-cent this week`;
+    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 8868)} this week`;
 
     caloriesValueElement.textContent = `${Math.round(totals.calories / 1000)} Pizza`; // Assuming calories are already in kcal
-    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000 * 100)} P-cent this week`;
+    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000)} this week`;
   }
 
   // Update YTD Stats (Statistics Section)

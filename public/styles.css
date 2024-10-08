@@ -305,11 +305,11 @@ body {
 }
 
 .stat-item .icon {
-  font-size: 40px;
+  font-size: 20px;
 }
 
 .stat-item .value {
-  font-size: 24px;
+  font-size: 20px;
   margin-top: 5px;
 }
 

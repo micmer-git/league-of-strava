@@ -216,7 +216,13 @@
         <div class="athlete-info">
           <h1 id="athlete-name">Michele Merelli</h1>
           <div class="current-rank">
-            <span id="current-rank"></span>
+            <div class="rank-header">
+              <div class="rank-title">
+                Current Rank: <span id="current-rank"></span>
+              </div>
+              <div class="rank-emoji" id="rank-emoji">🥉</div>
+            </div>
+            <span class="rank-header" id="current-rank"></span>
           </div>
         </div>
       </div>
@@ -238,7 +244,7 @@
     <!-- Achievements Section -->
     <div class="achievements-section" style="display: none;">
       <h2>Achievements 🏅</h2>
-      <div class="achievements-carousel" id="achievements-carousel">
+      <div class="achievements-carousel" id="achievements-carousel" style="padding-top:40px">
         <!-- Achievements will be appended here in a carousel format -->
       </div>
       <!-- Navigation Buttons -->
@@ -248,12 +254,6 @@
 
     <!-- Rank Section -->
 <div class="rank-section" style="display: none;">
-  <div class="rank-header">
-    <div class="rank-title">
-      Current Rank: <span id="current-rank"></span>
-    </div>
-    <div class="rank-emoji" id="rank-emoji">🥉</div>
-  </div>
   <div class="progress-container" id="progress-container">
     <div class="progress-labels">
       <span id="current-rank-label"></span>

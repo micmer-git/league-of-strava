@@ -61,13 +61,48 @@ const achievementConfig = {
     { name: 'Christmas Run', emoji: '🎄', dates: ['12-25'], count: 0 },
     // Add more special occasions as needed
   ],
-  additionalAchievements: [ // New Achievements
-    { name: 'Marathon Master', emoji: '🏅', description: 'Completed a marathon (42.195 km)', count: 0 },
-    { name: 'Climbing King', emoji: '🧗‍♂️', description: 'Total elevation gain over 5000m', count: 0 },
-    { name: 'Speedster', emoji: '⚡', description: 'Achieved an average speed over 20 km/h', count: 0 },
-    { name: 'Consistency Champion', emoji: '📈', description: 'Logged activities every day for a month', count: 0 },
-    { name: 'Calorie Burner', emoji: '🔥', description: 'Burned over 5000 kcal', count: 0 },
-  ]
+  additionalAchievements: [
+      {
+        name: 'Marathon Master',
+        emoji: '🏅',
+        description: 'Completed a marathon (42.195 km)',
+        count: 0,
+        type: 'Run', // Specify the activity type
+        distance: 42195 // Marathon distance in meters
+      },
+      {
+        name: 'Half Marathon Master',
+        emoji: '🎖️',
+        description: 'Completed a half marathon (21.0975 km)',
+        count: 0,
+        type: 'Run', // Specify the activity type
+        distance: 21097.5 // Half marathon distance in meters
+      },
+      {
+        name: 'Climbing King',
+        emoji: '🧗‍♂️',
+        description: 'Total elevation gain over 1000m',
+        count: 0
+      },
+      {
+        name: 'Speedster',
+        emoji: '⚡',
+        description: 'Achieved an average speed over 30 km/h',
+        count: 0
+      },
+      {
+        name: 'Consistency Champion',
+        emoji: '📈',
+        description: 'Logged activities every day for a month',
+        count: 0
+      },
+      {
+        name: 'Calorie Burner',
+        emoji: '🔥',
+        description: 'Burned over 5000 kcal',
+        count: 0
+      },
+    ]
 };
 
 
@@ -121,7 +156,32 @@ async function fetchStravaData(page = 1, per_page = 200) {
   }
 }
 
-// Display Activities Function
+// Constants
+const BODY_WEIGHT_KG = 80; // in kilograms
+const AGE = 30; // in years
+const GENDER = 'male'; // 'male' or 'female'
+
+// Function to calculate calories burned per minute using ACSM formula
+function calculateCaloriesPerMinute(heartRate) {
+  if (!heartRate || isNaN(heartRate)) {
+    return 0;
+  }
+
+  let caloriesPerMinute = 0;
+
+  if (GENDER.toLowerCase() === 'male') {
+    caloriesPerMinute = (heartRate * 0.6309) + (BODY_WEIGHT_KG * 0.1988) + (AGE * 0.2017) - 55.0969;
+  } else if (GENDER.toLowerCase() === 'female') {
+    caloriesPerMinute = (heartRate * 0.4472) - (BODY_WEIGHT_KG * 0.1263) + (AGE * 0.074) - 20.4022;
+  } else {
+    console.warn('Gender not specified correctly. Please set GENDER to "male" or "female".');
+  }
+
+  // Ensure caloriesPerMinute is not negative
+  return caloriesPerMinute > 0 ? caloriesPerMinute : 0;
+}
+
+
 // Display Activities Function with Enhanced Kcal Parsing and Marathon Badge Check
 function displayActivities(activities, isInitialLoad = false) {
   const activitiesContainer = document.getElementById('activities-container');
@@ -134,15 +194,9 @@ function displayActivities(activities, isInitialLoad = false) {
     }
 
     // Estimate kcal if missing
-    let estimatedKcal = activity.kilojoules;
-    if (isNaN(activity.kilojoules)) {
-      if (totalHeartbeats > 0) {
-        // Example formula: kcal = (heartbeats / 150) * 100
-        estimatedKcal = (totalHeartbeats / 150) * 100;
-      } else {
-        estimatedKcal = 0; // Default to 0 if both kcal and heartbeats are unavailable
-      }
-    }
+    // Calculate calories using ACSM formula
+    const caloriesPerMinute = calculateCaloriesPerMinute(activity.average_heartrate);
+    const estimatedKcal = caloriesPerMinute * (activity.moving_time / 60); // Total calories for the activity
 
     // Use existing kcal if heartbeats are missing
     if (!activity.kilojoules && totalHeartbeats === 0) {
@@ -338,33 +392,65 @@ function calculateAchievements(activities) {
   });
 
   // Calculate Additional Achievements
-  achievementConfig.additionalAchievements.forEach(badge => {
+  // Calculate Additional Achievements
+achievementConfig.additionalAchievements.forEach(badge => {
   switch (badge.name) {
     case 'Marathon Master':
-      // Count unique days with at least one marathon
-      const marathonDays = new Set(activities
-        .filter(act => act.distance >= 42195)
-        .map(act => new Date(act.start_date).toDateString()));
-      badge.count = marathonDays.size;
-      badge.description = 'Completed a marathon (42.195 km)';
+    case 'Half Marathon Master':
+      // Ensure only Run activities are considered
+      const qualifyingActivities = activities.filter(act => {
+        return act.type === badge.type && act.distance >= badge.distance;
+      });
+
+      // Count unique days with qualifying activities
+      const qualifyingDays = new Set(qualifyingActivities.map(act => new Date(act.start_date).toDateString()));
+      badge.count = qualifyingDays.size;
       break;
-    // ... other cases with improved descriptions
     case 'Climbing King':
-      badge.description = 'Total elevation gain over 5000m';
+      // Total elevation gain over 5000m
+      const totalElevation = activities.reduce((sum, act) => sum + act.total_elevation_gain, 0);
+      badge.count = Math.floor(totalElevation / 1000);
+      badge.description = 'Total elevation gain over 1000m';
       break;
     case 'Speedster':
-      badge.description = 'Achieved an average speed over 20 km/h';
+      // Average speed over 20 km/h
+      const speedActivities = activities.filter(act => (act.distance / 1000) / (act.moving_time / 3600) > 20);
+      badge.count = speedActivities.length;
+      badge.description = 'Achieved an average speed over 30 km/h';
       break;
     case 'Consistency Champion':
+      // Logged activities every day for a month
+      const activityDates = new Set(activities.map(act => new Date(act.start_date).toDateString()));
+      const months = Array.from(new Set(activities.map(act => `${new Date(act.start_date).getFullYear()}-${new Date(act.start_date).getMonth() + 1}`)));
+      months.forEach(month => {
+        const [year, monthNum] = month.split('-').map(Number);
+        const daysInMonth = new Date(year, monthNum, 0).getDate();
+        let streak = 0;
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = new Date(year, monthNum - 1, day).toDateString();
+          if (activityDates.has(dateStr)) {
+            streak += 1;
+            if (streak === daysInMonth) {
+              badge.count += 1;
+            }
+          } else {
+            streak = 0;
+          }
+        }
+      });
       badge.description = 'Logged activities every day for a month';
       break;
-    case 'Calorie Burner':
-      badge.description = 'Burned over 5000 kcal';
+    case 'Daily Calories Burner':
+      // Burned over 5000 kcal based on updated estimation
+      const totalCalories = activities.reduce((sum, act) => sum + (act.estimatedKcal || 0), 0);
+      badge.count = Math.floor(totalCalories / 2000);
+      badge.description = 'Burned over 2000 kcal';
       break;
     default:
       break;
   }
 });
+
 
   console.log('Achievements Calculated:', achievementConfig);
   return achievementConfig;

@@ -198,7 +198,7 @@ function displayActivities(activities, isInitialLoad = false) {
     }
 
     // Calculate calories using ACSM formula
-    let estimatedKcal = calculateCaloriesPerMinute(activity.average_heartrate) * (activity.moving_time / 60); // Total calories for the activity
+    let estimatedKcal = calculateCaloriesPerMinute(activity.average_heartrate) * (activity.moving_time / 60) / 1000; // Total calories for the activity
 
     // Use existing kcal if heartbeats are missing
     if (!activity.kilojoules && totalHeartbeats === 0) {

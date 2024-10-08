@@ -694,7 +694,7 @@ function calculateTotals(activities) {
     totals.elevation += activity.total_elevation_gain;
 
     // Handle kcal parsing
-    let activityKcal = activity.kilojoules;
+    let activityKcal = activity.kilojoules/4.18;
     const minutes = activity.moving_time / 60;
     let totalHeartbeats = 0;
     if (activity.average_heartrate && !isNaN(activity.average_heartrate)) {

@@ -354,7 +354,7 @@ function displayAchievements(achievements) {
     const badgeCard = document.createElement('div');
     badgeCard.classList.add('achievement-card');
     badgeCard.innerHTML = `
-      <span class="achievement-count">${badge.count}x</span>
+      <span class="achievement-count">${badge.count}</span>
       <span class="achievement-emoji">${badge.emoji}</span>
       <div class="tooltip">${badge.description || badge.name}</div>
     `;

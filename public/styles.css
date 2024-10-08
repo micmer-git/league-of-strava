@@ -12,8 +12,8 @@
 
 .achievement-card {
   /* Removed box styling */
-  /* background-color: #f0f0f0; */
-  /* border-radius: 8px; */
+  background-color: #f0f0f0; */
+  border-radius: 20px;
   /* padding: 5px 10px; */
   /* min-width: 60px; */
   /* flex-shrink: 0; */
@@ -33,7 +33,8 @@
 
 .achievement-count {
   font-weight: bold;
-  margin-right: 4px;
+  font-size: 24px;
+
 }
 
 .achievement-emoji {

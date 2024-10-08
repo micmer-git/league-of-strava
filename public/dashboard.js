@@ -196,7 +196,7 @@ function displayActivities(activities, isInitialLoad = false) {
     // Estimate kcal if missing
     // Calculate calories using ACSM formula
     const caloriesPerMinute = calculateCaloriesPerMinute(activity.average_heartrate);
-    const estimatedKcal = caloriesPerMinute * (activity.moving_time / 60); // Total calories for the activity
+    let estimatedKcal = caloriesPerMinute * (activity.moving_time / 60);
 
     // Use existing kcal if heartbeats are missing
     if (!activity.kilojoules && totalHeartbeats === 0) {

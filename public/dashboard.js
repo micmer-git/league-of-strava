@@ -217,7 +217,7 @@ function displayActivities(activities, isInitialLoad = false) {
     // Calculate coins for the activity
     const everestCoins = (activity.total_elevation_gain / 8848).toFixed(2); // 1/100 of Everest height
     const pizzaCoins = (estimatedKcal / 1000).toFixed(2); // 1/100 of pizza
-    const heartbeatCoins = (totalHeartbeats / 150).toFixed(2); // 1/100 of heartbeats
+    const heartbeatCoins = (totalHeartbeats).toFixed(2); // 1/100 of heartbeats
 
     activityElement.innerHTML = `
       <div class="activity-main">
@@ -225,11 +225,9 @@ function displayActivities(activities, isInitialLoad = false) {
         <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
         <p>Distance: ${(activity.distance / 1000).toFixed(1)} km</p>
         <p>Duration: ${Math.floor(activity.moving_time / 3600)}h ${Math.floor((activity.moving_time % 3600) / 60)}m</p>
-        <div class="activity-details">
-          <span>Elevation Gain: ${activity.total_elevation_gain} m</span>
-          <span>Calories: ${estimatedKcal.toFixed(2)} kcal</span>
-          <span>Heartbeats: ${totalHeartbeats} ❤️</span>
-        </div>
+        <p>Elevation Gain: ${activity.total_elevation_gain} m</p>
+        <p>Calories: ${estimatedKcal.toFixed(2)} kcal</p>
+        <p>Heartbeats: ${totalHeartbeats} ❤️</p>
       </div>
       <div class="activity-coins">
         <span class="coin">+${everestCoins} 🏔️</span>
@@ -559,7 +557,7 @@ function updateDashboardStats(totals) {
   const EVEREST_HEIGHT = 8848; // in meters
   const everestCoins = (totals.elevation / EVEREST_HEIGHT).toFixed(2); // in cents
   const pizzaCoins = (totals.calories / 1000).toFixed(2); // in cents
-  const heartbeatCoins = (totals.totalHeartbeats / 150).toFixed(2); // in cents
+  const heartbeatCoins = (totals.totalHeartbeats).toFixed(0); // in cents
 
   // Update Coin Metrics
   const everestCoinsElement = document.getElementById('everest-coins');

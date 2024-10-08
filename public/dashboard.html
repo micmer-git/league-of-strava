@@ -228,7 +228,7 @@
       </div>
       <div class="overview-right">
         <div class="coin-metrics">
-          <div class="coin" title="EVEREST_COINS: Represents your total elevation">
+          <div class="coin" title="Everest">
             <span id="everest-coins">0</span> 🏔️
           </div>
           <div class="coin" title="PIZZA_COINS: Represents your total calories burned">
@@ -237,60 +237,35 @@
           <div class="coin" title="HEARTBEAT_COINS: Represents your total heartbeats">
             <span id="heartbeat-coins">0</span> ❤️
           </div>
-        </div>
-        <!-- Lifetime Stats -->
-        <div class="lifetime-stats" style="display: none;">
-          <div class="stat-item">
-            <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
-            <div class="value" id="elevation-value"></div>
+          <div class="coin" title="Distance: 100km per icon">
+            <span id="distance-value">0</span> 🚴
             <div class="week-gain bold-green" id="elevation-week-gain"></div>
+
           </div>
-          <div class="stat-item">
-            <div class="icon pizza-icon" title="Pizza: 1000kcal per pizza">🍕</div>
-            <div class="value" id="calories-value"></div>
-            <div class="week-gain bold-green" id="calories-week-gain"></div>
-          </div>
-          <div class="stat-item">
-            <div class="icon distance-icon" title="Distance: 100km per icon">🚴‍♂️</div>
-            <div class="value" id="distance-value"></div>
-            <div class="week-gain bold-green" id="distance-week-gain"></div>
-          </div>
+
         </div>
       </div>
     </div>
 
-    <!-- Achievements Section -->
-    <div class="achievements-section" style="display: none;">
-      <h2>Achievements 🏅</h2>
-      <div class="achievements-carousel" id="achievements-carousel" style="padding-top:40px">
-        <!-- Achievements will be appended here in a carousel format -->
+    <div class="rank-section" style="display: none;">
+      <div class="progress-container" id="progress-container">
+        <div class="progress-labels">
+          <span id="current-rank-label"></span>
+          <span id="next-rank-label"></span>
+        </div>
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar" id="progress-bar"></div>
+          <div class="progress-gain" id="progress-gain"></div>
+        </div>
+        <div class="tooltip" id="rank-tooltip">
+          <h3>Rank Progression</h3>
+          <ul id="rank-list"></ul>
+        </div>
       </div>
-      <!-- Navigation Buttons -->
-      <button class="carousel-nav left" id="carousel-prev">&#9664;</button>
-      <button class="carousel-nav right" id="carousel-next">&#9654;</button>
+      <div class="rank-details">
+        <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
+      </div>
     </div>
-
-    <!-- Rank Section -->
-<div class="rank-section" style="display: none;">
-  <div class="progress-container" id="progress-container">
-    <div class="progress-labels">
-      <span id="current-rank-label"></span>
-      <span id="next-rank-label"></span>
-    </div>
-    <div class="progress-bar-wrapper">
-      <div class="progress-bar" id="progress-bar"></div>
-      <div class="progress-gain" id="progress-gain"></div>
-    </div>
-    <div class="tooltip" id="rank-tooltip">
-      <h3>Rank Progression</h3>
-      <ul id="rank-list"></ul>
-    </div>
-  </div>
-  <div class="rank-details">
-    <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
-  </div>
-</div>
-
 
 
     <!-- Timeframe Switch -->
@@ -299,6 +274,7 @@
       <button class="timeframe-btn" data-timeframe="last6months">Last 6 Months</button>
       <button class="timeframe-btn" data-timeframe="lastyear">Last Year</button>
     </div>
+
 
     <!-- Modify YTD Stats Section -->
     <div class="weekly-stats" style="display: none;">
@@ -326,6 +302,17 @@
           <p id="weekly-calories">-- kcal</p>
         </div>
       </div>
+    </div>
+
+    <!-- Achievements Section -->
+    <div class="achievements-section" style="display: none;">
+      <h2>Achievements 🏅</h2>
+      <div class="achievements-carousel" id="achievements-carousel" style="padding-top:40px">
+        <!-- Achievements will be appended here in a carousel format -->
+      </div>
+      <!-- Navigation Buttons -->
+      <button class="carousel-nav left" id="carousel-prev">&#9664;</button>
+      <button class="carousel-nav right" id="carousel-next">&#9654;</button>
     </div>
 
     <!-- Top Activities Section -->

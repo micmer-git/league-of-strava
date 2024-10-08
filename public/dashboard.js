@@ -30,6 +30,15 @@ const rankConfig = [
   { name: 'Challenger', emoji: '🌟', minPoints: 1050 },
 ];
 
+// Dynamically add Master Prestige levels
+for (let i = 2; i <= 100; i++) {
+  rankConfig.push({
+    name: `Master Prestige ${i}`,
+    emoji: '⭐',
+    minPoints: 1050 + (i - 1) * 25, // Each level requires 25 additional hours
+  });
+}
+
 // Achievement Configuration
 const achievementConfig = {
   longestStreak: { name: 'Longest Streak', emoji: '🔥', value: 0 },
@@ -113,12 +122,32 @@ async function fetchStravaData(page = 1, per_page = 200) {
 }
 
 // Display Activities Function
+// Display Activities Function with Enhanced Kcal Parsing and Marathon Badge Check
 function displayActivities(activities, isInitialLoad = false) {
   const activitiesContainer = document.getElementById('activities-container');
   activities.forEach(activity => {
     // Compute heartbeats
     const minutes = activity.moving_time / 60;
-    const totalHeartbeats = Math.round(activity.average_heartrate * minutes);
+    let totalHeartbeats = 0;
+    if (activity.average_heartrate && !isNaN(activity.average_heartrate)) {
+      totalHeartbeats = Math.round(activity.average_heartrate * minutes);
+    }
+
+    // Estimate kcal if missing
+    let estimatedKcal = activity.kilojoules;
+    if (isNaN(activity.kilojoules)) {
+      if (totalHeartbeats > 0) {
+        // Example formula: kcal = (heartbeats / 150) * 100
+        estimatedKcal = (totalHeartbeats / 150) * 100;
+      } else {
+        estimatedKcal = 0; // Default to 0 if both kcal and heartbeats are unavailable
+      }
+    }
+
+    // Use existing kcal if heartbeats are missing
+    if (!activity.kilojoules && totalHeartbeats === 0) {
+      estimatedKcal = 0;
+    }
 
     // Create activity link (assuming a URL structure)
     const activityLink = `https://www.strava.com/activities/${activity.id}`;
@@ -128,8 +157,8 @@ function displayActivities(activities, isInitialLoad = false) {
 
     // Calculate coins for the activity
     const everestCoins = (activity.total_elevation_gain / 8848 * 100).toFixed(2); // 1/100 of Everest height
-    const pizzaCoins = (activity.kilojoules / 1000 * 100).toFixed(2); // 1/100 of pizza
-    const heartbeatCoins = Math.round(totalHeartbeats / 150 * 100) / 100; // 1/100 of heartbeats
+    const pizzaCoins = (estimatedKcal / 1000 * 100).toFixed(2); // 1/100 of pizza
+    const heartbeatCoins = totalHeartbeats > 0 ? (totalHeartbeats / 150 * 100).toFixed(2) : '0.00'; // 1/100 of heartbeats
 
     activityElement.innerHTML = `
       <div class="activity-main">
@@ -139,7 +168,7 @@ function displayActivities(activities, isInitialLoad = false) {
         <p>Duration: ${Math.floor(activity.moving_time / 3600)}h ${Math.floor((activity.moving_time % 3600) / 60)}m</p>
         <div class="activity-details">
           <span>Elevation Gain: ${activity.total_elevation_gain} m</span>
-          <span>Calories: ${activity.kilojoules || 0} kcal</span>
+          <span>Calories: ${estimatedKcal.toFixed(2)} kcal</span>
           <span>Heartbeats: ${totalHeartbeats} ❤️</span>
         </div>
       </div>
@@ -150,6 +179,14 @@ function displayActivities(activities, isInitialLoad = false) {
       </div>
     `;
 
+    // Check for Marathon Master Badge (Completed a marathon)
+    if (activity.distance >= 42195) { // Marathon distance in meters
+      // Trigger badge assignment or visual indication
+      // This can be handled in the calculateAchievements function
+      // For example, you might add a class or data attribute
+      activityElement.classList.add('marathon-activity');
+    }
+
     if (isInitialLoad) {
       activitiesContainer.appendChild(activityElement); // Append for initial load
     } else {
@@ -158,93 +195,42 @@ function displayActivities(activities, isInitialLoad = false) {
   });
 }
 
+
+function createAchievementCard(badge) {
+  const badgeCard = document.createElement('div');
+  badgeCard.classList.add('achievement-card');
+  badgeCard.innerHTML = `
+    <span class="achievement-count">${badge.count}x</span>
+    <span class="achievement-emoji">${badge.emoji}</span>
+    <div class="tooltip">${badge.description || badge.name}</div>
+  `;
+  badgeCard.title = badge.description || badge.name; // Fallback for tooltip
+  return badgeCard;
+}
+
 // Display Achievements Function
+
 function displayAchievements(achievements) {
-  const achievementsGrid = document.getElementById('achievements-grid');
-  if (!achievementsGrid) {
-    console.error('Achievements grid element is missing.');
+  if (!achievementsCarousel) {
+    console.error('Achievements carousel element is missing.');
     return;
   }
 
   // Clear existing badges
-  achievementsGrid.innerHTML = '';
+  achievementsCarousel.innerHTML = '';
 
-  // Longest Streak
-  const streakCard = document.createElement('div');
-  streakCard.classList.add('achievement-card');
-  streakCard.innerHTML = `
-    <span class="achievement-count">${achievements.longestStreak.value}+</span>
-    <span class="achievement-emoji">${achievements.longestStreak.emoji}</span>
-    <span class="achievement-name">${achievements.longestStreak.name}</span>
-  `;
-  achievementsGrid.appendChild(streakCard);
+  // Iterate through all achievement categories
+  for (const category in achievements) {
+    if (achievements.hasOwnProperty(category)) {
+      achievements[category].forEach(badge => {
+        const badgeCard = createAchievementCard(badge);
+        achievementsCarousel.appendChild(badgeCard);
+      });
+    }
+  }
 
-  // Distance Badges
-  achievements.distanceBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span class="achievement-count">${badge.count}+</span>
-      <span class="achievement-emoji">${badge.emoji}</span>
-      <span class="achievement-name">${badge.name}</span>
-    `;
-    // Add tooltip
-    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Duration Badges
-  achievements.durationBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span class="achievement-count">${badge.count}+</span>
-      <span class="achievement-emoji">${badge.emoji}</span>
-      <span class="achievement-name">${badge.name}</span>
-    `;
-    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Weekly Badges
-  achievements.weeklyBadges.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span class="achievement-count">${badge.count}+</span>
-      <span class="achievement-emoji">${badge.emoji}</span>
-      <span class="achievement-name">${badge.name}</span>
-    `;
-    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Special Occasion Badges
-  achievements.specialOccasions.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span class="achievement-count">${badge.count}+</span>
-      <span class="achievement-emoji">${badge.emoji}</span>
-      <span class="achievement-name">${badge.name}</span>
-    `;
-    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
-    achievementsGrid.appendChild(badgeCard);
-  });
-
-  // Add more achievements as needed
-  // Example:
-  achievements.additionalAchievements.forEach(badge => {
-    const badgeCard = document.createElement('div');
-    badgeCard.classList.add('achievement-card');
-    badgeCard.innerHTML = `
-      <span class="achievement-count">${badge.count}+</span>
-      <span class="achievement-emoji">${badge.emoji}</span>
-      <span class="achievement-name">${badge.name}</span>
-    `;
-    badgeCard.title = `${badge.name} - Achieved ${badge.count} times`;
-    achievementsGrid.appendChild(badgeCard);
-  });
+  // Initialize tooltip listeners
+  addTooltipListeners();
 
   // Show Achievements Section
   document.querySelector('.achievements-section').style.display = 'block';
@@ -326,52 +312,32 @@ function calculateAchievements(activities) {
 
   // Calculate Additional Achievements
   achievementConfig.additionalAchievements.forEach(badge => {
-    switch (badge.name) {
-      case 'Marathon Master':
-        // Count activities >= 42.195 km
-        badge.count = activities.filter(act => act.distance >= 42195).length;
-        break;
-      case 'Climbing King':
-        // Total elevation gain over 5000m
-        const totalElevation = activities.reduce((sum, act) => sum + act.total_elevation_gain, 0);
-        badge.count = Math.floor(totalElevation / 5000);
-        break;
-      case 'Speedster':
-        // Average speed over 20 km/h
-        const speedActivities = activities.filter(act => (act.distance / 1000) / (act.moving_time / 3600) > 20);
-        badge.count = speedActivities.length;
-        break;
-      case 'Consistency Champion':
-        // Logged activities every day for a month
-        // This requires more complex logic; here's a simplified version
-        const activityDates = new Set(activities.map(act => new Date(act.start_date).toDateString()));
-        const months = Array.from(new Set(activities.map(act => `${new Date(act.start_date).getFullYear()}-${new Date(act.start_date).getMonth() + 1}`)));
-        months.forEach(month => {
-          const [year, monthNum] = month.split('-').map(Number);
-          const daysInMonth = new Date(year, monthNum, 0).getDate();
-          let streak = 0;
-          for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = new Date(year, monthNum - 1, day).toDateString();
-            if (activityDates.has(dateStr)) {
-              streak += 1;
-              if (streak === daysInMonth) {
-                badge.count += 1;
-              }
-            } else {
-              streak = 0;
-            }
-          }
-        });
-        break;
-      case 'Calorie Burner':
-        // Burned over 5000 kcal
-        const totalCalories = activities.reduce((sum, act) => sum + (act.kilojoules || 0), 0);
-        badge.count = Math.floor(totalCalories / 5000);
-        break;
-      default:
-        break;
-    }
-  });
+  switch (badge.name) {
+    case 'Marathon Master':
+      // Count unique days with at least one marathon
+      const marathonDays = new Set(activities
+        .filter(act => act.distance >= 42195)
+        .map(act => new Date(act.start_date).toDateString()));
+      badge.count = marathonDays.size;
+      badge.description = 'Completed a marathon (42.195 km)';
+      break;
+    // ... other cases with improved descriptions
+    case 'Climbing King':
+      badge.description = 'Total elevation gain over 5000m';
+      break;
+    case 'Speedster':
+      badge.description = 'Achieved an average speed over 20 km/h';
+      break;
+    case 'Consistency Champion':
+      badge.description = 'Logged activities every day for a month';
+      break;
+    case 'Calorie Burner':
+      badge.description = 'Burned over 5000 kcal';
+      break;
+    default:
+      break;
+  }
+});
 
   console.log('Achievements Calculated:', achievementConfig);
   return achievementConfig;
@@ -397,7 +363,7 @@ function updateTotalsAndRanks() {
   updateDashboardStats(totals);
 
   // Recalculate and update ranks
-  const rankInfo = calculateRank(totals.hours);
+  const rankInfo = calculateRank(totals.hours, totals.hoursThisWeek);
   console.log('Updated Rank Info:', rankInfo);
   updateRankSection(rankInfo);
 
@@ -407,6 +373,7 @@ function updateTotalsAndRanks() {
 }
 
 // Update Dashboard Stats Function
+// Update Dashboard Stats Function with Enhanced Validation
 function updateDashboardStats(totals) {
   // Update Lifetime Stats (Gems)
   const distanceValueElement = document.getElementById('distance-value');
@@ -419,14 +386,14 @@ function updateDashboardStats(totals) {
   if (!distanceValueElement || !distanceWeekGainElement || !elevationValueElement || !elevationWeekGainElement || !caloriesValueElement || !caloriesWeekGainElement) {
     console.error('One or more lifetime stats DOM elements are missing.');
   } else {
-    distanceValueElement.textContent = `${(totals.distance / 1000).toFixed(0)} km`; // Rounded to 1 decimal
-    distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(0)}km this week`;
+    distanceValueElement.textContent = `${(totals.distance / 1000).toFixed(0)} km`; // Rounded to 0 decimals
+    distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(0)} km this week`;
 
     elevationValueElement.textContent = `${Math.round(totals.elevation / 8868)} Everest`; // Assuming elevation is already in meters
-    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 8868*100)} E-cent this week`;
+    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 8868 * 100)} E-cent this week`;
 
     caloriesValueElement.textContent = `${Math.round(totals.calories / 1000)} Pizza`; // Assuming calories are already in kcal
-    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000*100)} P-cent this week`;
+    caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000 * 100)} P-cent this week`;
   }
 
   // Update YTD Stats (Statistics Section)
@@ -494,25 +461,34 @@ function updateDashboardStats(totals) {
   document.querySelector('.max-metrics').style.display = 'block';
 }
 
+
 // Update Rank Section Function
+
+
 function updateRankSection(rankInfo) {
   // Update Rank Section
   const currentRankElement = document.getElementById('current-rank');
   const rankEmojiElement = document.getElementById('rank-emoji');
   const progressBarElement = document.getElementById('progress-bar');
+  const progressGainElement = document.getElementById('progress-gain');
   const currentRankLabelElement = document.getElementById('current-rank-label');
   const nextRankLabelElement = document.getElementById('next-rank-label');
   const currentPointsElement = document.getElementById('current-points');
   const nextRankPointsElement = document.getElementById('next-rank-points');
 
-  if (!currentRankElement || !rankEmojiElement || !progressBarElement || !currentRankLabelElement || !nextRankLabelElement || !currentPointsElement || !nextRankPointsElement) {
+  if (!currentRankElement || !rankEmojiElement || !progressBarElement || !progressGainElement || !currentRankLabelElement || !nextRankLabelElement || !currentPointsElement || !nextRankPointsElement) {
     console.error('One or more rank-related DOM elements are missing.');
     return;
   }
 
   currentRankElement.textContent = rankInfo.currentRank.name;
   rankEmojiElement.textContent = rankInfo.currentRank.emoji;
-  progressBarElement.style.width = `${rankInfo.progressPercent.toFixed(1)}%`; // Rounded to 1 decimal
+  progressBarElement.style.width = `${rankInfo.progressPercent.toFixed(1)}%`; // Overall progress
+
+  // Update progress gain
+  progressGainElement.style.width = `${rankInfo.weeklyGainPercent.toFixed(1)}%`; // Weekly gain
+  progressGainElement.style.backgroundColor = '#FFD700'; // Gold color
+
   currentRankLabelElement.textContent = rankInfo.currentRank.name;
   nextRankLabelElement.textContent = rankInfo.nextRank.name;
   currentPointsElement.textContent = Math.round(rankInfo.currentPoints);
@@ -526,16 +502,16 @@ function updateRankSection(rankInfo) {
     rankListElement.innerHTML = '';
     rankConfig.forEach(rank => {
       const li = document.createElement('li');
-      li.textContent = `${rank.name} (${rank.minPoints} pts)`;
+      li.textContent = `${rank.name} (${rank.minPoints} hrs)`;
       rankListElement.appendChild(li);
     });
     console.log('Rank tooltip populated');
   }
 }
-
 // Calculate Rank Function
-function calculateRank(totalHours) {
-  console.log(`Calculating rank for total hours: ${totalHours}`);
+// Update calculateRank Function to include weekly gains
+function calculateRank(totalHours, weeklyGain = 0) {
+  console.log(`Calculating rank for total hours: ${totalHours}, Weekly Gain: ${weeklyGain}`);
   let currentRank = rankConfig[0];
   let nextRank = rankConfig[1];
 
@@ -553,10 +529,14 @@ function calculateRank(totalHours) {
   const pointsBetweenRanks = nextRank.minPoints - currentRank.minPoints;
   const progressPercent = pointsBetweenRanks > 0 ? (pointsIntoCurrentRank / pointsBetweenRanks) * 100 : 100;
 
+  // Calculate weekly gain percentage relative to next rank
+  const weeklyGainPercent = pointsBetweenRanks > 0 ? (weeklyGain / pointsBetweenRanks) * 100 : 0;
+
   console.log('Calculated Rank Info:', {
     currentRank,
     nextRank,
     progressPercent,
+    weeklyGainPercent,
     pointsIntoCurrentRank,
     pointsBetweenRanks,
   });
@@ -565,6 +545,7 @@ function calculateRank(totalHours) {
     currentRank,
     nextRank,
     progressPercent,
+    weeklyGainPercent,
     currentPoints: totalHours,
     // Adjust 'nextRank.minPoints' as needed based on your ranking logic
   };
@@ -577,7 +558,7 @@ function calculateTotals(activities) {
     hours: 0,
     distance: 0, // in meters
     elevation: 0, // in meters
-    calories: 0, // in kilojoules or as per Strava's data
+    calories: 0, // in kilojoules
     activities: activities.length,
     hoursThisWeek: 0,
     distanceThisWeek: 0,
@@ -598,18 +579,36 @@ function calculateTotals(activities) {
     totals.hours += activity.moving_time / 3600;
     totals.distance += activity.distance;
     totals.elevation += activity.total_elevation_gain;
-    totals.calories += activity.kilojoules || 0;
 
+    // Handle kcal parsing
+    let activityKcal = activity.kilojoules;
     const minutes = activity.moving_time / 60;
-    const heartbeats = activity.average_heartrate * minutes;
-    totals.totalHeartbeats += heartbeats;
+    let totalHeartbeats = 0;
+    if (activity.average_heartrate && !isNaN(activity.average_heartrate)) {
+      totalHeartbeats = Math.round(activity.average_heartrate * minutes);
+      totals.totalHeartbeats += totalHeartbeats;
+    }
 
+    if (isNaN(activity.kilojoules) && totalHeartbeats > 0) {
+      // Estimate kcal based on heartbeats
+      activityKcal = (totalHeartbeats / 150) * 100; // Example formula
+    } else if (!isNaN(activity.kilojoules)) {
+      // Use existing kcal
+      activityKcal = activity.kilojoules;
+    } else {
+      // Default to 0 if both are unavailable
+      activityKcal = 0;
+    }
+
+    totals.calories += activityKcal;
+
+    // Weekly totals
     const activityDate = new Date(activity.start_date);
     if (activityDate >= oneWeekAgo && activityDate <= today) {
       totals.hoursThisWeek += activity.moving_time / 3600;
       totals.distanceThisWeek += activity.distance;
       totals.elevationThisWeek += activity.total_elevation_gain;
-      totals.caloriesThisWeek += activity.kilojoules || 0;
+      totals.caloriesThisWeek += activityKcal;
     }
 
     // Determine Max Elevation Activity

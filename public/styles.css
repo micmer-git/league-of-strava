@@ -15,29 +15,55 @@ body {
   color: #333;
 }
 
-.achievements-section {
-  margin-top: 20px;
-}
-
-.achievements-grid {
+/* Achievements Carousel */
+.achievements-carousel {
   display: flex;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  scroll-behavior: smooth;
   gap: 10px;
+  padding: 10px 0;
 }
 
 .achievement-card {
   background-color: #f0f0f0;
-  padding: 10px 15px;
-  border-radius: 5px;
+  border-radius: 8px;
+  padding: 5px 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.3s;
+  min-width: 60px; /* Fixed width for consistency */
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
-.achievement-card span:first-child {
-  font-size: 24px;
+.achievement-card:hover {
+  background-color: #e0e0e0;
 }
+
+/* Carousel Navigation Buttons */
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(255,255,255,0.8);
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 10;
+}
+
+.carousel-nav.left {
+  left: 0;
+}
+
+.carousel-nav.right {
+  right: 0;
+}
+
 
 
 /* Container */
@@ -78,6 +104,24 @@ body {
   margin: 20px 0;
   cursor: pointer;
 }
+.progress-bar-wrapper {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  background-color: #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-gain {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: rgba(255, 215, 0, 0.7); /* Gold color for weekly gains */
+  width: 0%;
+  transition: width 0.5s ease-in-out;
+}
 
 .progress-bar {
   height: 100%;
@@ -103,22 +147,24 @@ body {
 }
 
 .tooltip {
-  display: none;
   position: absolute;
-  top: 40px;
+  bottom: 110%; /* Position above the card */
   left: 50%;
   transform: translateX(-50%);
-  background-color: #fff;
-  color: #333;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  width: 80%;
-  text-align: left;
-  z-index: 10;
-  pointer-events: none; /* Prevent tooltip from blocking clicks */
-
+  background-color: #333;
+  color: #fff;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  display: none;
+  z-index: 1000;
 }
+
+.achievement-card:hover .tooltip {
+  display: block;
+}
+
 .rank-details {
   text-align: right;
   font-size: 16px;
@@ -208,6 +254,31 @@ body {
   font-size: 16px;
   margin-top: -10px;
 }
+
+
+/* Overview Section */
+.overview-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start; /* Align items to the top */
+  margin-bottom: 20px;
+  gap: 20px; /* Space between columns */
+}
+
+.overview-left {
+  flex: 1; /* Takes up available space */
+}
+
+.overview-right {
+  flex: 1; /* Takes up available space */
+}
+
+.coin-metrics {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap; /* Allows coins to wrap on smaller screens */
+}
+
 
 @media (max-width: 600px) {
   .rank-details {

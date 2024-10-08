@@ -170,9 +170,9 @@ function calculateCaloriesPerMinute(heartRate) {
   let caloriesPerMinute = 0;
 
   if (GENDER.toLowerCase() === 'male') {
-    caloriesPerMinute = (heartRate * 0.6309) + (BODY_WEIGHT_KG * 0.1988) + (AGE * 0.2017) - 55.0969;
+    caloriesPerMinute = (heartRate * BODY_WEIGHT_KG * 0.6309)/4.184;
   } else if (GENDER.toLowerCase() === 'female') {
-    caloriesPerMinute = (heartRate * 0.4472) - (BODY_WEIGHT_KG * 0.1263) + (AGE * 0.074) - 20.4022;
+    caloriesPerMinute = (heartRate * BODY_WEIGHT_KG * 0.6309)/4.184;
   } else {
     console.warn('Gender not specified correctly. Please set GENDER to "male" or "female".');
   }

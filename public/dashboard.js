@@ -44,18 +44,19 @@ for (let i = 2; i <= 100; i++) {
 const achievementConfig = {
   longestStreak: { name: 'Longest Streak', emoji: '🔥', value: 0 },
   distanceBadges: [
-    { name: '100 km Run', emoji: '🏃‍♂️', threshold: 100000, count: 0 },
-    { name: '200 km Run', emoji: '🏃‍♂️', threshold: 200000, count: 0 },
-    { name: '300 km Run', emoji: '🏃‍♂️', threshold: 300000, count: 0 },
+    { name: '100 km', emoji: '💯', threshold: 100000, count: 0 },
+    { name: '200 km', emoji: '🔱', threshold: 200000, count: 0 },
+    { name: '300 km', emoji: '⚜️', threshold: 300000, count: 0 },
   ],
   durationBadges: [
-    { name: '3 Hours', emoji: '⏱️', threshold: 180, count: 0 },
+    { name: '3 Hours', emoji: '⌛', threshold: 180, count: 0 },
     { name: '6 Hours', emoji: '⏱️', threshold: 360, count: 0 },
-    { name: '12 Hours', emoji: '⏱️', threshold: 720, count: 0 },
+    { name: '12 Hours', emoji: '🌇', threshold: 720, count: 0 },
   ],
   weeklyBadges: [
-    { name: '10 Hours Week', emoji: '📅', threshold: 10, count: 0 },
-    { name: '20 Hours Week', emoji: '📅', threshold: 20, count: 0 },
+    { name: '5 Hours Week', emoji: '💰', threshold: 5, count: 0 },
+    { name: '10 Hours Week', emoji: '🧈', threshold: 10, count: 0 },
+    { name: '20 Hours Week', emoji: '💎', threshold: 20, count: 0 },
   ],
   specialOccasions: [
     { name: 'New Year Run', emoji: '🎉', dates: ['01-01'], count: 0 },
@@ -65,7 +66,7 @@ const achievementConfig = {
   additionalAchievements: [
     {
       name: 'Marathon Master',
-      emoji: '🏅',
+      emoji: '4️⃣2️⃣',
       description: 'Completed a marathon (42.195 km)',
       count: 0,
       type: 'Run', // Specify the activity type
@@ -73,7 +74,7 @@ const achievementConfig = {
     },
     {
       name: 'Half Marathon Master',
-      emoji: '🎖️',
+      emoji: '️️⃣1️⃣',
       description: 'Completed a half marathon (21.0975 km)',
       count: 0,
       type: 'Run', // Specify the activity type
@@ -87,20 +88,20 @@ const achievementConfig = {
     },
     {
       name: 'Speedster',
-      emoji: '⚡',
+      emoji: '🏎️',
       description: 'Achieved an average speed over 30 km/h',
       count: 0
     },
     {
       name: 'Consistency Champion',
-      emoji: '📈',
+      emoji: '🔁',
       description: 'Logged activities every day for a month',
       count: 0
     },
     {
-      name: 'Calorie Burner',
+      name: 'Daily kcal Burner',
       emoji: '🔥',
-      description: 'Burned over 5000 kcal',
+      description: 'Burned over 1000 kcal',
       count: 0
     },
   ]
@@ -511,11 +512,11 @@ function calculateAchievements(activities) {
         });
         badge.description = 'Logged activities every day for a month';
         break;
-      case 'Calorie Burner':
-        // Burned over 5000 kcal based on updated estimation
+      case 'Daily kcal Burner':
+        // Burned over 2000 kcal based on updated estimation
         const totalCalories = activities.reduce((sum, act) => sum + (act.estimatedKcal || 0), 0);
-        badge.count = Math.floor(totalCalories / 5000);
-        badge.description = 'Burned over 5000 kcal';
+        badge.count = Math.floor(totalCalories / 2000);
+        badge.description = 'Burned over 2000 kcal';
         break;
       default:
         break;
@@ -624,7 +625,7 @@ function updateDashboardStats(totals) {
 
   // Display Athlete's Name
   const athleteNameElement = document.getElementById('athlete-name');
-  
+
   if (athleteNameElement && totals.athlete) { // Assuming 'athlete' data is part of totals
     athleteNameElement.textContent = `${totals.athlete.firstname} ${totals.athlete.lastname}`;
     document.querySelector('.athlete-info').style.display = 'block';

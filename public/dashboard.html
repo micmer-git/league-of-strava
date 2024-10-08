@@ -218,7 +218,7 @@
 
           <div class="achievements-section">
 
-          <div class="achievements-carousel" id="achievements-carousel" style="padding-top:40px">
+          <div class="achievements-carousel" id="achievements-carousel" style="padding-top:10px">
             <!-- Achievements will be appended here in a carousel format -->
           </div>
         </div>
@@ -230,6 +230,8 @@
         <div class="coin-metrics">
           <div class="coin" title="Everest">
             <span id="everest-coins">0</span> 🏔️
+            <div class="week-gain bold-green" id="elevation-week-gain"></div>
+
           </div>
           <div class="coin" title="PIZZA_COINS: Represents your total calories burned">
             <span id="pizza-coins">0</span> 🍕
@@ -274,7 +276,9 @@
       <button class="timeframe-btn" data-timeframe="last6months">Last 6 Months</button>
       <button class="timeframe-btn" data-timeframe="lastyear">Last Year</button>
     </div>
-
+    
+    <!-- Load More Button -->
+    <button id="load-more-button" style="display: none;">Load More</button>
 
     <!-- Modify YTD Stats Section -->
     <div class="weekly-stats" style="display: none;">
@@ -321,8 +325,7 @@
       </div>
     </div>
 
-    <!-- Load More Button -->
-    <button id="load-more-button" style="display: none;">Load More</button>
+
 
     <!-- Activities Container -->
     <div id="activities-container">

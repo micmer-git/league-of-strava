@@ -211,7 +211,6 @@ function createAchievementCard(badge) {
 // Display Achievements Function
 
 function displayAchievements(achievements) {
-  // Define achievementsCarousel by selecting the element with the correct ID
   const achievementsCarousel = document.getElementById('achievements-carousel');
 
   if (!achievementsCarousel) {
@@ -238,10 +237,21 @@ function displayAchievements(achievements) {
   // Iterate through all achievement categories
   for (const category in achievements) {
     if (achievements.hasOwnProperty(category)) {
-      achievements[category].forEach(badge => {
-        const badgeCard = createAchievementCard(badge);
+      const categoryData = achievements[category];
+
+      if (Array.isArray(categoryData)) {
+        // If the category is an array, iterate through each badge
+        categoryData.forEach(badge => {
+          const badgeCard = createAchievementCard(badge);
+          achievementsCarousel.appendChild(badgeCard);
+        });
+      } else if (typeof categoryData === 'object' && categoryData !== null) {
+        // If the category is a single object, create one badge card
+        const badgeCard = createAchievementCard(categoryData);
         achievementsCarousel.appendChild(badgeCard);
-      });
+      } else {
+        console.warn(`Unexpected data type for category "${category}". Expected array or object, received ${typeof categoryData}.`);
+      }
     }
   }
 
@@ -251,6 +261,7 @@ function displayAchievements(achievements) {
   // Show Achievements Section
   document.querySelector('.achievements-section').style.display = 'block';
 }
+
 
 // Calculate Achievements Function
 function calculateAchievements(activities) {

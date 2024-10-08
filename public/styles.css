@@ -27,11 +27,11 @@
 
 .achievement-count {
   font-weight: bold;
-  margin-right: 8px;
+  margin-right: 4px;
 }
 
 .achievement-emoji {
-  margin-right: 5px;
+  margin-right: 0px;
 }
 
 /* Rank and Coins */
@@ -258,23 +258,39 @@ body {
 /* Achievements Carousel */
 .achievements-carousel {
   display: flex;
-  overflow-x: auto;
+  flex-wrap: wrap; /* Allow items to wrap */
+  gap: 5px;        /* Adjust gap as needed */
+  padding: 10px 0; /* Optional: Adjust padding */
+  /* overflow-x: auto; */ /* Removed to prevent horizontal scrolling */
   scroll-behavior: smooth;
-  gap: 10px;
-  padding: 10px 0;
 }
 
+/* Achievement Card */
 .achievement-card {
-  background-color: #f0f0f0;
-  border-radius: 8px;
-  padding: 5px 10px;
-  display: flex;
+  /* Removed box styling */
+  /* background-color: #f0f0f0; */
+  /* border-radius: 8px; */
+  /* padding: 5px 10px; */
+  /* min-width: 60px; */
+  /* flex-shrink: 0; */
+
+  /* Added compact styling */
+  margin: 2px;
+  padding: 2px 4px;
+  display: inline-flex;
   align-items: center;
-  cursor: pointer;
-  position: relative;
-  transition: background-color 0.3s;
-  min-width: 60px; /* Fixed width for consistency */
-  flex-shrink: 0; /* Prevent shrinking */
+  cursor: default;
+  font-size: 14px;
+}
+
+/* Achievement Count and Emoji */
+.achievement-count {
+  font-weight: bold;
+  margin-right: 4px;
+}
+
+.achievement-emoji {
+  margin-right: 0;
 }
 
 .achievement-card:hover {
@@ -294,6 +310,7 @@ body {
   cursor: pointer;
   font-size: 18px;
   z-index: 10;
+  display: none
 }
 
 .carousel-nav.left {

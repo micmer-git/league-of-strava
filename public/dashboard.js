@@ -211,13 +211,29 @@ function createAchievementCard(badge) {
 // Display Achievements Function
 
 function displayAchievements(achievements) {
+  // Define achievementsCarousel by selecting the element with the correct ID
+  const achievementsCarousel = document.getElementById('achievements-carousel');
+
   if (!achievementsCarousel) {
-    console.error('Achievements carousel element is missing.');
+    console.error('Achievements carousel element is missing. Please ensure that the HTML contains a div with id="achievements-carousel".');
     return;
   }
 
   // Clear existing badges
   achievementsCarousel.innerHTML = '';
+
+  // Function to create achievement cards with NUMBER x EMOJI format
+  function createAchievementCard(badge) {
+    const badgeCard = document.createElement('div');
+    badgeCard.classList.add('achievement-card');
+    badgeCard.innerHTML = `
+      <span class="achievement-count">${badge.count}x</span>
+      <span class="achievement-emoji">${badge.emoji}</span>
+      <div class="tooltip">${badge.description || badge.name}</div>
+    `;
+    badgeCard.title = badge.description || badge.name; // Fallback for tooltip
+    return badgeCard;
+  }
 
   // Iterate through all achievement categories
   for (const category in achievements) {
@@ -648,45 +664,29 @@ document.getElementById('load-more-button').addEventListener('click', () => {
 
 // Display Tooltips Function
 function addTooltipListeners() {
-  // Tooltip for Rank Section
-  const rankContainer = document.getElementById('progress-container');
-  const rankTooltip = document.getElementById('rank-tooltip');
+  const achievementCards = document.querySelectorAll('.achievement-card');
 
-  if (rankContainer && rankTooltip) {
-    rankContainer.addEventListener('mouseenter', () => {
-      rankTooltip.style.display = 'block';
+  achievementCards.forEach(card => {
+    card.addEventListener('mouseenter', () => {
+      const tooltip = card.querySelector('.tooltip');
+      if (tooltip) {
+        tooltip.style.display = 'block';
+      }
     });
 
-    rankContainer.addEventListener('mouseleave', () => {
-      rankTooltip.style.display = 'none';
-    });
-  } else {
-    console.error('Rank container or tooltip element is missing.');
-  }
-
-  // Tooltip for Achievements
-  const achievementIcons = document.querySelectorAll('.achievement-card');
-  achievementIcons.forEach(icon => {
-    icon.addEventListener('mouseenter', () => {
-      const title = icon.getAttribute('title');
-      showTooltip(icon, title);
+    card.addEventListener('mouseleave', () => {
+      const tooltip = card.querySelector('.tooltip');
+      if (tooltip) {
+        tooltip.style.display = 'none';
+      }
     });
 
-    icon.addEventListener('mouseleave', () => {
-      hideTooltip();
-    });
-  });
-
-  // Tooltip for Coins
-  const coinMetrics = document.querySelectorAll('.coin-metrics p');
-  coinMetrics.forEach(coin => {
-    coin.addEventListener('mouseenter', () => {
-      const title = coin.getAttribute('title');
-      showTooltip(coin, title);
-    });
-
-    coin.addEventListener('mouseleave', () => {
-      hideTooltip();
+    // Optional: Click to toggle tooltip
+    card.addEventListener('click', () => {
+      const tooltip = card.querySelector('.tooltip');
+      if (tooltip) {
+        tooltip.style.display = tooltip.style.display === 'block' ? 'none' : 'block';
+      }
     });
   });
 }

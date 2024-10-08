@@ -62,49 +62,53 @@ const achievementConfig = {
     // Add more special occasions as needed
   ],
   additionalAchievements: [
-      {
-        name: 'Marathon Master',
-        emoji: '🏅',
-        description: 'Completed a marathon (42.195 km)',
-        count: 0,
-        type: 'Run', // Specify the activity type
-        distance: 42195 // Marathon distance in meters
-      },
-      {
-        name: 'Half Marathon Master',
-        emoji: '🎖️',
-        description: 'Completed a half marathon (21.0975 km)',
-        count: 0,
-        type: 'Run', // Specify the activity type
-        distance: 21097.5 // Half marathon distance in meters
-      },
-      {
-        name: 'Climbing King',
-        emoji: '🧗‍♂️',
-        description: 'Total elevation gain over 1000m',
-        count: 0
-      },
-      {
-        name: 'Speedster',
-        emoji: '⚡',
-        description: 'Achieved an average speed over 30 km/h',
-        count: 0
-      },
-      {
-        name: 'Consistency Champion',
-        emoji: '📈',
-        description: 'Logged activities every day for a month',
-        count: 0
-      },
-      {
-        name: 'Calorie Burner',
-        emoji: '🔥',
-        description: 'Burned over 5000 kcal',
-        count: 0
-      },
-    ]
+    {
+      name: 'Marathon Master',
+      emoji: '🏅',
+      description: 'Completed a marathon (42.195 km)',
+      count: 0,
+      type: 'Run', // Specify the activity type
+      distance: 42195 // Marathon distance in meters
+    },
+    {
+      name: 'Half Marathon Master',
+      emoji: '🎖️',
+      description: 'Completed a half marathon (21.0975 km)',
+      count: 0,
+      type: 'Run', // Specify the activity type
+      distance: 21097.5 // Half marathon distance in meters
+    },
+    {
+      name: 'Climbing King',
+      emoji: '🧗‍♂️',
+      description: 'Total elevation gain over 1000m',
+      count: 0
+    },
+    {
+      name: 'Speedster',
+      emoji: '⚡',
+      description: 'Achieved an average speed over 30 km/h',
+      count: 0
+    },
+    {
+      name: 'Consistency Champion',
+      emoji: '📈',
+      description: 'Logged activities every day for a month',
+      count: 0
+    },
+    {
+      name: 'Calorie Burner',
+      emoji: '🔥',
+      description: 'Burned over 5000 kcal',
+      count: 0
+    },
+  ]
 };
 
+// Constants (Changed from const to let)
+let BODY_WEIGHT_KG = 80; // in kilograms
+let AGE = 30; // in years
+let GENDER = 'male'; // 'male' or 'female'
 
 // Fetch Strava Data Function
 async function fetchStravaData(page = 1, per_page = 200) {
@@ -145,8 +149,8 @@ async function fetchStravaData(page = 1, per_page = 200) {
     // Hide "Loading..." indicator after first load
     if (page === 1) {
       document.getElementById('loading').style.display = 'none'; // Hide loading indicator
-      // Show dashboard sections
-      document.querySelectorAll('.rank-section, .lifetime-stats, .weekly-stats, .achievements-section').forEach(section => {
+      // Show dashboard sections, including overview-section
+      document.querySelectorAll('.overview-section, .rank-section, .lifetime-stats, .weekly-stats, .achievements-section').forEach(section => {
         section.style.display = 'block';
       });
     }
@@ -155,11 +159,6 @@ async function fetchStravaData(page = 1, per_page = 200) {
     document.getElementById('dashboard-container').innerHTML = '<p>Error loading data.</p>';
   }
 }
-
-// Constants
-let BODY_WEIGHT_KG = 80; // in kilograms
-let AGE = 30; // in years
-let GENDER = 'male'; // 'male' or 'female'
 
 // Function to calculate calories burned per minute using ACSM formula
 function calculateCaloriesPerMinute(heartRate) {
@@ -181,11 +180,15 @@ function calculateCaloriesPerMinute(heartRate) {
   return caloriesPerMinute > 0 ? caloriesPerMinute : 0;
 }
 
-
 // Display Activities Function with Enhanced Kcal Parsing and Marathon Badge Check
 function displayActivities(activities, isInitialLoad = false) {
   const activitiesContainer = document.getElementById('activities-container');
   activities.forEach(activity => {
+    // Ensure 'type' is present; if not, set a default or infer it
+    if (!activity.type) {
+      activity.type = 'Run'; // Default or infer based on other data
+    }
+
     // Compute heartbeats
     const minutes = activity.moving_time / 60;
     let totalHeartbeats = 0;
@@ -193,15 +196,16 @@ function displayActivities(activities, isInitialLoad = false) {
       totalHeartbeats = Math.round(activity.average_heartrate * minutes);
     }
 
-    // Estimate kcal if missing
     // Calculate calories using ACSM formula
-    const caloriesPerMinute = calculateCaloriesPerMinute(activity.average_heartrate);
-    let estimatedKcal = caloriesPerMinute * (activity.moving_time / 60);
+    let estimatedKcal = calculateCaloriesPerMinute(activity.average_heartrate) * (activity.moving_time / 60); // Total calories for the activity
 
     // Use existing kcal if heartbeats are missing
     if (!activity.kilojoules && totalHeartbeats === 0) {
       estimatedKcal = 0;
     }
+
+    // Attach estimatedKcal to activity object for later use in achievements
+    activity.estimatedKcal = estimatedKcal;
 
     // Create activity link (assuming a URL structure)
     const activityLink = `https://www.strava.com/activities/${activity.id}`;
@@ -212,7 +216,7 @@ function displayActivities(activities, isInitialLoad = false) {
     // Calculate coins for the activity
     const everestCoins = (activity.total_elevation_gain / 8848).toFixed(2); // 1/100 of Everest height
     const pizzaCoins = (estimatedKcal / 1000).toFixed(2); // 1/100 of pizza
-    const heartbeatCoins = totalHeartbeats > 0 ? (totalHeartbeats / 150).toFixed(2) : '0.00'; // 1/100 of heartbeats
+    const heartbeatCoins = (totalHeartbeats / 150).toFixed(2); // 1/100 of heartbeats
 
     activityElement.innerHTML = `
       <div class="activity-main">
@@ -220,9 +224,11 @@ function displayActivities(activities, isInitialLoad = false) {
         <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
         <p>Distance: ${(activity.distance / 1000).toFixed(1)} km</p>
         <p>Duration: ${Math.floor(activity.moving_time / 3600)}h ${Math.floor((activity.moving_time % 3600) / 60)}m</p>
-        <p>Elevation Gain: ${activity.total_elevation_gain} m</p>
-        <p>Calories: ${estimatedKcal.toFixed(2)} kcal</p>
-        <p>Heartbeats: ${totalHeartbeats} </p>
+        <div class="activity-details">
+          <span>Elevation Gain: ${activity.total_elevation_gain} m</span>
+          <span>Calories: ${estimatedKcal.toFixed(2)} kcal</span>
+          <span>Heartbeats: ${totalHeartbeats} ❤️</span>
+        </div>
       </div>
       <div class="activity-coins">
         <span class="coin">+${everestCoins} 🏔️</span>
@@ -231,12 +237,13 @@ function displayActivities(activities, isInitialLoad = false) {
       </div>
     `;
 
-    // Check for Marathon Master Badge (Completed a marathon)
-    if (activity.distance >= 42195) { // Marathon distance in meters
-      // Trigger badge assignment or visual indication
-      // This can be handled in the calculateAchievements function
-      // For example, you might add a class or data attribute
-      activityElement.classList.add('marathon-activity');
+    // Check for Marathon and Half Marathon Master Badges (Completed a marathon or half marathon)
+    if (activity.type === 'Run') {
+      if (activity.distance >= 42195) { // Marathon distance in meters
+        activityElement.classList.add('marathon-activity');
+      } else if (activity.distance >= 21097.5) { // Half marathon distance in meters
+        activityElement.classList.add('half-marathon-activity');
+      }
     }
 
     if (isInitialLoad) {
@@ -246,7 +253,6 @@ function displayActivities(activities, isInitialLoad = false) {
     }
   });
 }
-
 
 function createAchievementCard(badge) {
   const badgeCard = document.createElement('div');
@@ -313,7 +319,6 @@ function displayAchievements(achievements) {
   // Show Achievements Section
   document.querySelector('.achievements-section').style.display = 'block';
 }
-
 
 // Calculate Achievements Function
 function calculateAchievements(activities) {
@@ -390,76 +395,73 @@ function calculateAchievements(activities) {
   });
 
   // Calculate Additional Achievements
-  // Calculate Additional Achievements
-achievementConfig.additionalAchievements.forEach(badge => {
-  switch (badge.name) {
-    case 'Marathon Master':
-    case 'Half Marathon Master':
-      // Ensure only Run activities are considered
-      const qualifyingActivities = activities.filter(act => {
-        return act.type === badge.type && act.distance >= badge.distance;
-      });
+  achievementConfig.additionalAchievements.forEach(badge => {
+    switch (badge.name) {
+      case 'Marathon Master':
+      case 'Half Marathon Master':
+        // Ensure only Run activities are considered
+        const qualifyingActivities = activities.filter(act => {
+          return act.type === badge.type && act.distance >= badge.distance;
+        });
 
-      // Count unique days with qualifying activities
-      const qualifyingDays = new Set(qualifyingActivities.map(act => new Date(act.start_date).toDateString()));
-      badge.count = qualifyingDays.size;
-      break;
-    case 'Climbing King':
-      // Total elevation gain over 5000m
-      const totalElevation = activities.reduce((sum, act) => sum + act.total_elevation_gain, 0);
-      badge.count = Math.floor(totalElevation / 1000);
-      badge.description = 'Total elevation gain over 1000m';
-      break;
-    case 'Speedster':
-      // Average speed over 20 km/h
-      const speedActivities = activities.filter(act => (act.distance / 1000) / (act.moving_time / 3600) > 20);
-      badge.count = speedActivities.length;
-      badge.description = 'Achieved an average speed over 30 km/h';
-      break;
-    case 'Consistency Champion':
-      // Logged activities every day for a month
-      const activityDates = new Set(activities.map(act => new Date(act.start_date).toDateString()));
-      const months = Array.from(new Set(activities.map(act => `${new Date(act.start_date).getFullYear()}-${new Date(act.start_date).getMonth() + 1}`)));
-      months.forEach(month => {
-        const [year, monthNum] = month.split('-').map(Number);
-        const daysInMonth = new Date(year, monthNum, 0).getDate();
-        let streak = 0;
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateStr = new Date(year, monthNum - 1, day).toDateString();
-          if (activityDates.has(dateStr)) {
-            streak += 1;
-            if (streak === daysInMonth) {
-              badge.count += 1;
+        // Count unique days with qualifying activities
+        const qualifyingDays = new Set(qualifyingActivities.map(act => new Date(act.start_date).toDateString()));
+        badge.count = qualifyingDays.size;
+        break;
+      case 'Climbing King':
+        // Total elevation gain over 1000m
+        const totalElevation = activities.reduce((sum, act) => sum + act.total_elevation_gain, 0);
+        badge.count = Math.floor(totalElevation / 1000);
+        badge.description = 'Total elevation gain over 1000m';
+        break;
+      case 'Speedster':
+        // Average speed over 30 km/h
+        const speedActivities = activities.filter(act => (act.distance / 1000) / (act.moving_time / 3600) > 30);
+        badge.count = speedActivities.length;
+        badge.description = 'Achieved an average speed over 30 km/h';
+        break;
+      case 'Consistency Champion':
+        // Logged activities every day for a month
+        const activityDates = new Set(activities.map(act => new Date(act.start_date).toDateString()));
+        const months = Array.from(new Set(activities.map(act => `${new Date(act.start_date).getFullYear()}-${new Date(act.start_date).getMonth() + 1}`)));
+        months.forEach(month => {
+          const [year, monthNum] = month.split('-').map(Number);
+          const daysInMonth = new Date(year, monthNum, 0).getDate();
+          let streak = 0;
+          for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = new Date(year, monthNum - 1, day).toDateString();
+            if (activityDates.has(dateStr)) {
+              streak += 1;
+              if (streak === daysInMonth) {
+                badge.count += 1;
+              }
+            } else {
+              streak = 0;
             }
-          } else {
-            streak = 0;
           }
-        }
-      });
-      badge.description = 'Logged activities every day for a month';
-      break;
-    case 'Daily Calories Burner':
-      // Burned over 5000 kcal based on updated estimation
-      const totalCalories = activities.reduce((sum, act) => sum + (act.estimatedKcal || 0), 0);
-      badge.count = Math.floor(totalCalories / 2000);
-      badge.description = 'Burned over 2000 kcal';
-      break;
-    default:
-      break;
-  }
-});
-
+        });
+        badge.description = 'Logged activities every day for a month';
+        break;
+      case 'Calorie Burner':
+        // Burned over 5000 kcal based on updated estimation
+        const totalCalories = activities.reduce((sum, act) => sum + (act.estimatedKcal || 0), 0);
+        badge.count = Math.floor(totalCalories / 5000);
+        badge.description = 'Burned over 5000 kcal';
+        break;
+      default:
+        break;
+    }
+  });
 
   console.log('Achievements Calculated:', achievementConfig);
   return achievementConfig;
 }
 
-
 // Helper function to get ISO week number
 function getWeekNumber(d) {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const yearStart = new Date(Date.UTC(d.getFullYear(), 0, 1));
   const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   return weekNo;
 }
@@ -484,7 +486,6 @@ function updateTotalsAndRanks() {
 }
 
 // Update Dashboard Stats Function
-// Update Dashboard Stats Function with Enhanced Validation
 function updateDashboardStats(totals) {
   // Update Lifetime Stats (Gems)
   const distanceValueElement = document.getElementById('distance-value');
@@ -500,8 +501,8 @@ function updateDashboardStats(totals) {
     distanceValueElement.textContent = `${(totals.distance / 1000).toFixed(0)} km`; // Rounded to 0 decimals
     distanceWeekGainElement.textContent = `+${(totals.distanceThisWeek / 1000).toFixed(0)} km this week`;
 
-    elevationValueElement.textContent = `${Math.round(totals.elevation / 8868)} Everest`; // Assuming elevation is already in meters
-    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 8868)} this week`;
+    elevationValueElement.textContent = `${Math.round(totals.elevation / 1000)} Everest`; // Assuming elevation is already in meters
+    elevationWeekGainElement.textContent = `+${Math.round(totals.elevationThisWeek / 1000)} this week`;
 
     caloriesValueElement.textContent = `${Math.round(totals.calories / 1000)} Pizza`; // Assuming calories are already in kcal
     caloriesWeekGainElement.textContent = `+${Math.round(totals.caloriesThisWeek / 1000)} this week`;
@@ -572,12 +573,9 @@ function updateDashboardStats(totals) {
   document.querySelector('.max-metrics').style.display = 'block';
 }
 
-
 // Update Rank Section Function
-
-
 function updateRankSection(rankInfo) {
-  // Update Rank Section
+  // Update Rank Section Elements
   const currentRankElement = document.getElementById('current-rank');
   const rankEmojiElement = document.getElementById('rank-emoji');
   const progressBarElement = document.getElementById('progress-bar');
@@ -594,12 +592,16 @@ function updateRankSection(rankInfo) {
 
   currentRankElement.textContent = rankInfo.currentRank.name;
   rankEmojiElement.textContent = rankInfo.currentRank.emoji;
-  progressBarElement.style.width = `${rankInfo.progressPercent.toFixed(1)}%`; // Overall progress
 
-  // Update progress gain
+  // Assign colors correctly
+  progressBarElement.style.backgroundColor = '#FFD700'; // Gold color for total progress
+  progressGainElement.style.backgroundColor = '#28a745'; // Green color for weekly gain
+
+  // Set widths
+  progressBarElement.style.width = `${rankInfo.progressPercent.toFixed(1)}%`; // Total progress
   progressGainElement.style.width = `${rankInfo.weeklyGainPercent.toFixed(1)}%`; // Weekly gain
-  progressGainElement.style.backgroundColor = '#FFD700'; // Gold color
 
+  // Update Labels
   currentRankLabelElement.textContent = rankInfo.currentRank.name;
   nextRankLabelElement.textContent = rankInfo.nextRank.name;
   currentPointsElement.textContent = Math.round(rankInfo.currentPoints);
@@ -619,8 +621,8 @@ function updateRankSection(rankInfo) {
     console.log('Rank tooltip populated');
   }
 }
+
 // Calculate Rank Function
-// Update calculateRank Function to include weekly gains
 function calculateRank(totalHours, weeklyGain = 0) {
   console.log(`Calculating rank for total hours: ${totalHours}, Weekly Gain: ${weeklyGain}`);
   let currentRank = rankConfig[0];
@@ -792,12 +794,11 @@ function showTooltip(element, text) {
     tooltip = document.createElement('div');
     tooltip.id = 'achievement-tooltip';
     tooltip.style.position = 'absolute';
-    tooltip.style.backgroundColor = '#fff';
-    tooltip.style.color = '#333';
-    tooltip.style.padding = '10px';
-    tooltip.style.borderRadius = '5px';
-    tooltip.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
-    tooltip.style.fontSize = '14px';
+    tooltip.style.backgroundColor = '#333';
+    tooltip.style.color = '#fff';
+    tooltip.style.padding = '8px 12px';
+    tooltip.style.borderRadius = '4px';
+    tooltip.style.fontSize = '12px';
     tooltip.style.zIndex = '1000';
     tooltip.style.display = 'none';
     document.body.appendChild(tooltip);

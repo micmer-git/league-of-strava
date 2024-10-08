@@ -220,11 +220,9 @@ function displayActivities(activities, isInitialLoad = false) {
         <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
         <p>Distance: ${(activity.distance / 1000).toFixed(1)} km</p>
         <p>Duration: ${Math.floor(activity.moving_time / 3600)}h ${Math.floor((activity.moving_time % 3600) / 60)}m</p>
-        <div class="activity-details">
-          <span>Elevation Gain: ${activity.total_elevation_gain} m</span>
-          <span>Calories: ${estimatedKcal.toFixed(2)} kcal</span>
-          <span>Heartbeats: ${totalHeartbeats} ❤️</span>
-        </div>
+        <p>Elevation Gain: ${activity.total_elevation_gain} m</p>
+        <p>Calories: ${estimatedKcal.toFixed(2)} kcal</p>
+        <p>Heartbeats: ${totalHeartbeats} </p>
       </div>
       <div class="activity-coins">
         <span class="coin">+${everestCoins} 🏔️</span>

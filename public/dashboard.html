@@ -2,197 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Your Dashboard</title>
+  <title>{{ user.username }}'s Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Link to your CSS file -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   <style>
-    /* Add necessary styles for the adjustments */
-
-    /* Achievements Grid */
-    .achievements-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-
-
-    .achievement-card:hover {
-      background-color: #e0e0e0;
-    }
-
-    .achievement-count {
-      font-weight: bold;
-      margin-right: 8px;
-    }
-
-    .achievement-emoji {
-      margin-right: 5px;
-    }
-
-    /* Rank and Coins */
-    .header-section {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .coin-metrics {
-      display: flex;
-      gap: 15px;
-    }
-
-    .coin {
-      position: relative;
-      cursor: pointer;
-    }
-
-    .coin::after {
-      content: attr(title);
-      position: absolute;
-      bottom: 125%;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: #333;
-      color: #fff;
-      padding: 5px 8px;
-      border-radius: 4px;
-      white-space: nowrap;
-      font-size: 12px;
-      display: none;
-      z-index: 1000;
-    }
-
-    .coin:hover::after {
-      display: block;
-    }
-
-    /* Statistics Buttons */
-    .timeframe-btn {
-      padding: 8px 12px;
-      margin-right: 5px;
-      border: none;
-      border-radius: 4px;
-      background-color: #ddd;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    .timeframe-btn.active,
-    .timeframe-btn:hover {
-      background-color: #bbb;
-    }
-
-    /* Top Activities */
-    .metrics-grid {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
-    .metric-card {
-      background-color: #f9f9f9;
-      border-radius: 8px;
-      padding: 15px;
-      flex: 1;
-      min-width: 200px;
-      position: relative;
-    }
-
-    .metric-card a {
-      color: #007bff;
-      text-decoration: none;
-    }
-
-    .metric-card a:hover {
-      text-decoration: underline;
-    }
-
-    /* Activities Container */
-    #activities-container {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      margin-top: 20px;
-    }
-
-    .activity-item {
-      background-color: #ffffff;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 15px;
-      position: relative;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .activity-details {
-      flex: 1;
-    }
-
-    .activity-coins {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      font-size: 12px;
-      display: flex;
-      gap: 5px;
-    }
-
-    .activity-coins span {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }
-
-    /* Tooltip Styling */
-    .tooltip {
-      position: absolute;
-      background-color: #333;
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      display: none;
-      z-index: 1000;
-    }
-
-    .achievement-card:hover .tooltip,
-    .coin:hover .tooltip,
-    .activity-item:hover .tooltip {
-      display: block;
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      .header-section {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .metrics-grid {
-        flex-direction: column;
-      }
-
-      .activity-item {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .activity-coins {
-        position: static;
-        margin-top: 10px;
-      }
-    }
+    /* Include your existing styles here */
+    /* ... (Your CSS from the original index.html) ... */
   </style>
 </head>
 <body>
@@ -201,82 +17,94 @@
     <div id="loading">Loading your dashboard...</div>
 
     <!-- Header Section: Athlete Info and Coins -->
-    <!-- Overview Section: Two Columns -->
     <div class="overview-section" style="display: none;">
       <div class="overview-left">
         <div class="athlete-info">
-          <h1 id="athlete-name">Michele Merelli</h1>
-
+          <h1 id="athlete-name">{{ user.username }}</h1>
           <div class="current-rank">
             <div class="rank-header">
               <div class="rank-title">
-                Current Rank: <span id="current-rank"></span> <span id="rank-emoji">🥉</span>
+                Current Rank: <span id="current-rank">{{ user.rank_name }}</span> <span id="rank-emoji">{{ user.rank_emoji }}</span>
               </div>
             </div>
             <span class="rank-header" id="current-rank"></span>
           </div>
-
           <div class="achievements-section">
-
-          <div class="achievements-carousel" id="achievements-carousel" style="padding-top:10px">
-            <!-- Achievements will be appended here in a carousel format -->
+            <div class="achievements-carousel" id="achievements-carousel" style="padding-top:10px">
+              <!-- Achievements will be appended here in a carousel format -->
+              {% for category, badges in achievements.items() %}
+                {% if badges is iterable %}
+                  {% for badge in badges %}
+                    <div class="achievement-card" title="{{ badge.description or badge.name }}">
+                      <span class="achievement-count">{{ badge.count }}</span>
+                      <span class="achievement-emoji">{{ badge.emoji }}</span>
+                      <div class="tooltip">{{ badge.description or badge.name }}</div>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="achievement-card" title="{{ badges.description or badges.name }}">
+                    <span class="achievement-count">{{ badges.count }}</span>
+                    <span class="achievement-emoji">{{ badges.emoji }}</span>
+                    <div class="tooltip">{{ badges.description or badges.name }}</div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
           </div>
-        </div>
-
-
         </div>
       </div>
       <div class="overview-right">
         <div class="coin-metrics">
           <div class="coin" title="Everest">
-            <span id="everest-coins">0</span> 🏔️
+            <span id="everest-coins">{{ user.coins.everest | round(2) }}</span> 🏔️
             <div class="week-gain bold-green" id="elevation-week-gain"></div>
-
           </div>
           <div class="coin" title="PIZZA_COINS: Represents your total calories burned">
-            <span id="pizza-coins">0</span> 🍕
+            <span id="pizza-coins">{{ user.coins.pizza | round(2) }}</span> 🍕
           </div>
           <div class="coin" title="HEARTBEAT_COINS: Represents your total heartbeats">
-            <span id="heartbeat-coins">0</span> ❤️
+            <span id="heartbeat-coins">{{ user.coins.heartbeat | round(0) }}</span> ❤️
           </div>
           <div class="coin" title="Distance: 100km per icon">
-            <span id="distance-value">0</span> 🚴
+            <span id="distance-value">{{ user.stats.distance | round(0) }}</span> 🚴
             <div class="week-gain bold-green" id="elevation-week-gain"></div>
-
           </div>
-
         </div>
       </div>
     </div>
 
+    <!-- Rank Section -->
     <div class="rank-section" style="display: none;">
+      <!-- Similar to your existing rank-section HTML -->
+      <!-- Populate with user.rank_info -->
       <div class="progress-container" id="progress-container">
         <div class="progress-labels">
-          <span id="current-rank-label"></span>
-          <span id="next-rank-label"></span>
+          <span id="current-rank-label">{{ user.rank_info.current_rank.name }}</span>
+          <span id="next-rank-label">{{ user.rank_info.next_rank.name }}</span>
         </div>
         <div class="progress-bar-wrapper">
-          <div class="progress-bar" id="progress-bar"></div>
-          <div class="progress-gain" id="progress-gain"></div>
+          <div class="progress-bar" id="progress-bar" style="width: {{ user.rank_info.progress_percent }}%;"></div>
+          <div class="progress-gain" id="progress-gain" style="width: {{ user.rank_info.weekly_gain_percent }}%;"></div>
         </div>
         <div class="tooltip" id="rank-tooltip">
           <h3>Rank Progression</h3>
-          <ul id="rank-list"></ul>
+          <ul id="rank-list">
+            {% for rank in rank_config %}
+              <li>{{ rank.name }} ({{ rank.minPoints }} hrs)</li>
+            {% endfor %}
+          </ul>
         </div>
       </div>
       <div class="rank-details">
-        <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
+        <span>Points: <strong id="current-points">{{ user.rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ user.rank_info.next_rank.minPoints }}</strong> hrs for next rank</span>
       </div>
     </div>
 
-
     <!-- Timeframe Switch -->
     <div class="timeframe-switch" style="display: none;">
-      <button class="timeframe-btn active" data-timeframe="weekly">Weekly</button>
-      <button class="timeframe-btn" data-timeframe="last6months">Last 6 Months</button>
-      <button class="timeframe-btn" data-timeframe="lastyear">Last Year</button>
+      <!-- Your existing timeframe buttons -->
     </div>
-    
+
     <!-- Load More Button -->
     <button id="load-more-button" style="display: none;">Load More</button>
 
@@ -291,15 +119,20 @@
       <div class="stats-grid">
         <div class="stat-card">
           <h4>Hours</h4>
-          <span id="weekly-hours">-- hrs</span>
+          <span id="weekly-hours">{{ user.stats.hours | round(1) }} hrs</span>
           <h4>Distance</h4>
-          <span id="weekly-distance">-- km</span>
+          <span id="weekly-distance">{{ user.stats.distance | round(1) }} km</span>
           <h4>Elevation Gain</h4>
-          <span id="weekly-elevation">-- m</span>
+          <span id="weekly-elevation">{{ user.stats.elevation | round(1) }} m</span>
           <h4>Calories Burned</h4>
-          <span id="weekly-calories">-- kcal</span>
+          <span id="weekly-calories">{{ user.stats.calories | round(1) }} kcal</span>
         </div>
-
+        <div class="stat-card" id="coins-gained-card">
+          <h3>Coins Gained</h3>
+          <p>Everest Coins: {{ user.coins.everest | round(1) }} 🏔️</p>
+          <p>Pizza Coins: {{ user.coins.pizza | round(1) }} 🍕</p>
+          <p>Heartbeat Coins: {{ user.coins.heartbeat | round(1) }} ❤️</p>
+        </div>
       </div>
     </div>
 
@@ -309,30 +142,46 @@
       <div class="metrics-grid">
         <div class="metric-card">
           <h3>Max Elevation Gain</h3>
-          <p id="max-elevation">-- m</p>
-          <p><a href="#" id="max-elevation-link" target="_blank">View Activity</a></p>
+          <p id="max-elevation">{{ user.max_metrics.max_elevation }} m</p>
+          <p><a href="{{ user.max_metrics.max_elevation_link }}" target="_blank">View Activity</a></p>
         </div>
         <div class="metric-card">
           <h3>Longest Duration</h3>
-          <p id="max-duration">-- h -- min</p>
-          <p><a href="#" id="max-duration-link" target="_blank">View Activity</a></p>
+          <p id="max-duration">{{ user.max_metrics.max_duration }} h</p>
+          <p><a href="{{ user.max_metrics.max_duration_link }}" target="_blank">View Activity</a></p>
         </div>
         <div class="metric-card">
           <h3>Greatest Distance</h3>
-          <p id="max-distance">-- km</p>
-          <p><a href="#" id="max-distance-link" target="_blank">View Activity</a></p>
+          <p id="max-distance">{{ user.max_metrics.max_distance }} km</p>
+          <p><a href="{{ user.max_metrics.max_distance_link }}" target="_blank">View Activity</a></p>
         </div>
       </div>
     </div>
 
-
-
     <!-- Activities Container -->
     <div id="activities-container">
       <!-- Activities will be appended here -->
+      {% for activity in user.activities %}
+        <div class="activity-item">
+          <div class="activity-main">
+            <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a></h3>
+            <p>Date: {{ activity.date }}</p>
+            <p>Distance: {{ activity.distance }} km</p>
+            <p>Duration: {{ activity.duration }} h {{ activity.duration_minutes }} m</p>
+            <p>Elevation Gain: {{ activity.elevation_gain }} m</p>
+            <p>Calories: {{ activity.calories }} kcal</p>
+            <p>Heartbeats: {{ activity.heartbeats }} ❤️</p>
+          </div>
+          <div class="activity-coins">
+            <span class="coin">+{{ activity.coins.everest }} 🏔️</span>
+            <span class="coin">+{{ activity.coins.pizza }} 🍕</span>
+            <span class="coin">+{{ activity.coins.heartbeat }} ❤️</span>
+          </div>
+        </div>
+      {% endfor %}
     </div>
   </div>
 
-  <script src="dashboard.js"></script>
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

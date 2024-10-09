@@ -407,15 +407,15 @@
       <div class="top-activities">
         <div class="top-activity-card">
           <h4>Max Elevation Gain</h4>
-          <p>{{ user.max_metrics.max_elevation | round(0) }} m</p>
+          <p>{{ user.max_metrics.max_elevation | int }} m</p>
         </div>
         <div class="top-activity-card">
           <h4>Longest Duration</h4>
-          <p>{{ user.max_metrics.max_duration | round(0) }} h</p>
+          <p>{{ user.max_metrics.max_duration | int }} h</p>
         </div>
         <div class="top-activity-card">
           <h4>Greatest Distance</h4>
-          <p>{{ user.max_metrics.max_distance | round(0) }} km</p>
+          <p>{{ user.max_metrics.max_distance | int }} km</p>
         </div>
       </div>
 
@@ -423,16 +423,16 @@
       <div class="overview-right">
         <div class="coin-metrics">
           <div class="coin" title="Everest Coins: Represents your total elevation gain">
-            <span id="everest-coins">+{{ user.coins.everest | round(2) }}</span> 🏔️
+            <span id="everest-coins">🏔️ {{ user.coins.everest | round(2) }}</span>
           </div>
           <div class="coin" title="Pizza Coins: Represents your total calories burned">
-            <span id="pizza-coins">+{{ user.coins.pizza | round(0) }}</span> 🍕
+            <span id="pizza-coins">🍕 {{ user.coins.pizza | int }}</span>
           </div>
           <div class="coin" title="Heartbeat Coins: Represents your total heartbeats">
-            <span id="heartbeat-coins">+{{ user.coins.heartbeat | round(0) }}</span> ❤️
+            <span id="heartbeat-coins">❤️ {{ user.coins.heartbeat | int  }}</span>
           </div>
           <div class="coin" title="Distance: 100km per icon">
-            <span id="distance-value">+{{ user.stats.distance | round(0) }}</span> 🚴
+            <span id="distance-value">🚴 {{ user.stats.distance | int  }}</span>
           </div>
         </div>
       </div>
@@ -504,18 +504,15 @@
         {% for activity in user.activities[:10] %}
           <div class="activity-item">
             <div class="activity-main">
-              <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a></h3>
+              <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m </h3>
               <p>Date: {{ activity.date }}</p>
-              <p>Distance: {{ activity.distance | round(0) }} km</p>
-              <p>Duration: {{ activity.duration | round(0) }} h {{ activity.duration_minutes | round(0) }} m</p>
               <p>Elevation Gain: {{ activity.elevation_gain | round(0) }} m</p>
               <p>Calories: {{ activity.calories | round(0) }} kcal</p>
-              <p>Heartbeats: {{ activity.heartbeats | round(0) }} ❤️</p>
             </div>
             <div class="activity-coins">
               <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
-              <span class="coin">+{{ activity.coins.pizza | round(0) }} 🍕</span>
-              <span class="coin">+{{ activity.coins.heartbeat | round(0) }} ❤️</span>
+              <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
+              <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
             </div>
           </div>
         {% endfor %}

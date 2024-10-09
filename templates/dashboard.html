@@ -4,13 +4,18 @@
   <meta charset="UTF-8">
   <title>{{ user.username }}'s Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Link to Montserrat Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
   <!-- Link to your CSS file -->
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
   <style>
     /* Basic Styles */
     body {
         background-color: #f8f9fa;
-        font-family: Arial, sans-serif;
+        font-family: 'Montserrat', sans-serif;
         margin: 0;
         padding: 0;
     }
@@ -41,7 +46,12 @@
         border-radius: 8px;
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .overview-left {
+        flex: 2;
     }
 
     .athlete-info h1 {
@@ -54,6 +64,76 @@
         margin-top: 10px;
     }
 
+    /* Rank Progress Bar */
+    .rank-progress {
+        width: 100%;
+        background-color: #e9ecef;
+        border-radius: 20px;
+        height: 20px;
+        margin-top: 10px;
+        position: relative;
+    }
+
+    .progress-bar {
+        background-color: #28a745;
+        height: 100%;
+        border-radius: 20px 0 0 20px;
+        width: {{ rank_info.progress_percent }}%;
+    }
+
+    .progress-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 5px;
+        font-size: 0.9em;
+    }
+
+    /* Top Activities Section */
+    .top-activities {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .top-activity-card {
+        background-color: #f1f1f1;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 0.9em;
+    }
+
+    /* Coins Section */
+    .overview-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    .coin-metrics {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .coin {
+        font-size: 1.2em;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .coin span {
+        margin-left: 5px;
+        color: green;
+        font-weight: bold;
+    }
+
     /* Achievements Section */
     .achievements-section {
         margin-top: 20px;
@@ -63,7 +143,16 @@
         margin-bottom: 10px;
     }
 
-    .achievements-grid {
+    .achievements-category {
+        margin-bottom: 15px;
+    }
+
+    .achievements-category h3 {
+        margin-bottom: 5px;
+        font-size: 1.1em;
+    }
+
+    .achievements-list {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
@@ -79,6 +168,7 @@
         cursor: pointer;
         background-color: #f1f1f1;
         transition: transform 0.2s;
+        font-size: 0.9em;
     }
 
     .achievement-card:hover {
@@ -86,12 +176,13 @@
     }
 
     .achievement-count {
-        font-size: 1.5em;
+        font-size: 1.3em;
         font-weight: bold;
+        color: green;
     }
 
     .achievement-emoji {
-        font-size: 2em;
+        font-size: 1.5em;
     }
 
     .tooltip {
@@ -113,58 +204,12 @@
         display: block;
     }
 
-    /* Coin Metrics */
-    .coin-metrics {
-        display: flex;
-        gap: 20px;
-        align-items: center;
-    }
-
-    .coin {
-        font-size: 1.2em;
-        cursor: pointer;
-        position: relative;
-    }
-
     /* Rank Section */
     .rank-section {
         background-color: #fff;
         padding: 20px;
         margin-bottom: 20px;
         border-radius: 8px;
-    }
-
-    .progress-container {
-        margin-bottom: 10px;
-    }
-
-    .progress-labels {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 5px;
-    }
-
-    .progress-bar-wrapper {
-        position: relative;
-        background-color: #e9ecef;
-        border-radius: 20px;
-        height: 20px;
-        width: 100%;
-    }
-
-    .progress-bar {
-        background-color: #28a745;
-        height: 100%;
-        border-radius: 20px 0 0 20px;
-    }
-
-    .progress-gain {
-        background-color: #17a2b8;
-        height: 100%;
-        position: absolute;
-        top: 0;
-        left: 0;
-        border-radius: 20px 0 0 20px;
     }
 
     .rank-details {
@@ -259,13 +304,22 @@
 
     .activity-main p {
         margin: 2px 0;
-        font-size: 0.95em;
+        font-size: 0.9em;
+    }
+
+    .activity-coins {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
     }
 
     .activity-coins .coin {
-        display: block;
-        margin: 5px 0;
-        font-size: 1.2em;
+        display: flex;
+        align-items: center;
+        color: green;
+        font-weight: bold;
+        font-size: 0.9em;
     }
 
     /* Load More Button */
@@ -287,20 +341,33 @@
     }
 
     /* Responsive Design */
-    @media (max-width: 768px) {
+    @media (max-width: 992px) {
         .overview-section {
             flex-direction: column;
             align-items: flex-start;
         }
 
-        .coin-metrics {
-            flex-direction: column;
-            align-items: flex-start;
+        .top-activities {
+            grid-template-columns: repeat(2, 1fr);
         }
 
-        .stats-grid, .metrics-grid, .achievements-grid {
+        .coin-metrics {
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .top-activities {
+            grid-template-columns: 1fr;
+        }
+
+        .achievements-list {
             flex-direction: column;
             align-items: stretch;
+        }
+
+        .coin-metrics {
+            align-items: flex-start;
         }
     }
   </style>
@@ -310,72 +377,81 @@
     <!-- Loading Indicator -->
     <div id="loading">Loading your dashboard...</div>
 
-    <!-- Overview Section: Athlete Info and Coins -->
+    <!-- Overview Section: Athlete Info, Rank, Top Activities, and Coins -->
     <div class="overview-section hidden">
       <div class="overview-left">
         <div class="athlete-info">
           <h1 id="athlete-name">{{ user.username }}</h1>
           <div class="current-rank">
-            <div class="rank-header">
-              <div class="rank-title">
-                Current Rank: <span id="current-rank">{{ user.rank_name }}</span> <span id="rank-emoji">{{ user.rank_emoji }}</span>
-              </div>
-            </div>
+            Current Rank: <span id="current-rank">{{ user.rank_name }}</span> <span id="rank-emoji">{{ user.rank_emoji }}</span>
           </div>
-          <!-- Achievements Section -->
-          <div class="achievements-section">
-            <h2>Achievements</h2>
-            <div class="achievements-grid">
-              {% for category, badges in user.achievements.items() %}
-                {% if badges is iterable and badges is not string %}
-                  {% for badge in badges %}
-                    <div class="achievement-card" title="{{ badge.description or badge.name }}">
-                      <span class="achievement-count">{{ badge.count }}</span>
-                      <span class="achievement-emoji">{{ badge.emoji }}</span>
-                      <div class="tooltip">{{ badge.description or badge.name }}</div>
-                    </div>
-                  {% endfor %}
-                {% else %}
-                  <div class="achievement-card" title="{{ badges.description or badges.name }}">
-                    <span class="achievement-count">{{ badges.count }}</span>
-                    <span class="achievement-emoji">{{ badges.emoji }}</span>
-                    <div class="tooltip">{{ badges.description or badges.name }}</div>
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
+          <!-- Rank Progress Bar -->
+          <div class="rank-progress">
+            <div class="progress-bar"></div>
+          </div>
+          <div class="progress-labels">
+            <span id="current-rank-label">{{ rank_info.current_rank.name }}</span>
+            <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
           </div>
         </div>
       </div>
+
+      <!-- Top Activities Section -->
+      <div class="top-activities">
+        <div class="top-activity-card">
+          <h4>Max Elevation Gain</h4>
+          <p>{{ user.max_metrics.max_elevation }} m</p>
+        </div>
+        <div class="top-activity-card">
+          <h4>Longest Duration</h4>
+          <p>{{ user.max_metrics.max_duration }} h</p>
+        </div>
+        <div class="top-activity-card">
+          <h4>Greatest Distance</h4>
+          <p>{{ user.max_metrics.max_distance }} km</p>
+        </div>
+      </div>
+
+      <!-- Coins Section -->
       <div class="overview-right">
         <div class="coin-metrics">
           <div class="coin" title="Everest Coins: Represents your total elevation gain">
-            <span id="everest-coins">{{ user.coins.everest | round(2) }}</span> 🏔️
+            <span id="everest-coins">+{{ user.coins.everest | round(2) }}</span> 🏔️
           </div>
           <div class="coin" title="Pizza Coins: Represents your total calories burned">
-            <span id="pizza-coins">{{ user.coins.pizza | round(2) }}</span> 🍕
+            <span id="pizza-coins">+{{ user.coins.pizza | round(0) }}</span> 🍕
           </div>
           <div class="coin" title="Heartbeat Coins: Represents your total heartbeats">
-            <span id="heartbeat-coins">{{ user.coins.heartbeat | round(0) }}</span> ❤️
+            <span id="heartbeat-coins">+{{ user.coins.heartbeat | round(0) }}</span> ❤️
           </div>
           <div class="coin" title="Distance: 100km per icon">
-            <span id="distance-value">{{ user.stats.distance | round(0) }}</span> 🚴
+            <span id="distance-value">+{{ user.stats.distance | round(0) }}</span> 🚴
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Achievements Section -->
+    <div class="achievements-section hidden">
+      <h2>Achievements</h2>
+      {% for category, badges in user.achievements.items() %}
+        <div class="achievements-category">
+          <h3>{{ category }}</h3>
+          <div class="achievements-list">
+            {% for badge in badges %}
+              <div class="achievement-card" title="{{ badge.description or badge.name }}">
+                <span class="achievement-count">+{{ badge.count }}</span>
+                <span class="achievement-emoji">{{ badge.emoji }}</span>
+                <div class="tooltip">{{ badge.description or badge.name }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
     <!-- Rank Section -->
     <div class="rank-section hidden">
-      <div class="progress-container" id="progress-container">
-        <div class="progress-labels">
-          <span id="current-rank-label">{{ rank_info.current_rank.name }}</span>
-          <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
-        </div>
-        <div class="progress-bar-wrapper">
-          <div class="progress-bar" id="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
-        </div>
-      </div>
       <div class="rank-details">
         <span>Points: <strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs for next rank</span>
       </div>
@@ -392,30 +468,30 @@
       <div class="stats-grid">
         <div class="stat-card">
           <h4>Hours</h4>
-          <span id="weekly-hours">{{ user.stats.hours | round(1) }} hrs</span>
+          <span id="weekly-hours">{{ user.stats.hours | round(0) }} hrs</span>
         </div>
         <div class="stat-card">
           <h4>Distance</h4>
-          <span id="weekly-distance">{{ user.stats.distance | round(1) }} km</span>
+          <span id="weekly-distance">{{ user.stats.distance | round(0) }} km</span>
         </div>
         <div class="stat-card">
           <h4>Elevation Gain</h4>
-          <span id="weekly-elevation">{{ user.stats.elevation | round(1) }} m</span>
+          <span id="weekly-elevation">{{ user.stats.elevation | round(0) }} m</span>
         </div>
         <div class="stat-card">
           <h4>Calories Burned</h4>
-          <span id="weekly-calories">{{ user.stats.calories | round(1) }} kcal</span>
+          <span id="weekly-calories">{{ user.stats.calories | round(0) }} kcal</span>
         </div>
         <div class="stat-card" id="coins-gained-card">
           <h3>Coins Gained</h3>
-          <p>Everest Coins: {{ user.coins.everest | round(1) }} 🏔️</p>
-          <p>Pizza Coins: {{ user.coins.pizza | round(1) }} 🍕</p>
-          <p>Heartbeat Coins: {{ user.coins.heartbeat | round(1) }} ❤️</p>
+          <p>Everest Coins: +{{ user.coins.everest | round(2) }} 🏔️</p>
+          <p>Pizza Coins: +{{ user.coins.pizza | round(0) }} 🍕</p>
+          <p>Heartbeat Coins: +{{ user.coins.heartbeat | round(0) }} ❤️</p>
         </div>
       </div>
     </div>
 
-    <!-- Top Activities Section -->
+    <!-- Top Metrics Section (Retained for additional details if needed) -->
     <div class="max-metrics hidden">
       <h2>Top Activities</h2>
       <div class="metrics-grid">
@@ -446,16 +522,16 @@
             <div class="activity-main">
               <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a></h3>
               <p>Date: {{ activity.date }}</p>
-              <p>Distance: {{ activity.distance }} km</p>
-              <p>Duration: {{ activity.duration }} h {{ activity.duration_minutes }} m</p>
-              <p>Elevation Gain: {{ activity.elevation_gain }} m</p>
-              <p>Calories: {{ activity.calories }} kcal</p>
-              <p>Heartbeats: {{ activity.heartbeats }} ❤️</p>
+              <p>Distance: {{ activity.distance | round(0) }} km</p>
+              <p>Duration: {{ activity.duration | round(0) }} h {{ activity.duration_minutes | round(0) }} m</p>
+              <p>Elevation Gain: {{ activity.elevation_gain | round(0) }} m</p>
+              <p>Calories: {{ activity.calories | round(0) }} kcal</p>
+              <p>Heartbeats: {{ activity.heartbeats | round(0) }} ❤️</p>
             </div>
             <div class="activity-coins">
-              <span class="coin">+{{ activity.coins.everest }} 🏔️</span>
-              <span class="coin">+{{ activity.coins.pizza }} 🍕</span>
-              <span class="coin">+{{ activity.coins.heartbeat }} ❤️</span>
+              <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
+              <span class="coin">+{{ activity.coins.pizza | round(0) }} 🍕</span>
+              <span class="coin">+{{ activity.coins.heartbeat | round(0) }} ❤️</span>
             </div>
           </div>
         {% endfor %}
@@ -470,7 +546,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       // Hide loading indicator and show content
       document.getElementById('loading').style.display = 'none';
-      const sections = document.querySelectorAll('.overview-section, .rank-section, .weekly-stats, .max-metrics, #activities-container');
+      const sections = document.querySelectorAll('.overview-section, .rank-section, .weekly-stats, .max-metrics, #activities-container, .achievements-section');
       sections.forEach(section => {
         section.classList.remove('hidden');
       });
@@ -480,9 +556,9 @@
       if (loadMoreButton) {
         let currentCount = 10;
         const totalActivities = {{ user.activities|length }};
+        const additionalActivities = {{ user.activities|tojson }};
         loadMoreButton.addEventListener('click', function() {
           const activitiesList = document.getElementById('activities-list');
-          const additionalActivities = {{ user.activities|tojson }};
           const nextCount = currentCount + 10;
           for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
             const activity = additionalActivities[i];
@@ -492,16 +568,16 @@
               <div class="activity-main">
                 <h3><a href="${activity.link}" target="_blank">${activity.name}</a></h3>
                 <p>Date: ${activity.date}</p>
-                <p>Distance: ${activity.distance} km</p>
-                <p>Duration: ${activity.duration} h ${activity.duration_minutes} m</p>
-                <p>Elevation Gain: ${activity.elevation_gain} m</p>
-                <p>Calories: ${activity.calories} kcal</p>
-                <p>Heartbeats: ${activity.heartbeats} ❤️</p>
+                <p>Distance: ${Math.round(activity.distance)} km</p>
+                <p>Duration: ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</p>
+                <p>Elevation Gain: ${Math.round(activity.elevation_gain)} m</p>
+                <p>Calories: ${Math.round(activity.calories)} kcal</p>
+                <p>Heartbeats: ${Math.round(activity.heartbeats)} ❤️</p>
               </div>
               <div class="activity-coins">
-                <span class="coin">+${activity.coins.everest} 🏔️</span>
-                <span class="coin">+${activity.coins.pizza} 🍕</span>
-                <span class="coin">+${activity.coins.heartbeat} ❤️</span>
+                <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
+                <span class="coin">+${Math.round(activity.coins.pizza)} 🍕</span>
+                <span class="coin">+${Math.round(activity.coins.heartbeat)} ❤️</span>
               </div>
             `;
             activitiesList.appendChild(activityItem);

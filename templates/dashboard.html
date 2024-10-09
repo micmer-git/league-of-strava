@@ -159,10 +159,10 @@
     }
 
     .achievement-card {
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
+        border: 2px solid #dee2e6;
+        border-radius: 20px;
         padding: 10px;
-        width: 150px;
+        width: 100px;
         text-align: center;
         position: relative;
         cursor: pointer;
@@ -447,8 +447,9 @@
           <div class="achievements-list">
             {% for badge in badges %}
               <div class="achievement-card" title="{{ badge.description or badge.name }}">
-                <span class="achievement-count">+{{ badge.count }}</span>
-                <span class="achievement-emoji">{{ badge.emoji }}</span>
+                <p style="font-size:32px; margin:0px" class="achievement-emoji">{{ badge.emoji }}</p>
+                <p class="achievement-count" style="margin:0px">{{ badge.count }}</p>
+
                 <div class="tooltip">{{ badge.description or badge.name }}</div>
               </div>
             {% endfor %}

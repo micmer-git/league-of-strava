@@ -392,6 +392,13 @@
           <div class="progress-labels">
             <span id="current-rank-label">{{ rank_info.current_rank.name }}</span>
             <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
+            <!-- Rank Section -->
+
+          </div>
+          <div class="rank-section hidden">
+            <div class="rank-details">
+              <span>Points: <strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs for next rank</span>
+            </div>
           </div>
         </div>
       </div>
@@ -400,15 +407,15 @@
       <div class="top-activities">
         <div class="top-activity-card">
           <h4>Max Elevation Gain</h4>
-          <p>{{ user.max_metrics.max_elevation }} m</p>
+          <p>{{ user.max_metrics.max_elevation | round(0) }} m</p>
         </div>
         <div class="top-activity-card">
           <h4>Longest Duration</h4>
-          <p>{{ user.max_metrics.max_duration }} h</p>
+          <p>{{ user.max_metrics.max_duration | round(0) }} h</p>
         </div>
         <div class="top-activity-card">
           <h4>Greatest Distance</h4>
-          <p>{{ user.max_metrics.max_distance }} km</p>
+          <p>{{ user.max_metrics.max_distance | round(0) }} km</p>
         </div>
       </div>
 
@@ -450,14 +457,10 @@
       {% endfor %}
     </div>
 
-    <!-- Rank Section -->
-    <div class="rank-section hidden">
-      <div class="rank-details">
-        <span>Points: <strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs for next rank</span>
-      </div>
-    </div>
 
-    <!-- Statistics Section -->
+
+
+    <!-- Statistics Section
     <div class="weekly-stats hidden">
       <h2>Statistics</h2>
       <div class="timeframe-switch" id="timeframe-switch">
@@ -490,28 +493,9 @@
         </div>
       </div>
     </div>
+    -->
 
-    <!-- Top Metrics Section (Retained for additional details if needed) -->
-    <div class="max-metrics hidden">
-      <h2>Top Activities</h2>
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <h3>Max Elevation Gain</h3>
-          <p id="max-elevation">{{ user.max_metrics.max_elevation }} m</p>
-          <p><a href="{{ user.max_metrics.max_elevation_link }}" target="_blank">View Activity</a></p>
-        </div>
-        <div class="metric-card">
-          <h3>Longest Duration</h3>
-          <p id="max-duration">{{ user.max_metrics.max_duration }} h</p>
-          <p><a href="{{ user.max_metrics.max_duration_link }}" target="_blank">View Activity</a></p>
-        </div>
-        <div class="metric-card">
-          <h3>Greatest Distance</h3>
-          <p id="max-distance">{{ user.max_metrics.max_distance }} km</p>
-          <p><a href="{{ user.max_metrics.max_distance_link }}" target="_blank">View Activity</a></p>
-        </div>
-      </div>
-    </div>
+
 
     <!-- Activities Container -->
     <div id="activities-container" class="hidden">

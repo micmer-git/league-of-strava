@@ -370,9 +370,168 @@
             align-items: flex-start;
         }
     }
+    /* Header Styles */
+header {
+    background-color: #343a40;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+header .logo {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+header .logo img {
+    height: 40px;
+    width: auto;
+}
+
+header .hamburger {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+}
+
+header .hamburger div {
+    width: 25px;
+    height: 3px;
+    background-color: #fff;
+    margin: 4px 0;
+    transition: 0.4s;
+}
+
+/* Navigation Menu */
+nav {
+    display: flex;
+    gap: 20px;
+}
+
+nav a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive Navigation */
+@media (max-width: 768px) {
+    header .hamburger {
+        display: flex;
+    }
+
+    nav {
+        position: absolute;
+        top: 60px;
+        left: 0;
+        width: 100%;
+        background-color: #343a40;
+        flex-direction: column;
+        align-items: center;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-in-out;
+    }
+
+    nav.active {
+        max-height: 200px; /* Adjust as needed */
+    }
+
+    nav a {
+        padding: 10px 0;
+        width: 100%;
+        text-align: center;
+        border-top: 1px solid #495057;
+    }
+}
+
+.achievements-section h2 {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.achievements-category h3 {
+    margin-bottom: 15px;
+    font-size: 1.2em;
+    text-align: left;
+}
+
+.achievements-list, .medals-slider {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.achievements-list {
+    justify-content: center;
+}
+
+.medals-slider {
+    overflow-x: auto;
+    padding-bottom: 10px;
+}
+
+.medals-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.medal-card {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+    position: relative;
+}
+
+.medal-card:hover {
+    transform: scale(1.05);
+}
+
+.medal-emoji {
+    font-size: 1.5em;
+}
+
+.medal-count {
+    font-size: 1em;
+    font-weight: bold;
+    color: green;
+    margin-top: 5px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .achievements-list {
+        justify-content: space-around;
+    }
+}
   </style>
 </head>
 <body>
+  <header>
+<div class="logo" id="logo">
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+</div>
+<div class="hamburger" id="hamburger">
+  <div></div>
+  <div></div>
+  <div></div>
+</div>
+<nav id="nav-menu">
+  <a href="https://linktr.ee/micmer">About</a>
+  <a href="/leaderboard">Leaderboard</a>
+</nav>
+</header>
   <div id="dashboard-container">
     <!-- Loading Indicator -->
     <div id="loading">Loading your dashboard...</div>
@@ -439,24 +598,43 @@
     </div>
 
     <!-- Achievements Section -->
+    <!-- Achievements Section -->
     <div class="achievements-section hidden">
-      <h2>Achievements</h2>
-      {% for category, badges in user.achievements.items() %}
-        <div class="achievements-category">
-          <h3>{{ category }}</h3>
-          <div class="achievements-list">
-            {% for badge in badges %}
-              <div class="achievement-card" title="{{ badge.description or badge.name }}">
-                <p style="font-size:32px; margin:0px" class="achievement-emoji">{{ badge.emoji }}</p>
-                <p class="achievement-count" style="margin:0px">{{ badge.count }}</p>
+      <h2>Achievements & Medals</h2>
 
+      <!-- Achievements Category -->
+      {% if user.achievements.Achievements %}
+        <div class="achievements-category">
+          <h3>Achievements</h3>
+          <div class="achievements-list">
+            {% for badge in user.achievements.Achievements %}
+              <div class="achievement-card" title="{{ badge.description or badge.name }}">
+                <p class="achievement-emoji">{{ badge.emoji }}</p>
+                <p class="achievement-count">{{ badge.count }}</p>
                 <div class="tooltip">{{ badge.description or badge.name }}</div>
               </div>
             {% endfor %}
           </div>
         </div>
-      {% endfor %}
+      {% endif %}
+
+      <!-- Medals Category -->
+      {% if user.achievements.Medals %}
+        <div class="achievements-category">
+          <h3>Medals</h3>
+          <div class="medals-slider">
+            {% for badge in user.achievements.Medals %}
+              <div class="medal-card" title="{{ badge.description or badge.name }}">
+                <p class="medal-emoji">{{ badge.emoji }}</p>
+                <p class="medal-count">{{ badge.count }}</p>
+                <div class="tooltip">{{ badge.description or badge.name }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
     </div>
+
 
 
 
@@ -523,6 +701,21 @@
       {% endif %}
     </div>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const hamburger = document.getElementById('hamburger');
+      const navMenu = document.getElementById('nav-menu');
+      const logo = document.getElementById('logo');
+
+      const toggleMenu = () => {
+        navMenu.classList.toggle('active');
+      };
+
+      hamburger.addEventListener('click', toggleMenu);
+      logo.addEventListener('click', toggleMenu);
+    });
+  </script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {

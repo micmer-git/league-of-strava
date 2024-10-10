@@ -194,72 +194,12 @@ def calculate_rank(total_hours):
 def calculate_achievements(df):
     """Calculate user achievements based on activities."""
     achievements = {
-        'longestStreak': {'name': 'Longest Streak', 'emoji': '🔥', 'count': 0},
-        'distanceBadges': [
-            {'name': '100 km', 'emoji': '💯', 'threshold': 100, 'count': 0},
-            {'name': '200 km', 'emoji': '🔱', 'threshold': 200, 'count': 0},
-            {'name': '300 km', 'emoji': '⚜️', 'threshold': 300, 'count': 0},
-        ],
-        'durationBadges': [
-            {'name': '3 Hours', 'emoji': '⌛', 'threshold': 180, 'count': 0},  # minutes
-            {'name': '6 Hours', 'emoji': '⏱️', 'threshold': 360, 'count': 0},
-            {'name': '12 Hours', 'emoji': '🌇', 'threshold': 720, 'count': 0},
-        ],
-        'weeklyBadges': [
-            {'name': '5 Hours Week', 'emoji': '💰', 'threshold': 5, 'count': 0},  # hours
-            {'name': '10 Hours Week', 'emoji': '🧈', 'threshold': 10, 'count': 0},
-            {'name': '20 Hours Week', 'emoji': '💎', 'threshold': 20, 'count': 0},
-        ],
-        'specialOccasions': [
-            {'name': 'New Year Run', 'emoji': '🎉', 'dates': ['01-01'], 'count': 0},
-            {'name': 'Christmas Run', 'emoji': '🎄', 'dates': ['12-25'], 'count': 0},
-            # Add more special occasions as needed
-        ],
-        'additionalAchievements': [
-            {
-                'name': 'Marathon Master',
-                'emoji': '4️⃣2️⃣🏃',
-                'description': 'Completed a marathon (42.195 km)',
-                'count': 0,
-                'type': 'Run',
-                'distance': 42.195  # in km
-            },
-            {
-                'name': 'Half Marathon Master',
-                'emoji': '️2️⃣1️⃣🏃',
-                'description': 'Completed a half marathon (21.0975 km)',
-                'count': 0,
-                'type': 'Run',
-                'distance': 21.0975  # in km
-            },
-            {
-                'name': 'Climbing King',
-                'emoji': '🧗‍♂️',
-                'description': 'Total elevation gain over 1000m',
-                'count': 0
-            },
-            {
-                'name': 'Speedster',
-                'emoji': '🏎️',
-                'description': 'Achieved an average speed over 30 km/h',
-                'count': 0
-            },
-            {
-                'name': 'Consistency Champion',
-                'emoji': '🔁',
-                'description': 'Logged activities every day for a month',
-                'count': 0
-            },
-            {
-                'name': 'Daily kcal Burner',
-                'emoji': '🔥',
-                'description': 'Burned over 2000 kcal',
-                'count': 0
-            },
-        ]
+        'Achievements': [],
+        'Medals': []
     }
 
-    # Calculate Longest Streak
+    # ------------------ Achievements ------------------
+    # Longest Streak
     df_sorted = df.sort_values('Activity Date')
     df_sorted['Date'] = df_sorted['Activity Date'].dt.date
     unique_dates = sorted(df_sorted['Date'].dropna().unique())
@@ -272,48 +212,47 @@ def calculate_achievements(df):
                 max_streak = current_streak
         else:
             current_streak = 1
-    achievements['longestStreak']['count'] = max_streak
+    achievements['Achievements'].append({
+        'name': 'Longest Streak',
+        'emoji': '🔥',
+        'description': 'Longest consecutive days with activities',
+        'count': max_streak
+    })
 
-    # Calculate Distance Badges
-    for badge in achievements['distanceBadges']:
-        threshold_m = badge['threshold'] * 1000  # Convert km to meters
-        badge['count'] = int(df[df['Distance_m'] >= threshold_m].shape[0])
+    # Distance Badges
+    distance_thresholds = [100, 200, 300]  # in km
+    for threshold in distance_thresholds:
+        count = int(df[df['Distance_m'] >= threshold * 1000].shape[0])
+        achievements['Achievements'].append({
+            'name': f'{threshold} km',
+            'emoji': '💯' if threshold == 100 else ('🔱' if threshold == 200 else '⚜️'),
+            'description': f'Completed activities covering at least {threshold} km',
+            'count': count
+        })
 
-    # Calculate Duration Badges
-    for badge in achievements['durationBadges']:
-        badge['count'] = int(df[df['Moving Time']/60 >= badge['threshold']].shape[0])
+    # Duration Badges
+    duration_thresholds = [3, 6, 12]  # in hours
+    for threshold in duration_thresholds:
+        count = int(df[df['Moving Time']/60 >= threshold * 60].shape[0])
+        achievements['Achievements'].append({
+            'name': f'{threshold} Hours',
+            'emoji': '⌛' if threshold == 3 else ('⏱️' if threshold == 6 else '🌇'),
+            'description': f'Activities with duration of at least {threshold} hours',
+            'count': count
+        })
 
-    # Calculate Weekly Badges
+    # Weekly Badges
     df_sorted['Week Start'] = df_sorted['Activity Date'].apply(lambda x: (x - timedelta(days=x.weekday())).date())
     weekly_hours = df_sorted.groupby('Week Start')['Moving Time'].sum() / 3600  # Convert to hours
-    for badge in achievements['weeklyBadges']:
-        badge['count'] = int(weekly_hours[weekly_hours >= badge['threshold']].count())
-
-    # Calculate Special Occasion Badges
-    df_sorted['Month-Day'] = df_sorted['Activity Date'].dt.strftime('%m-%d')
-    for badge in achievements['specialOccasions']:
-        badge['count'] = int(df_sorted[df_sorted['Month-Day'].isin(badge['dates'])].shape[0])
-
-    # Calculate Additional Achievements
-    # Marathon and Half Marathon
-    marathon_activities = df[df['Activity Type'].str.contains('Run', case=False, na=False) & (df['Distance_m'] >= 42195)]
-    achievements['additionalAchievements'][0]['count'] = int(marathon_activities.shape[0])
-
-    half_marathon_activities = df[df['Activity Type'].str.contains('Run', case=False, na=False) & (df['Distance_m'] >= 21097.5) & (df['Distance_m'] < 42195)]
-    achievements['additionalAchievements'][1]['count'] = int(half_marathon_activities.shape[0])
-
-    # Climbing King
-    total_elevation_gain = df['Elevation Gain'].sum()
-    achievements['additionalAchievements'][2]['count'] = int(total_elevation_gain // 1000)
-
-    # Speedster
-    # Assuming 'Max Speed' is in m/s; convert to km/h and check
-    if 'Max Speed' in df.columns:
-        speed_kmh = df['Max Speed'] * 3.6  # Convert m/s to km/h
-        speedster_activities = df[speed_kmh > 30]
-        achievements['additionalAchievements'][3]['count'] = int(speedster_activities.shape[0])
-    else:
-        achievements['additionalAchievements'][3]['count'] = 0
+    weekly_thresholds = [5, 10, 20]  # in hours
+    for threshold in weekly_thresholds:
+        count = int(weekly_hours[weekly_hours >= threshold].count())
+        achievements['Achievements'].append({
+            'name': f'{threshold} Hours Week',
+            'emoji': '💰' if threshold == 5 else ('🧈' if threshold == 10 else '💎'),
+            'description': f'Logged at least {threshold} hours in a week',
+            'count': count
+        })
 
     # Consistency Champion
     df_sorted['Month'] = df_sorted['Activity Date'].dt.to_period('M')
@@ -327,16 +266,86 @@ def calculate_achievements(df):
         active_days = activities_in_month['Date'].nunique()
         if active_days == days_in_month:
             consistency_count += 1
-    achievements['additionalAchievements'][4]['count'] = consistency_count
+    achievements['Achievements'].append({
+        'name': 'Consistency Champion',
+        'emoji': '🔁',
+        'description': 'Logged activities every day for a month',
+        'count': consistency_count
+    })
 
     # Daily kcal Burner
     total_calories = df['Calories'].sum()
-    achievements['additionalAchievements'][5]['count'] = int(total_calories // 2000)
+    achievements['Achievements'].append({
+        'name': 'Daily kcal Burner',
+        'emoji': '🔥',
+        'description': 'Burned over 2000 kcal',
+        'count': int(total_calories // 2000)
+    })
+
+    # ------------------ Medals ------------------
+    # Special Occasion Badges
+    df_sorted['Month-Day'] = df_sorted['Activity Date'].dt.strftime('%m-%d')
+
+    # Debugging: Check 'Month-Day' column
+    print("Month-Day Column:")
+    print(df_sorted[['Activity Date', 'Month-Day']].head())
+
+    special_occasions = [
+        {'name': 'New Year Run', 'emoji': '🎉', 'dates': ['01-01']},
+        {'name': 'Christmas Run', 'emoji': '🎄', 'dates': ['12-25']},
+        # Add more special occasions as needed
+    ]
+    for occasion in special_occasions:
+        count = int(df_sorted[df_sorted['Month-Day'].isin(occasion['dates'])].shape[0])
+        achievements['Medals'].append({
+            'name': occasion['name'],
+            'emoji': occasion['emoji'],
+            'description': occasion['name'],
+            'count': count
+        })
+
+    # Additional Achievements (could be Medals or Achievements based on your design)
+    additional_achievements = [
+        {
+            'name': 'Marathon Master',
+            'emoji': '🏃‍♂️',
+            'description': 'Completed a marathon (42.195 km)',
+            'count': int(df[df['Activity Type'].str.contains('Run', case=False, na=False) & (df['Distance_m'] >= 42195)].shape[0])
+        },
+        {
+            'name': 'Half Marathon Master',
+            'emoji': '️2️⃣1️⃣🏃',
+            'description': 'Completed a half marathon (21.0975 km)',
+            'count': int(df[df['Activity Type'].str.contains('Run', case=False, na=False) & (df['Distance_m'] >= 21097.5) & (df['Distance_m'] < 42195)].shape[0])
+        },
+        {
+            'name': 'Climbing King',
+            'emoji': '🧗‍♂️',
+            'description': 'Total elevation gain over 1000m',
+            'count': int(df['Elevation Gain'].sum() // 1000)
+        },
+        {
+            'name': 'Speedster',
+            'emoji': '🏎️',
+            'description': 'Achieved an average speed over 30 km/h',
+            'count': int(df['Max Speed'].fillna(0).apply(lambda x: x * 3.6 > 30).sum()) if 'Max Speed' in df.columns else 0
+        },
+        # Add more as needed
+    ]
+
+    for badge in additional_achievements:
+        if badge['name'] in ['Climbing King', 'Speedster']:
+            # Assuming these are Medals
+            achievements['Medals'].append(badge)
+        else:
+            # Assuming these are Achievements
+            achievements['Achievements'].append(badge)
 
     # Convert to native types
     achievements = convert_to_native(achievements)
 
     return achievements
+
 
 def calculate_coins(df):
     """Calculate coins based on activities."""
@@ -564,8 +573,12 @@ def dashboard(username):
             'max_distance_link': user.max_distance_link,
         },
         'activities': activities_list,
-        # 'rank_info': get_user_rank(user.total_hours)  # Removed from user_data
     }
+
+    # Debugging: Print achievements structure
+    import json
+    print("User Achievements Structure:")
+    print(json.dumps(user_data['achievements'], indent=2))
 
     user_rank = get_user_rank(user.total_hours)  # Define user_rank separately
 
@@ -573,6 +586,53 @@ def dashboard(username):
                            user=user_data,
                            rank_config=rank_config,
                            rank_info=user_rank)  # Pass rank_info separately
+
+def process_dataframe(df):
+    """Validate and process the uploaded CSV dataframe."""
+    required_columns = [
+        'Activity ID', 'Activity Date', 'Activity Name', 'Activity Type', 'Activity Description',
+        'Moving Time', 'Distance', 'Max Heart Rate', 'Calories', 'Elevation Gain'
+    ]
+
+    # Handle duplicate columns by renaming
+    new_columns = {}
+    for col in df.columns:
+        if col.endswith('.1'):
+            if 'Distance' in col:
+                new_columns[col] = 'Distance_m'  # Distance in meters
+            elif 'Moving Time' in col:
+                new_columns[col] = 'Moving Time'
+            else:
+                new_columns[col] = col  # Keep other duplicates as is
+        else:
+            new_columns[col] = col
+    df = df.rename(columns=new_columns)
+
+    # Check required columns
+    for col in required_columns:
+        if col not in df.columns:
+            return None, f'Missing required column: {col}'
+
+    # Convert relevant columns to numeric types
+    numeric_columns = ['Moving Time', 'Distance', 'Distance_m', 'Max Heart Rate', 'Calories', 'Elevation Gain']
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+    # Convert 'Activity Date' to datetime
+    df['Activity Date'] = pd.to_datetime(df['Activity Date'], errors='coerce')
+
+    # Debugging: Check parsing results
+    print("Activity Date Parsing:")
+    print(df['Activity Date'].head())
+
+    # Drop rows with invalid 'Activity Date'
+    num_invalid_dates = df['Activity Date'].isna().sum()
+    if num_invalid_dates > 0:
+        print(f"Number of invalid 'Activity Date' entries: {num_invalid_dates}")
+        df = df.dropna(subset=['Activity Date'])
+
+    return df, None
 
 @app.route('/leaderboard')
 def leaderboard():

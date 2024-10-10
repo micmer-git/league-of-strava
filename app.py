@@ -135,7 +135,7 @@ def process_dataframe(df):
     """Validate and process the uploaded CSV dataframe."""
     required_columns = [
         'Activity ID', 'Activity Date', 'Activity Name', 'Activity Type', 'Activity Description',
-        'Elapsed Time', 'Distance', 'Max Heart Rate', 'Calories', 'Elevation Gain'
+        'Moving Time', 'Distance', 'Max Heart Rate', 'Calories', 'Elevation Gain'
     ]
 
     # Handle duplicate columns by renaming
@@ -146,7 +146,7 @@ def process_dataframe(df):
         if col.endswith('.1'):
             if 'Distance' in col:
                 new_columns[col] = 'Distance_m'  # Distance in meters
-            elif 'Elapsed Time' in col:
+            elif 'Moving Time' in col:
                 new_columns[col] = 'Moving Time'
             else:
                 new_columns[col] = col  # Keep other duplicates as is
@@ -160,7 +160,7 @@ def process_dataframe(df):
             return None, f'Missing required column: {col}'
 
     # Convert relevant columns to numeric types
-    numeric_columns = ['Elapsed Time', 'Distance', 'Distance_m', 'Max Heart Rate', 'Calories', 'Elevation Gain']
+    numeric_columns = ['Moving Time', 'Distance', 'Distance_m', 'Max Heart Rate', 'Calories', 'Elevation Gain']
     for col in numeric_columns:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -281,11 +281,11 @@ def calculate_achievements(df):
 
     # Calculate Duration Badges
     for badge in achievements['durationBadges']:
-        badge['count'] = int(df[df['Elapsed Time'] >= badge['threshold']].shape[0])
+        badge['count'] = int(df[df['Moving Time']/60 >= badge['threshold']].shape[0])
 
     # Calculate Weekly Badges
     df_sorted['Week Start'] = df_sorted['Activity Date'].apply(lambda x: (x - timedelta(days=x.weekday())).date())
-    weekly_hours = df_sorted.groupby('Week Start')['Elapsed Time'].sum() / 3600  # Convert to hours
+    weekly_hours = df_sorted.groupby('Week Start')['Moving Time'].sum() / 3600  # Convert to hours
     for badge in achievements['weeklyBadges']:
         badge['count'] = int(weekly_hours[weekly_hours >= badge['threshold']].count())
 
@@ -351,7 +351,7 @@ def calculate_coins(df):
 def calculate_stats(df):
     """Calculate user statistics."""
     stats = {
-        'hours': float(round(df['Elapsed Time'].sum() / 3600, 1)),        # Convert to hours
+        'hours': float(round(df['Moving Time'].sum() / 3600, 1)),        # Convert to hours
         'distance': float(round(df['Distance_m'].sum() / 1000, 1)),      # Convert to km
         'elevation': float(round(df['Elevation Gain'].sum(), 1)),        # in meters
         'calories': float(round(df['Calories'].sum(), 1))               # in kcal
@@ -384,8 +384,8 @@ def calculate_max_metrics(df):
 
     max_elevation = df['Elevation Gain'].max()
     max_elevation_activity = df.loc[df['Elevation Gain'].idxmax()]
-    max_duration = df['Elapsed Time'].max() / 3600  # Convert to hours
-    max_duration_activity = df.loc[df['Elapsed Time'].idxmax()]
+    max_duration = df['Moving Time'].max() / 3600  # Convert to hours
+    max_duration_activity = df.loc[df['Moving Time'].idxmax()]
     max_distance = df['Distance_m'].max() / 1000  # Convert to km
     max_distance_activity = df.loc[df['Distance_m'].idxmax()]
 
@@ -487,14 +487,14 @@ def index():
                         name=row['Activity Name'],
                         date=row['Activity Date'],
                         distance=row['Distance_m'] / 1000,  # Convert to km
-                        duration=row['Elapsed Time'] / 3600,  # Convert to hours
-                        duration_minutes=int((row['Elapsed Time'] % 3600) / 60),
+                        duration=row['Moving Time'] / 3600,  # Convert to hours
+                        duration_minutes=int((row['Moving Time'] % 3600) / 60),
                         elevation_gain=row['Elevation Gain'],
                         calories=row['Calories'],
-                        heartbeats=int(row['Max Heart Rate'] * (row['Elapsed Time'] / 60)),  # Example calculation
+                        heartbeats=int(row['Max Heart Rate'] * (row['Moving Time'] / 60)),  # Example calculation
                         coins_everest=round(row['Elevation Gain'] / 8848, 2),
                         coins_pizza=round(row['Calories'] / 1000, 2),
-                        coins_heartbeat=int(row['Max Heart Rate'] * (row['Elapsed Time'] / 60)),
+                        coins_heartbeat=int(row['Max Heart Rate'] * (row['Moving Time'] / 60)),
                         link=f"https://www.strava.com/activities/{row['Activity ID']}",
                         user_id=user.id
                     )

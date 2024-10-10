@@ -29,7 +29,7 @@
     }
 
     header .logo img {
-        height: 40px;
+        height: 50px;
         width: auto;
     }
 
@@ -50,6 +50,7 @@
     /* Navigation Menu */
     nav {
         display: flex;
+        text-decoration: none;
         gap: 20px;
     }
 
@@ -143,20 +144,23 @@
 </head>
 <body>
   <header>
-    <div class="logo" id="logo">
-      <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="Logo">
-    </div>
-    <div class="hamburger" id="hamburger">
-      <div></div>
-      <div></div>
-      <div></div>
-    </div>
-    <nav id="nav-menu">
-      <a href="https://linktr.ee/micmer">About</a>
-      <a href="/dashboard">Dashboard</a>
-      <a href="/leaderboard">Leaderboard</a>
-    </nav>
-  </header>
+<div class="logo" id="logo">
+  <a href='/'>
+  <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="Logo">
+  </a>
+</div>
+<div class="hamburger" id="hamburger">
+  <div></div>
+  <div></div>
+  <div></div>
+</div>
+<nav id="nav-menu">
+  <a href="https://linktr.ee/micmer">About</a>
+  <a href="/leaderboard">Leaderboard</a>
+  <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+
+</nav>
+</header>
 
   <div class="container mt-5">
     <!-- Introduction Section -->
@@ -172,19 +176,19 @@
       <!-- Search Form -->
       <div class="form-container">
         <h3>Search for a Strava User</h3>
-        {% if search_error %}
-          <div class="alert alert-danger" role="alert">
-            {{ search_error }}
-          </div>
-        {% endif %}
-        <form method="get" action="/dashboard">
-          <div class="mb-3">
-            <label for="search-link" class="form-label">Strava User Link:</label>
-            <input type="url" class="form-control" id="search-link" name="link" placeholder="https://www.strava.com/athletes/123456" required>
-            <div class="form-text">Enter the Strava profile link of the user.</div>
-          </div>
-          <button type="submit" class="btn btn-success">View Dashboard</button>
-        </form>
+          {% if search_error %}
+            <div class="alert alert-danger" role="alert">
+              {{ search_error }}
+            </div>
+          {% endif %}
+          <form method="get" action="{{ url_for('search') }}">
+            <div class="mb-3">
+              <label for="search-query" class="form-label">Search by Username or Strava Usuer Link:</label>
+              <input type="text" class="form-control" id="search-query" name="query" placeholder="Enter username, ID, or Strava profile link" required>
+              <div class="form-text">Enter the Strava profile link or League of Strava username.</div>
+            </div>
+            <button type="submit" class="btn btn-success" style="background-color: orange; border-color:white">Search</button>
+          </form>
       </div>
 
       <!-- Upload Form -->
@@ -209,7 +213,7 @@
             <label for="file" class="form-label">Upload CSV File:</label>
             <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
           </div>
-          <button type="submit" class="btn btn-primary" style="background-color: orange">Upload Activities</button>
+          <button type="submit" class="btn btn-primary" style="background-color: orange; border-color:white">Upload Activities</button>
         </form>
       </div>
     </div>
@@ -254,6 +258,7 @@
           padding: 10px 0;
           width: 100%;
           text-align: center;
+          text-color:black;
           border-top: 1px solid orange;
       }
 

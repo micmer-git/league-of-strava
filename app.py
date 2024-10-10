@@ -74,6 +74,7 @@ for i in range(2, 101):
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
+    strava_link = db.Column(db.String(200), unique=True, nullable=False)  # New Field Added
     rank_name = db.Column(db.String(50), nullable=False)
     rank_emoji = db.Column(db.String(10), nullable=False)
     total_hours = db.Column(db.Float, nullable=False)
@@ -412,8 +413,9 @@ def calculate_max_metrics(df):
 def index():
     if request.method == 'POST':
         username = request.form.get('username').strip()
-        if not username:
-            flash('Please enter a username.', 'danger')
+        strava_link = request.form.get('link').strip()  # New Field
+        if not username or not strava_link:
+            flash('Please enter both username and Strava profile link.', 'danger')
             return redirect(request.url)
 
         # Check if the post request has the file part
@@ -446,10 +448,11 @@ def index():
                 user_rank = get_user_rank(total_hours)
                 max_metrics = calculate_max_metrics(df)
 
-                # Check if user already exists
-                user = User.query.filter_by(username=username).first()
+                # Check if user with the same strava_link already exists
+                user = User.query.filter_by(strava_link=strava_link).first()
                 if user:
                     # Update existing user
+                    user.username = username  # Optionally update username
                     user.rank_name = user_rank['current_rank']['name']
                     user.rank_emoji = user_rank['current_rank']['emoji']
                     user.total_hours = total_hours
@@ -457,7 +460,7 @@ def index():
                     user.coins_pizza = coins['pizza']
                     user.coins_heartbeat = coins['heartbeat']
                     user.achievements = achievements
-                    user.stats = stats  # Assigning stats here
+                    user.stats = stats
                     user.max_elevation = max_metrics['max_elevation']
                     user.max_elevation_link = max_metrics['max_elevation_link']
                     user.max_duration = max_metrics['max_duration']
@@ -468,9 +471,14 @@ def index():
                     # Delete existing activities
                     Activity.query.filter_by(user_id=user.id).delete()
                 else:
+                    #athlete_id = extract_strava_id(strava_link)
+
                     # Create new user
                     user = User(
                         username=username,
+                        strava_link=strava_link,  # Assign the Strava link
+                        #athlete_id=athlete_id,  # Store the extracted athlete_id
+
                         rank_name=user_rank['current_rank']['name'],
                         rank_emoji=user_rank['current_rank']['emoji'],
                         total_hours=total_hours,
@@ -478,7 +486,7 @@ def index():
                         coins_pizza=coins['pizza'],
                         coins_heartbeat=coins['heartbeat'],
                         achievements=achievements,
-                        stats=stats,  # Assigning stats here
+                        stats=stats,
                         max_elevation=max_metrics['max_elevation'],
                         max_elevation_link=max_metrics['max_elevation_link'],
                         max_duration=max_metrics['max_duration'],
@@ -489,7 +497,7 @@ def index():
                     db.session.add(user)
                     db.session.flush()  # Flush to get user.id
 
-            # Add activities
+                # Add activities
                 for _, row in df.iterrows():
                     activity = Activity(
                         activity_id=row['Activity ID'],
@@ -522,6 +530,46 @@ def index():
             return redirect(request.url)
 
     return render_template('index.html')
+
+
+from urllib.parse import urlparse
+
+def extract_strava_id(link):
+    """Extract Strava user ID from the link."""
+    try:
+        path = urlparse(link).path
+        parts = path.strip('/').split('/')
+        if len(parts) >= 2 and parts[0] == 'athletes':
+            return parts[1]
+        return None
+    except Exception:
+        return None
+
+@app.route('/dashboard', methods=['GET', 'POST'])
+def dashboard_search():
+    if request.method == 'GET':
+        link = request.args.get('link', '').strip()
+        username = request.args.get('username', '').strip()
+        #athlete_id = request.args.get('athlete_id', '').strip()
+
+        user = None
+
+        if link:
+            user = User.query.filter_by(strava_link=link).first()
+        elif username:
+            user = User.query.filter_by(username=username).first()
+        else:
+            flash('Please provide a search query.', 'danger')
+            return redirect(url_for('index'))
+
+        if user:
+            return redirect(url_for('dashboard', username=user.username))
+        else:
+            flash('User not found.', 'danger')
+            return redirect(url_for('index'))
+
+    return redirect(url_for('index'))
+
 
 @app.route('/dashboard/<username>')
 def dashboard(username):
@@ -575,17 +623,38 @@ def dashboard(username):
         'activities': activities_list,
     }
 
-    # Debugging: Print achievements structure
-    import json
-    print("User Achievements Structure:")
-    print(json.dumps(user_data['achievements'], indent=2))
-
-    user_rank = get_user_rank(user.total_hours)  # Define user_rank separately
+    # Fetch rank information
+    user_rank = get_user_rank(user.total_hours)
 
     return render_template('dashboard.html',
                            user=user_data,
                            rank_config=rank_config,
-                           rank_info=user_rank)  # Pass rank_info separately
+                           rank_info=user_rank)
+
+@app.route('/search', methods=['GET'])
+def search():
+    query = request.args.get('query', '').strip()
+    if not query:
+        flash('Please enter a search query.', 'danger')
+        return redirect(url_for('index'))
+
+    user = None
+
+    # Attempt to find user by exact match of strava_link
+    user = User.query.filter_by(strava_link=query).first()
+
+    if not user:
+        # Attempt to find user by username
+        user = User.query.filter_by(username=query).first()
+
+
+    if user:
+        return redirect(url_for('dashboard', username=user.username))
+    else:
+        flash('User not found. Please ensure the link is correct or upload the user\'s activities.', 'danger')
+        return redirect(url_for('index'))
+
+
 
 def process_dataframe(df):
     """Validate and process the uploaded CSV dataframe."""

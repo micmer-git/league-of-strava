@@ -6,3 +6,5 @@ Flask-Migrate==4.0.4
 dj-database-url==0.5.0
 pandas==2.0.3
 numpy==1.25.0
+whitenoise==6.4.0
+python-dotenv==1.0.0

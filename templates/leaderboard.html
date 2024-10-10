@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Leaderboard</title>
+    <!-- Bootstrap CSS -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-ENjdO4Dr2bkBIFxQpeo40WXFJA7r6Cm91+ZK5J3iw1Anm9jF3giXmF/nA5CjmY0+"
+        crossorigin="anonymous"
+    >
+    <!-- Custom CSS -->
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa; /* Match initial page's background */
+        }
+        table {
+            width: 100%;
+            table-layout: fixed;
+        }
+        th, td {
+            text-align: center;
+            vertical-align: middle;
+            padding: 8px;
+            white-space: nowrap;
+        }
+        th {
+            cursor: pointer;
+            position: relative;
+        }
+        /* Fixed first column */
+        .table-fixed thead th:first-child,
+        .table-fixed tbody td:first-child {
+            position: sticky;
+            left: 0;
+            background-color: #fff;
+            z-index: 2;
+            /* Add border-right to distinguish the fixed column */
+            border-right: 1px solid #dee2e6;
+        }
+        /* Tooltip customization */
+        .tooltip-inner {
+            max-width: 200px;
+            /* Adjust tooltip width as needed */
+        }
+        /* Scrollable table */
+        .table-responsive {
+            overflow-x: auto;
+        }
+        /* Sort Indicator */
+        .sort-indicator::after {
+            content: '';
+            display: inline-block;
+            margin-left: 5px;
+            border: 5px solid transparent;
+        }
+        .asc .sort-indicator::after {
+            border-bottom-color: #000;
+            transform: translateY(-50%);
+        }
+        .desc .sort-indicator::after {
+            border-top-color: #000;
+            transform: translateY(50%);
+        }
+        /* Highlight active sort column */
+        th.active-sort {
+            background-color: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="mb-4">Leaderboard</h1>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover table-fixed">
+            <thead class="table-light">
+                <tr>
+                    <!-- Frozen First Column: Username -->
+                    <th style="width: 200px;">Username</th>
+                    <!-- Total Hours Column -->
+                    <th data-sort="total_hours" title="Total Hours" aria-label="Sort by Total Hours">
+                        🕒
+                        <span class="tooltiptext">Total Hours</span>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <!-- Coins Columns -->
+                    <th data-sort="coins_everest" title="Everest Coins" aria-label="Sort by Everest Coins">
+                        🏔️
+                        <span class="tooltiptext">Everest Coins</span>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th data-sort="coins_pizza" title="Pizza Coins" aria-label="Sort by Pizza Coins">
+                        🍕
+                        <span class="tooltiptext">Pizza Coins</span>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th data-sort="coins_heartbeat" title="Heartbeat Coins" aria-label="Sort by Heartbeat Coins">
+                        ❤️
+                        <span class="tooltiptext">Heartbeat Coins</span>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <!-- Dynamic Achievement Badges Columns -->
+                    {% for badge in badges %}
+                        <th data-sort="{{ badge.name|replace(' ', '_') }}" title="{{ badge.description }}" aria-label="Sort by {{ badge.name }}">
+                            {{ badge.emoji }}
+                            <span class="tooltiptext">{{ badge.description }}</span>
+                            <span class="sort-indicator"></span>
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td style="width: 200px; text-align: left;">{{ user.username }}</td>
+                    <td>{{ user.total_hours }}</td>
+                    <td>{{ user.coins_everest }}</td>
+                    <td>{{ user.coins_pizza }}</td>
+                    <td>{{ user.coins_heartbeat }}</td>
+                    {% for badge in badges %}
+                        <td>{{ user.badges[badge.name] }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+3pzGkzYQ5IW5fZhFNZr+75eht6b+"
+        crossorigin="anonymous">
+    </script>
+    <!-- jQuery (for simplicity in handling events) -->
+    <script
+        src="https://code.jquery.com/jquery-3.6.0.min.js"
+        integrity="sha256-K+ctZQmT0DqRk4BtqB7EGYQ+QOJm15U3+V4XlYNlw9Y="
+        crossorigin="anonymous">
+    </script>
+    <!-- Custom JavaScript -->
+    <script>
+        $(document).ready(function() {
+            // Initialize Bootstrap tooltips
+            $('[data-bs-toggle="tooltip"]').tooltip();
+            $('[title]').tooltip({
+                placement: 'top',
+                trigger: 'hover',
+                container: 'body',
+                html: true,
+                delay: { "show": 300, "hide": 100 }
+            });
+
+            // Sorting functionality
+            $('th[data-sort]').on('click', function() {
+                var th = $(this);
+                var table = th.closest('table');
+                var tbody = table.find('tbody');
+                var rows = tbody.find('tr').toArray();
+                var sortKey = th.data('sort');
+                var currentDir = table.attr('data-sort-dir') || 'asc';
+                var newDir = currentDir === 'asc' ? 'desc' : 'asc';
+
+                // Remove active-sort class from all headers
+                $('th[data-sort]').removeClass('active-sort asc desc');
+                // Add active-sort and sort direction to clicked header
+                th.addClass('active-sort ' + newDir);
+
+                // Update sort direction attribute
+                table.attr('data-sort-dir', newDir);
+
+                // Sort rows
+                rows.sort(function(a, b) {
+                    var cellA = getCellValue(a, sortKey);
+                    var cellB = getCellValue(b, sortKey);
+
+                    // Determine if sortKey is numeric
+                    var isNumeric = !isNaN(cellA) && !isNaN(cellB);
+
+                    if (isNumeric) {
+                        return newDir === 'asc' ? cellA - cellB : cellB - cellA;
+                    } else {
+                        cellA = cellA.toString().toLowerCase();
+                        cellB = cellB.toString().toLowerCase();
+                        if (cellA < cellB) return newDir === 'asc' ? -1 : 1;
+                        if (cellA > cellB) return newDir === 'asc' ? 1 : -1;
+                        return 0;
+                    }
+                });
+
+                // Append sorted rows
+                $.each(rows, function(index, row) {
+                    tbody.append(row);
+                });
+            });
+
+            function getCellValue(row, sortKey) {
+                switch(sortKey) {
+                    case 'total_hours':
+                        return parseFloat($(row).find('td:eq(1)').text()) || 0;
+                    case 'coins_everest':
+                        return parseFloat($(row).find('td:eq(2)').text()) || 0;
+                    case 'coins_pizza':
+                        return parseFloat($(row).find('td:eq(3)').text()) || 0;
+                    case 'coins_heartbeat':
+                        return parseFloat($(row).find('td:eq(4)').text()) || 0;
+                    default:
+                        // For badge columns, adjust index accordingly
+                        var badgeIndex = 5 + getBadgeIndex(sortKey);
+                        return parseFloat($(row).find('td:eq(' + badgeIndex + ')').text()) || 0;
+                }
+            }
+
+            function getBadgeIndex(sortKey) {
+                // Map sortKey (badge name with underscores) to badge column index
+                // Assuming badges are passed in the same order as in the template
+                var badgeNames = {{ badges | tojson | safe }}; // List of badge objects
+                for (var i = 0; i < badgeNames.length; i++) {
+                    var key = badgeNames[i].name.replace(/ /g, '_');
+                    if (key === sortKey) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+        });
+    </script>
+</body>
+</html>

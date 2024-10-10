@@ -10,3 +10,4 @@ venv/
 ENV/
 *.sqlite3
 static/uploads/
+cleaning_db.py

@@ -12,43 +12,73 @@
     >
     <!-- Custom CSS -->
     <style>
+        /* Basic Styles */
         body {
+            background-color: #f8f9fa;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        #dashboard-container {
+            max-width: 1200px;
+            margin: auto;
             padding: 20px;
-            background-color: #f8f9fa; /* Match initial page's background */
         }
-        table {
+
+        /* Leaderboard Table */
+        .leaderboard-table {
             width: 100%;
-            table-layout: fixed;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
         }
-        th, td {
+
+        .leaderboard-table th, .leaderboard-table td {
+            border: 1px solid #dee2e6;
+            padding: 15px;
             text-align: center;
             vertical-align: middle;
-            padding: 8px;
-            white-space: nowrap;
         }
-        th {
+
+        .leaderboard-table th {
+            background-color: #e9ecef;
+            font-weight: bold;
             cursor: pointer;
             position: relative;
         }
-        /* Fixed first column */
-        .table-fixed thead th:first-child,
-        .table-fixed tbody td:first-child {
-            position: sticky;
-            left: 0;
-            background-color: #fff;
-            z-index: 2;
-            /* Add border-right to distinguish the fixed column */
-            border-right: 1px solid #dee2e6;
+
+        .leaderboard-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
         }
-        /* Tooltip customization */
-        .tooltip-inner {
-            max-width: 200px;
-            /* Adjust tooltip width as needed */
+
+        .username-cell {
+            text-align: left;
+            font-weight: bold;
         }
-        /* Scrollable table */
-        .table-responsive {
-            overflow-x: auto;
+
+        /* Tooltip */
+        .tooltip-text {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
         }
+
+        th:hover .tooltip-text {
+            display: block;
+        }
+
         /* Sort Indicator */
         .sort-indicator::after {
             content: '';
@@ -56,71 +86,104 @@
             margin-left: 5px;
             border: 5px solid transparent;
         }
-        .asc .sort-indicator::after {
+
+        th.asc .sort-indicator::after {
             border-bottom-color: #000;
             transform: translateY(-50%);
         }
-        .desc .sort-indicator::after {
+
+        th.desc .sort-indicator::after {
             border-top-color: #000;
             transform: translateY(50%);
         }
-        /* Highlight active sort column */
-        th.active-sort {
-            background-color: #e9ecef;
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .leaderboard-table th, .leaderboard-table td {
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .leaderboard-table {
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
 <body>
-    <h1 class="mb-4">Leaderboard</h1>
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover table-fixed">
-            <thead class="table-light">
+    <div id="dashboard-container">
+        <h1 class="mb-4">Leaderboard</h1>
+        <table class="leaderboard-table">
+            <thead>
                 <tr>
-                    <!-- Frozen First Column: Username -->
-                    <th style="width: 200px;">Username</th>
-                    <!-- Total Hours Column -->
-                    <th data-sort="total_hours" title="Total Hours" aria-label="Sort by Total Hours">
+                    <th data-sort="rank" title="Rank">
+                        #
+                        <div class="tooltip-text">Rank</div>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th data-sort="username" title="Username" style="text-align: left;">
+                        👤
+                        <div class="tooltip-text">Username</div>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th data-sort="total_hours" title="Total Hours">
                         🕒
-                        <span class="tooltiptext">Total Hours</span>
+                        <div class="tooltip-text">Total Hours</div>
                         <span class="sort-indicator"></span>
                     </th>
-                    <!-- Coins Columns -->
-                    <th data-sort="coins_everest" title="Everest Coins" aria-label="Sort by Everest Coins">
+                    <th data-sort="coins_everest" title="Everest Coins">
                         🏔️
-                        <span class="tooltiptext">Everest Coins</span>
+                        <div class="tooltip-text">Everest Coins</div>
                         <span class="sort-indicator"></span>
                     </th>
-                    <th data-sort="coins_pizza" title="Pizza Coins" aria-label="Sort by Pizza Coins">
+                    <th data-sort="coins_pizza" title="Pizza Coins">
                         🍕
-                        <span class="tooltiptext">Pizza Coins</span>
+                        <div class="tooltip-text">Pizza Coins</div>
                         <span class="sort-indicator"></span>
                     </th>
-                    <th data-sort="coins_heartbeat" title="Heartbeat Coins" aria-label="Sort by Heartbeat Coins">
+                    <th data-sort="coins_heartbeat" title="Heartbeat Coins">
                         ❤️
-                        <span class="tooltiptext">Heartbeat Coins</span>
+                        <div class="tooltip-text">Heartbeat Coins</div>
                         <span class="sort-indicator"></span>
                     </th>
-                    <!-- Dynamic Achievement Badges Columns -->
-                    {% for badge in badges %}
-                        <th data-sort="{{ badge.name|replace(' ', '_') }}" title="{{ badge.description }}" aria-label="Sort by {{ badge.name }}">
-                            {{ badge.emoji }}
-                            <span class="tooltiptext">{{ badge.description }}</span>
-                            <span class="sort-indicator"></span>
-                        </th>
-                    {% endfor %}
+                    <!-- Include key achievements -->
+                    <th data-sort="marathon_master" title="Marathon Master">
+                        🏃‍♂️
+                        <div class="tooltip-text">Marathon Master</div>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th data-sort="climbing_king" title="Climbing King">
+                        🧗‍♂️
+                        <div class="tooltip-text">Climbing King</div>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th data-sort="speedster" title="Speedster">
+                        🏎️
+                        <div class="tooltip-text">Speedster</div>
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th data-sort="consistency_champion" title="Consistency Champion">
+                        🔁
+                        <div class="tooltip-text">Consistency Champion</div>
+                        <span class="sort-indicator"></span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
                 {% for user in users %}
                 <tr>
-                    <td style="width: 200px; text-align: left;">{{ user.username }}</td>
+                    <td>{{ user.rank }}</td>
+                    <td class="username-cell">{{ user.username }}</td>
                     <td>{{ user.total_hours }}</td>
                     <td>{{ user.coins_everest }}</td>
                     <td>{{ user.coins_pizza }}</td>
                     <td>{{ user.coins_heartbeat }}</td>
-                    {% for badge in badges %}
-                        <td>{{ user.badges[badge.name] }}</td>
-                    {% endfor %}
+                    <!-- Key achievements counts -->
+                    <td>{{ user.badges_counts.get('Marathon Master', 0) }}</td>
+                    <td>{{ user.badges_counts.get('Climbing King', 0) }}</td>
+                    <td>{{ user.badges_counts.get('Speedster', 0) }}</td>
+                    <td>{{ user.badges_counts.get('Consistency Champion', 0) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -142,8 +205,7 @@
     <!-- Custom JavaScript -->
     <script>
         $(document).ready(function() {
-            // Initialize Bootstrap tooltips
-            $('[data-bs-toggle="tooltip"]').tooltip();
+            // Initialize tooltips
             $('[title]').tooltip({
                 placement: 'top',
                 trigger: 'hover',
@@ -159,16 +221,13 @@
                 var tbody = table.find('tbody');
                 var rows = tbody.find('tr').toArray();
                 var sortKey = th.data('sort');
-                var currentDir = table.attr('data-sort-dir') || 'asc';
+                var currentDir = th.hasClass('asc') ? 'asc' : 'desc';
                 var newDir = currentDir === 'asc' ? 'desc' : 'asc';
 
-                // Remove active-sort class from all headers
-                $('th[data-sort]').removeClass('active-sort asc desc');
-                // Add active-sort and sort direction to clicked header
-                th.addClass('active-sort ' + newDir);
-
-                // Update sort direction attribute
-                table.attr('data-sort-dir', newDir);
+                // Remove sort classes from all headers
+                $('th').removeClass('asc desc');
+                // Add sort class to current header
+                th.addClass(newDir);
 
                 // Sort rows
                 rows.sort(function(a, b) {
@@ -196,33 +255,24 @@
             });
 
             function getCellValue(row, sortKey) {
-                switch(sortKey) {
-                    case 'total_hours':
-                        return parseFloat($(row).find('td:eq(1)').text()) || 0;
-                    case 'coins_everest':
-                        return parseFloat($(row).find('td:eq(2)').text()) || 0;
-                    case 'coins_pizza':
-                        return parseFloat($(row).find('td:eq(3)').text()) || 0;
-                    case 'coins_heartbeat':
-                        return parseFloat($(row).find('td:eq(4)').text()) || 0;
-                    default:
-                        // For badge columns, adjust index accordingly
-                        var badgeIndex = 5 + getBadgeIndex(sortKey);
-                        return parseFloat($(row).find('td:eq(' + badgeIndex + ')').text()) || 0;
-                }
+                var idx = getColumnIndex(sortKey);
+                return $(row).find('td').eq(idx).text().trim() || '';
             }
 
-            function getBadgeIndex(sortKey) {
-                // Map sortKey (badge name with underscores) to badge column index
-                // Assuming badges are passed in the same order as in the template
-                var badgeNames = {{ badges | tojson | safe }}; // List of badge objects
-                for (var i = 0; i < badgeNames.length; i++) {
-                    var key = badgeNames[i].name.replace(/ /g, '_');
-                    if (key === sortKey) {
-                        return i;
-                    }
-                }
-                return -1;
+            function getColumnIndex(sortKey) {
+                var indexMap = {
+                    'rank': 0,
+                    'username': 1,
+                    'total_hours': 2,
+                    'coins_everest': 3,
+                    'coins_pizza': 4,
+                    'coins_heartbeat': 5,
+                    'marathon_master': 6,
+                    'climbing_king': 7,
+                    'speedster': 8,
+                    'consistency_champion': 9
+                };
+                return indexMap[sortKey];
             }
         });
     </script>

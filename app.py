@@ -579,54 +579,41 @@ def leaderboard():
     # Retrieve all users from the database
     users = User.query.all()
 
-    # Collect all unique badges across all users
-    badges_set = {}
-    for user in users:
-        if not user.achievements:
-            continue
-        for category, badges in user.achievements.items():
-            for badge in badges:
-                badge_name = badge['name']
-                if badge_name not in badges_set:
-                    badges_set[badge_name] = {
-                        'emoji': badge.get('emoji', ''),
-                        'description': badge.get('description', badge_name)
-                    }
-
-    # Convert badges_set to a sorted list
-    badges_list = []
-    for badge_name, badge_info in badges_set.items():
-        badges_list.append({
-            'name': badge_name,
-            'emoji': badge_info['emoji'],
-            'description': badge_info['description']
-        })
-
-    # Sort badges_list alphabetically or by any desired criteria
-    badges_list = sorted(badges_list, key=lambda x: x['name'])
+    # Collect key achievements to display
+    key_achievements = [
+        {'name': 'Marathon Master', 'sort_key': 'marathon_master', 'emoji': '🏃‍♂️'},
+        {'name': 'Climbing King', 'sort_key': 'climbing_king', 'emoji': '🧗‍♂️'},
+        {'name': 'Speedster', 'sort_key': 'speedster', 'emoji': '🏎️'},
+        {'name': 'Consistency Champion', 'sort_key': 'consistency_champion', 'emoji': '🔁'}
+    ]
 
     # Sort users by rank and total_hours within the same rank
     rank_order = {rank['name']: index for index, rank in enumerate(rank_config)}
-
-    sorted_users = sorted(users, key=lambda x: (rank_order.get(x.rank_name, len(rank_order)), -x.total_hours))
+    sorted_users = sorted(
+        users,
+        key=lambda x: (
+            rank_order.get(x.rank_name, len(rank_order)),
+            -x.total_hours
+        )
+    )
 
     leaderboard_data = []
     for index, user in enumerate(sorted_users, start=1):
-        # Collect badge counts for each user
-        badge_counts = {}
+        # Initialize achievement counts
+        badges_counts = {}
         if user.achievements:
             for category, badges in user.achievements.items():
                 for badge in badges:
-                    badge_name = badge['name']
-                    badge_count = badge.get('count', 0)
-                    if badge_name in badge_counts:
-                        badge_counts[badge_name] += badge_count
-                    else:
-                        badge_counts[badge_name] = badge_count
-        # Ensure all badges are present for each user
-        for badge in badges_list:
-            if badge['name'] not in badge_counts:
-                badge_counts[badge['name']] = 0
+                    if isinstance(badge, dict):
+                        badge_name = badge.get('name')
+                        badge_count = badge.get('count', 0)
+                        badges_counts[badge_name] = badge_count
+
+        # Prepare data for key achievements
+        user_achievements = {}
+        for achievement in key_achievements:
+            badge_name = achievement['name']
+            user_achievements[achievement['sort_key']] = badges_counts.get(badge_name, 0)
 
         leaderboard_data.append({
             'rank': index,
@@ -637,10 +624,38 @@ def leaderboard():
             'coins_everest': user.coins_everest,
             'coins_pizza': user.coins_pizza,
             'coins_heartbeat': user.coins_heartbeat,
-            'badges': badge_counts
+            'badges_counts': user_achievements
         })
 
-    return render_template('leaderboard.html', users=leaderboard_data, badges=badges_list)
+    return render_template('leaderboard.html', users=leaderboard_data)
+
+
+
+
+@app.route('/migrate_achievements')
+def migrate_achievements():
+    users = User.query.all()
+    for user in users:
+        if user.achievements:
+            achievements = user.achievements
+            for category, badges in achievements.items():
+                new_badges = []
+                for badge in badges:
+                    if isinstance(badge, str):
+                        # Convert string badge to dict with default values
+                        new_badges.append({
+                            'name': badge,
+                            'emoji': '🏅',  # Assign a default or appropriate emoji
+                            'description': badge,
+                            'count': 1  # Assign a default count
+                        })
+                    elif isinstance(badge, dict):
+                        new_badges.append(badge)
+                achievements[category] = new_badges
+            user.achievements = achievements
+    db.session.commit()
+    return "Achievements migration completed."
+
 
 # Run the app
 if __name__ == '__main__':

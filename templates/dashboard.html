@@ -42,7 +42,7 @@
     .overview-section {
         background-color: #fff;
         padding: 20px;
-        margin-bottom: 20px;
+        margin: 5px;
         border-radius: 8px;
         display: flex;
         justify-content: space-between;
@@ -93,13 +93,13 @@
         flex: 1;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+        gap: 5px;
     }
 
     .top-activity-card {
-        background-color: #f1f1f1;
-        padding: 10px;
-        border-radius: 8px;
+        background-color: orange;
+        border-radius: 20px;
+        margin:5px;
         text-align: center;
         font-size: 0.9em;
     }
@@ -136,15 +136,15 @@
 
     /* Achievements Section */
     .achievements-section {
-        margin-top: 20px;
+        margin-top: 5px;
     }
 
     .achievements-section h2 {
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
 
     .achievements-category {
-        margin-bottom: 15px;
+        margin-bottom: 5px;
     }
 
     .achievements-category h3 {
@@ -154,21 +154,22 @@
 
     .achievements-list {
         display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+        gap: 5px;
     }
 
     .achievement-card {
-        border: 2px solid #dee2e6;
-        border-radius: 20px;
-        padding: 10px;
-        width: 100px;
-        text-align: center;
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        cursor: pointer;
+        transition: transform 0.2s;
+        position: relative;
         position: relative;
         cursor: pointer;
-        background-color: #f1f1f1;
         transition: transform 0.2s;
         font-size: 0.9em;
+
     }
 
     .achievement-card:hover {
@@ -208,7 +209,7 @@
     .rank-section {
         background-color: #fff;
         padding: 20px;
-        margin-bottom: 20px;
+        margin: 5px;
         border-radius: 8px;
     }
 
@@ -221,7 +222,7 @@
     .weekly-stats {
         background-color: #fff;
         padding: 20px;
-        margin-bottom: 20px;
+        margin: 5px;
         border-radius: 8px;
     }
 
@@ -245,19 +246,18 @@
     }
 
     .stat-card h4 {
-        margin-bottom: 10px;
     }
 
     /* Max Metrics Section */
     .max-metrics {
         background-color: #fff;
-        padding: 20px;
-        margin-bottom: 20px;
+        padding: 5px;
+        margin-bottom: 5px;
         border-radius: 8px;
     }
 
     .max-metrics h2 {
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
 
     .metrics-grid {
@@ -270,13 +270,13 @@
         flex: 1;
         min-width: 200px;
         background-color: #f1f1f1;
-        padding: 15px;
+        padding: 5px;
         border-radius: 8px;
         text-align: center;
     }
 
     .metric-card h3 {
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
 
     /* Activities Section */
@@ -357,14 +357,6 @@
     }
 
     @media (max-width: 768px) {
-        .top-activities {
-            grid-template-columns: 1fr;
-        }
-
-        .achievements-list {
-            flex-direction: column;
-            align-items: stretch;
-        }
 
         .coin-metrics {
             align-items: flex-start;
@@ -372,7 +364,7 @@
     }
     /* Header Styles */
 header {
-    background-color: #343a40;
+    background-color: orange;
     padding: 10px 20px;
     display: flex;
     align-items: center;
@@ -455,12 +447,12 @@ nav a:hover {
 }
 
 .achievements-section h2 {
-    margin-bottom: 20px;
+    margin: 5px;
     text-align: center;
 }
 
 .achievements-category h3 {
-    margin-bottom: 15px;
+    margin: 5px;
     font-size: 1.2em;
     text-align: left;
 }
@@ -469,6 +461,8 @@ nav a:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    text-align: center;
+
 }
 
 .achievements-list {
@@ -500,6 +494,7 @@ nav a:hover {
 
 .medal-emoji {
     font-size: 1.5em;
+    margin:2px
 }
 
 .medal-count {
@@ -530,6 +525,8 @@ nav a:hover {
 <nav id="nav-menu">
   <a href="https://linktr.ee/micmer">About</a>
   <a href="/leaderboard">Leaderboard</a>
+  <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+
 </nav>
 </header>
   <div id="dashboard-container">
@@ -562,21 +559,6 @@ nav a:hover {
         </div>
       </div>
 
-      <!-- Top Activities Section -->
-      <div class="top-activities">
-        <div class="top-activity-card">
-          <h4>Max Elevation Gain</h4>
-          <p>{{ user.max_metrics.max_elevation | int }} m</p>
-        </div>
-        <div class="top-activity-card">
-          <h4>Longest Duration</h4>
-          <p>{{ user.max_metrics.max_duration | int }} h</p>
-        </div>
-        <div class="top-activity-card">
-          <h4>Greatest Distance</h4>
-          <p>{{ user.max_metrics.max_distance | int }} km</p>
-        </div>
-      </div>
 
       <!-- Coins Section -->
       <div class="overview-right">
@@ -597,43 +579,65 @@ nav a:hover {
       </div>
     </div>
 
+    <!-- Top Activities Section -->
+    <div class="top-activities">
+      <div class="top-activity-card">
+        <h4>Max Elevation Gain</h4>
+        <p>{{ user.max_metrics.max_elevation | int }} m</p>
+      </div>
+      <div class="top-activity-card">
+        <h4>Longest Duration</h4>
+        <p>{{ user.max_metrics.max_duration | int }} h</p>
+      </div>
+      <div class="top-activity-card">
+        <h4>Greatest Distance</h4>
+        <p>{{ user.max_metrics.max_distance | int }} km</p>
+      </div>
+    </div>
+
     <!-- Achievements Section -->
     <!-- Achievements Section -->
     <div class="achievements-section hidden">
       <h2>Achievements & Medals</h2>
 
       <!-- Achievements Category -->
-      {% if user.achievements.Achievements %}
-        <div class="achievements-category">
-          <h3>Achievements</h3>
-          <div class="achievements-list">
-            {% for badge in user.achievements.Achievements %}
-              <div class="achievement-card" title="{{ badge.description or badge.name }}">
-                <p class="achievement-emoji">{{ badge.emoji }}</p>
-                <p class="achievement-count">{{ badge.count }}</p>
-                <div class="tooltip">{{ badge.description or badge.name }}</div>
+          {% if user.achievements.Achievements %}
+            <div class="achievements-category">
+              <h3>Achievements</h3>
+              <div class="achievements-list">
+                {% for badge in user.achievements.Achievements %}
+                  <div class="achievement-card" title="{{ badge.description or badge.name }}">
+                    <p class="achievement-emoji">{{ badge.emoji }}</p>
+                    <p class="achievement-count">{{ badge.count }}</p>
+                    {% if badge.last_month_earned %}
+                      <span class="new-earned">+{{ badge.last_month_earned }}</span>
+                    {% endif %}
+                    <div class="tooltip">{{ badge.description or badge.name }}</div>
+                  </div>
+                {% endfor %}
               </div>
-            {% endfor %}
-          </div>
-        </div>
-      {% endif %}
+            </div>
+          {% endif %}
 
-      <!-- Medals Category -->
-      {% if user.achievements.Medals %}
-        <div class="achievements-category">
-          <h3>Medals</h3>
-          <div class="medals-slider">
-            {% for badge in user.achievements.Medals %}
-              <div class="medal-card" title="{{ badge.description or badge.name }}">
-                <p class="medal-emoji">{{ badge.emoji }}</p>
-                <p class="medal-count">{{ badge.count }}</p>
-                <div class="tooltip">{{ badge.description or badge.name }}</div>
+          <!-- Medals Category -->
+          {% if user.achievements.Medals %}
+            <div class="achievements-category">
+              <h3>Medals</h3>
+              <div class="medals-slider">
+                {% for badge in user.achievements.Medals %}
+                  <div class="medal-card" title="{{ badge.description or badge.name }}">
+                    <p class="medal-emoji">{{ badge.emoji }}</p>
+                    <p class="medal-count">{{ badge.count }}</p>
+                    {% if badge.last_month_earned %}
+                      <span class="new-earned">+{{ badge.last_month_earned }}</span>
+                    {% endif %}
+                    <div class="tooltip">{{ badge.description or badge.name }}</div>
+                  </div>
+                {% endfor %}
               </div>
-            {% endfor %}
-          </div>
+            </div>
+          {% endif %}
         </div>
-      {% endif %}
-    </div>
 
 
 

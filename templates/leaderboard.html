@@ -12,6 +12,60 @@
           padding: 0;
       }
 
+
+      /* Header Styles */
+      header {
+      background-color: orange;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      }
+
+      header .logo {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      }
+
+      header .logo img {
+      height: 40px;
+      width: auto;
+      }
+
+      header .hamburger {
+      display: none;
+      flex-direction: column;
+      cursor: pointer;
+      }
+
+      header .hamburger div {
+      width: 25px;
+      height: 3px;
+      background-color: #fff;
+      margin: 4px 0;
+      transition: 0.4s;
+      }
+
+      /* Navigation Menu */
+      nav {
+      display: flex;
+      gap: 20px;
+      }
+
+      nav a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 500;
+      }
+
+      nav a:hover {
+      text-decoration: underline;
+      }
+
       #dashboard-container {
           max-width: 1200px;
           margin: auto;
@@ -107,6 +161,21 @@
 
 
 <body>
+  <header>
+<div class="logo" id="logo">
+  <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="Logo">
+</div>
+<div class="hamburger" id="hamburger">
+  <div></div>
+  <div></div>
+  <div></div>
+</div>
+<nav id="nav-menu">
+  <a href="https://linktr.ee/micmer">About</a>
+  <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+
+</nav>
+</header>
     <div id="dashboard-container">
         <h1 class="mb-4">League of Strava</h1>
         <table class="leaderboard-table">
@@ -198,6 +267,20 @@
         crossorigin="anonymous">
     </script>
     <!-- Custom JavaScript -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const hamburger = document.getElementById('hamburger');
+        const navMenu = document.getElementById('nav-menu');
+        const logo = document.getElementById('logo');
+
+        const toggleMenu = () => {
+          navMenu.classList.toggle('active');
+        };
+
+        hamburger.addEventListener('click', toggleMenu);
+        logo.addEventListener('click', toggleMenu);
+      });
+    </script>
     <script>
         $(document).ready(function() {
             // Initialize tooltips

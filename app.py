@@ -448,12 +448,12 @@ def process_dataframe(df):
         activity_type = row['Activity_Type']
         if language == 'Italian':
             if isinstance(activity_type, str) and activity_type.lower() == 'nuoto':  # 'nuoto' means 'swimming'
-                return row.get('Distance_2', 0) / 1000  # Convert meters to kilometers
+                return row.get('Distance_1', 0) / 1000  # Convert meters to kilometers
             else:
                 return row.get('Distance_1', 0)  # Already in kilometers
         else:  # English
             if isinstance(activity_type, str) and activity_type.lower() == 'swimming':
-                return row.get('Distance_2', 0) / 1000  # Convert meters to kilometers
+                return row.get('Distance_1', 0) / 1000  # Convert meters to kilometers
             else:
                 return row.get('Distance_1', 0)  # Already in kilometers
 
@@ -653,15 +653,55 @@ def calculate_coins(df):
     }
     coins = convert_to_native(coins)
     return coins
-
 def calculate_stats(df):
-    """Calculate user statistics."""
+    """Calculate user statistics, including average temperature, total likes, and most common hour."""
     stats = {
         'hours': float(round(df['Moving_Time'].sum() / 3600, 1)),        # Convert to hours
-        'distance': float(round(df['Distance_km'].sum(), 1)),
-        'elevation': float(round(df['Elevation_Gain'].sum(), 1)),        # in meters
-        'calories': float(round(df['Calories'].sum(), 1))               # in kcal
+        'distance': float(round(df['Distance_km'].sum(), 1)),           # Already in km
+        'elevation': float(round(df['Elevation_Gain'].sum(), 1)),       # in meters
+        'calories': float(round(df['Calories'].sum(), 1)),              # in kcal
     }
+
+    # Compute Average Temperature
+    if 'Average_Temperature' in df.columns:
+        stats['average_temperature'] = float(round(df['Average_Temperature'].mean(), 1))
+    else:
+        stats['average_temperature'] = 0.0
+        logging.warning("'Average_Temperature' column not found in DataFrame.")
+
+    # Compute Total Likes
+    if 'Likes' in df.columns:
+        # Replace commas with dots and convert to numeric if necessary
+        df['Likes'] = pd.to_numeric(df['Likes'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+        stats['total_likes'] = int(df['Likes'].sum())
+    else:
+        stats['total_likes'] = 0
+        logging.warning("'Likes' column not found in DataFrame. Setting 'total_likes' to 0.")
+
+    # Compute Most Common Hour
+    if 'Activity_Date' in df.columns:
+        # Ensure 'Activity_Date' is datetime
+        df['Activity_Date'] = pd.to_datetime(df['Activity_Date'], errors='coerce')
+        df = df.dropna(subset=['Activity_Date'])  # Drop rows where date parsing failed
+        if not df.empty:
+            stats['most_common_hour'] = int(df['Activity_Date'].dt.hour.mode()[0])
+        else:
+            stats['most_common_hour'] = None
+            logging.warning("No valid 'Activity_Date' entries found for computing 'most_common_hour'.")
+    else:
+        stats['most_common_hour'] = None
+        logging.warning("'Activity_Date' column not found in DataFrame. Cannot compute 'most_common_hour'.")
+
+    # Optional: Compute Sums of Other Relevant Metrics
+    # Example: Total Steps, Total Jump Count, etc.
+    sum_metrics = ['Total_Steps', 'Jump_Count']  # Add other metrics as needed
+    for metric in sum_metrics:
+        if metric in df.columns:
+            stats[f'total_{metric.lower()}'] = int(df[metric].sum())
+        else:
+            stats[f'total_{metric.lower()}'] = 0
+            logging.warning(f"'{metric}' column not found in DataFrame. Setting 'total_{metric.lower()}' to 0.")
+
     stats = convert_to_native(stats)
     return stats
 
@@ -980,7 +1020,7 @@ def dashboard(username):
                            user=user_data,
                            rank_config=rank_config,
                            rank_info=user_rank)
-
+                           
 @app.route('/search', methods=['GET'])
 def search():
     query = request.args.get('query', '').strip()

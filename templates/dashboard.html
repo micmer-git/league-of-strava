@@ -45,9 +45,20 @@
         margin: 5px;
         border-radius: 8px;
         display: flex;
-        justify-content: space-between;
+        flex-direction: column; /* Changed from row to column for full-width rank */
         align-items: flex-start;
         gap: 20px;
+    }
+    .overview-full-width {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    }
+    .athlete-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
     }
 
     .overview-left {
@@ -64,6 +75,25 @@
         margin-top: 10px;
     }
 
+    .coin-metrics-inline {
+        display: flex;
+        gap: 10px;
+    }
+
+    .coin {
+        font-size: 1.2em;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+        color: green;
+        font-weight: bold;
+    }
+
+    .current-rank-full {
+        width: 100%;
+    }
+
     /* Rank Progress Bar */
     .rank-progress {
         width: 100%;
@@ -73,14 +103,12 @@
         margin-top: 10px;
         position: relative;
     }
-
     .progress-bar {
         background-color: #28a745;
         height: 100%;
         border-radius: 20px 0 0 20px;
         width: {{ rank_info.progress_percent }}%;
     }
-
     .progress-labels {
         display: flex;
         justify-content: space-between;
@@ -88,6 +116,14 @@
         font-size: 0.9em;
     }
 
+    .rank-section.hidden {
+        display: none;
+    }
+    .rank-details {
+    text-align: center;
+    font-size: 1em;
+    margin-top: 10px;
+    }
     /* Top Activities Section */
     .top-activities {
         flex: 1;
@@ -208,8 +244,8 @@
     /* Rank Section */
     .rank-section {
         background-color: #fff;
-        padding: 20px;
-        margin: 5px;
+        padding: 0px;
+        margin: 0px;
         border-radius: 8px;
     }
 
@@ -537,45 +573,33 @@ nav a:hover {
 
     <!-- Overview Section: Athlete Info, Rank, Top Activities, and Coins -->
     <div class="overview-section hidden">
-      <div class="overview-left">
+      <div class="overview-full-width">
         <div class="athlete-info">
-          <h1 id="athlete-name">{{ user.username }}</h1>
-          <div class="current-rank">
-            Current Rank: <span id="current-rank">{{ user.rank_name }}</span> <span id="rank-emoji">{{ user.rank_emoji }}</span>
-          </div>
-          <!-- Rank Progress Bar -->
-          <div class="rank-progress">
-            <div class="progress-bar"></div>
-          </div>
-          <div class="progress-labels">
-            <span id="current-rank-label">{{ rank_info.current_rank.name }}</span>
-            <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
-            <!-- Rank Section -->
-
-          </div>
-          <div class="rank-section hidden">
-            <div class="rank-details">
-              <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
-            </div>
+          <h1 id="athlete-name">{{ user.username }} | <span id="current-rank">{{ user.rank_name }}</span> <span id="rank-emoji">{{ user.rank_emoji }}</span> </h1>
+          <!-- Coins Displayed Next to Name -->
+          <div class="coin-metrics-inline">
+            <span class="coin" title="Everest Coins: Represents your total elevation gain">🏔️ {{ user.coins.everest | round(2) }}</span>
+            <span class="coin" title="Pizza Coins: Represents your total calories burned">🍕 {{ user.coins.pizza | int }}</span>
+            <span class="coin" title="Heartbeat Coins: Represents your total heartbeats">❤️ {{ user.coins.heartbeat | int }}</span>
+            <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
           </div>
         </div>
+
       </div>
+      <div class="overview-full-width">
 
-
-      <!-- Coins Section -->
-      <div class="overview-right">
-        <div class="coin-metrics">
-          <div class="coin" title="Everest Coins: Represents your total elevation gain">
-            <span id="everest-coins">🏔️ {{ user.coins.everest | round(2) }}</span>
-          </div>
-          <div class="coin" title="Pizza Coins: Represents your total calories burned">
-            <span id="pizza-coins">🍕 {{ user.coins.pizza | int }}</span>
-          </div>
-          <div class="coin" title="Heartbeat Coins: Represents your total heartbeats">
-            <span id="heartbeat-coins">❤️ {{ user.coins.heartbeat | int  }}</span>
-          </div>
-          <div class="coin" title="Distance: 100km per icon">
-            <span id="distance-value">🚴 {{ user.stats.distance | int  }}</span>
+      <div class="current-rank-full">
+        <!-- Rank Progress Bar -->
+        <div class="rank-progress">
+          <div class="progress-bar"></div>
+        </div>
+        <div class="progress-labels">
+          <span id="current-rank-label">{{ rank_info.current_rank.name }}</span>
+          <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
+        </div>
+        <div class="rank-section hidden">
+          <div class="rank-details">
+            <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
           </div>
         </div>
       </div>
@@ -680,7 +704,19 @@ nav a:hover {
     </div>
     -->
 
-
+    <!-- Additional Infos Section -->
+    <div class="additional-infos">
+        <h3>Additional Infos</h3>
+        <ul>
+            <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
+            <li><strong>Total Likes:</strong> {{ user.stats.total_likes }}</li>
+            <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
+            <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
+            <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
+            <li><strong>Most Common Activity Hour:</strong> {{ user.stats.most_common_hour }}:00</li>
+            <!-- Add more stats as needed -->
+        </ul>
+    </div>
 
     <!-- Activities Container -->
     <div id="activities-container" class="hidden">

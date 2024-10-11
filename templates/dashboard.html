@@ -690,9 +690,11 @@ nav a:hover {
           <div class="activity-item">
             <div class="activity-main">
               <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m </h3>
-              <p>Date: {{ activity.date }}</p>
-              <p>Elevation Gain: {{ activity.elevation_gain | round(0) }} m</p>
-              <p>Calories: {{ activity.calories | round(0) }} kcal</p>
+              <p>{{ activity.date }}</p>
+              <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
+              <p>{{ activity.calories | round(0) }} kcal</p>
+              <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
+
             </div>
             <div class="activity-coins">
               <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>

@@ -108,6 +108,9 @@ class Activity(db.Model):
     link = db.Column(db.String(200), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+    # New Field to Store Additional Data
+    additional_data = db.Column(db.JSON, nullable=True)
+
 # Initialize the database
 with app.app_context():
     db.create_all()
@@ -132,44 +135,337 @@ def allowed_file(filename):
     """Check if the uploaded file has an allowed extension."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+from dateutil import parser
+
 def process_dataframe(df):
-    """Validate and process the uploaded CSV dataframe."""
-    required_columns = [
-        'Activity ID', 'Activity Date', 'Activity Name', 'Activity Type', 'Activity Description',
-        'Moving Time', 'Distance', 'Max Heart Rate', 'Calories', 'Elevation Gain'
+    """Validate and process the uploaded CSV dataframe with support for Italian and English headers, handle comma decimals, and conditional distance units."""
+    logging.info("Starting CSV processing.")
+
+    # Define column name lists for Italian and English CSVs
+    italian_column_names = [
+        'Activity_ID',               # 0
+        'Activity_Date',             # 1
+        'Activity_Name',             # 2
+        'Activity_Type',             # 3
+        'Activity_Description',      # 4
+        'Elapsed_Time_1',            # 5
+        'Distance_1',                # 6
+        'Max_Heart_Rate_1',          # 7
+        'Relative_Effort_1',         # 8
+        'Commute_1',                 # 9
+        'Activity_Private_Note',     # 10
+        'Activity_Gear_1',           # 11
+        'Filename',                  # 12
+        'Athlete_Weight',            # 13
+        'Bike_Weight',               # 14
+        'Elapsed_Time_2',            # 15
+        'Moving_Time',               # 16
+        'Distance_2',                # 17
+        'Max_Speed',                 # 18
+        'Average_Speed',             # 19
+        'Elevation_Gain',            # 20
+        'Elevation_Loss',            # 21
+        'Elevation_Low',             # 22
+        'Elevation_High',            # 23
+        'Max_Grade',                 # 24
+        'Average_Grade_1',           # 25
+        'Average_Positive_Grade',    # 26
+        'Average_Negative_Grade',    # 27
+        'Max_Cadence',               # 28
+        'Average_Cadence',           # 29
+        'Max_Heart_Rate_2',          # 30
+        'Average_Heart_Rate',        # 31
+        'Max_Watts',                 # 32
+        'Average_Watts',             # 33
+        'Calories',                  # 34
+        'Max_Temperature',           # 35
+        'Average_Temperature',       # 36
+        'Relative_Effort_2',         # 37
+        'Total_Work',                # 38
+        'Number_of_Runs',            # 39
+        'Uphill_Time',               # 40
+        'Downhill_Time',             # 41
+        'Other_Time',                # 42
+        'Perceived_Exertion_1',      # 43
+        'Type',                      # 44
+        'Start_Time',                # 45
+        'Weighted_Average_Power',    # 46
+        'Power_Count',               # 47
+        'Prefer_Perceived_Exertion', # 48
+        'Perceived_Relative_Effort', # 49
+        'Commute_2',                 # 50
+        'Total_Weight_Lifted',       # 51
+        'From_Upload',               # 52
+        'Grade_Adjusted_Distance',   # 53
+        'Weather_Observation_Time',  # 54
+        'Weather_Condition',         # 55
+        'Weather_Temperature',       # 56
+        'Apparent_Temperature',      # 57
+        'Dewpoint',                  # 58
+        'Humidity',                  # 59
+        'Weather_Pressure',          # 60
+        'Wind_Speed',                # 61
+        'Wind_Gust',                 # 62
+        'Wind_Bearing',              # 63
+        'Precipitation_Intensity',   # 64
+        'Sunrise_Time',              # 65
+        'Sunset_Time',               # 66
+        'Moon_Phase',                # 67
+        'Bike_1',                    # 68
+        'Gear',                      # 69
+        'Precipitation_Probability', # 70
+        'Precipitation_Type',        # 71
+        'Cloud_Cover',               # 72
+        'Weather_Visibility',        # 73
+        'UV_Index',                  # 74
+        'Weather_Ozone',             # 75
+        'Jump_Count',                # 76
+        'Total_Grit',                # 77
+        'Average_Flow',              # 78
+        'Flagged',                   # 79
     ]
 
-    # Handle duplicate columns by renaming
-    # This renames 'Distance.1' to 'Distance_m' for meters
-    # Similarly, rename other duplicates as needed
-    new_columns = {}
-    for col in df.columns:
-        if col.endswith('.1'):
-            if 'Distance' in col:
-                new_columns[col] = 'Distance_m'  # Distance in meters
-            elif 'Moving Time' in col:
-                new_columns[col] = 'Moving Time'
+    english_column_names = [
+        'Activity_ID',               # 0
+        'Activity_Date',             # 1
+        'Activity_Name',             # 2
+        'Activity_Type',             # 3
+        'Activity_Description',      # 4
+        'Elapsed_Time_1',            # 5
+        'Distance_1',                # 6
+        'Max_Heart_Rate_1',          # 7
+        'Relative_Effort_1',         # 8
+        'Commute_1',                 # 9
+        'Activity_Private_Note',     # 10
+        'Activity_Gear_1',           # 11
+        'Filename',                  # 12
+        'Athlete_Weight',            # 13
+        'Bike_Weight',               # 14
+        'Elapsed_Time_2',            # 15
+        'Moving_Time',               # 16
+        'Distance_2',                # 17
+        'Max_Speed',                 # 18
+        'Average_Speed',             # 19
+        'Elevation_Gain',            # 20
+        'Elevation_Loss',            # 21
+        'Elevation_Low',             # 22
+        'Elevation_High',            # 23
+        'Max_Grade',                 # 24
+        'Average_Grade_1',           # 25
+        'Average_Positive_Grade',    # 26
+        'Average_Negative_Grade',    # 27
+        'Max_Cadence',               # 28
+        'Average_Cadence',           # 29
+        'Max_Heart_Rate_2',          # 30
+        'Average_Heart_Rate',        # 31
+        'Max_Watts',                 # 32
+        'Average_Watts',             # 33
+        'Calories',                  # 34
+        'Max_Temperature',           # 35
+        'Average_Temperature',       # 36
+        'Relative_Effort_2',         # 37
+        'Total_Work',                # 38
+        'Number_of_Runs',            # 39
+        'Uphill_Time',               # 40
+        'Downhill_Time',             # 41
+        'Other_Time',                # 42
+        'Perceived_Exertion_1',      # 43
+        'Type',                      # 44
+        'Start_Time',                # 45
+        'Weighted_Average_Power',    # 46
+        'Power_Count',               # 47
+        'Prefer_Perceived_Exertion', # 48
+        'Perceived_Relative_Effort', # 49
+        'Commute_2',                 # 50
+        'Total_Weight_Lifted',       # 51
+        'From_Upload',               # 52
+        'Grade_Adjusted_Distance',   # 53
+        'Weather_Observation_Time',  # 54
+        'Weather_Condition',         # 55
+        'Weather_Temperature',       # 56
+        'Apparent_Temperature',      # 57
+        'Dewpoint',                  # 58
+        'Humidity',                  # 59
+        'Weather_Pressure',          # 60
+        'Wind_Speed',                # 61
+        'Wind_Gust',                 # 62
+        'Wind_Bearing',              # 63
+        'Precipitation_Intensity',   # 64
+        'Sunrise_Time',              # 65
+        'Sunset_Time',               # 66
+        'Moon_Phase',                # 67
+        'Bike_1',                    # 68
+        'Gear',                      # 69
+        'Precipitation_Probability', # 70
+        'Precipitation_Type',        # 71
+        'Cloud_Cover',               # 72
+        'Weather_Visibility',        # 73
+        'UV_Index',                  # 74
+        'Weather_Ozone',             # 75
+        'Jump_Count',                # 76
+        'Total_Grit',                # 77
+        'Average_Flow',              # 78
+        'Flagged',                   # 79
+        # Add more column names up to 94 as per English CSV structure
+        # Assuming columns 80 to 93 are additional in English CSVs
+        'Additional_Column_80',      # 80
+        'Additional_Column_81',      # 81
+        'Additional_Column_82',      # 82
+        'Additional_Column_83',      # 83
+        'Additional_Column_84',      # 84
+        'Additional_Column_85',      # 85
+        'Additional_Column_86',      # 86
+        'Additional_Column_87',      # 87
+        'Additional_Column_88',      # 88
+        'Additional_Column_89',      # 89
+        'Additional_Column_90',      # 90
+        'Additional_Column_91',      # 91
+        'Additional_Column_92',      # 92
+        'Additional_Column_93',      # 93
+    ]
+
+    # Define expected column counts
+    expected_num_columns_italian = 80
+    expected_num_columns_english = 94
+
+    # Get actual number of columns and first 3 headers
+    actual_num_columns = df.shape[1]
+    headers = df.columns.tolist()
+    first_3_headers = headers[:3]
+    logging.info(f"Number of columns in CSV: {actual_num_columns}")
+    logging.info(f"First 3 headers: {first_3_headers}")
+
+    # Define known header patterns
+    italian_headers_sample = ['ID attività', "Data dell’attività", 'Nome attività']
+    english_headers_sample = ['Activity ID', 'Activity Date', 'Activity Name']
+
+    # Detect language
+    if first_3_headers == italian_headers_sample:
+        language = 'Italian'
+        expected_num_columns = expected_num_columns_italian
+        column_names = italian_column_names
+        logging.info("Detected Italian CSV.")
+    elif first_3_headers == english_headers_sample:
+        language = 'English'
+        expected_num_columns = expected_num_columns_english
+        column_names = english_column_names
+        logging.info("Detected English CSV.")
+    else:
+        error_msg = "Unsupported header language. Only Italian and English headers are supported."
+        logging.error(error_msg)
+        return None, error_msg
+
+    # Validate column count
+    if actual_num_columns < expected_num_columns:
+        error_msg = f'Expected at least {expected_num_columns} columns for {language} CSV, found {actual_num_columns}'
+        logging.error(error_msg)
+        return None, error_msg
+
+    # Assign column names
+    df = df.iloc[:, :expected_num_columns]  # Truncate to expected columns
+    df.columns = column_names
+    logging.info(f"Assigned column names for {language} CSV.")
+
+    # Log the new column names for verification
+    logging.info(f"New column names: {df.columns.tolist()}")
+
+    # Define numeric columns (common in both languages)
+    numeric_columns = [
+        'Elapsed_Time_1', 'Distance_1', 'Max_Heart_Rate_1', 'Relative_Effort_1',
+        'Moving_Time', 'Distance_2', 'Max_Speed', 'Average_Speed', 'Elevation_Gain',
+        'Elevation_Loss', 'Elevation_Low', 'Elevation_High', 'Max_Grade',
+        'Average_Grade_1', 'Average_Positive_Grade', 'Average_Negative_Grade',
+        'Max_Cadence', 'Average_Cadence', 'Max_Heart_Rate_2', 'Average_Heart_Rate',
+        'Max_Watts', 'Average_Watts', 'Calories', 'Max_Temperature',
+        'Average_Temperature', 'Total_Work', 'Number_of_Runs', 'Uphill_Time',
+        'Downhill_Time', 'Other_Time', 'Perceived_Exertion_1', 'Weighted_Average_Power',
+        'Power_Count', 'Precipitation_Intensity', 'Total_Weight_Lifted',
+        'Grade_Adjusted_Distance', 'Humidity', 'Weather_Pressure', 'Wind_Speed',
+        'Wind_Gust', 'Wind_Bearing', 'Precipitation_Intensity', 'UV_Index',
+        'Jump_Count', 'Total_Grit', 'Average_Flow', 'Average_Elapsed_Speed', 'Total_Steps'
+    ]
+
+    # Handle numeric parsing based on language
+    if language == 'Italian':
+        # Replace comma with dot in numeric columns for Italian CSV
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.replace(',', '.').astype(float).fillna(0)
+        logging.info("Replaced commas with dots in numeric columns for Italian CSV.")
+    else:
+        # For English CSVs, convert numeric columns directly
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        logging.info("Converted numeric columns for English CSV.")
+
+    # Convert numeric columns
+    # (Already handled above)
+
+    # Parse 'Activity_Date'
+    def parse_date(date_str):
+        try:
+            # First conversion attempt with inferred format
+            return pd.to_datetime(date_str, errors='raise', dayfirst=False, infer_datetime_format=True)
+        except:
+            try:
+                # Second conversion attempt with dayfirst=True
+                return pd.to_datetime(date_str, errors='raise', dayfirst=True, infer_datetime_format=True)
+            except:
+                try:
+                    # As a last resort, use dateutil.parser
+                    return parser.parse(date_str, dayfirst=False, fuzzy=True)
+                except:
+                    return pd.NaT
+
+    df['Activity_Date'] = df['Activity_Date'].astype(str).apply(parse_date)
+
+    # Drop rows with invalid 'Activity_Date'
+    num_invalid_dates = df['Activity_Date'].isna().sum()
+    if num_invalid_dates > 0:
+        logging.warning(f"Number of invalid 'Activity_Date' entries: {num_invalid_dates}")
+        df = df.dropna(subset=['Activity_Date'])
+
+    # Additional validation
+    if df.empty:
+        error_msg = "The processed dataframe is empty after parsing."
+        logging.error(error_msg)
+        return None, error_msg
+
+    # Check if 'Activity_ID' exists
+    if 'Activity_ID' not in df.columns:
+        error_msg = "'Activity_ID' column is missing after processing."
+        logging.error(error_msg)
+        return None, error_msg
+
+    # Drop duplicates
+    if df['Activity_ID'].duplicated().any():
+        logging.warning("Duplicate Activity IDs found. Dropping duplicates.")
+        df = df.drop_duplicates(subset=['Activity_ID'])
+
+    # Handle 'Distance' based on 'Activity_Type'
+    def assign_distance_km(row):
+        activity_type = row['Activity_Type']
+        if language == 'Italian':
+            if isinstance(activity_type, str) and activity_type.lower() == 'nuoto':  # 'nuoto' means 'swimming'
+                return row.get('Distance_2', 0) / 1000  # Convert meters to kilometers
             else:
-                new_columns[col] = col  # Keep other duplicates as is
-        else:
-            new_columns[col] = col
-    df = df.rename(columns=new_columns)
+                return row.get('Distance_1', 0)  # Already in kilometers
+        else:  # English
+            if isinstance(activity_type, str) and activity_type.lower() == 'swimming':
+                return row.get('Distance_2', 0) / 1000  # Convert meters to kilometers
+            else:
+                return row.get('Distance_1', 0)  # Already in kilometers
 
-    # Check required columns
-    for col in required_columns:
-        if col not in df.columns:
-            return None, f'Missing required column: {col}'
+    df['Distance_km'] = df.apply(assign_distance_km, axis=1)
+    logging.info("Assigned 'Distance_km' based on 'Activity_Type'.")
 
-    # Convert relevant columns to numeric types
-    numeric_columns = ['Moving Time', 'Distance', 'Distance_m', 'Max Heart Rate', 'Calories', 'Elevation Gain']
-    for col in numeric_columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+    # Optionally, drop original Distance columns to avoid confusion
+    df.drop(['Distance_1', 'Distance_2'], axis=1, inplace=True, errors='ignore')
 
-    # Convert 'Activity Date' to datetime
-    df['Activity Date'] = pd.to_datetime(df['Activity Date'], errors='coerce')
-
+    logging.info("CSV processing completed successfully.")
     return df, None
+
 
 def calculate_rank(total_hours):
     """Determine the user's current and next rank based on total_hours."""
@@ -201,8 +497,8 @@ def calculate_achievements(df):
 
     # ------------------ Achievements ------------------
     # Longest Streak
-    df_sorted = df.sort_values('Activity Date')
-    df_sorted['Date'] = df_sorted['Activity Date'].dt.date
+    df_sorted = df.sort_values('Activity_Date')
+    df_sorted['Date'] = df_sorted['Activity_Date'].dt.date
     unique_dates = sorted(df_sorted['Date'].dropna().unique())
     max_streak = 1
     current_streak = 1
@@ -223,7 +519,7 @@ def calculate_achievements(df):
     # Distance Badges
     distance_thresholds = [100, 200, 300]  # in km
     for threshold in distance_thresholds:
-        count = int(df[df['Distance_m'] >= threshold * 1000].shape[0])
+        count = int(df[df['Distance_km'] >= threshold].shape[0])
         achievements['Achievements'].append({
             'name': f'{threshold} km',
             'emoji': '💯' if threshold == 100 else ('🔱' if threshold == 200 else '⚜️'),
@@ -234,7 +530,7 @@ def calculate_achievements(df):
     # Duration Badges
     duration_thresholds = [3, 6, 12]  # in hours
     for threshold in duration_thresholds:
-        count = int(df[df['Moving Time']/60 >= threshold * 60].shape[0])
+        count = int(df[df['Moving_Time']/60 >= threshold * 60].shape[0])
         achievements['Achievements'].append({
             'name': f'{threshold} Hours',
             'emoji': '⌛' if threshold == 3 else ('⏱️' if threshold == 6 else '🌇'),
@@ -243,8 +539,8 @@ def calculate_achievements(df):
         })
 
     # Weekly Badges
-    df_sorted['Week Start'] = df_sorted['Activity Date'].apply(lambda x: (x - timedelta(days=x.weekday())).date())
-    weekly_hours = df_sorted.groupby('Week Start')['Moving Time'].sum() / 3600  # Convert to hours
+    df_sorted['Week Start'] = df_sorted['Activity_Date'].apply(lambda x: (x - timedelta(days=x.weekday())).date())
+    weekly_hours = df_sorted.groupby('Week Start')['Moving_Time'].sum() / 3600  # Convert to hours
     weekly_thresholds = [5, 10, 20]  # in hours
     for threshold in weekly_thresholds:
         count = int(weekly_hours[weekly_hours >= threshold].count())
@@ -256,7 +552,7 @@ def calculate_achievements(df):
         })
 
     # Consistency Champion
-    df_sorted['Month'] = df_sorted['Activity Date'].dt.to_period('M')
+    df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
     months = df_sorted['Month'].dropna().unique()
     consistency_count = 0
     for month in months:
@@ -285,11 +581,11 @@ def calculate_achievements(df):
 
     # ------------------ Medals ------------------
     # Special Occasion Badges
-    df_sorted['Month-Day'] = df_sorted['Activity Date'].dt.strftime('%m-%d')
+    df_sorted['Month-Day'] = df_sorted['Activity_Date'].dt.strftime('%m-%d')
 
     # Debugging: Check 'Month-Day' column
     print("Month-Day Column:")
-    print(df_sorted[['Activity Date', 'Month-Day']].head())
+    print(df_sorted[['Activity_Date', 'Month-Day']].head())
 
     special_occasions = [
         {'name': 'New Year Run', 'emoji': '🎉', 'dates': ['01-01']},
@@ -311,25 +607,25 @@ def calculate_achievements(df):
             'name': 'Marathon Master',
             'emoji': '🏃‍♂️',
             'description': 'Completed a marathon (42.195 km)',
-            'count': int(df[df['Activity Type'].str.contains('Run', case=False, na=False) & (df['Distance_m'] >= 42195)].shape[0])
+            'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 42.195)].shape[0])
         },
         {
             'name': 'Half Marathon Master',
             'emoji': '️2️⃣1️⃣🏃',
             'description': 'Completed a half marathon (21.0975 km)',
-            'count': int(df[df['Activity Type'].str.contains('Run', case=False, na=False) & (df['Distance_m'] >= 21097.5) & (df['Distance_m'] < 42195)].shape[0])
+            'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 21.0975)].shape[0])
         },
         {
             'name': 'Climbing King',
             'emoji': '🧗‍♂️',
-            'description': 'Total elevation gain over 1000m',
-            'count': int(df['Elevation Gain'].sum() // 1000)
+            'description': 'Total Elevation_Gain over 1000m',
+            'count': int(df['Elevation_Gain'].sum() // 1000)
         },
         {
             'name': 'Speedster',
             'emoji': '🏎️',
             'description': 'Achieved an average speed over 30 km/h',
-            'count': int(df['Max Speed'].fillna(0).apply(lambda x: x * 3.6 > 30).sum()) if 'Max Speed' in df.columns else 0
+            'count': int(df['Max_Speed'].fillna(0).apply(lambda x: x * 3.6 > 30).sum()) if 'Max_Speed' in df.columns else 0
         },
         # Add more as needed
     ]
@@ -351,9 +647,9 @@ def calculate_achievements(df):
 def calculate_coins(df):
     """Calculate coins based on activities."""
     coins = {
-        'everest': float(round(df['Elevation Gain'].sum() / 8848, 2)),  # 1 Everest = 8848m
+        'everest': float(round(df['Elevation_Gain'].sum() / 8848, 2)),  # 1 Everest = 8848m
         'pizza': float(round(df['Calories'].sum() / 1000, 2)),         # 1 Pizza = 1000 kcal
-        'heartbeat': int(df['Max Heart Rate'].sum())                   # 1 Heartbeat Coin = 1 heartbeat (adjust as needed)
+        'heartbeat': int(df['Average_Heart_Rate'].sum())                   # 1 Heartbeat Coin = 1 heartbeat (adjust as needed)
     }
     coins = convert_to_native(coins)
     return coins
@@ -361,9 +657,9 @@ def calculate_coins(df):
 def calculate_stats(df):
     """Calculate user statistics."""
     stats = {
-        'hours': float(round(df['Moving Time'].sum() / 3600, 1)),        # Convert to hours
-        'distance': float(round(df['Distance_m'].sum() / 1000, 1)),      # Convert to km
-        'elevation': float(round(df['Elevation Gain'].sum(), 1)),        # in meters
+        'hours': float(round(df['Moving_Time'].sum() / 3600, 1)),        # Convert to hours
+        'distance': float(round(df['Distance_km'].sum(), 1)),
+        'elevation': float(round(df['Elevation_Gain'].sum(), 1)),        # in meters
         'calories': float(round(df['Calories'].sum(), 1))               # in kcal
     }
     stats = convert_to_native(stats)
@@ -392,20 +688,20 @@ def calculate_max_metrics(df):
             'max_distance_link': '#',
         }
 
-    max_elevation = df['Elevation Gain'].max()
-    max_elevation_activity = df.loc[df['Elevation Gain'].idxmax()]
-    max_duration = df['Moving Time'].max() / 3600  # Convert to hours
-    max_duration_activity = df.loc[df['Moving Time'].idxmax()]
-    max_distance = df['Distance_m'].max() / 1000  # Convert to km
-    max_distance_activity = df.loc[df['Distance_m'].idxmax()]
+    max_elevation = df['Elevation_Gain'].max()
+    max_elevation_activity = df.loc[df['Elevation_Gain'].idxmax()]
+    max_duration = df['Moving_Time'].max() / 3600  # Convert to hours
+    max_duration_activity = df.loc[df['Moving_Time'].idxmax()]
+    max_distance = df['Distance_km'].max()  # Convert to km
+    max_distance_activity = df.loc[df['Distance_km'].idxmax()]
 
     return {
         'max_elevation': float(max_elevation),
-        'max_elevation_link': f"https://www.strava.com/activities/{max_elevation_activity['Activity ID']}",
+        'max_elevation_link': f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}",
         'max_duration': float(round(max_duration, 2)),
-        'max_duration_link': f"https://www.strava.com/activities/{max_duration_activity['Activity ID']}",
+        'max_duration_link': f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}",
         'max_distance': float(round(max_distance, 2)),
-        'max_distance_link': f"https://www.strava.com/activities/{max_distance_activity['Activity ID']}",
+        'max_distance_link': f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}",
     }
 
 # Routes
@@ -497,25 +793,78 @@ def index():
                     db.session.add(user)
                     db.session.flush()  # Flush to get user.id
 
-                # Add activities
-                for _, row in df.iterrows():
-                    activity = Activity(
-                        activity_id=row['Activity ID'],
-                        name=row['Activity Name'],
-                        date=row['Activity Date'],
-                        distance=row['Distance_m'] / 1000,  # Convert to km
-                        duration=row['Moving Time'] / 3600,  # Convert to hours
-                        duration_minutes=int((row['Moving Time'] % 3600) / 60),
-                        elevation_gain=row['Elevation Gain'],
-                        calories=row['Calories'],
-                        heartbeats=int(row['Max Heart Rate'] * (row['Moving Time'] / 60)),  # Example calculation
-                        coins_everest=round(row['Elevation Gain'] / 8848, 2),
-                        coins_pizza=round(row['Calories'] / 1000, 2),
-                        coins_heartbeat=int(row['Max Heart Rate'] * (row['Moving Time'] / 60)),
-                        link=f"https://www.strava.com/activities/{row['Activity ID']}",
-                        user_id=user.id
-                    )
-                    db.session.add(activity)
+                    # Add activities
+                    import json
+
+                    for _, row in df.iterrows():
+                        # Extract essential fields
+                        activity_id = row['Activity_ID']
+                        name = row['Activity_Name']
+                        date = row['Activity_Date']
+                        distance = row['Distance_km']  # or 'Distance_2' based on your logic
+                        moving_time = row['Moving_Time']
+                        duration = row['Moving_Time'] / 3600  # Convert to hours
+                        duration_minutes = int((row['Moving_Time'] % 3600) / 60)
+                        elevation_gain = row['Elevation_Gain']
+                        calories = row['Calories']
+                        max_heart_rate = row['Max_Heart_Rate_1']  # or 'Max_Heart_Rate_2' based on your logic
+                        heartbeats = int(max_heart_rate * (moving_time / 60))  # Example calculation
+                        coins_everest = round(elevation_gain / 8848, 2)
+                        coins_pizza = round(calories / 1000, 2)
+                        coins_heartbeat = heartbeats
+                        link = f"https://www.strava.com/activities/{activity_id}"
+
+                        # Collect additional data
+                        additional_data = row.to_dict()
+
+                        # Remove already stored fields to avoid duplication
+                        for key in [
+                            'Activity_ID', 'Activity_Date', 'Activity_Name', 'Activity_Type', 'Activity_Description',
+                            'Elapsed_Time_1', 'Distance_1', 'Max_Heart_Rate_1', 'Relative_Effort_1',
+                            'Commute_1', 'Activity_Private_Note', 'Activity_Gear_1', 'Filename',
+                            'Athlete_Weight', 'Bike_Weight', 'Elapsed_Time_2', 'Moving_Time',
+                            'Distance_2', 'Max_Speed', 'Average_Speed', 'Elevation_Gain',
+                            'Elevation_Loss', 'Elevation_Low', 'Elevation_High', 'Max_Grade',
+                            'Average_Grade_1', 'Average_Positive_Grade', 'Average_Negative_Grade',
+                            'Max_Cadence', 'Average_Cadence', 'Max_Heart_Rate_2', 'Average_Heart_Rate',
+                            'Max_Watts', 'Average_Watts', 'Calories', 'Max_Temperature',
+                            'Average_Temperature', 'Relative_Effort_2', 'Total_Work',
+                            'Number_of_Runs', 'Uphill_Time', 'Downhill_Time', 'Other_Time',
+                            'Perceived_Exertion_1', 'Type', 'Start_Time', 'Weighted_Average_Power',
+                            'Power_Count', 'Prefer_Perceived_Exertion', 'Perceived_Relative_Effort',
+                            'Commute_2', 'Total_Weight_Lifted', 'From_Upload',
+                            'Grade_Adjusted_Distance', 'Weather_Observation_Time', 'Weather_Condition',
+                            'Weather_Temperature', 'Apparent_Temperature', 'Dewpoint', 'Humidity',
+                            'Weather_Pressure', 'Wind_Speed', 'Wind_Gust', 'Wind_Bearing',
+                            'Precipitation_Intensity', 'Sunrise_Time', 'Sunset_Time', 'Moon_Phase',
+                            'Bike_1', 'Gear', 'Precipitation_Probability', 'Precipitation_Type',
+                            'Cloud_Cover', 'Weather_Visibility', 'UV_Index', 'Weather_Ozone',
+                            'Jump_Count', 'Total_Grit', 'Average_Flow', 'Flagged',
+                            'Average_Elapsed_Speed', 'Dirt_Distance', 'Newly_Explored_Distance',
+                            'Newly_Explored_Dirt_Distance', 'Activity_Count', 'Total_Steps',
+                            'Carbon_Saved', 'Pool_Length', 'Training_Load', 'Intensity',
+                            'Average_Grade_Adjusted_Pace', 'Timer_Time', 'Total_Cycles', 'Media'
+                        ]:
+                            additional_data.pop(key, None)
+
+                        activity = Activity(
+                            activity_id=activity_id,
+                            name=name,
+                            date=date,
+                            distance=distance,  # Adjust based on which 'Distance' column you prefer
+                            duration=duration,
+                            duration_minutes=duration_minutes,
+                            elevation_gain=elevation_gain,
+                            calories=calories,
+                            heartbeats=heartbeats,
+                            coins_everest=coins_everest,
+                            coins_pizza=coins_pizza,
+                            coins_heartbeat=coins_heartbeat,
+                            link=link,
+                            user_id=user.id,
+                            additional_data=additional_data  # Store the remaining data
+                        )
+                        db.session.add(activity)
 
                 db.session.commit()
                 flash('File successfully uploaded and processed!', 'success')
@@ -597,7 +946,8 @@ def dashboard(username):
                 'pizza': activity.coins_pizza,
                 'heartbeat': activity.coins_heartbeat
             },
-            'link': activity.link
+            'link': activity.link,
+            'additional_data': activity.additional_data  # Access additional data
         })
 
     # Prepare data for rendering
@@ -656,52 +1006,6 @@ def search():
 
 
 
-def process_dataframe(df):
-    """Validate and process the uploaded CSV dataframe."""
-    required_columns = [
-        'Activity ID', 'Activity Date', 'Activity Name', 'Activity Type', 'Activity Description',
-        'Moving Time', 'Distance', 'Max Heart Rate', 'Calories', 'Elevation Gain'
-    ]
-
-    # Handle duplicate columns by renaming
-    new_columns = {}
-    for col in df.columns:
-        if col.endswith('.1'):
-            if 'Distance' in col:
-                new_columns[col] = 'Distance_m'  # Distance in meters
-            elif 'Moving Time' in col:
-                new_columns[col] = 'Moving Time'
-            else:
-                new_columns[col] = col  # Keep other duplicates as is
-        else:
-            new_columns[col] = col
-    df = df.rename(columns=new_columns)
-
-    # Check required columns
-    for col in required_columns:
-        if col not in df.columns:
-            return None, f'Missing required column: {col}'
-
-    # Convert relevant columns to numeric types
-    numeric_columns = ['Moving Time', 'Distance', 'Distance_m', 'Max Heart Rate', 'Calories', 'Elevation Gain']
-    for col in numeric_columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
-    # Convert 'Activity Date' to datetime
-    df['Activity Date'] = pd.to_datetime(df['Activity Date'], errors='coerce')
-
-    # Debugging: Check parsing results
-    print("Activity Date Parsing:")
-    print(df['Activity Date'].head())
-
-    # Drop rows with invalid 'Activity Date'
-    num_invalid_dates = df['Activity Date'].isna().sum()
-    if num_invalid_dates > 0:
-        print(f"Number of invalid 'Activity Date' entries: {num_invalid_dates}")
-        df = df.dropna(subset=['Activity Date'])
-
-    return df, None
 
 @app.route('/leaderboard')
 def leaderboard():

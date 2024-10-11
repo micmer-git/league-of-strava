@@ -157,8 +157,7 @@
         .leaderboard-table {
             border-collapse: collapse;
             width: 100%;
-            table-layout: fixed; /* Ensures fixed table layout for predictable column widths */
-            min-width: 1000px; /* Adjust based on your design needs */
+            table-layout: auto; /* Allows columns to adjust based on content */
             background-color: #fff;
             border-radius: 8px;
             overflow: hidden;
@@ -173,28 +172,6 @@
             z-index: 2;
         }
 
-        /* Sticky Columns */
-        .sticky-col {
-            position: sticky;
-            background-color: #fff; /* Ensure background covers content beneath */
-            z-index: 3; /* Higher than other cells */
-        }
-
-        /* Rank Column */
-        .rank-col {
-            left: 0;
-            width: 100px; /* Fixed width for Rank column */
-            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
-        }
-
-        /* Username Column */
-        .username-col {
-            left: 100px; /* Must be equal to the width of the Rank column */
-            width: 200px; /* Fixed width for Username column */
-            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
-            z-index: 2; /* Slightly lower than Rank column to prevent overlap */
-        }
-
         /* Table Headers */
         .leaderboard-table th {
             cursor: pointer;
@@ -204,6 +181,7 @@
             padding: 12px 15px;
             border-bottom: 1px solid #f1f1f1;
             font-size: 1em;
+            white-space: nowrap; /* Prevent text wrapping */
         }
 
         /* Table Data Cells */
@@ -212,35 +190,7 @@
             padding: 12px 15px;
             border-bottom: 1px solid #f1f1f1;
             font-size: 1em;
-        }
-
-        /* Adjustments for Sticky Columns in Table Body */
-        .leaderboard-table tbody td.sticky-col {
-            background-color: #fff; /* Match header background */
-            z-index: 1;
-        }
-
-        /* Ensure that sticky columns do not get hidden */
-        .leaderboard-table tbody tr td.sticky-col {
-            /* Prevent text from overflowing */
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        /* Responsive Adjustments for Sticky Columns */
-        @media (max-width: 768px) {
-            .username-col {
-                left: 100px; /* Maintain alignment based on Rank column width */
-                width: 150px; /* Adjusted width for smaller screens */
-            }
-        }
-
-        @media (max-width: 576px) {
-            .username-col {
-                left: 100px; /* Maintain alignment */
-                width: 120px; /* Further adjusted width */
-            }
+            white-space: nowrap; /* Prevent text wrapping */
         }
 
         /* Tooltip Styling */
@@ -285,6 +235,7 @@
             text-align: left;
             color: #ff6600;
             font-weight: 600;
+            white-space: nowrap;
         }
 
         .leaderboard-table td a {
@@ -296,6 +247,57 @@
         .leaderboard-table td a:hover {
             color: #0056b3;
             text-decoration: underline;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            #dashboard-container h1 {
+                font-size: 2em;
+            }
+
+            .leaderboard-table th, .leaderboard-table td {
+                padding: 10px 12px;
+                font-size: 0.95em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
+
+            nav {
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+                background-color: #ff6600;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-in-out;
+            }
+
+            nav.active {
+                max-height: 300px; /* Adjust as needed */
+            }
+
+            nav a {
+                padding: 10px 0;
+                width: 100%;
+                text-align: center;
+                border-top: 1px solid rgba(255, 255, 255, 0.3);
+            }
+        }
+
+        @media (max-width: 576px) {
+            #dashboard-container h1 {
+                font-size: 1.8em;
+            }
+
+            .leaderboard-table th, .leaderboard-table td {
+                padding: 8px 10px;
+                font-size: 0.9em;
+            }
         }
 
         /* Slide Down Animation */
@@ -343,11 +345,11 @@
             <table class="leaderboard-table">
                 <thead>
                     <tr>
-                        <th class="sticky-col rank-col" data-sort="rank" title="Rank">
+                        <th data-sort="rank" title="Rank">
                             🏅 Rank
                             <div class="tooltip-text">Rank</div>
                         </th>
-                        <th class="sticky-col username-col" data-sort="username" title="Username">
+                        <th data-sort="username" title="Username">
                             👤 Username
                             <div class="tooltip-text">Username</div>
                         </th>
@@ -386,11 +388,11 @@
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td class="sticky-col rank-col" data-label="Rank">
+                        <td data-label="Rank">
                             <span class="rank-emoji">{{ user.rank_emoji }}</span>
                             <span class="rank-number">{{ user.rank }}</span>
                         </td>
-                        <td class="sticky-col username-col" data-label="Username">
+                        <td data-label="Username" class="username-cell">
                             <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
                         </td>
                         <td data-label="Hours">{{ user.total_hours | int }}</td>

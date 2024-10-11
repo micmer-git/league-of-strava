@@ -27,7 +27,7 @@
 
         /* Header Styles */
         header {
-            background-color: #ff4500; /* More intense orange */
+            background-color: #ff6600; /* More intense orange */
             padding: 15px 20px;
             display: flex;
             align-items: center;
@@ -84,7 +84,7 @@
             top: 70px;
             left: 0;
             right: 0;
-            background-color: #ff4500;
+            background-color: #ff6600;
             padding: 15px 20px;
             gap: 15px;
             animation: slideDown 0.3s ease forwards;
@@ -116,10 +116,10 @@
         }
 
         #dashboard-container h1 {
-            text-align: center;
-            margin-bottom: 30px;
+            text-align: left;
+            margin-bottom: 5px;
             font-size: 2.5em;
-            color: #ff4500;
+            color: #ff6600;
         }
 
         /* Overview Section */
@@ -154,7 +154,7 @@
         .athlete-info h1 {
             margin: 0;
             font-size: 2em;
-            color: #ff4500;
+            color: #ff6600;
         }
 
         .current-rank {
@@ -235,7 +235,7 @@
         }
 
         .top-activity-card {
-            background-color: #ff4500;
+            background-color: #ff6600;
             border-radius: 20px;
             padding: 15px;
             text-align: center;
@@ -259,9 +259,10 @@
         }
 
         .achievements-section h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #ff4500;
+          text-align: left;
+          margin-bottom: 5px;
+          font-size: 2.5em;
+          color: #ff6600;
         }
 
         .achievements-category {
@@ -271,7 +272,7 @@
         .achievements-category h3 {
             margin-bottom: 10px;
             font-size: 1.2em;
-            color: #ff4500;
+            color: #ff6600;
         }
 
         .achievements-list, .medals-slider {
@@ -352,7 +353,7 @@
 
         .additional-infos h3 {
             margin-bottom: 15px;
-            color: #ff4500;
+            color: #ff6600;
         }
 
         .additional-infos ul {
@@ -382,7 +383,7 @@
         #activities-container h2 {
             text-align: center;
             margin-bottom: 20px;
-            color: #ff4500;
+            color: #ff6600;
         }
 
         .activity-item {
@@ -404,7 +405,7 @@
         .activity-main h3 {
             margin: 0 0 5px 0;
             font-size: 1.2em;
-            color: #ff4500;
+            color: #ff6600;
         }
 
         .activity-main p {
@@ -659,7 +660,7 @@
         <div class="overview-section hidden">
             <div class="overview-full-width">
                 <div class="athlete-info">
-                    <h1 id="athlete-name">{{ user.username }} | <span id="current-rank">{{ user.rank_name }}</span> <span id="rank-emoji">{{ user.rank_emoji }}</span></h1>
+                    <h1 id="athlete-name">{{ user.username }} <br> <h2 id="current-rank">{{ user.rank_name }}</h2> <span id="rank-emoji">{{ user.rank_emoji }}</span></h1>
                 </div>
                 <!-- Coins Displayed Next to Name -->
                 <div class="coin-metrics-inline">
@@ -709,11 +710,11 @@
             <h2>Achievements & Medals</h2>
 
             <!-- Achievements Category -->
-            {% if user.key_achievements.Achievements %}
+            {% if user.achievements.Achievements %}
                 <div class="achievements-category">
                     <h3>Achievements</h3>
                     <div class="achievements-list">
-                        {% for badge in user.key_achievements.Achievements %}
+                        {% for badge in user.achievements.Achievements %}
                             <div class="achievement-card" title="{{ badge.description or badge.name }}">
                                 <p class="achievement-emoji">{{ badge.emoji }}</p>
                                 <p class="achievement-count">{{ badge.count }}</p>
@@ -728,11 +729,11 @@
             {% endif %}
 
             <!-- Medals Category -->
-            {% if user.key_achievements.Medals %}
+            {% if user.achievements.Medals %}
                 <div class="achievements-category">
                     <h3>Medals</h3>
                     <div class="medals-slider">
-                        {% for badge in user.key_achievements.Medals %}
+                        {% for badge in user.achievements.Medals %}
                             <div class="medal-card" title="{{ badge.description or badge.name }}">
                                 <p class="medal-emoji">{{ badge.emoji }}</p>
                                 <p class="medal-count">{{ badge.count }}</p>

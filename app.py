@@ -990,6 +990,23 @@ def dashboard(username):
             'additional_data': activity.additional_data  # Access additional data
         })
 
+    # Collect all unique achievements and medals
+    all_achievements = set()
+    all_medals = set()
+    if user.achievements:
+        for category, badges in user.achievements.items():
+            for badge in badges:
+                if 'name' in badge:
+                    if category.lower() == 'achievements':
+                        all_achievements.add(badge['name'])
+                    elif category.lower() == 'medals':
+                        all_medals.add(badge['name'])
+
+    # Sort them for consistent display
+    all_achievements = sorted(all_achievements)
+    all_medals = sorted(all_medals)
+
+
     # Prepare data for rendering
     user_data = {
         'username': user.username,
@@ -1018,6 +1035,7 @@ def dashboard(username):
 
     return render_template('dashboard.html',
                            user=user_data,
+                           all_achievements=all_achievements,
                            rank_config=rank_config,
                            rank_info=user_rank)
 
@@ -1043,7 +1061,6 @@ def search():
     else:
         flash('User not found. Please ensure the link is correct or upload the user\'s activities.', 'danger')
         return redirect(url_for('index'))
-
 
 
 

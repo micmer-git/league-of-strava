@@ -2,438 +2,513 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>League of Strava</title>
+    <title>League of Strava - Leaderboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-      /* Basic Styles */
-      body {
-          background-color: #f8f9fa;
-          font-family: 'Montserrat', sans-serif;
-          margin: 0;
-          padding: 0;
-      }
+        /* Basic Reset */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
 
-      /* Header Styles */
-      header {
-          background-color: orange;
-          padding: 10px 20px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          position: sticky;
-          top: 0;
-          z-index: 1000;
-      }
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
 
-      header .logo {
-          display: flex;
-          align-items: center;
-          cursor: pointer;
-      }
+        /* Header Styles */
+        header {
+            background-color: #ff6600; /* Brighter orange for better contrast */
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
 
-      header .logo img {
-          height: 50px;
-          width: auto;
-      }
+        header .logo img {
+            height: 50px;
+            width: auto;
+        }
 
-      header .hamburger {
-          display: none;
-          flex-direction: column;
-          cursor: pointer;
-      }
+        /* Navigation Styles */
+        nav {
+            display: flex;
+            gap: 20px;
+        }
 
-      header .hamburger div {
-          width: 25px;
-          height: 3px;
-          background-color: #fff;
-          margin: 4px 0;
-          transition: 0.4s;
-      }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            position: relative;
+            transition: color 0.3s;
+        }
 
-      /* Navigation Menu */
-      nav {
-          display: flex;
-          gap: 20px;
-      }
+        nav a:hover {
+            color: #e0e0e0;
+        }
 
-      nav a {
-          color: #fff;
-          text-decoration: none;
-          font-weight: 500;
-      }
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
 
-      nav a:hover {
-          text-decoration: underline;
-      }
+        .hamburger div {
+            width: 25px;
+            height: 3px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+        }
 
-      #dashboard-container {
-          max-width: 1200px;
-          margin: auto;
-          padding: 20px;
-      }
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            flex-direction: column;
+            position: absolute;
+            top: 70px;
+            left: 0;
+            right: 0;
+            background-color: #ff6600;
+            padding: 15px 20px;
+            gap: 15px;
+            animation: slideDown 0.3s ease forwards;
+        }
 
-      /* Leaderboard Table */
-      .table-responsive {
-          width: 100%;
-          overflow-x: auto;
-      }
+        .mobile-nav a {
+            color: #fff;
+            font-size: 1.1em;
+            padding: 10px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
 
-      .leaderboard-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 20px;
-          background-color: #fff;
-          border-radius: 8px;
-          overflow: hidden;
-          min-width: 800px; /* Ensures table maintains readability */
-      }
+        /* Toggle Animation for Hamburger */
+        .hamburger.active div:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
 
-      .leaderboard-table th, .leaderboard-table td {
-          border: 1px solid #dee2e6;
-          padding: 15px;
-          text-align: center;
-          vertical-align: middle;
-          white-space: nowrap;
-      }
+        .hamburger.active div:nth-child(2) {
+            opacity: 0;
+        }
 
-      .leaderboard-table th {
-          background-color: #e9ecef;
-          font-weight: bold;
-          cursor: pointer;
-          position: relative;
-      }
+        .hamburger.active div:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
 
-      .username-cell {
-          text-align: left;
-          font-weight: bold;
-      }
+        /* Dashboard Container */
+        #dashboard-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
 
-      .leaderboard-table td a {
-          color: #007bff;
-          text-decoration: none;
-      }
+        #dashboard-container h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            color: #ff6600;
+        }
 
-      .leaderboard-table td a:hover {
-          text-decoration: underline;
-      }
+        /* Leaderboard Table Wrapper */
+        .leaderboard-table-wrapper {
+            overflow-x: auto;
+            scrollbar-width: thin; /* For Firefox */
+            scrollbar-color: #ff6600 #f4f6f8; /* thumb and track colors */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            scroll-behavior: smooth;
+        }
 
-      .leaderboard-table tbody tr:nth-child(even) {
-          background-color: #f8f9fa;
-      }
+        /* Webkit Scrollbar Styles */
+        .leaderboard-table-wrapper::-webkit-scrollbar {
+            height: 8px;
+        }
 
-      /* Tooltip */
-      .tooltip-text {
-          display: none;
-          position: absolute;
-          bottom: 100%;
-          left: 50%;
-          transform: translateX(-50%);
-          background-color: #333;
-          color: #fff;
-          padding: 5px 10px;
-          border-radius: 4px;
-          font-size: 12px;
-          white-space: nowrap;
-          z-index: 1000;
-          pointer-events: none;
-      }
+        .leaderboard-table-wrapper::-webkit-scrollbar-track {
+            background: #f4f6f8;
+            border-radius: 4px;
+        }
 
-      th:hover .tooltip-text {
-          display: block;
-      }
+        .leaderboard-table-wrapper::-webkit-scrollbar-thumb {
+            background-color: #ff6600;
+            border-radius: 4px;
+            border: 2px solid #f4f6f8; /* Padding around thumb */
+        }
 
-      /* Sort Indicator */
-      .sort-indicator::after {
-          content: '';
-          display: inline-block;
-          margin-left: 5px;
-          border: 5px solid transparent;
-          pointer-events: none;
-      }
+        /* Optional: Hide scrollbar on touch devices */
+        @media (hover: none) and (pointer: coarse) {
+            .leaderboard-table-wrapper::-webkit-scrollbar {
+                display: none;
+            }
+        }
 
-      th.asc .sort-indicator::after {
-          border-bottom-color: #000;
-          transform: translateY(-50%);
-      }
+        /* Leaderboard Table */
+        .leaderboard-table {
+            border-collapse: collapse;
+            width: 100%;
+            table-layout: fixed; /* Ensures fixed table layout for predictable column widths */
+            min-width: 1000px; /* Adjust based on your design needs */
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
 
-      th.desc .sort-indicator::after {
-          border-top-color: #000;
-          transform: translateY(50%);
-      }
+        .leaderboard-table thead {
+            background-color: #ff6600;
+            color: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
 
-      /* Responsive Design */
-      @media (max-width: 992px) {
-          .leaderboard-table th, .leaderboard-table td {
-              padding: 10px;
-          }
-      }
+        /* Sticky Columns */
+        .sticky-col {
+            position: sticky;
+            background-color: #fff; /* Ensure background covers content beneath */
+            z-index: 3; /* Higher than other cells */
+        }
 
-      @media (max-width: 768px) {
-          .leaderboard-table {
-              font-size: 0.9em;
-              min-width: 900px; /* Adjust as needed based on columns */
-          }
-          .leaderboard-table th, .leaderboard-table td {
-              padding: 8px;
-          }
-          header .hamburger {
-              display: flex;
-          }
-          nav {
-              display: none;
-              flex-direction: column;
-              position: absolute;
-              top: 70px;
-              left: 0;
-              right: 0;
-              background-color: orange;
-              padding: 10px;
-          }
-          nav.active {
-              display: flex;
-          }
-          /* Hide less important columns on very small screens */
-          @media (max-width: 576px) {
-              .leaderboard-table th:nth-child(n+7),
-              .leaderboard-table td:nth-child(n+7) {
-                  display: none;
-              }
-          }
-      }
+        /* Rank Column */
+        .rank-col {
+            left: 0;
+            width: 100px; /* Fixed width for Rank column */
+            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
+        }
 
-      /* Additional styles for better readability */
-      @media (max-width: 576px) {
-          .leaderboard-table {
-              font-size: 0.8em;
-              min-width: 600px; /* Adjust as needed */
-          }
-      }
+        /* Username Column */
+        .username-col {
+            left: 100px; /* Must be equal to the width of the Rank column */
+            width: 200px; /* Fixed width for Username column */
+            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
+            z-index: 2; /* Slightly lower than Rank column to prevent overlap */
+        }
+
+        /* Table Headers */
+        .leaderboard-table th {
+            cursor: pointer;
+            user-select: none;
+            position: relative; /* Necessary for tooltips */
+            text-align: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #f1f1f1;
+            font-size: 1em;
+        }
+
+        /* Table Data Cells */
+        .leaderboard-table td {
+            text-align: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #f1f1f1;
+            font-size: 1em;
+        }
+
+        /* Adjustments for Sticky Columns in Table Body */
+        .leaderboard-table tbody td.sticky-col {
+            background-color: #fff; /* Match header background */
+            z-index: 1;
+        }
+
+        /* Ensure that sticky columns do not get hidden */
+        .leaderboard-table tbody tr td.sticky-col {
+            /* Prevent text from overflowing */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Responsive Adjustments for Sticky Columns */
+        @media (max-width: 768px) {
+            .username-col {
+                left: 100px; /* Maintain alignment based on Rank column width */
+                width: 150px; /* Adjusted width for smaller screens */
+            }
+        }
+
+        @media (max-width: 576px) {
+            .username-col {
+                left: 100px; /* Maintain alignment */
+                width: 120px; /* Further adjusted width */
+            }
+        }
+
+        /* Tooltip Styling */
+        .tooltip-text {
+            display: none;
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 10;
+        }
+
+        .leaderboard-table th:hover .tooltip-text {
+            display: block;
+        }
+
+        /* Style for Rank Emoji and Number */
+        .rank-emoji {
+            font-size: 1.2em;
+            margin-right: 5px;
+        }
+
+        .rank-number {
+            font-weight: bold;
+            color: #ff6600;
+        }
+
+        /* Additional Styles for Better Appearance */
+        .leaderboard-table th, .leaderboard-table td {
+            /* Ensures text is not wrapped */
+            white-space: nowrap;
+        }
+
+        /* Username cell text alignment */
+        .username-cell {
+            text-align: left;
+            color: #ff6600;
+            font-weight: 600;
+        }
+
+        .leaderboard-table td a {
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .leaderboard-table td a:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        /* Slide Down Animation */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
-    <!-- Include only one version of Bootstrap CSS if needed -->
 </head>
-
 <body>
-  <header>
-      <div class="logo" id="logo">
-          <a href='/'>
-              <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="Logo">
-          </a>
-      </div>
-      <div class="hamburger" id="hamburger">
-          <div></div>
-          <div></div>
-          <div></div>
-      </div>
-      <nav id="nav-menu">
-          <a href="https://linktr.ee/micmer">About</a>
-          <a href="/leaderboard">Leaderboard</a>
-          <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
-      </nav>
-  </header>
+    <header>
+        <div class="logo" id="logo">
+            <a href="/">
+                <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
+            </a>
+        </div>
+        <nav id="nav-menu">
+            <a href="https://linktr.ee/micmer">About</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+        </nav>
+        <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </header>
 
-  <div id="dashboard-container">
-      <h1 class="mb-4">League of Strava</h1>
-      <div class="table-responsive">
-          <table class="leaderboard-table">
-              <thead>
-                  <tr>
-                      <th data-sort="rank" title="Rank">
-                          #
-                          <div class="tooltip-text">Rank</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="username" title="Username" style="text-align: left;">
-                          👤
-                          <div class="tooltip-text">Username</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="total_hours" title="Total Hours">
-                          🕒
-                          <div class="tooltip-text">Total Hours</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="coins_everest" title="Everest Coins">
-                          🏔️
-                          <div class="tooltip-text">Everest Coins</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="coins_pizza" title="Pizza Coins">
-                          🍕
-                          <div class="tooltip-text">Pizza Coins</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="coins_heartbeat" title="Heartbeat Coins">
-                          ❤️
-                          <div class="tooltip-text">Heartbeat Coins</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <!-- Additional Coins/Medals Columns -->
-                      <th data-sort="total_likes" title="Total Likes">
-                          👍
-                          <div class="tooltip-text">Total Likes</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="average_temperature" title="Average Temperature">
-                          🌡️
-                          <div class="tooltip-text">Average Temperature</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="most_common_hour" title="Most Common Activity Hour">
-                          🕰️
-                          <div class="tooltip-text">Most Common Activity Hour</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <!-- Include key achievements -->
-                      <th data-sort="marathon_master" title="Marathon Master">
-                          🏃‍♂️
-                          <div class="tooltip-text">Marathon Master</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="climbing_king" title="Climbing King">
-                          🧗‍♂️
-                          <div class="tooltip-text">Climbing King</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="speedster" title="Speedster">
-                          🏎️
-                          <div class="tooltip-text">Speedster</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                      <th data-sort="consistency_champion" title="Consistency Champion">
-                          🔁
-                          <div class="tooltip-text">Consistency Champion</div>
-                          <span class="sort-indicator"></span>
-                      </th>
-                  </tr>
-              </thead>
-              <tbody>
-                  {% for user in users %}
-                  <tr>
-                      <td>{{ user.rank }}</td>
-                      <td class="username-cell">
-                          <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
-                      </td>
-                      <td>{{ user.total_hours }}</td>
-                      <td>{{ user.coins_everest }}</td>
-                      <td>{{ user.coins_pizza }}</td>
-                      <td>{{ user.coins_heartbeat }}</td>
-                      <!-- Additional Coins/Medals Data -->
-                      <td>{{ user.total_likes }}</td>
-                      <td>{{ user.average_temperature }}</td>
-                      <td>
-                          {% if user.most_common_hour %}
-                              {{ user.most_common_hour }}:00
-                          {% else %}
-                              N/A
-                          {% endif %}
-                      </td>
-                      <!-- Key achievements counts -->
-                      <td>{{ user.badges_counts.get('Marathon Master', 0) }}</td>
-                      <td>{{ user.badges_counts.get('Climbing King', 0) }}</td>
-                      <td>{{ user.badges_counts.get('Speedster', 0) }}</td>
-                      <td>{{ user.badges_counts.get('Consistency Champion', 0) }}</td>
-                  </tr>
-                  {% endfor %}
-              </tbody>
-          </table>
-      </div>
-  </div>
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="https://linktr.ee/micmer">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+    </div>
 
-  <!-- Include jQuery (if necessary) -->
-  <script
-      src="https://code.jquery.com/jquery-3.6.0.min.js"
-      integrity="sha256-K+ctZQmT0DqRk4BtqB7EGYQ+QOJm15U3+V4XlYNlw9Y="
-      crossorigin="anonymous">
-  </script>
+    <div id="dashboard-container">
+        <h1>League of Strava</h1>
+        <div class="leaderboard-table-wrapper">
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th class="sticky-col rank-col" data-sort="rank" title="Rank">
+                            🏅 Rank
+                            <div class="tooltip-text">Rank</div>
+                        </th>
+                        <th class="sticky-col username-col" data-sort="username" title="Username">
+                            👤 Username
+                            <div class="tooltip-text">Username</div>
+                        </th>
+                        <th data-sort="total_hours" title="Total Hours">
+                            🕒 Hours
+                            <div class="tooltip-text">Total Hours</div>
+                        </th>
+                        <th data-sort="coins_everest" title="Everest Coins">
+                            🏔️ Everest
+                            <div class="tooltip-text">Everest Coins</div>
+                        </th>
+                        <th data-sort="coins_pizza" title="Pizza Coins">
+                            🍕 Pizza
+                            <div class="tooltip-text">Pizza Coins</div>
+                        </th>
+                        <th data-sort="coins_heartbeat" title="Heartbeat Coins">
+                            ❤️ Heartbeat
+                            <div class="tooltip-text">Heartbeat Coins</div>
+                        </th>
+                        <!-- Dynamic Achievement Columns -->
+                        {% for achievement in all_achievements %}
+                            <th data-sort="{{ achievement | lower | replace(' ', '_') }}" title="{{ achievement }}">
+                                {{ badge_emoji_mapping.get(achievement, '') }} {{ achievement }}
+                                <div class="tooltip-text">{{ achievement }}</div>
+                            </th>
+                        {% endfor %}
+                        <!-- Dynamic Medal Columns -->
+                        {% for medal in all_medals %}
+                            <th data-sort="{{ medal | lower | replace(' ', '_') }}" title="{{ medal }}">
+                                {{ badge_emoji_mapping.get(medal, '') }} {{ medal }}
+                                <div class="tooltip-text">{{ medal }}</div>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td class="sticky-col rank-col" data-label="Rank">
+                            <span class="rank-emoji">{{ user.rank_emoji }}</span>
+                            <span class="rank-number">{{ user.rank }}</span>
+                        </td>
+                        <td class="sticky-col username-col" data-label="Username">
+                            <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
+                        </td>
+                        <td data-label="Hours">{{ user.total_hours | int }}</td>
+                        <td data-label="Everest">{{ user.coins_everest | int }}</td>
+                        <td data-label="Pizza">{{ user.coins_pizza | int }}</td>
+                        <td data-label="Heartbeat">{{ user.coins_heartbeat | int }}</td>
+                        <!-- Dynamic Achievement Data -->
+                        {% for achievement in all_achievements %}
+                            <td data-label="{{ achievement }}">
+                                {{ user.badges_counts.get(achievement, 0) }}
+                            </td>
+                        {% endfor %}
+                        <!-- Dynamic Medal Data -->
+                        {% for medal in all_medals %}
+                            <td data-label="{{ medal }}">
+                                {{ user.badges_counts.get(medal, 0) }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-  <!-- Include Bootstrap JS if needed -->
-  <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+3pzGkzYQ5IW5fZhFNZr+75eht6b+"
-      crossorigin="anonymous">
-  </script>
+    <!-- JavaScript for Interactivity -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const mobileNav = document.getElementById('mobile-nav');
+            const navMenu = document.getElementById('nav-menu');
+            const logo = document.getElementById('logo');
 
-  <!-- Custom JavaScript -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const hamburger = document.getElementById('hamburger');
-        const navMenu = document.getElementById('nav-menu');
-        const logo = document.getElementById('logo');
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                mobileNav.classList.toggle('active');
+                const isExpanded = hamburger.classList.contains('active');
+                hamburger.setAttribute('aria-expanded', isExpanded);
+                mobileNav.style.display = isExpanded ? 'flex' : 'none';
+            };
 
-        const toggleMenu = () => {
-            navMenu.classList.toggle('active');
-        };
+            hamburger.addEventListener('click', toggleMenu);
+            logo.addEventListener('click', toggleMenu);
 
-        hamburger.addEventListener('click', toggleMenu);
-        logo.addEventListener('click', toggleMenu);
+            // Initialize mobile nav display
+            mobileNav.style.display = 'none';
 
-        // Sorting functionality
-        document.querySelectorAll('th[data-sort]').forEach(th => {
-            th.addEventListener('click', function() {
-                const table = this.closest('table');
-                const tbody = table.querySelector('tbody');
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const sortKey = this.dataset.sort;
-                const currentDir = this.classList.contains('asc') ? 'asc' : 'desc';
-                const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+            // Sorting functionality
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                th.addEventListener('click', function() {
+                    const table = this.closest('table');
+                    const tbody = table.querySelector('tbody');
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    const sortKey = this.dataset.sort;
+                    const currentDir = this.getAttribute('data-dir') || 'desc';
+                    const newDir = currentDir === 'asc' ? 'desc' : 'asc';
 
-                // Remove sort classes from all headers
-                document.querySelectorAll('th').forEach(header => header.classList.remove('asc', 'desc'));
-                // Add sort class to current header
-                this.classList.add(newDir);
+                    // Update sort direction
+                    table.querySelectorAll('th').forEach(header => {
+                        header.removeAttribute('data-dir');
+                    });
+                    this.setAttribute('data-dir', newDir);
 
-                // Sort rows
-                rows.sort((a, b) => {
-                    const cellA = getCellValue(a, sortKey);
-                    const cellB = getCellValue(b, sortKey);
+                    // Sort rows
+                    rows.sort((a, b) => {
+                        const cellA = getCellValue(a, sortKey);
+                        const cellB = getCellValue(b, sortKey);
 
-                    // Determine if sortKey is numeric
-                    const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
+                        // Determine if sortKey is numeric
+                        const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
 
-                    if (isNumeric) {
-                        return newDir === 'asc' ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
-                    } else {
-                        const valA = cellA.toString().toLowerCase();
-                        const valB = cellB.toString().toLowerCase();
-                        return newDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                        if (isNumeric) {
+                            return newDir === 'asc' ? cellA - cellB : cellB - cellA;
+                        } else {
+                            const valA = cellA.toString().toLowerCase();
+                            const valB = cellB.toString().toLowerCase();
+                            if (valA < valB) return newDir === 'asc' ? -1 : 1;
+                            if (valA > valB) return newDir === 'asc' ? 1 : -1;
+                            return 0;
+                        }
+                    });
+
+                    // Append sorted rows
+                    rows.forEach(row => tbody.appendChild(row));
+                });
+            });
+
+            function getCellValue(row, sortKey) {
+                const idx = getColumnIndex(sortKey);
+                return row.cells[idx].textContent.trim() || '';
+            }
+
+            function getColumnIndex(sortKey) {
+                const headers = Array.from(document.querySelectorAll('th[data-sort]'));
+                for (let i = 0; i < headers.length; i++) {
+                    if (headers[i].dataset.sort === sortKey) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            // Automatically sort by rank descending on page load
+            const rankHeader = document.querySelector('th[data-sort="rank"]');
+            if (rankHeader) {
+                rankHeader.click();
+            }
+
+            // Accessibility: Allow Enter key to trigger sorting
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                th.setAttribute('tabindex', '0'); // Make headers focusable
+                th.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        th.click();
                     }
                 });
-
-                // Append sorted rows
-                rows.forEach(row => tbody.appendChild(row));
             });
         });
-
-        function getCellValue(row, sortKey) {
-            const idx = getColumnIndex(sortKey);
-            return row.cells[idx].textContent.trim() || '';
-        }
-
-        function getColumnIndex(sortKey) {
-            const indexMap = {
-                'rank': 0,
-                'username': 1,
-                'total_hours': 2,
-                'coins_everest': 3,
-                'coins_pizza': 4,
-                'coins_heartbeat': 5,
-                'total_likes': 6,
-                'average_temperature': 7,
-                'most_common_hour': 8,
-                'marathon_master': 9,
-                'climbing_king': 10,
-                'speedster': 11,
-                'consistency_champion': 12
-            };
-            return indexMap[sortKey];
-        }
-
-        // Automatically sort by rank descending on page load
-        const rankHeader = document.querySelector('th[data-sort="rank"]');
-        if (rankHeader) {
-            rankHeader.classList.add('desc');
-            rankHeader.click();
-        }
-    });
-  </script>
+    </script>
 </body>
 </html>

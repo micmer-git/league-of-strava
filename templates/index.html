@@ -1,271 +1,465 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>League of Strava - Upload Your Activities</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Bootstrap CSS (Optional for styling) -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Your custom CSS -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta charset="UTF-8">
+    <title>League of Strava - Upload Your Activities</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    /* Header Styles */
-    header {
-        background-color: orange;
-        padding: 10px 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-    }
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
 
-    header .logo {
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-    }
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    header .logo img {
-        height: 50px;
-        width: auto;
-    }
-
-    header .hamburger {
-        display: none;
-        flex-direction: column;
-        cursor: pointer;
-    }
-
-    header .hamburger div {
-        width: 25px;
-        height: 3px;
-        background-color: #fff;
-        margin: 4px 0;
-        transition: 0.4s;
-    }
-
-    /* Navigation Menu */
-    nav {
-        display: flex;
-        text-decoration: none;
-        gap: 20px;
-    }
-
-    nav a {
-        color: #orange;
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-    nav a:hover {
-        text-decoration: underline;
-    }
-
-    /* Introduction Section */
-    .introduction-section {
-        background-color: #f8f9fa;
-        padding: 40px 20px;
-        border-radius: 8px;
-        margin-bottom: 30px;
-        text-align: center;
-    }
-
-    .introduction-section h2 {
-        font-size: 2.5em;
-        margin-bottom: 20px;
-        color: orange;
-    }
-
-    .introduction-section p {
-        font-size: 1.1em;
-        color: #555;
-        margin-bottom: 15px;
-    }
-
-    .introduction-section ul {
-        list-style: none;
-        padding: 0;
-        margin: 20px 0;
-    }
-
-    .introduction-section ul li {
-        font-size: 1em;
-        color: #555;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .introduction-section ul li::before {
-        content: "✔️";
-        margin-right: 10px;
-        color: green;
-    }
-
-    /* Forms Section */
-    .forms-section {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 30px;
-        justify-content: center;
-    }
-
-    .form-container {
-        background-color: #fff;
-        padding: 30px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        max-width: 500px;
-        width: 100%;
-    }
-
-    .form-container h3 {
-        margin-bottom: 20px;
-        color: orange;
-    }
-
-    /* Responsive Adjustments */
-    @media (max-width: 768px) {
-        .forms-section {
-            flex-direction: column;
-            align-items: center;
+    <style>
+        /* Basic Reset */
+        *, *::before, *::after {
+            box-sizing: border-box;
         }
-    }
 
-    /* Additional Styling for Alerts */
-    .alert {
-        margin-top: 20px;
-    }
-  </style>
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        /* Header Styles */
+        header {
+            background-color: #fc4c02; /* More intense orange */
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header .logo img {
+            height: 50px;
+            width: auto;
+        }
+
+        /* Navigation Styles */
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #e0e0e0;
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .hamburger div {
+            width: 25px;
+            height: 3px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            flex-direction: column;
+            position: absolute;
+            top: 70px;
+            left: 0;
+            right: 0;
+            background-color: #ff4500;
+            padding: 15px 20px;
+            gap: 15px;
+            animation: slideDown 0.3s ease forwards;
+        }
+
+        .mobile-nav a {
+            color: #fff;
+            font-size: 1.1em;
+        }
+
+        /* Toggle Animation for Hamburger */
+        .hamburger.active div:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active div:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active div:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Dashboard Container */
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* Introduction Section */
+        .introduction-section {
+            background-color: #fff;
+            padding: 40px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .introduction-section h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #ff4500;
+        }
+
+        .introduction-section p {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .introduction-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        .introduction-section ul li {
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .introduction-section ul li::before {
+            content: "✔️";
+            margin-right: 10px;
+            color: green;
+        }
+
+        /* Forms Section */
+        .forms-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        .form-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+
+        .form-container:hover {
+            transform: translateY(-5px);
+        }
+
+        .form-container h3 {
+            margin-bottom: 20px;
+            color: #ff4500;
+            text-align: center;
+        }
+
+        /* Form Elements */
+        .form-container label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-container input[type="text"],
+        .form-container input[type="url"],
+        .form-container input[type="file"] {
+            width: 100%;
+            padding: 10px 15px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-container input[type="text"]:focus,
+        .form-container input[type="url"]:focus,
+        .form-container input[type="file"]:focus {
+            border-color: #ff4500;
+            outline: none;
+        }
+
+        .form-container .form-text {
+            font-size: 0.9em;
+            color: #777;
+        }
+
+        .form-container .btn {
+            width: 100%;
+            padding: 10px 0;
+            font-size: 1em;
+            background-color: #ff4500;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .form-container .btn:hover {
+            background-color: #e03e00;
+        }
+
+        /* Alerts */
+        .alert {
+            margin-top: 20px;
+            border-radius: 6px;
+            padding: 15px;
+            font-size: 0.95em;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Slide Down Animation */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .introduction-section h2 {
+                font-size: 2em;
+            }
+
+            .form-container {
+                padding: 25px;
+            }
+
+            .form-container h3 {
+                font-size: 1.8em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .forms-section {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .form-container {
+                padding: 20px;
+            }
+
+            .form-container h3 {
+                font-size: 1.6em;
+            }
+
+            nav {
+                position: absolute;
+                top: 60px;
+                left: 0;
+                width: 100%;
+                background-color: #ff4500;
+                flex-direction: column;
+                align-items: center;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-in-out;
+            }
+
+            nav.active {
+                max-height: 300px; /* Adjust as needed */
+            }
+
+            nav a {
+                padding: 10px 0;
+                width: 100%;
+                text-align: center;
+                border-top: 1px solid #fff;
+            }
+
+            .mobile-nav {
+                display: none; /* Removed duplicate mobile nav */
+            }
+        }
+
+        @media (max-width: 576px) {
+            .introduction-section h2 {
+                font-size: 1.8em;
+            }
+
+            .form-container {
+                padding: 15px;
+            }
+
+            .form-container h3 {
+                font-size: 1.4em;
+            }
+
+            .form-container input[type="text"],
+            .form-container input[type="url"],
+            .form-container input[type="file"] {
+                font-size: 0.95em;
+                padding: 8px 12px;
+            }
+
+            .form-container .btn {
+                font-size: 0.95em;
+                padding: 8px 0;
+            }
+
+            nav a {
+                font-size: 1em;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header>
-<div class="logo" id="logo">
-  <a href='/'>
-  <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="Logo">
-  </a>
-</div>
-<div class="hamburger" id="hamburger">
-  <div></div>
-  <div></div>
-  <div></div>
-</div>
-<nav id="nav-menu">
-  <a href="https://linktr.ee/micmer">About</a>
-  <a href="/leaderboard">Leaderboard</a>
-  <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+    <header>
+        <div class="logo" id="logo">
+            <a href="/">
+                <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
+            </a>
+        </div>
+        <nav id="nav-menu">
+            <a href="https://linktr.ee/micmer">About</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+        </nav>
+        <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </header>
 
-</nav>
-</header>
-
-  <div class="container mt-5">
-    <!-- Introduction Section -->
-    <div class="introduction-section">
-      <h2>Welcome to League of Strava</h2>
-      <p>Earn experience and achieve Master Prestige 100 by uploading your activities.</p>
-      <p>Join a leaderboard of millions of users. See how you rank with respect to your friends and the global community.</p>
-      <p>To join, you just need to upload your Strava activities.</p>
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="https://linktr.ee/micmer">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
     </div>
 
-    <!-- Forms Section: Search and Upload -->
-    <div class="forms-section">
-      <!-- Search Form -->
-      <div class="form-container">
-        <h3>Search for a Strava User</h3>
-          {% if search_error %}
-            <div class="alert alert-danger" role="alert">
-              {{ search_error }}
-            </div>
-          {% endif %}
-          <form method="get" action="{{ url_for('search') }}">
-            <div class="mb-3">
-              <label for="search-query" class="form-label">Search by Username or Strava Usuer Link:</label>
-              <input type="text" class="form-control" id="search-query" name="query" placeholder="Enter username, ID, or Strava profile link" required>
-              <div class="form-text">Enter the Strava profile link or League of Strava username.</div>
-            </div>
-            <button type="submit" class="btn btn-success" style="background-color: orange; border-color:white">Search</button>
-          </form>
-      </div>
+    <div class="container">
+        <!-- Introduction Section -->
+        <div class="introduction-section">
+            <h2>Welcome to League of Strava</h2>
+            <p>Earn experience and begin your journey towards <p><strong> Master Prestige 100 </strong> </p>
+            <p>See how you rank with respect to your friends and the global community.</p>
+            <p>Bulk Export your Strava <a href="https://www.youtube.com/watch?v=IbWMFikIGLo">(see how)</a> and start your journey uploading the <strong> activities.csv </strong> file </p>
+        </div>
 
-      <!-- Upload Form -->
-      <div class="form-container">
-        <h3>Upload Your Activities CSV</h3>
-        {% if error %}
-          <div class="alert alert-danger" role="alert">
-            {{ error }}
-          </div>
-        {% endif %}
-        <form method="post" enctype="multipart/form-data">
-          <div class="mb-3">
-            <label for="username" class="form-label">Username:</label>
-            <input type="text" class="form-control" id="username" name="username" placeholder="Your League of Strava Username" required>
-          </div>
-          <div class="mb-3">
-            <label for="link" class="form-label">Strava Profile Link:</label>
-            <input type="url" class="form-control" id="link" name="link" placeholder="https://www.strava.com/athletes/123456" required>
-            <div class="form-text">Provide your Strava profile link.</div>
-          </div>
-          <div class="mb-3">
-            <label for="file" class="form-label">Upload CSV File:</label>
-            <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
-          </div>
-          <button type="submit" class="btn btn-primary" style="background-color: orange; border-color:white">Upload Activities</button>
-        </form>
-      </div>
+        <!-- Forms Section: Search and Upload -->
+        <div class="forms-section">
+            <!-- Search Form -->
+            <div class="form-container">
+                <h3>Search for a Strava User</h3>
+                {% if search_error %}
+                    <div class="alert alert-danger" role="alert">
+                        {{ search_error }}
+                    </div>
+                {% endif %}
+                <form method="get" action="{{ url_for('search') }}">
+                    <div class="mb-3">
+                        <label for="search-query" class="form-label">Search by Username or Strava User Link:</label>
+                        <input type="text" class="form-control" id="search-query" name="query" placeholder="Enter username, ID, or Strava profile link" required>
+                        <div class="form-text">Enter the Strava profile link or League of Strava username.</div>
+                    </div>
+                    <button type="submit" class="btn">Search</button>
+                </form>
+            </div>
+
+            <!-- Upload Form -->
+            <div class="form-container">
+                <h3>Upload Your activities.csv file obtained during export</h3>
+                {% if error %}
+                    <div class="alert alert-danger" role="alert">
+                        {{ error }}
+                    </div>
+                {% endif %}
+                <form method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username:</label>
+                        <input type="text" class="form-control" id="username" name="username" placeholder="Your League of Strava Username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="link" class="form-label">Strava Profile Link:</label>
+                        <input type="url" class="form-control" id="link" name="link" placeholder="https://www.strava.com/athletes/123456" required>
+                        <div class="form-text">Provide your Strava profile link.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Upload CSV File:</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn">Upload Activities</button>
+                </form>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- Bootstrap JS (Optional for interactivity) -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- JavaScript for Interactivity -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const navMenu = document.getElementById('nav-menu');
+            const logo = document.getElementById('logo');
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const hamburger = document.getElementById('hamburger');
-      const navMenu = document.getElementById('nav-menu');
-      const logo = document.getElementById('logo');
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                navMenu.classList.toggle('active');
+                const isExpanded = hamburger.classList.contains('active');
+                hamburger.setAttribute('aria-expanded', isExpanded);
+                navMenu.style.display = isExpanded ? 'flex' : 'none';
+            };
 
-      const toggleMenu = () => {
-        navMenu.classList.toggle('active');
-      };
+            hamburger.addEventListener('click', toggleMenu);
+            logo.addEventListener('click', toggleMenu);
 
-      hamburger.addEventListener('click', toggleMenu);
-      logo.addEventListener('click', toggleMenu);
-    });
-  </script>
+            // Initialize mobile nav display
+            navMenu.style.display = 'none';
 
-  <style>
-    /* Responsive Navigation */
-    @media (max-width: 768px) {
-      nav {
-          flex-direction: column;
-          align-items: center;
-          width: 100%;
-          background-color: orange;
-          max-height: 0;
-          overflow: hidden;
-          transition: max-height 0.3s ease-in-out;
-      }
-
-      nav.active {
-          max-height: 300px; /* Adjust as needed */
-      }
-
-      nav a {
-          padding: 10px 0;
-          width: 100%;
-          text-align: center;
-          text-color:black;
-          border-top: 1px solid orange;
-      }
-
-      header .hamburger {
-          display: flex;
-      }
-    }
-  </style>
+            // Optional: Close mobile nav when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!navMenu.contains(event.target) && !hamburger.contains(event.target) && !logo.contains(event.target)) {
+                    if (navMenu.classList.contains('active')) {
+                        toggleMenu();
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>

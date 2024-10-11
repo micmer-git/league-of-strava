@@ -1020,7 +1020,7 @@ def dashboard(username):
                            user=user_data,
                            rank_config=rank_config,
                            rank_info=user_rank)
-                           
+
 @app.route('/search', methods=['GET'])
 def search():
     query = request.args.get('query', '').strip()
@@ -1052,44 +1052,35 @@ def leaderboard():
     # Retrieve all users from the database
     users = User.query.all()
 
-    # Collect key achievements to display
-    key_achievements = [
-        {'name': 'Marathon Master', 'sort_key': 'marathon_master', 'emoji': '🏃‍♂️'},
-        {'name': 'Climbing King', 'sort_key': 'climbing_king', 'emoji': '🧗‍♂️'},
-        {'name': 'Speedster', 'sort_key': 'speedster', 'emoji': '🏎️'},
-        {'name': 'Consistency Champion', 'sort_key': 'consistency_champion', 'emoji': '🔁'}
-    ]
+    # Collect all unique achievements and medals
+    all_achievements = set()
+    all_medals = set()
+    for user in users:
+        if user.achievements:
+            for category, badges in user.achievements.items():
+                for badge in badges:
+                    if 'name' in badge:
+                        if category.lower() == 'achievements':
+                            all_achievements.add(badge['name'])
+                        elif category.lower() == 'medals':
+                            all_medals.add(badge['name'])
 
-    # Sort users by rank and total_hours within the same rank
-    rank_order = {rank['name']: index for index, rank in enumerate(rank_config)}
-    sorted_users = sorted(
-        users,
-        key=lambda x: (
-            rank_order.get(x.rank_name, len(rank_order)),
-            -x.total_hours
-        )
-    )
+    # Sort them for consistent display
+    all_achievements = sorted(all_achievements)
+    all_medals = sorted(all_medals)
 
+    # Prepare leaderboard data
     leaderboard_data = []
-    for index, user in enumerate(sorted_users, start=1):
-        # Initialize achievement counts
+    for user in users:
         badges_counts = {}
         if user.achievements:
             for category, badges in user.achievements.items():
                 for badge in badges:
-                    if isinstance(badge, dict):
-                        badge_name = badge.get('name')
-                        badge_count = badge.get('count', 0)
-                        badges_counts[badge_name] = badge_count
-
-        # Prepare data for key achievements
-        user_achievements = {}
-        for achievement in key_achievements:
-            badge_name = achievement['name']
-            user_achievements[achievement['sort_key']] = badges_counts.get(badge_name, 0)
+                    if 'name' in badge:
+                        badges_counts[badge['name']] = badge.get('count', 0)
 
         leaderboard_data.append({
-            'rank': index,
+            'rank': 0,  # Placeholder, will set later
             'username': user.username,
             'total_hours': user.total_hours,
             'rank_name': user.rank_name,
@@ -1097,10 +1088,39 @@ def leaderboard():
             'coins_everest': user.coins_everest,
             'coins_pizza': user.coins_pizza,
             'coins_heartbeat': user.coins_heartbeat,
-            'badges_counts': user_achievements
+            'badges_counts': badges_counts
         })
 
-    return render_template('leaderboard.html', users=leaderboard_data)
+    # Sort the users based on rank and total_hours
+    rank_order = {rank['name']: index for index, rank in enumerate(rank_config)}
+    sorted_users = sorted(
+        leaderboard_data,
+        key=lambda x: (
+            rank_order.get(x['rank_name'], len(rank_order)),
+            -x['total_hours']
+        )
+    )
+
+    # Assign ranks
+    for idx, user_data in enumerate(sorted_users, start=1):
+        user_data['rank'] = idx
+
+
+    # Define a mapping of column names to emojis
+    badge_emoji_mapping = {
+        'Marathon Master': '🏃‍♂️',
+        'Climbing King': '🧗‍♂️',
+        'Speedster': '🏎️',
+        'Consistency Champion': '🔁',
+        # Add more mappings as needed
+    }
+
+    # Pass this mapping to the template in the /leaderboard route
+    return render_template('leaderboard.html',
+                           users=sorted_users,
+                           all_achievements=all_achievements,
+                           all_medals=all_medals,
+                           badge_emoji_mapping=badge_emoji_mapping)
 
 
 

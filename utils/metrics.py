@@ -156,7 +156,7 @@ def calculate_achievements(df):
         })
 
         # Daily kcal Burner
-        total_calories = df_timeframe['calories'].sum()
+        total_calories = df_timeframe['Calories'].sum()
         achievements[timeframe]['Achievements'].append({
             'name': 'Daily kcal Burner',
             'emoji': '🔥',
@@ -199,7 +199,7 @@ def calculate_achievements(df):
                 'name': 'Climbing King',
                 'emoji': '🧗‍♂️',
                 'description': 'Total Elevation_Gain over 1000m',
-                'count': int(df_timeframe['elevation_gain'].sum() // 1000)
+                'count': int(df_timeframe['Elevation_Gain'].sum() // 1000)
             },
             {
                 'name': 'Speedster',
@@ -226,8 +226,8 @@ def calculate_achievements(df):
 def calculate_coins(df):
     """Calculate coins based on activities."""
     coins = {
-        'everest': float(round(df['elevation_gain'].sum() / 8848, 2)),  # 1 Everest = 8848m
-        'pizza': float(round(df['calories'].sum() / 1000, 2)),         # 1 Pizza = 1000 kcal
+        'everest': float(round(df['Elevation_Gain'].sum() / 8848, 2)),  # 1 Everest = 8848m
+        'pizza': float(round(df['Calories'].sum() / 1000, 2)),         # 1 Pizza = 1000 kcal
         'heartbeat': int(df['heartbeats'].sum())                       # 1 Heartbeat Coin = 1 heartbeat
     }
     coins = convert_to_native(coins)
@@ -297,12 +297,12 @@ def calculate_stats(df):
             df_timeframe = filter_dataframe_by_timeframe(df, days)
         else:
             df_timeframe = df
-
+        print(df_timeframe.keys())
         timeframe_stats = {
             'hours': float(round(df_timeframe['duration'].sum(), 1)),        # Already in hours
-            'distance': float(round(df_timeframe['distance'].sum(), 1)),    # Already in km
-            'elevation': float(round(df_timeframe['elevation_gain'].sum(), 1)),  # in meters
-            'calories': float(round(df_timeframe['calories'].sum(), 1)),    # in kcal
+            'distance': float(round(df_timeframe['Distance_km'].sum(), 1)),    # Already in km
+            'elevation': float(round(df_timeframe['Elevation_Gain'].sum(), 1)),  # in meters
+            'calories': float(round(df_timeframe['Calories'].sum(), 1)),    # in kcal
         }
 
         # Compute Average Temperature

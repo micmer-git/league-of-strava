@@ -781,22 +781,33 @@
                 <span id="current-rank-label"> </span>
                 <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
             </div>
-            <!-- Top Activities Section -->
-            <div class="top-activities">
-                <a href="{{ user.max_metrics.max_elevation_link }}" class="top-activity-card" aria-label="Max Elevation Gain Details">
-                    <h4>Max Elevation Gain</h4>
-                    <p>{{ user.max_metrics.max_elevation | int }} m</p>
-                </a>
-                <a href="{{ user.max_metrics.longest_duration_link }}" class="top-activity-card" aria-label="Longest Duration Details">
-                    <h4>Longest Duration</h4>
-                    <p>{{ user.max_metrics.max_duration | int }} h</p>
-                </a>
-                <a href="{{ user.max_metrics.greatest_distance_link }}" class="top-activity-card" aria-label="Greatest Distance Details">
-                    <h4>Greatest Distance</h4>
-                    <p>{{ user.max_metrics.max_distance | int }} km</p>
-                </a>
+            <!-- Top Activities Section (Toggleable) -->
+            <div class="section top-activities-section hidden">
+                <div class="section-header" data-section="top-activities">
+                    <h2>Top Activities</h2>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="section-content">
+                    <div class="top-activities">
+                        <a href="{{ user.max_metrics.max_elevation_link }}" class="top-activity-card" aria-label="Max Elevation Gain Details">
+                            <h4>Max Elevation Gain</h4>
+                            <p>{{ user.max_metrics.max_elevation | int }} m</p>
+                        </a>
+                        <a href="{{ user.max_metrics.max_duration_link }}" class="top-activity-card" aria-label="Longest Duration Details">
+                            <h4>Longest Duration</h4>
+                            <p>{{ user.max_metrics.max_duration | format_duration }}</p>
+                        </a>
+                        <a href="{{ user.max_metrics.max_distance_link }}" class="top-activity-card" aria-label="Greatest Distance Details">
+                            <h4>Greatest Distance</h4>
+                            <p>{{ user.max_metrics.max_distance | int }} km</p>
+                        </a>
+                        <a href="{{ user.max_metrics.fastest_half_marathon_link }}" class="top-activity-card" aria-label="Fastest Half Marathon Details">
+                            <h4>Fastest Half Marathon</h4>
+                            <p>{{ user.max_metrics.fastest_half_marathon | format_duration }}</p>
+                        </a>
+                    </div>
+                </div>
             </div>
-        </div>
 
         <!-- Achievements & Medals Section (Toggleable) -->
         <div class="section achievements-section hidden">

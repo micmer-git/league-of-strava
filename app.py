@@ -8,6 +8,8 @@ from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import dj_database_url  # Add this import
 
+
+
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
@@ -35,6 +37,20 @@ logging.basicConfig(level=logging.INFO)
 # Ensure upload folder exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
+def format_duration(hours):
+    """
+    Convert a duration in hours (float) to a string formatted as 'X h Y m'.
+    If the duration is 0 or None, return 'N/A'.
+    """
+    if hours is None or hours == 0:
+        return 'N/A'
+    h = int(hours)
+    m = int(round((hours - h) * 60))
+    return f"{h} h {m} m"
+
+app.jinja_env.filters['format_duration'] = format_duration
+
 
 # Rank System Configuration
 rank_config = [
@@ -89,6 +105,11 @@ class User(db.Model):
     max_duration_link = db.Column(db.String(200), nullable=True)
     max_distance = db.Column(db.Float, nullable=True)
     max_distance_link = db.Column(db.String(200), nullable=True)
+
+    # **New Fields Added**
+    fastest_half_marathon = db.Column(db.Float, nullable=True)  # Duration in hours
+    fastest_half_marathon_link = db.Column(db.String(200), nullable=True)
+
     activities = db.relationship('Activity', backref='user', lazy=True)
 
 class Activity(db.Model):
@@ -445,17 +466,23 @@ def process_dataframe(df):
 
     # Handle 'Distance' based on 'Activity_Type'
     def assign_distance_km(row):
-        activity_type = row['Activity_Type']
+        activity_type = row.get('Activity_Type', '')
+        distance = row.get('Distance_1', 0)
+
+        if pd.isnull(distance):
+            distance = 0
+
         if language == 'Italian':
-            if isinstance(activity_type, str) and activity_type.lower() == 'nuoto':  # 'nuoto' means 'swimming'
-                return row.get('Distance_1', 0) / 1000  # Convert meters to kilometers
+            if isinstance(activity_type, str) and activity_type.strip().lower() in ['nuoto', 'nuotata']:
+                return distance / 1000  # Convert meters to kilometers
             else:
-                return row.get('Distance_1', 0)  # Already in kilometers
+                return distance  # Already in kilometers
         else:  # English
-            if isinstance(activity_type, str) and activity_type.lower() == 'swimming':
-                return row.get('Distance_1', 0) / 1000  # Convert meters to kilometers
+            if isinstance(activity_type, str) and activity_type.strip().lower() == 'swim':
+                return distance / 1000  # Convert meters to kilometers
             else:
-                return row.get('Distance_1', 0)  # Already in kilometers
+                return distance  # Already in kilometers
+
 
     df['Distance_km'] = df.apply(assign_distance_km, axis=1)
     logging.info("Assigned 'Distance_km' based on 'Activity_Type'.")
@@ -726,23 +753,49 @@ def calculate_max_metrics(df):
             'max_duration_link': '#',
             'max_distance': 0,
             'max_distance_link': '#',
+            'fastest_half_marathon': 0,
+            'fastest_half_marathon_link': '#',
         }
 
+    # Max Elevation Gain
     max_elevation = df['Elevation_Gain'].max()
     max_elevation_activity = df.loc[df['Elevation_Gain'].idxmax()]
+    max_elevation_link = f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}"
+
+    # Max Duration
     max_duration = df['Moving_Time'].max() / 3600  # Convert to hours
     max_duration_activity = df.loc[df['Moving_Time'].idxmax()]
-    max_distance = df['Distance_km'].max()  # Convert to km
+    max_duration_link = f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}"
+
+    # Max Distance
+    max_distance = df['Distance_km'].max()  # Already in km
     max_distance_activity = df.loc[df['Distance_km'].idxmax()]
+    max_distance_link = f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}"
+
+    # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
+    half_marathons = df[df['Distance_km'] >= 21.0975]
+    half_marathons = half_marathons[half_marathons['Type'] == 'Run']
+
+    if not half_marathons.empty:
+
+        fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
+        fastest_half_marathon_activity = half_marathons.loc[half_marathons['Moving_Time'].idxmin()]
+        fastest_half_marathon_link = f"https://www.strava.com/activities/{fastest_half_marathon_activity['Activity_ID']}"
+    else:
+        fastest_half_marathon_duration = 0
+        fastest_half_marathon_link = '#'
 
     return {
         'max_elevation': float(max_elevation),
-        'max_elevation_link': f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}",
+        'max_elevation_link': max_elevation_link,
         'max_duration': float(round(max_duration, 2)),
-        'max_duration_link': f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}",
+        'max_duration_link': max_duration_link,
         'max_distance': float(round(max_distance, 2)),
-        'max_distance_link': f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}",
+        'max_distance_link': max_distance_link,
+        'fastest_half_marathon': float(round(fastest_half_marathon_duration, 2)),
+        'fastest_half_marathon_link': fastest_half_marathon_link,
     }
+
 
 # Routes
 @app.route('/', methods=['GET', 'POST'])
@@ -803,17 +856,18 @@ def index():
                     user.max_duration_link = max_metrics['max_duration_link']
                     user.max_distance = max_metrics['max_distance']
                     user.max_distance_link = max_metrics['max_distance_link']
+                    # **Assign New Fields**
+                    user.fastest_half_marathon = max_metrics.get('fastest_half_marathon', 0)
+                    user.fastest_half_marathon_link = max_metrics.get('fastest_half_marathon_link', '#')
 
                     # Delete existing activities
                     Activity.query.filter_by(user_id=user.id).delete()
                 else:
-                    #athlete_id = extract_strava_id(strava_link)
-
                     # Create new user
                     user = User(
                         username=username,
                         strava_link=strava_link,  # Assign the Strava link
-                        #athlete_id=athlete_id,  # Store the extracted athlete_id
+                        # athlete_id=athlete_id,  # Store the extracted athlete_id
 
                         rank_name=user_rank['current_rank']['name'],
                         rank_emoji=user_rank['current_rank']['emoji'],
@@ -829,6 +883,10 @@ def index():
                         max_duration_link=max_metrics['max_duration_link'],
                         max_distance=max_metrics['max_distance'],
                         max_distance_link=max_metrics['max_distance_link'],
+
+                        # **Assign New Fields**
+                        fastest_half_marathon=max_metrics.get('fastest_half_marathon', 0),
+                        fastest_half_marathon_link=max_metrics.get('fastest_half_marathon_link', '#'),
                     )
                     db.session.add(user)
                     db.session.flush()  # Flush to get user.id
@@ -1006,7 +1064,6 @@ def dashboard(username):
     all_achievements = sorted(all_achievements)
     all_medals = sorted(all_medals)
 
-
     # Prepare data for rendering
     user_data = {
         'username': user.username,
@@ -1026,6 +1083,8 @@ def dashboard(username):
             'max_duration_link': user.max_duration_link,
             'max_distance': user.max_distance,
             'max_distance_link': user.max_distance_link,
+            'fastest_half_marathon': user.fastest_half_marathon or 0,  # Ensure it's not None
+            'fastest_half_marathon_link': user.fastest_half_marathon_link or '#',  # Ensure it's not None
         },
         'activities': activities_list,
     }
@@ -1038,6 +1097,58 @@ def dashboard(username):
                            all_achievements=all_achievements,
                            rank_config=rank_config,
                            rank_info=user_rank)
+
+def calculate_max_metrics(df):
+    """Determine the user's top activities."""
+    if df.empty:
+        return {
+            'max_elevation': 0,
+            'max_elevation_link': '#',
+            'max_duration': 0,
+            'max_duration_link': '#',
+            'max_distance': 0,
+            'max_distance_link': '#',
+            'fastest_half_marathon': 0,
+            'fastest_half_marathon_link': '#',
+        }
+
+    # Max Elevation Gain
+    max_elevation = df['Elevation_Gain'].max()
+    max_elevation_activity = df.loc[df['Elevation_Gain'].idxmax()]
+    max_elevation_link = f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}"
+
+    # Max Duration
+    max_duration = df['Moving_Time'].max() / 3600  # Convert to hours
+    max_duration_activity = df.loc[df['Moving_Time'].idxmax()]
+    max_duration_link = f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}"
+
+    # Max Distance
+    max_distance = df['Distance_km'].max()  # Already in km
+    max_distance_activity = df.loc[df['Distance_km'].idxmax()]
+    max_distance_link = f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}"
+
+    # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
+    half_marathons = df[df['Distance_km'] >= 21.0975]
+    print(half_marathons)
+    half_marathons = half_marathons[half_marathons['Activity_Type'] == 'Run']
+    if not half_marathons.empty:
+        fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
+        fastest_half_marathon_activity = half_marathons.loc[half_marathons['Moving_Time'].idxmin()]
+        fastest_half_marathon_link = f"https://www.strava.com/activities/{fastest_half_marathon_activity['Activity_ID']}"
+    else:
+        fastest_half_marathon_duration = 0
+        fastest_half_marathon_link = '#'
+
+    return {
+        'max_elevation': float(max_elevation),
+        'max_elevation_link': max_elevation_link,
+        'max_duration': float(round(max_duration, 2)),
+        'max_duration_link': max_duration_link,
+        'max_distance': float(round(max_distance, 2)),
+        'max_distance_link': max_distance_link,
+        'fastest_half_marathon': float(round(fastest_half_marathon_duration, 2)),
+        'fastest_half_marathon_link': fastest_half_marathon_link,
+    }
 
 @app.route('/search', methods=['GET'])
 def search():

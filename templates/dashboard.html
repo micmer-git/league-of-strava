@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>{{ user.username }}'s Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Debugging: View the JSON data -->
+    <pre>{{ user | tojson(indent=2) }}</pre>
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,648 +14,72 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
-        /* Basic Reset */
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
+        /* Existing CSS styles... */
 
-        body {
-            background-color: #f4f6f8;
-            font-family: 'Montserrat', sans-serif;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-
-        /* Header Styles */
-        header {
-            background-color: #ff6600; /* More intense orange */
-            padding: 15px 20px;
+        /* Timeframe Buttons */
+        .timeframe-buttons {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
-        header .logo img {
-            height: 50px;
-            width: auto;
-        }
-
-        /* Navigation Styles */
-        nav {
-            display: flex;
-            gap: 20px;
-        }
-
-        nav a {
-            color: #fff;
-            text-decoration: none;
-            font-weight: 600;
-            position: relative;
-            transition: color 0.3s;
-        }
-
-        nav a:hover {
-            color: #e0e0e0;
-        }
-
-        /* Hamburger Menu */
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            cursor: pointer;
-            gap: 5px;
-        }
-
-        .hamburger div {
-            width: 25px;
-            height: 3px;
-            background-color: #fff;
-            transition: all 0.3s ease;
-        }
-
-        /* Mobile Navigation */
-        .mobile-nav {
-            display: none;
-            flex-direction: column;
-            position: absolute;
-            top: 70px;
-            left: 0;
-            right: 0;
+        .timeframe-button {
+            padding: 10px 15px;
+            font-size: 1em;
             background-color: #ff6600;
-            padding: 15px 20px;
-            gap: 15px;
-            animation: slideDown 0.3s ease forwards;
-        }
-
-        .mobile-nav a {
             color: #fff;
-            font-size: 1.1em;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
         }
 
-        /* Toggle Animation for Hamburger */
-        .hamburger.active div:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
+        .timeframe-button:hover {
+            background-color: #e65c00;
         }
 
-        .hamburger.active div:nth-child(2) {
+        .timeframe-button.active {
+            background-color: #e65c00;
+        }
+
+        /* Achievements Content Fade-In and Fade-Out */
+        .achievements-content {
+            transition: opacity 0.5s ease-in-out;
+            opacity: 1;
+        }
+
+        .achievements-content.fade-out {
             opacity: 0;
         }
 
-        .hamburger.active div:nth-child(3) {
-            transform: rotate(-45deg) translate(5px, -5px);
+        .achievements-content.fade-in {
+            opacity: 1;
         }
 
-        /* Dashboard Container */
-        #dashboard-container {
-            max-width: 1200px;
-            margin: 30px auto;
-            padding: 0 20px;
-        }
-
-        #dashboard-container h1 {
-            text-align: left;
-            margin-bottom: 5px;
-            font-size: 2.5em;
-            color: #ff6600;
-        }
-
-        /* Overview Section */
-        .overview-section {
+        /* Additional Sections Styling */
+        .metrics-section, .rank-section, .coins-section {
             background-color: #fff;
             padding: 20px;
             margin-bottom: 20px;
             border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .overview-full-width {
-            width: 100%;
+        .metrics-section h3, .rank-section h3, .coins-section h3 {
+            color: #ff6600;
+            margin-bottom: 10px;
+        }
+
+        .metric-item, .rank-item, .coin-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .athlete-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .athlete-info h1 {
-            margin: 0;
-            font-size: 2em;
-            color: #ff6600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .current-rank {
-            font-size: 1.2em;
-            margin-top: 10px;
-        }
-
-        .coin-metrics-inline {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .coin {
-            font-size: 1.2em;
-            cursor: pointer;
-            position: relative;
-            display: flex;
-            align-items: center;
-            color: green;
-            font-weight: bold;
-            transition: transform 0.2s;
-        }
-
-        .coin:hover {
-            transform: scale(1.1);
-        }
-
-        .coin span {
-            margin-left: 5px;
-            color: green;
-            font-weight: bold;
-        }
-
-        /* Rank Progress Bar */
-        .rank-progress {
-            width: 100%;
-            background-color: #e9ecef;
-            border-radius: 20px;
-            height: 20px;
-            margin-top: 10px;
-            position: relative;
-        }
-
-        .progress-bar {
-            background-color: #28a745;
-            height: 100%;
-            border-radius: 20px 0 0 20px;
-            width: {{ rank_info.progress_percent }}%;
-            transition: width 0.3s ease-in-out;
-        }
-
-        .progress-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
-            font-size: 0.9em;
-            color: #555;
-        }
-
-        .rank-section.hidden {
-            display: none;
-        }
-
-        .rank-details {
-            text-align: center;
-            font-size: 1em;
-            margin-top: 10px;
-            color: #555;
-        }
-
-        /* Top Activities Section */
-        .top-activities {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            width: 100%;
-        }
-
-        .top-activity-card {
-            background-color: #ff6600;
-            border-radius: 20px;
-            padding: 15px;
-            text-align: center;
-            font-size: 1em;
-            color: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-
-        .top-activity-card:hover {
-            transform: scale(1.05);
-        }
-
-        /* Achievements Section */
-        .achievements-section {
-            background-color: #fff;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .achievements-section h2 {
-            text-align: left;
-            margin-bottom: 5px;
-            font-size: 2.5em;
-            color: #ff6600;
-        }
-
-        .achievements-category {
-            margin-bottom: 20px;
-        }
-
-        .achievements-category h3 {
             margin-bottom: 10px;
-            font-size: 1.2em;
-            color: #ff6600;
         }
 
-        .achievements-list, .medals-slider {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            justify-content: center;
-        }
-
-        .achievement-card, .medal-card {
-            flex: 0 0 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            cursor: pointer;
-            transition: transform 0.2s;
-            position: relative;
-            font-size: 0.9em;
-            padding: 10px;
-            border-radius: 8px;
-            background-color: #f1f1f1;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .achievement-card:hover, .medal-card:hover {
-            transform: scale(1.05);
-        }
-
-        .achievement-emoji, .medal-emoji {
-            font-size: 1.5em;
-            margin-bottom: 5px;
-        }
-
-        .achievement-count, .medal-count {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: green;
-        }
-
-        .new-earned {
-            background-color: #28a745;
-            color: #fff;
-            border-radius: 12px;
-            padding: 2px 6px;
-            font-size: 0.8em;
-            position: absolute;
-            top: 5px;
-            right: 5px;
-        }
-
-        .tooltip {
-            display: none;
-            position: absolute;
-            bottom: 110%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: #fff;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            white-space: nowrap;
-            z-index: 1000;
-        }
-
-        .achievement-card:hover .tooltip, .medal-card:hover .tooltip {
-            display: block;
-        }
-
-        /* Additional Infos Section */
-        .additional-infos {
-            background-color: #fff;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .additional-infos h3 {
-            margin-bottom: 15px;
-            color: #ff6600;
-        }
-
-        .additional-infos ul {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        .additional-infos li {
-            margin-bottom: 10px;
-            font-size: 1em;
-            color: #555;
-        }
-
-        .additional-infos li strong {
+        .metric-item strong, .rank-item strong, .coin-item strong {
             color: #333;
-        }
-
-        /* Activities Container */
-        #activities-container {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        #activities-container h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #ff6600;
-        }
-
-        /* Time Frame Filter */
-        .time-frame-filter {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .time-frame-filter label {
-            font-weight: bold;
-            margin-right: 10px;
-        }
-
-        .time-frame-filter select {
-            padding: 8px 12px;
-            font-size: 1em;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
-
-        /* Activities List */
-        .activity-item {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 15px;
-            background-color: #f9f9f9;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: box-shadow 0.2s;
-        }
-
-        .activity-item:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .activity-main h3 {
-            margin: 0 0 5px 0;
-            font-size: 1.2em;
-            color: #ff6600;
-        }
-
-        .activity-main p {
-            margin: 2px 0;
-            font-size: 0.9em;
-            color: #555;
-        }
-
-        .activity-coins {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 5px;
-        }
-
-        .activity-coins .coin {
-            display: flex;
-            align-items: center;
-            color: green;
-            font-weight: bold;
-            font-size: 0.9em;
-            transition: transform 0.2s;
-        }
-
-        .activity-coins .coin:hover {
-            transform: scale(1.1);
-        }
-
-        /* Load More Button */
-        #load-more-button {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            font-size: 1em;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        #load-more-button:hover {
-            background-color: #0056b3;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 992px) {
-            .overview-section {
-                padding: 15px;
-                gap: 15px;
-            }
-
-            #dashboard-container h1 {
-                font-size: 2em;
-            }
-
-            .top-activities {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 10px;
-            }
-
-            .top-activity-card {
-                padding: 10px;
-                font-size: 0.95em;
-            }
-
-            .achievements-section h2, .additional-infos h3, #activities-container h2 {
-                font-size: 1.8em;
-            }
-
-            .achievement-card, .medal-card {
-                padding: 8px;
-                font-size: 0.85em;
-            }
-
-            .achievement-emoji, .medal-emoji {
-                font-size: 1.3em;
-            }
-
-            .achievement-count, .medal-count {
-                font-size: 1em;
-            }
-
-            .additional-infos li {
-                font-size: 0.95em;
-            }
-
-            .activity-main h3 {
-                font-size: 1.1em;
-            }
-
-            .activity-main p, .activity-coins .coin {
-                font-size: 0.85em;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .overview-full-width {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .coin-metrics-inline {
-                flex-wrap: wrap;
-                gap: 8px;
-            }
-
-            .rank-progress {
-                height: 15px;
-            }
-
-            .progress-bar {
-                height: 100%;
-                border-radius: 15px 0 0 15px;
-            }
-
-            .top-activities {
-                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-                gap: 10px;
-            }
-
-            .achievements-category h3 {
-                font-size: 1em;
-            }
-
-            .achievement-card, .medal-card {
-                padding: 6px;
-                font-size: 0.8em;
-            }
-
-            .additional-infos h3 {
-                font-size: 1.2em;
-            }
-
-            .additional-infos li {
-                font-size: 0.9em;
-            }
-
-            .activity-main h3 {
-                font-size: 1em;
-            }
-
-            .activity-main p, .activity-coins .coin {
-                font-size: 0.8em;
-            }
-
-            #load-more-button {
-                padding: 8px 16px;
-                font-size: 0.9em;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .overview-section {
-                padding: 10px;
-                gap: 10px;
-            }
-
-            #dashboard-container h1 {
-                font-size: 1.8em;
-            }
-
-            .top-activities {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-
-            .top-activity-card {
-                font-size: 0.9em;
-                padding: 8px;
-            }
-
-            .achievements-section h2, .additional-infos h3, #activities-container h2 {
-                font-size: 1.5em;
-            }
-
-            .achievement-card, .medal-card {
-                padding: 5px;
-                font-size: 0.75em;
-            }
-
-            .achievement-emoji, .medal-emoji {
-                font-size: 1.2em;
-            }
-
-            .achievement-count, .medal-count {
-                font-size: 0.95em;
-            }
-
-            .additional-infos h3 {
-                font-size: 1em;
-            }
-
-            .additional-infos li {
-                font-size: 0.85em;
-            }
-
-            .activity-main h3 {
-                font-size: 0.95em;
-            }
-
-            .activity-main p, .activity-coins .coin {
-                font-size: 0.75em;
-            }
-
-            #load-more-button {
-                padding: 6px 12px;
-                font-size: 0.85em;
-            }
-
-            .time-frame-filter label, .time-frame-filter select {
-                font-size: 0.9em;
-            }
-        }
-
-        /* Slide Down Animation */
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
     </style>
 </head>
@@ -692,30 +118,30 @@
             <div class="overview-full-width">
                 <div class="athlete-info">
                     <h1 id="athlete-name">{{ user.username }}
-                        <span id="rank-emoji">{{ user.rank_emoji }}</span>
+                        <span id="rank-emoji">{{ user.rank_info.current_rank.emoji }}</span>
                     </h1>
-                    <h2 id="current-rank">{{ user.rank_name }}</h2>
+                    <h2 id="current-rank">{{ user.rank_info.current_rank.name }}</h2>
                 </div>
                 <!-- Coins Displayed Next to Name -->
                 <div class="coin-metrics-inline">
-                    <span class="coin" title="Everest Coins: Represents your total elevation gain">🏔️ {{ user.coins.everest | round(2) }}</span>
-                    <span class="coin" title="Pizza Coins: Represents your total calories burned">🍕 {{ user.coins.pizza | int }}</span>
-                    <span class="coin" title="Heartbeat Coins: Represents your total heartbeats">❤️ {{ user.coins.heartbeat | int }}</span>
+                    <span class="coin" title="Everest Coins: Represents your total elevation gain">🏔️ {{ user.metrics.lifetime.coins.everest | round(2) }}</span>
+                    <span class="coin" title="Pizza Coins: Represents your total calories burned">🍕 {{ user.metrics.lifetime.coins.pizza | int }}</span>
+                    <span class="coin" title="Heartbeat Coins: Represents your total heartbeats">❤️ {{ user.metrics.lifetime.coins.heartbeat | int }}</span>
                 </div>
             </div>
             <div class="overview-full-width">
                 <div class="current-rank-full">
                     <!-- Rank Progress Bar -->
                     <div class="rank-progress">
-                        <div class="progress-bar"></div>
+                        <div class="progress-bar" style="width: {{ user.rank_info.rank_progress_percent }}%;"></div>
                     </div>
                     <div class="progress-labels">
-                        <span id="current-rank-label">{{ rank_info.current_rank.name }}</span>
-                        <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
+                        <span id="current-rank-label">{{ user.rank_info.current_rank.name }}</span>
+                        <span id="next-rank-label">{{ user.rank_info.next_rank.name }}</span>
                     </div>
                     <div class="rank-section hidden">
                         <div class="rank-details">
-                            <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
+                            <span><strong id="current-points">{{ user.rank_info.current_rank.points }}</strong> / <strong id="next-rank-points">{{ user.rank_info.next_rank.minPoints }}</strong> hrs</span>
                         </div>
                     </div>
                 </div>
@@ -725,15 +151,15 @@
             <div class="top-activities">
                 <div class="top-activity-card">
                     <h4>Max Elevation Gain</h4>
-                    <p>{{ user.max_metrics.max_elevation | int }} m</p>
+                    <p id="max-elevation">{{ user.metrics.lifetime.max_metrics.max_elevation | int }} m</p>
                 </div>
                 <div class="top-activity-card">
                     <h4>Longest Duration</h4>
-                    <p>{{ user.max_metrics.max_duration | int }} h</p>
+                    <p id="max-duration">{{ user.metrics.lifetime.max_metrics.max_duration | int }} h</p>
                 </div>
                 <div class="top-activity-card">
                     <h4>Greatest Distance</h4>
-                    <p>{{ user.max_metrics.max_distance | int }} km</p>
+                    <p id="max-distance">{{ user.metrics.lifetime.max_metrics.max_distance | int }} km</p>
                 </div>
             </div>
         </div>
@@ -741,6 +167,7 @@
         <!-- Achievements Section -->
         <div class="achievements-section hidden">
             <h2>Achievements & Medals</h2>
+
             <!-- Timeframe Selection Buttons -->
             <div class="timeframe-buttons">
                 <button class="timeframe-button active" data-timeframe="lifetime">Lifetime</button>
@@ -749,26 +176,76 @@
                 <button class="timeframe-button" data-timeframe="last_14_days">Last 14 Days</button>
                 <button class="timeframe-button" data-timeframe="last_7_days">Last 7 Days</button>
             </div>
-            <!-- Achievements Section -->
 
+            <!-- Achievements Content -->
             <div class="achievements-content">
                 <!-- Dynamic content will be injected here -->
             </div>
-        <div class="achievements-section hidden">
-            <h2>Achievements & Medals</h2>
+        </div>
 
+        <!-- Metrics, Rank Info, and Coins Sections -->
+        <div class="metrics-section hidden">
+            <h3>Max Metrics</h3>
+            <div class="metric-item">
+                <span>Max Elevation Gain:</span>
+                <span id="metric-max-elevation">{{ user.metrics.lifetime.max_metrics.max_elevation | int }} m</span>
+            </div>
+            <div class="metric-item">
+                <span>Longest Duration:</span>
+                <span id="metric-max-duration">{{ user.metrics.lifetime.max_metrics.max_duration | int }} h</span>
+            </div>
+            <div class="metric-item">
+                <span>Greatest Distance:</span>
+                <span id="metric-max-distance">{{ user.metrics.lifetime.max_metrics.max_distance | int }} km</span>
+            </div>
+        </div>
 
+        <div class="rank-section hidden">
+            <h3>Rank Information</h3>
+            <div class="rank-item">
+                <span>Current Rank:</span>
+                <span id="rank-current">{{ user.rank_info.current_rank.name }}</span>
+            </div>
+            <div class="rank-item">
+                <span>Next Rank:</span>
+                <span id="rank-next">{{ user.rank_info.next_rank.name }}</span>
+            </div>
+            <div class="rank-item">
+                <span>Points towards Next Rank:</span>
+                <span id="rank-points">{{ user.rank_info.current_rank.points }} / {{ user.rank_info.next_rank.minPoints }}</span>
+            </div>
+            <div class="rank-item">
+                <span>Progress:</span>
+                <span id="rank-progress">{{ user.rank_info.rank_progress_percent }}%</span>
+            </div>
+        </div>
+
+        <div class="coins-section hidden">
+            <h3>Coins</h3>
+            <div class="coin-item">
+                <span>Everest Coins:</span>
+                <span id="coin-everest">{{ user.metrics.lifetime.coins.everest | round(2) }}</span>
+            </div>
+            <div class="coin-item">
+                <span>Pizza Coins:</span>
+                <span id="coin-pizza">{{ user.metrics.lifetime.coins.pizza | int }}</span>
+            </div>
+            <div class="coin-item">
+                <span>Heartbeat Coins:</span>
+                <span id="coin-heartbeat">{{ user.metrics.lifetime.coins.heartbeat | int }}</span>
+            </div>
+        </div>
 
         <!-- Additional Infos Section -->
         <div class="additional-infos hidden">
             <h3>Additional Infos</h3>
             <ul>
-                <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
-                <li><strong>Total Likes:</strong> {{ user.stats.total_likes }}</li>
-                <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
-                <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
-                <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
-                <li><strong>Most Common Activity Hour:</strong> {{ user.stats.most_common_hour }}:00</li>
+                <li><strong>Average Temperature:</strong> {{ user.metrics.lifetime.average_temperature }}°C</li>
+                <li><strong>Total Likes:</strong> {{ user.metrics.lifetime.total_likes }}</li>
+                <li><strong>Total Distance:</strong> {{ user.metrics.lifetime.distance }} km</li>
+                <li><strong>Total Elevation Gain:</strong> {{ user.metrics.lifetime.elevation }} m</li>
+                <li><strong>Total Calories Burned:</strong> {{ user.metrics.lifetime.calories }} kcal</li>
+                <li><strong>Most Common Activity Hour:</strong> {{ user.metrics.lifetime.most_common_hour }}:00</li>
                 <!-- Add more stats as needed -->
             </ul>
         </div>
@@ -777,6 +254,16 @@
         <div id="activities-container" class="hidden">
             <h2>Recent Activities</h2>
 
+            <!-- Time Frame Filter -->
+            <div class="time-frame-filter">
+                <label for="time-frame">Filter by Time Frame:</label>
+                <select id="time-frame">
+                    <option value="all">All Time</option>
+                    <option value="year">Last Year</option>
+                    <option value="6months">Last 6 Months</option>
+                    <option value="month">Last Month</option>
+                </select>
+            </div>
 
             <div id="activities-list">
                 {% for activity in user.activities[:10] %}
@@ -805,6 +292,7 @@
     <!-- JavaScript for Interactivity -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Hamburger Menu Toggle
             const hamburger = document.getElementById('hamburger');
             const mobileNav = document.getElementById('mobile-nav');
             const navMenu = document.getElementById('nav-menu');
@@ -824,87 +312,12 @@
 
             // Hide loading indicator and show content
             document.getElementById('loading').style.display = 'none';
-            const sections = document.querySelectorAll('.overview-section, .rank-section, .achievements-section, .additional-infos, #activities-container');
+            const sections = document.querySelectorAll('.overview-section, .rank-section, .metrics-section, .achievements-section, .coins-section, .additional-infos, #activities-container');
             sections.forEach(section => {
                 section.classList.remove('hidden');
             });
-            // Achievements & Medals Rendering
-            const achievementsData = {{ user.achievements | tojson }};
-            const achievementsContent = document.querySelector('.achievements-content');
-            const timeframeButtons = document.querySelectorAll('.timeframe-button');
 
-            // Function to render achievements and medals for a given timeframe
-            function renderAchievements(timeframe) {
-                const data = achievementsData[timeframe];
-                if (!data) {
-                    achievementsContent.innerHTML = '<p>No Achievements Available for this timeframe.</p>';
-                    return;
-                }
-
-                // Render Achievements
-                let achievementsHTML = '';
-                if (data.Achievements && data.Achievements.length > 0) {
-                    achievementsHTML += `
-                        <div class="achievements-category">
-                            <h3>Achievements</h3>
-                            <div class="achievements-list">
-                                ${data.Achievements.map(badge => `
-                                    <div class="achievement-card" title="${badge.description || badge.name}">
-                                        <p class="achievement-emoji">${badge.emoji}</p>
-                                        <p class="achievement-count">${badge.count || 0}</p>
-                                        ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
-                                        <div class="tooltip">${badge.description || badge.name}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    achievementsHTML += '<p>No Achievements Available for this timeframe.</p>';
-                }
-
-                // Render Medals
-                if (data.Medals && data.Medals.length > 0) {
-                    achievementsHTML += `
-                        <div class="achievements-category">
-                            <h3>Medals</h3>
-                            <div class="medals-slider">
-                                ${data.Medals.map(badge => `
-                                    <div class="medal-card" title="${badge.description || badge.name}">
-                                        <p class="medal-emoji">${badge.emoji}</p>
-                                        <p class="medal-count">${badge.count || 0}</p>
-                                        ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
-                                        <div class="tooltip">${badge.description || badge.name}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    achievementsHTML += '<p>No Medals Available for this timeframe.</p>';
-                }
-
-                achievementsContent.innerHTML = achievementsHTML;
-            }
-
-            // Initial Render for Lifetime
-            renderAchievements('lifetime');
-
-            // Handle Timeframe Button Clicks
-            timeframeButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    // Remove 'active' class from all buttons
-                    timeframeButtons.forEach(btn => btn.classList.remove('active'));
-                    // Add 'active' class to the clicked button
-                    this.classList.add('active');
-                    // Get the selected timeframe
-                    const selectedTimeframe = this.getAttribute('data-timeframe');
-                    // Render achievements for the selected timeframe
-                    renderAchievements(selectedTimeframe);
-                });
-            });
-
-            // Load More functionality
+            // Load More functionality for Activities
             const loadMoreButton = document.getElementById('load-more-button');
             let currentCount = 10;
             const totalActivities = {{ user.activities|length }};
@@ -924,7 +337,7 @@
                                 <p>${new Date(activity.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                 <p>${Math.round(activity.elevation_gain)} vertical m</p>
                                 <p>${Math.round(activity.calories)} kcal</p>
-                                <p>${activity.additional_data.Activity_Type}</p>
+                                <p>${activity.additional_data.Activity_Type || 'N/A'}</p>
                             </div>
                             <div class="activity-coins">
                                 <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
@@ -941,7 +354,7 @@
                 });
             }
 
-            // Time Frame Filtering
+            // Time Frame Filtering for Activities
             const timeFrameSelect = document.getElementById('time-frame');
             if (timeFrameSelect) {
                 timeFrameSelect.addEventListener('change', function() {
@@ -978,6 +391,151 @@
                     });
                 });
             }
+
+            // Achievements & Medals Rendering
+            const achievementsData = {{ user.achievements | tojson }};
+            const achievementsContent = document.querySelector('.achievements-content');
+            const timeframeButtons = document.querySelectorAll('.timeframe-button');
+
+            // Function to render achievements and medals for a given timeframe
+            function renderAchievements(timeframe) {
+                const data = achievementsData[timeframe];
+                if (!data) {
+                    achievementsContent.innerHTML = '<p>No Achievements Available for this timeframe.</p>';
+                    return;
+                }
+
+                // Start fade-out
+                achievementsContent.classList.add('fade-out');
+
+                // After fade-out transition ends, update content and fade-in
+                setTimeout(() => {
+                    // Render Achievements
+                    let achievementsHTML = '';
+                    if (data.Achievements && data.Achievements.length > 0) {
+                        achievementsHTML += `
+                            <div class="achievements-category">
+                                <h3>Achievements</h3>
+                                <div class="achievements-list">
+                                    ${data.Achievements.map(badge => `
+                                        <div class="achievement-card" title="${badge.description || badge.name}">
+                                            <p class="achievement-emoji">${badge.emoji}</p>
+                                            <p class="achievement-count">${badge.count || 0}</p>
+                                            ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
+                                            <div class="tooltip">${badge.description || badge.name}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        achievementsHTML += '<p>No Achievements Available for this timeframe.</p>';
+                    }
+
+                    // Render Medals
+                    if (data.Medals && data.Medals.length > 0) {
+                        achievementsHTML += `
+                            <div class="achievements-category">
+                                <h3>Medals</h3>
+                                <div class="medals-slider">
+                                    ${data.Medals.map(badge => `
+                                        <div class="medal-card" title="${badge.description || badge.name}">
+                                            <p class="medal-emoji">${badge.emoji}</p>
+                                            <p class="medal-count">${badge.count || 0}</p>
+                                            ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
+                                            <div class="tooltip">${badge.description || badge.name}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        achievementsHTML += '<p>No Medals Available for this timeframe.</p>';
+                    }
+
+                    // Inject the new content
+                    achievementsContent.innerHTML = achievementsHTML;
+
+                    // Start fade-in
+                    achievementsContent.classList.remove('fade-out');
+                    achievementsContent.classList.add('fade-in');
+
+                    // Remove fade-in class after transition
+                    setTimeout(() => {
+                        achievementsContent.classList.remove('fade-in');
+                    }, 500); // Duration matches the CSS transition
+                }, 500); // Duration matches the CSS transition
+            }
+
+            // Initial Render for Lifetime
+            renderAchievements('lifetime');
+
+            // Handle Timeframe Button Clicks
+            timeframeButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Remove 'active' class from all buttons
+                    timeframeButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add 'active' class to the clicked button
+                    this.classList.add('active');
+                    // Get the selected timeframe
+                    const selectedTimeframe = this.getAttribute('data-timeframe');
+                    // Render achievements for the selected timeframe
+                    renderAchievements(selectedTimeframe);
+                    // Update other sections based on the selected timeframe
+                    updateMetrics(selectedTimeframe);
+                    updateRankInfo(selectedTimeframe);
+                    updateCoins(selectedTimeframe);
+                });
+            });
+
+            // Functions to Update Other Sections
+            function updateMetrics(timeframe) {
+                const metrics = {{ user.metrics | tojson }};
+                const data = metrics[timeframe];
+                if (!data) return;
+
+                document.getElementById('metric-max-elevation').textContent = `${data.max_metrics.max_elevation || 0} m`;
+                document.getElementById('metric-max-duration').textContent = `${data.max_metrics.max_duration || 0} h`;
+                document.getElementById('metric-max-distance').textContent = `${data.max_metrics.max_distance || 0} km`;
+            }
+
+            function updateRankInfo(timeframe) {
+                const metrics = {{ user.metrics | tojson }};
+                const data = metrics[timeframe];
+                if (!data || !data.rank_info) return;
+
+                document.getElementById('rank-current').textContent = data.rank_info.current_rank.name || 'N/A';
+                document.getElementById('rank-next').textContent = data.rank_info.next_rank.name || 'N/A';
+                document.getElementById('rank-points').textContent = `${data.rank_info.current_rank.points || 0} / ${data.rank_info.next_rank.minPoints || 0}`;
+                document.getElementById('rank-progress').textContent = `${data.rank_info.rank_progress_percent || 0}%`;
+
+                // Update Progress Bar Width
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = `${data.rank_info.rank_progress_percent || 0}%`;
+                }
+
+                // Update Rank Emoji
+                const rankEmoji = document.getElementById('rank-emoji');
+                if (rankEmoji && data.rank_info.current_rank.emoji) {
+                    rankEmoji.textContent = data.rank_info.current_rank.emoji;
+                }
+            }
+
+            function updateCoins(timeframe) {
+                const metrics = {{ user.metrics | tojson }};
+                const data = metrics[timeframe];
+                if (!data || !data.coins) return;
+
+                document.getElementById('coin-everest').textContent = data.coins.everest.toFixed(2) || '0.00';
+                document.getElementById('coin-pizza').textContent = data.coins.pizza || '0';
+                document.getElementById('coin-heartbeat').textContent = data.coins.heartbeat || '0';
+            }
+
+            // Initial Update for Metrics, Rank Info, and Coins
+            updateMetrics('lifetime');
+            updateRankInfo('lifetime');
+            updateCoins('lifetime');
         });
     </script>
 </body>

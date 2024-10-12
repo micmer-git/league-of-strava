@@ -296,18 +296,15 @@ def dashboard(username):
     all_achievements = sorted(all_achievements)
     all_medals = sorted(all_medals)
 
+    # Fetch rank information
+    user_rank = get_user_rank(user.total_hours, RANK_CONFIG)  # Ensure RANK_CONFIG is defined
+
     # Prepare data for rendering
     user_data = {
         'username': user.username,
         'rank_name': user.rank_name,
         'rank_emoji': user.rank_emoji,
 
-        'coins': {
-            'everest': user.coins_everest,
-            'pizza': user.coins_pizza,
-            'heartbeat': user.coins_heartbeat
-        },
-        'stats': user.stats,  # Accessing stats directly
         'achievements': user.achievements,
         'max_metrics': {
             'max_elevation': user.max_elevation,
@@ -318,15 +315,34 @@ def dashboard(username):
             'max_distance_link': user.max_distance_link,
         },
         'activities': activities_list,
+        'metrics': {  # Add the 'metrics' key
+            'lifetime': {
+                'max_metrics': {
+                    'max_elevation': user.max_elevation,
+                    'max_duration': user.max_duration,
+                    'max_distance': user.max_distance
+                },
+                'rank_info': user_rank,
+                'coins': {
+                    'everest': user.coins_everest,
+                    'pizza': user.coins_pizza,
+                    'heartbeat': user.coins_heartbeat
+                }
+            },
+            # Add other timeframes as needed (e.g., 'last_365_days', 'last_30_days', etc.)
+            # Example:
+            # 'last_365_days': {
+            #     'max_metrics': { ... },
+            #     'rank_info': { ... },
+            #     'coins': { ... }
+            # },
+        }
     }
 
-    # Fetch rank information
-    user_rank = get_user_rank(user.total_hours, RANK_CONFIG)  # Pass RANK_CONFIG here
     return render_template('dashboard.html',
                            user=user_data,
                            all_achievements=all_achievements,
-                           rank_config=RANK_CONFIG,
-                           rank_info=user_rank)
+                           rank_config=RANK_CONFIG)
 
 
 

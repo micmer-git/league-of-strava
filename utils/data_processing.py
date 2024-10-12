@@ -330,24 +330,5 @@ def process_dataframe(df):
     # Optionally, drop original Distance columns to avoid confusion
     df.drop(['Distance_1', 'Distance_2'], axis=1, inplace=True, errors='ignore')
 
-    # **Add 'duration' column based on 'Moving_Time'**
-    if 'Moving_Time' in df.columns:
-        df['duration'] = df['Moving_Time'] / 3600  # Convert seconds to hours
-        logging.info("'duration' column added based on 'Moving_Time'.")
-    else:
-        df['duration'] = 0  # Assign a default value or handle accordingly
-        logging.warning("'Moving_Time' column not found. 'duration' set to 0.")
-
-    # **Add 'duration' column based on 'Moving_Time'**
-    if 'Moving_Time' in df.columns:
-        df['heartbeats'] = df['Average_Heart_Rate'] * df['duration'] / 60
-        logging.info("'heartbeat' column added based on 'Moving_Time'.")
-    else:
-        df['heartbeats'] = 0  # Assign a default value or handle accordingly
-        logging.warning("'Average_Heart_Rate' column not found. 'heartbeats' set to 0.")
-
-
-    logging.info("CSV processing completed successfully.")
-    return df, None
     logging.info("CSV processing completed successfully.")
     return df, None

@@ -155,6 +155,9 @@
             margin: 0;
             font-size: 2em;
             color: #ff6600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .current-rank {
@@ -259,10 +262,10 @@
         }
 
         .achievements-section h2 {
-          text-align: left;
-          margin-bottom: 5px;
-          font-size: 2.5em;
-          color: #ff6600;
+            text-align: left;
+            margin-bottom: 5px;
+            font-size: 2.5em;
+            color: #ff6600;
         }
 
         .achievements-category {
@@ -386,6 +389,25 @@
             color: #ff6600;
         }
 
+        /* Time Frame Filter */
+        .time-frame-filter {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .time-frame-filter label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .time-frame-filter select {
+            padding: 8px 12px;
+            font-size: 1em;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        /* Activities List */
         .activity-item {
             border: 1px solid #dee2e6;
             border-radius: 8px;
@@ -552,6 +574,11 @@
             .activity-main p, .activity-coins .coin {
                 font-size: 0.8em;
             }
+
+            #load-more-button {
+                padding: 8px 16px;
+                font-size: 0.9em;
+            }
         }
 
         @media (max-width: 576px) {
@@ -608,7 +635,11 @@
             }
 
             #load-more-button {
-                padding: 8px 16px;
+                padding: 6px 12px;
+                font-size: 0.85em;
+            }
+
+            .time-frame-filter label, .time-frame-filter select {
                 font-size: 0.9em;
             }
         }
@@ -646,7 +677,7 @@
     </header>
 
     <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav">
+    <div class="mobile-nav" id="mobile-nav" aria-hidden="true">
         <a href="https://linktr.ee/micmer">About</a>
         <a href="/leaderboard">Leaderboard</a>
         <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
@@ -660,14 +691,16 @@
         <div class="overview-section hidden">
             <div class="overview-full-width">
                 <div class="athlete-info">
-                    <h1 id="athlete-name">{{ user.username }} <br> <h2 id="current-rank">{{ user.rank_name }}</h2> <span id="rank-emoji">{{ user.rank_emoji }}</span></h1>
+                    <h1 id="athlete-name">{{ user.username }}
+                        <span id="rank-emoji">{{ user.rank_emoji }}</span>
+                    </h1>
+                    <h2 id="current-rank">{{ user.rank_name }}</h2>
                 </div>
                 <!-- Coins Displayed Next to Name -->
                 <div class="coin-metrics-inline">
                     <span class="coin" title="Everest Coins: Represents your total elevation gain">🏔️ {{ user.coins.everest | round(2) }}</span>
                     <span class="coin" title="Pizza Coins: Represents your total calories burned">🍕 {{ user.coins.pizza | int }}</span>
                     <span class="coin" title="Heartbeat Coins: Represents your total heartbeats">❤️ {{ user.coins.heartbeat | int }}</span>
-                    <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
                 </div>
             </div>
             <div class="overview-full-width">
@@ -708,45 +741,23 @@
         <!-- Achievements Section -->
         <div class="achievements-section hidden">
             <h2>Achievements & Medals</h2>
+            <!-- Timeframe Selection Buttons -->
+            <div class="timeframe-buttons">
+                <button class="timeframe-button active" data-timeframe="lifetime">Lifetime</button>
+                <button class="timeframe-button" data-timeframe="last_365_days">Last 365 Days</button>
+                <button class="timeframe-button" data-timeframe="last_30_days">Last 30 Days</button>
+                <button class="timeframe-button" data-timeframe="last_14_days">Last 14 Days</button>
+                <button class="timeframe-button" data-timeframe="last_7_days">Last 7 Days</button>
+            </div>
+            <!-- Achievements Section -->
 
-            <!-- Achievements Category -->
-            {% if user.achievements.Achievements %}
-                <div class="achievements-category">
-                    <h3>Achievements</h3>
-                    <div class="achievements-list">
-                        {% for badge in user.achievements.Achievements %}
-                            <div class="achievement-card" title="{{ badge.description or badge.name }}">
-                                <p class="achievement-emoji">{{ badge.emoji }}</p>
-                                <p class="achievement-count">{{ badge.count }}</p>
-                                {% if badge.last_month_earned %}
-                                    <span class="new-earned">+{{ badge.last_month_earned }}</span>
-                                {% endif %}
-                                <div class="tooltip">{{ badge.description or badge.name }}</div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endif %}
+            <div class="achievements-content">
+                <!-- Dynamic content will be injected here -->
+            </div>
+        <div class="achievements-section hidden">
+            <h2>Achievements & Medals</h2>
 
-            <!-- Medals Category -->
-            {% if user.achievements.Medals %}
-                <div class="achievements-category">
-                    <h3>Medals</h3>
-                    <div class="medals-slider">
-                        {% for badge in user.achievements.Medals %}
-                            <div class="medal-card" title="{{ badge.description or badge.name }}">
-                                <p class="medal-emoji">{{ badge.emoji }}</p>
-                                <p class="medal-count">{{ badge.count }}</p>
-                                {% if badge.last_month_earned %}
-                                    <span class="new-earned">+{{ badge.last_month_earned }}</span>
-                                {% endif %}
-                                <div class="tooltip">{{ badge.description or badge.name }}</div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endif %}
-        </div>
+
 
         <!-- Additional Infos Section -->
         <div class="additional-infos hidden">
@@ -765,14 +776,16 @@
         <!-- Activities Container -->
         <div id="activities-container" class="hidden">
             <h2>Recent Activities</h2>
+
+
             <div id="activities-list">
                 {% for activity in user.activities[:10] %}
-                    <div class="activity-item">
+                    <div class="activity-item" data-date="{{ activity.date}}">
                         <div class="activity-main">
                             <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m</h3>
                             <p>{{ activity.date }}</p>
-                            <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
-                            <p>{{ activity.calories | round(0) }} kcal</p>
+                            <p>{{ activity.elevation_gain | int }} vertical m</p>
+                            <p>{{ activity.calories | int }} kcal</p>
                             <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
                         </div>
                         <div class="activity-coins">
@@ -803,6 +816,7 @@
                 const isExpanded = hamburger.classList.contains('active');
                 hamburger.setAttribute('aria-expanded', isExpanded);
                 mobileNav.style.display = isExpanded ? 'flex' : 'none';
+                mobileNav.setAttribute('aria-hidden', !isExpanded);
             };
 
             hamburger.addEventListener('click', toggleMenu);
@@ -814,13 +828,88 @@
             sections.forEach(section => {
                 section.classList.remove('hidden');
             });
+            // Achievements & Medals Rendering
+            const achievementsData = {{ user.achievements | tojson }};
+            const achievementsContent = document.querySelector('.achievements-content');
+            const timeframeButtons = document.querySelectorAll('.timeframe-button');
+
+            // Function to render achievements and medals for a given timeframe
+            function renderAchievements(timeframe) {
+                const data = achievementsData[timeframe];
+                if (!data) {
+                    achievementsContent.innerHTML = '<p>No Achievements Available for this timeframe.</p>';
+                    return;
+                }
+
+                // Render Achievements
+                let achievementsHTML = '';
+                if (data.Achievements && data.Achievements.length > 0) {
+                    achievementsHTML += `
+                        <div class="achievements-category">
+                            <h3>Achievements</h3>
+                            <div class="achievements-list">
+                                ${data.Achievements.map(badge => `
+                                    <div class="achievement-card" title="${badge.description || badge.name}">
+                                        <p class="achievement-emoji">${badge.emoji}</p>
+                                        <p class="achievement-count">${badge.count || 0}</p>
+                                        ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
+                                        <div class="tooltip">${badge.description || badge.name}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    achievementsHTML += '<p>No Achievements Available for this timeframe.</p>';
+                }
+
+                // Render Medals
+                if (data.Medals && data.Medals.length > 0) {
+                    achievementsHTML += `
+                        <div class="achievements-category">
+                            <h3>Medals</h3>
+                            <div class="medals-slider">
+                                ${data.Medals.map(badge => `
+                                    <div class="medal-card" title="${badge.description || badge.name}">
+                                        <p class="medal-emoji">${badge.emoji}</p>
+                                        <p class="medal-count">${badge.count || 0}</p>
+                                        ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
+                                        <div class="tooltip">${badge.description || badge.name}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    achievementsHTML += '<p>No Medals Available for this timeframe.</p>';
+                }
+
+                achievementsContent.innerHTML = achievementsHTML;
+            }
+
+            // Initial Render for Lifetime
+            renderAchievements('lifetime');
+
+            // Handle Timeframe Button Clicks
+            timeframeButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Remove 'active' class from all buttons
+                    timeframeButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add 'active' class to the clicked button
+                    this.classList.add('active');
+                    // Get the selected timeframe
+                    const selectedTimeframe = this.getAttribute('data-timeframe');
+                    // Render achievements for the selected timeframe
+                    renderAchievements(selectedTimeframe);
+                });
+            });
 
             // Load More functionality
             const loadMoreButton = document.getElementById('load-more-button');
+            let currentCount = 10;
+            const totalActivities = {{ user.activities|length }};
+            const additionalActivities = {{ user.activities|tojson }};
             if (loadMoreButton) {
-                let currentCount = 10;
-                const totalActivities = {{ user.activities|length }};
-                const additionalActivities = {{ user.activities|tojson }};
                 loadMoreButton.addEventListener('click', function() {
                     const activitiesList = document.getElementById('activities-list');
                     const nextCount = currentCount + 10;
@@ -828,10 +917,11 @@
                         const activity = additionalActivities[i];
                         const activityItem = document.createElement('div');
                         activityItem.classList.add('activity-item');
+                        activityItem.setAttribute('data-date', activity.date);
                         activityItem.innerHTML = `
                             <div class="activity-main">
                                 <h3><a href="${activity.link}" target="_blank">${activity.name}</a> | ${Math.round(activity.distance)} km | ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</h3>
-                                <p>${activity.date}</p>
+                                <p>${new Date(activity.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                                 <p>${Math.round(activity.elevation_gain)} vertical m</p>
                                 <p>${Math.round(activity.calories)} kcal</p>
                                 <p>${activity.additional_data.Activity_Type}</p>
@@ -848,6 +938,44 @@
                     if (currentCount >= totalActivities) {
                         loadMoreButton.style.display = 'none';
                     }
+                });
+            }
+
+            // Time Frame Filtering
+            const timeFrameSelect = document.getElementById('time-frame');
+            if (timeFrameSelect) {
+                timeFrameSelect.addEventListener('change', function() {
+                    const selectedValue = this.value;
+                    const activities = document.querySelectorAll('.activity-item');
+                    const now = new Date();
+                    let startDate;
+
+                    switch(selectedValue) {
+                        case 'year':
+                            startDate = new Date();
+                            startDate.setFullYear(now.getFullYear() - 1);
+                            break;
+                        case '6months':
+                            startDate = new Date();
+                            startDate.setMonth(now.getMonth() - 6);
+                            break;
+                        case 'month':
+                            startDate = new Date();
+                            startDate.setMonth(now.getMonth() - 1);
+                            break;
+                        case 'all':
+                        default:
+                            startDate = new Date('1900-01-01');
+                    }
+
+                    activities.forEach(activity => {
+                        const activityDate = new Date(activity.getAttribute('data-date'));
+                        if (activityDate >= startDate) {
+                            activity.style.display = 'flex';
+                        } else {
+                            activity.style.display = 'none';
+                        }
+                    });
                 });
             }
         });

@@ -88,29 +88,36 @@ for i in range(2, 101):
         'minPoints': 3150 + (i - 1) * 75,  # Each level requires 75 additional points
     })
 
-# Database Models
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
-    strava_link = db.Column(db.String(200), unique=True, nullable=False)  # New Field Added
+    strava_link = db.Column(db.String(200), unique=True, nullable=False)
     rank_name = db.Column(db.String(50), nullable=False)
     rank_emoji = db.Column(db.String(10), nullable=False)
-    total_hours = db.Column(db.Float, nullable=False)
-    coins_everest = db.Column(db.Float, nullable=False)
-    coins_pizza = db.Column(db.Float, nullable=False)
-    coins_heartbeat = db.Column(db.Integer, nullable=False)
-    achievements = db.Column(db.JSON, nullable=False)
-    stats = db.Column(db.JSON, nullable=False)  # Added Field
-    max_elevation = db.Column(db.Float, nullable=True)
-    max_elevation_link = db.Column(db.String(200), nullable=True)
-    max_duration = db.Column(db.Float, nullable=True)
-    max_duration_link = db.Column(db.String(200), nullable=True)
-    max_distance = db.Column(db.Float, nullable=True)
-    max_distance_link = db.Column(db.String(200), nullable=True)
+    total_hours = db.Column(db.Float, nullable=False, default=0.0)
+    coins_everest = db.Column(db.Float, nullable=False, default=0.0)
+    coins_pizza = db.Column(db.Float, nullable=False, default=0.0)
+    coins_heartbeat = db.Column(db.Integer, nullable=False, default=0)
+    achievements = db.Column(db.JSON, nullable=False, default={})
+    stats = db.Column(db.JSON, nullable=False, default={})
+    max_elevation = db.Column(db.Float, nullable=True, default=0.0)
+    max_elevation_link = db.Column(db.String(200), nullable=True, default='#')
+    max_duration = db.Column(db.Float, nullable=True, default=0.0)
+    max_duration_link = db.Column(db.String(200), nullable=True, default='#')
+    max_distance = db.Column(db.Float, nullable=True, default=0.0)
+    max_distance_link = db.Column(db.String(200), nullable=True, default='#')
 
-    # **New Fields Added**
-    fastest_half_marathon = db.Column(db.Float, nullable=True)  # Duration in hours
-    fastest_half_marathon_link = db.Column(db.String(200), nullable=True)
+    # New Fields for Fastest 10K and Marathon
+    fastest_10k = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
+    fastest_10k_link = db.Column(db.String(200), nullable=True, default='#')
+
+    fastest_marathon = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
+    fastest_marathon_link = db.Column(db.String(200), nullable=True, default='#')
+
+    # Fastest Half Marathon Fields
+    fastest_half_marathon = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
+    fastest_half_marathon_link = db.Column(db.String(200), nullable=True, default='#')
 
     activities = db.relationship('Activity', backref='user', lazy=True)
 
@@ -163,6 +170,12 @@ from dateutil import parser
 def process_dataframe(df):
     """Validate and process the uploaded CSV dataframe with support for Italian and English headers, handle comma decimals, and conditional distance units."""
     logging.info("Starting CSV processing.")
+
+    activity_type_mapping = {
+        'Ciclismo': 'Ride',
+        'Corsa': 'Run',
+        'Nuotata': 'Swim'
+    }
 
     # Define column name lists for Italian and English CSVs
     italian_column_names = [
@@ -368,6 +381,8 @@ def process_dataframe(df):
         expected_num_columns = expected_num_columns_italian
         column_names = italian_column_names
         logging.info("Detected Italian CSV.")
+        df['Tipo attività'] = df['Tipo attività'].replace(activity_type_mapping)
+
     elif first_3_headers == english_headers_sample:
         language = 'English'
         expected_num_columns = expected_num_columns_english
@@ -391,6 +406,8 @@ def process_dataframe(df):
 
     # Log the new column names for verification
     logging.info(f"New column names: {df.columns.tolist()}")
+
+    print(df)
 
     # Define numeric columns (common in both languages)
     numeric_columns = [
@@ -875,7 +892,6 @@ def get_user_rank(total_hours):
     }
 
 
-
 def calculate_max_metrics(df):
     """Determine the user's top activities."""
     if df.empty:
@@ -906,8 +922,7 @@ def calculate_max_metrics(df):
     max_distance_link = f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}"
 
     # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
-    half_marathons = df[df['Distance_km'] >= 21.0975]
-    print(half_marathons)
+    half_marathons = df[df['Distance_km'] >= 21]
     half_marathons = half_marathons[half_marathons['Activity_Type'] == 'Run']
     if not half_marathons.empty:
         fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
@@ -926,6 +941,11 @@ def calculate_max_metrics(df):
         'max_distance_link': max_distance_link,
         'fastest_half_marathon': float(round(fastest_half_marathon_duration, 2)),
         'fastest_half_marathon_link': fastest_half_marathon_link,
+        'fastest_10k': float(round(fastest_10k_duration, 2)),
+        'fastest_10k_link': fastest_10k_link,
+        'fastest_marathon': float(round(fastest_marathon_duration, 2)),
+        'fastest_marathon_link': fastest_marathon_link,
+
     }
 
 def calculate_max_metrics(df):
@@ -1047,7 +1067,12 @@ def index():
                     # **Assign New Fields**
                     user.fastest_half_marathon = max_metrics.get('fastest_half_marathon', 0)
                     user.fastest_half_marathon_link = max_metrics.get('fastest_half_marathon_link', '#')
+                    # **Assign Newly Added Fields for 10K and Marathon**
+                    user.fastest_10k = max_metrics.get('fastest_10k', 0)
+                    user.fastest_10k_link = max_metrics.get('fastest_10k_link', '#')
 
+                    user.fastest_marathon = max_metrics.get('fastest_marathon', 0)
+                    user.fastest_marathon_link = max_metrics.get('fastest_marathon_link', '#')
                     # Delete existing activities
                     Activity.query.filter_by(user_id=user.id).delete()
                 else:
@@ -1272,6 +1297,10 @@ def dashboard(username):
             'max_distance_link': user.max_distance_link,
             'fastest_half_marathon': user.fastest_half_marathon or 0,  # Ensure it's not None
             'fastest_half_marathon_link': user.fastest_half_marathon_link or '#',  # Ensure it's not None
+            'fastest_10k': user.fastest_10k or 0,
+            'fastest_10k_link': user.fastest_10k_link or '#',
+            'fastest_marathon': user.fastest_marathon or 0,
+            'fastest_marathon_link': user.fastest_marathon_link or '#',
         },
         'activities': activities_list,
     }
@@ -1287,7 +1316,6 @@ def dashboard(username):
 
 
 # Route to handle submission of new achievements or medals
-@app.route('/submit-achievement', methods=['GET', 'POST'])
 @app.route('/submit-achievement', methods=['GET', 'POST'])
 def submit_achievement():
     if request.method == 'POST':

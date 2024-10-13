@@ -816,10 +816,22 @@
                             <h4>Greatest Distance</h4>
                             <p>{{ user.max_metrics.max_distance | int }} km</p>
                         </a>
+                        <!-- **New Fastest 10K Display** -->
+                        <div>
+                            <h3>Fastest 10K</h3>
+                            <p>{{ user.max_metrics.fastest_10k }} hours</p>
+                            <a href="{{ user.max_metrics.fastest_10k_link }}">View Activity</a>
+                        </div>
                         <a href="{{ user.max_metrics.fastest_half_marathon_link }}" class="top-activity-card" aria-label="Fastest Half Marathon Details">
                             <h4>Fastest Half Marathon</h4>
                             <p>{{ user.max_metrics.fastest_half_marathon | format_duration }}</p>
                         </a>
+                        <!-- **New Fastest Marathon Display** -->
+                        <div>
+                            <h3>Fastest Marathon</h3>
+                            <p>{{ user.max_metrics.fastest_marathon }} hours</p>
+                            <a href="{{ user.max_metrics.fastest_marathon_link }}">View Activity</a>
+                        </div>
                     </div>
                 </div>
             </div>

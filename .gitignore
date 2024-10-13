@@ -11,3 +11,4 @@ ENV/
 *.sqlite3
 static/uploads/
 cleaning_db.py
+instance/user.db

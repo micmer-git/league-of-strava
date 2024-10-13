@@ -154,10 +154,12 @@ def convert_to_native(obj):
         return {k: convert_to_native(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [convert_to_native(element) for element in obj]
-    elif isinstance(obj, (np.int64, np.int32, np.int16)):
+    elif isinstance(obj, np.integer):
         return int(obj)
-    elif isinstance(obj, (np.float64, np.float32, np.float16)):
+    elif isinstance(obj, np.floating):
         return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
     else:
         return obj
 
@@ -579,18 +581,81 @@ def convert_to_native(data):
     else:
         return data
 
+import pandas as pd
+from datetime import timedelta
+
+def convert_to_native(data):
+    """
+    Placeholder function to convert data to native types.
+    Implement as needed based on your application's requirements.
+    """
+    return data
+
+import pandas as pd
+from datetime import timedelta
+import numpy as np
+
+def convert_to_native(obj):
+    """
+    Recursively convert NumPy data types in a dictionary or list to native Python types.
+    """
+    if isinstance(obj, dict):
+        return {k: convert_to_native(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_native(element) for element in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
 def calculate_achievements(df):
-    """Calculate user achievements based on activities."""
+    """
+    Calculate user achievements based on activities.
+
+    Parameters:
+    - df (pd.DataFrame): DataFrame containing user activities.
+
+    Returns:
+    - dict: Structured achievements and medals categorized appropriately.
+    """
     achievements = {
-        'Achievements': [],
+        'categories': [],
         'Medals': []
     }
 
+    # Define Categories and their Introductions
+    categories_info = {
+        '💲 Distance': 'Earn coins based on the distance you\'ve run or ridden. The more you cover, the more coins you earn.',
+        '💰 Elevation': 'Earn coins by conquering elevation challenges. Gain coins as you ascend higher.',
+        '🧈 Consistency': 'Earn coins by maintaining consistent activity. Stay active and accumulate more coins.',
+        '💎 KCal': 'Burn calories and earn coins. The more calories you burn, the more coins you collect.',
+        '👑 Streaks': 'Maintain streaks of consecutive days or weeks to earn additional coins.'
+    }
+
+    # Initialize categories dictionary
+    for category, intro in categories_info.items():
+        achievements['categories'].append({
+            'name': category,
+            'intro': intro,
+            'achievements': {
+                'Run': [],
+                'Ride': []
+            }
+        })
+
     # ------------------ Achievements ------------------
-    # Longest Streak
-    df_sorted = df.sort_values('Activity_Date')
+    # Sort activities by date
+    df_sorted = df.sort_values('Activity_Date').copy()
     df_sorted['Date'] = df_sorted['Activity_Date'].dt.date
+
+    # Unique sorted dates
     unique_dates = sorted(df_sorted['Date'].dropna().unique())
+
+    # Calculate Longest Streak (Consecutive Days with Activities)
     max_streak = 1
     current_streak = 1
     for i in range(1, len(unique_dates)):
@@ -600,83 +665,373 @@ def calculate_achievements(df):
                 max_streak = current_streak
         else:
             current_streak = 1
-    achievements['Achievements'].append({
-        'name': 'Longest Streak',
-        'emoji': '🔥',
-        'description': 'Longest consecutive days with activities',
-        'count': max_streak
-    })
 
-    # Distance Badges
-    distance_thresholds = [100, 200, 300]  # in km
-    for threshold in distance_thresholds:
-        count = int(df[df['Distance_km'] >= threshold].shape[0])
-        achievements['Achievements'].append({
-            'name': f'{threshold} km',
-            'emoji': '💯' if threshold == 100 else ('🔱' if threshold == 200 else '⚜️'),
-            'description': f'Completed activities covering at least {threshold} km',
-            'count': count
-        })
+    # Assign Longest Streak to '👑 Streaks' category
+    for category in achievements['categories']:
+        if category['name'] == '👑 Streaks':
+            category['achievements']['Run'].append({
+                'name': 'Longest Streak',
+                'emoji': '🔥',
+                'description': 'Longest consecutive days with activities',
+                'count': int(max_streak)
+            })
+            break
 
-    # Duration Badges
-    duration_thresholds = [3, 6, 12]  # in hours
-    for threshold in duration_thresholds:
-        count = int(df[df['Moving_Time']/60 >= threshold * 60].shape[0])
-        achievements['Achievements'].append({
-            'name': f'{threshold} Hours',
-            'emoji': '⌛' if threshold == 3 else ('⏱️' if threshold == 6 else '🌇'),
-            'description': f'Activities with duration of at least {threshold} hours',
-            'count': count
-        })
+    # ========== Distance Badges ==========
+    distance_badges = {
+        'Run': {
+            'thresholds': [10, 21, 42, 50, 100],  # in km or km/week
+            'unit': 'km',
+            'emoji_sequence': ['💲', '💰', '🧈', '💎', '👑']
+        },
+        'Ride': {
+            'thresholds': [100, 150, 200, 300, 600],  # in km or km/week
+            'unit': 'km',
+            'emoji_sequence': ['💲', '💰', '🧈', '💎', '👑']
+        }
+    }
 
-    # Weekly Badges
-    df_sorted['Week Start'] = df_sorted['Activity_Date'].apply(lambda x: (x - timedelta(days=x.weekday())).date())
-    weekly_hours = df_sorted.groupby('Week Start')['Moving_Time'].sum() / 3600  # Convert to hours
-    weekly_thresholds = [5, 10, 20]  # in hours
-    for threshold in weekly_thresholds:
-        count = int(weekly_hours[weekly_hours >= threshold].count())
-        achievements['Achievements'].append({
-            'name': f'{threshold} Hours Week',
-            'emoji': '💰' if threshold == 5 else ('🧈' if threshold == 10 else '💎'),
-            'description': f'Logged at least {threshold} hours in a week',
-            'count': count
-        })
+    for activity_type, info in distance_badges.items():
+        thresholds = info['thresholds']
+        unit = info['unit']
+        emojis = info['emoji_sequence']
+        for idx, threshold in enumerate(thresholds):
+            emoji = emojis[idx] if idx < len(emojis) else '🏅'  # Default emoji if overflow
 
-    # Consistency Champion
+            if (activity_type == 'Run' and threshold >= 50) or (activity_type == 'Ride' and threshold >= 300):
+                # Weekly threshold
+                df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
+                weekly_distance = df_sorted[df_sorted['Activity_Type'] == activity_type].groupby('Week')['Distance_km'].sum()
+                count = int((weekly_distance >= threshold).sum())
+                name = f'{threshold}k {activity_type}/week'
+                description = f'Completed at least {threshold} km in a week ({activity_type})'
+            else:
+                # Per activity threshold
+                count = int(df_sorted[(df_sorted['Distance_km'] >= threshold) &
+                                      (df_sorted['Activity_Type'] == activity_type)].shape[0])
+                name = f'{threshold}k {activity_type}'
+                description = f'Completed activities covering at least {threshold} km ({activity_type})'
+
+            # Find the appropriate category
+            category_name = '💲 Distance'  # All distance achievements go under '💲 Distance'
+            for category in achievements['categories']:
+                if category['name'] == category_name:
+                    category['achievements'][activity_type].append({
+                        'name': name,
+                        'emoji': emoji,
+                        'description': description,
+                        'count': count
+                    })
+                    break
+
+    # ========== Elevation Badges ==========
+    elevation_thresholds = [1000, 2000, 4424, 30000]  # in meters (Half Everest ~4424m, 30k/month)
+    elevation_emojis = ['💲', '💰', '🧈', '💎']  # Using only specified emojis
+
+    for idx, threshold in enumerate(elevation_thresholds):
+        if idx < len(elevation_emojis):
+            emoji = elevation_emojis[idx]
+        else:
+            emoji = '🏅'  # Default emoji if overflow
+
+        if threshold == 4424:
+            name = 'Half Everest'
+            description = 'Completed activities with elevation gain of at least Half Everest (4424 meters)'
+        elif threshold == 30000:
+            name = '30k Elevation/Month'
+            description = 'Achieved a total of 30,000 meters elevation gain in a month'
+        else:
+            name = f'{threshold}m Elevation'
+            description = f'Completed activities with elevation gain of at least {threshold} meters'
+
+        if threshold == 30000:
+            # Monthly elevation threshold
+            df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
+            monthly_elevation = df_sorted.groupby('Month')['Elevation_Gain'].sum()
+            count = int((monthly_elevation >= threshold).sum())
+        else:
+            # Per activity elevation threshold
+            count = int(df_sorted[df_sorted['Elevation_Gain'] >= threshold].shape[0])
+
+        # Assign to '💰 Elevation' category
+        category_name = '💰 Elevation'
+        for category in achievements['categories']:
+            if category['name'] == category_name:
+                category['achievements']['Run'].append({
+                    'name': name,
+                    'emoji': emoji,
+                    'description': description,
+                    'count': count
+                })
+                category['achievements']['Ride'].append({
+                    'name': name,
+                    'emoji': emoji,
+                    'description': description,
+                    'count': count
+                })
+                break
+
+    # ========== Consistency Badges ==========
+    # Weekly Consistency
+    df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
+    weekly_days = df_sorted.groupby('Week')['Date'].nunique()
+    weekly_consistent = int((weekly_days == 7).sum())
+
+    # Monthly Consistency
     df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
-    months = df_sorted['Month'].dropna().unique()
-    consistency_count = 0
-    for month in months:
+    monthly_days = df_sorted.groupby('Month')['Date'].nunique()
+    months_unique = df_sorted['Month'].unique()
+    monthly_consistent = 0
+    for month in months_unique:
         month_start = month.start_time
         month_end = month.end_time
         days_in_month = (month_end - month_start).days + 1
-        activities_in_month = df_sorted[df_sorted['Month'] == month]
-        active_days = activities_in_month['Date'].nunique()
+        active_days = monthly_days.get(month, 0)
         if active_days == days_in_month:
-            consistency_count += 1
-    achievements['Achievements'].append({
-        'name': 'Consistency Champion',
-        'emoji': '🔁',
-        'description': 'Logged activities every day for a month',
-        'count': consistency_count
-    })
+            monthly_consistent += 1
 
-    # Daily kcal Burner
-    total_calories = df['Calories'].sum()
-    achievements['Achievements'].append({
-        'name': 'Daily kcal Burner',
-        'emoji': '🔥',
-        'description': 'Burned over 2000 kcal',
-        'count': int(total_calories // 2000)
-    })
+    # Assign Consistency Achievements to '🧈 Consistency' category
+    category_name = '🧈 Consistency'
+    for category in achievements['categories']:
+        if category['name'] == category_name:
+            category['achievements']['Run'].append({
+                'name': 'Weekly Consistency',
+                'emoji': '💲',
+                'description': 'Logged activities every day of a week',
+                'count': weekly_consistent
+            })
+            category['achievements']['Run'].append({
+                'name': 'Monthly Consistency',
+                'emoji': '💰',
+                'description': 'Logged activities every day of a month',
+                'count': monthly_consistent
+            })
+            break
 
-    # ------------------ Medals ------------------
-    # Special Occasion Badges
+    # ========== Streaks of Months ==========
+    months_sorted = sorted(months_unique, key=lambda x: x.start_time)
+    max_month_streak = 1
+    current_month_streak = 1
+    for i in range(1, len(months_sorted)):
+        previous_month = months_sorted[i-1]
+        current_month = months_sorted[i]
+        expected_next_month = previous_month + 1
+        if current_month == expected_next_month and \
+           (monthly_days.get(current_month, 0) == (current_month.end_time - current_month.start_time).days + 1):
+            current_month_streak += 1
+            if current_month_streak > max_month_streak:
+                max_month_streak = current_month_streak
+        else:
+            current_month_streak = 1
+
+    # Assign Streaks to '👑 Streaks' category
+    category_name = '👑 Streaks'
+    streak_thresholds = [2, 6, 12]  # 2 months, 6 months, 12 months
+    streak_emojis = ['🧈', '💎', '👑']
+    for category in achievements['categories']:
+        if category['name'] == category_name:
+            for threshold, emoji in zip(streak_thresholds, streak_emojis):
+                if max_month_streak >= threshold:
+                    category['achievements']['Run'].append({
+                        'name': f'{threshold}-Month Streak',
+                        'emoji': emoji,
+                        'description': f'Logged activities for {threshold} consecutive months',
+                        'count': 1  # Assuming one streak per threshold
+                    })
+            break
+
+    # ========== KCal Badges ==========
+    kcal_badges = {
+        'Per Activity': {
+            'thresholds': [1000, 2000, 4000],
+            'emojis': ['💲', '💰', '🧈'],
+            'description': 'Burned at least {} kcal in an activity'
+        },
+        'Weekly': {
+            'thresholds': [12000, 24000],  # Adjusted to realistic weekly kcal
+            'emojis': ['💰', '👑'],
+            'description': 'Burned at least {} kcal in a week'
+        }
+    }
+
+    # Assign KCal Achievements to '💎 KCal' category
+    category_name = '💎 KCal'
+    for category in achievements['categories']:
+        if category['name'] == category_name:
+            # Per Activity KCal Badges
+            for threshold, emoji in zip(kcal_badges['Per Activity']['thresholds'], kcal_badges['Per Activity']['emojis']):
+                count = int(df_sorted[df_sorted['Calories'] >= threshold].shape[0])
+                category['achievements']['Run'].append({
+                    'name': f'{threshold}kCal Activity',
+                    'emoji': emoji,
+                    'description': kcal_badges['Per Activity']['description'].format(threshold),
+                    'count': count
+                })
+                category['achievements']['Ride'].append({
+                    'name': f'{threshold}kCal Activity',
+                    'emoji': emoji,
+                    'description': kcal_badges['Per Activity']['description'].format(threshold),
+                    'count': count
+                })
+
+            # Weekly KCal Badges
+            weekly_kcal = df_sorted.groupby('Week')['Calories'].sum()
+            for threshold, emoji in zip(kcal_badges['Weekly']['thresholds'], kcal_badges['Weekly']['emojis']):
+                count = int((weekly_kcal >= threshold).sum())
+                category['achievements']['Run'].append({
+                    'name': f'{threshold}kCal Week',
+                    'emoji': emoji,
+                    'description': kcal_badges['Weekly']['description'].format(threshold),
+                    'count': count
+                })
+                category['achievements']['Ride'].append({
+                    'name': f'{threshold}kCal Week',
+                    'emoji': emoji,
+                    'description': kcal_badges['Weekly']['description'].format(threshold),
+                    'count': count
+                })
+
+            # Daily kcal Burner
+            total_calories = df_sorted['Calories'].sum()
+            category['achievements']['Run'].append({
+                'name': 'Daily kcal Burner',
+                'emoji': '🔥',
+                'description': 'Burned over 2000 kcal',
+                'count': int(total_calories // 2000)
+            })
+            category['achievements']['Ride'].append({
+                'name': 'Daily kcal Burner',
+                'emoji': '🔥',
+                'description': 'Burned over 2000 kcal',
+                'count': int(total_calories // 2000)
+            })
+            break
+
+    # ------------------ Additional Achievements ------------------
+    # Define new Achievements with specified emojis and assign to appropriate categories
+    new_achievements = [
+        {
+            'name': 'Everesting Ascent',
+            'emoji': '💎',
+            'description': 'Logged an activity with Everesting ascention (8848m)',
+            'count': int(df[df['Elevation_Gain'] >= 8848].shape[0]),
+            'category': '💰 Elevation',
+            'type': 'Run'  # Assuming Everesting is a Run activity
+        },
+        {
+            'name': '2000m Ascent',
+            'emoji': '🧈',
+            'description': 'Logged an activity with 2000m of ascention',
+            'count': int(df[df['Elevation_Gain'] >= 2000].shape[0]),
+            'category': '💰 Elevation',
+            'type': 'Run'  # Adjust if necessary
+        },
+        {
+            'name': 'Half Everesting',
+            'emoji': '💰',
+            'description': 'Logged an activity with 1/2 Everesting ascention (~4424m)',
+            'count': int(df[df['Elevation_Gain'] >= 4424].shape[0]),
+            'category': '💰 Elevation',
+            'type': 'Run'
+        },
+        {
+            'name': '2000 km Month',
+            'emoji': '💰',
+            'description': 'Month with 2000 km of total distance',
+            'count': int(df.groupby(df['Activity_Date'].dt.to_period('M'))['Distance_km'].sum().ge(2000).sum()),
+            'category': '💲 Distance',
+            'type': 'Ride'
+        },
+        {
+            'name': '10,000 km Year',
+            'emoji': '🧈',
+            'description': 'Year with 10,000 km total distance',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Distance_km'].sum().ge(10000).sum()),
+            'category': '💲 Distance',
+            'type': 'Ride'
+        },
+        {
+            'name': '100,000 Elevation Year',
+            'emoji': '💎',
+            'description': 'Year with 100,000 total elevation gain',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(100000).sum()),
+            'category': '💰 Elevation',
+            'type': 'Run'
+        },
+        {
+            'name': '150,000 Elevation Year',
+            'emoji': '👑',
+            'description': 'Year with 150,000 total elevation gain',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(150000).sum()),
+            'category': '💰 Elevation',
+            'type': 'Run'
+        },
+        {
+            'name': '200,000 Elevation Year',
+            'emoji': '👑',
+            'description': 'Year with 200,000 total elevation gain',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(200000).sum()),
+            'category': '💰 Elevation',
+            'type': 'Run'
+        },
+    ]
+
+    for achievement in new_achievements:
+        category_name = achievement.pop('category')
+        activity_type = achievement.pop('type')
+        for category in achievements['categories']:
+            if category['name'] == category_name:
+                category['achievements'][activity_type].append(achievement)
+                break
+
+    # ------------------ Additional Achievements (Medals) ------------------
+    additional_achievements = [
+        {
+            'name': 'Marathon Master',
+            'emoji': '💲',
+            'description': 'Completed a marathon (42.195 km)',
+            'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 42.195)].shape[0]),
+            'category': '💲 Distance',
+            'type': 'Run'
+        },
+        {
+            'name': 'Half Marathon Master',
+            'emoji': '💰',
+            'description': 'Completed a half marathon (21.0975 km)',
+            'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 21.0975)].shape[0]),
+            'category': '💲 Distance',
+            'type': 'Run'
+        },
+        {
+            'name': 'Climbing King',
+            'emoji': '🧈',
+            'description': 'Total Elevation_Gain over 1000m',
+            'count': int(df['Elevation_Gain'].sum() // 1000),
+            'category': '💰 Elevation',
+            'type': 'Run'
+        },
+        {
+            'name': 'Speedster',
+            'emoji': '💎',
+            'description': 'Achieved an average speed over 30 km/h',
+            'count': int(df['Max_Speed'].fillna(0).apply(lambda x: x * 3.6 > 30).sum()) if 'Max_Speed' in df.columns else 0,
+            'category': '💎 KCal',
+            'type': 'Run'
+        },
+        # Add more as needed
+    ]
+
+    for badge in additional_achievements:
+        category_name = badge.pop('category')
+        activity_type = badge.pop('type')
+        for category in achievements['categories']:
+            if category['name'] == category_name:
+                category['achievements'][activity_type].append(badge)
+                break
+
+    # ------------------ Medals (Special Achievements) ------------------
+    # Define special occasion medals
     df_sorted['Month-Day'] = df_sorted['Activity_Date'].dt.strftime('%m-%d')
-
-    # Debugging: Check 'Month-Day' column
-    print("Month-Day Column:")
-    print(df_sorted[['Activity_Date', 'Month-Day']].head())
 
     special_occasions = [
         { 'name': 'New Year Run', 'emoji': '🎉', 'dates': ['01-01'] },
@@ -690,6 +1045,7 @@ def calculate_achievements(df):
         { 'name': 'Chinese New Year', 'emoji': '🐉', 'dates': ['02-01'] },  # Adjust date as needed
         { 'name': 'International Workers\' Day', 'emoji': '✊', 'dates': ['05-01'] }
     ]
+
     for occasion in special_occasions:
         count = int(df_sorted[df_sorted['Month-Day'].isin(occasion['dates'])].shape[0])
         achievements['Medals'].append({
@@ -699,126 +1055,35 @@ def calculate_achievements(df):
             'count': count
         })
 
-    # ------------------ New Achievements ------------------
-    # Define new Achievements
-    new_achievements = [
-        {
-            'name': 'Everesting Ascent',
-            'emoji': '🏔️',
-            'description': 'Logged an activity with Everesting ascention',
-            'count': int(df[df['Elevation_Gain'] >= 8848].shape[0])  # Assuming Everesting ~ 8848m
-        },
-        {
-            'name': '2000m Ascent',
-            'emoji': '⬆️',
-            'description': 'Logged an activity with 2000m of ascention',
-            'count': int(df[df['Elevation_Gain'] >= 2000].shape[0])
-        },
-        {
-            'name': 'Half Everesting',
-            'emoji': '🌄',
-            'description': 'Logged an activity with 1/2 Everesting ascention (~4424m)',
-            'count': int(df[df['Elevation_Gain'] >= 4424].shape[0])
-        },
-        {
-            'name': '2000 km Month',
-            'emoji': '📅',
-            'description': 'Month with 2000 km of total distance',
-            'count': int(df.groupby(df['Activity_Date'].dt.to_period('M'))['Distance_km'].sum().ge(2000).sum())
-        },
-        {
-            'name': '10,000 km Year',
-            'emoji': '🌍',
-            'description': 'Year with 10,000 km total distance',
-            'count': int(df.groupby(df['Activity_Date'].dt.year)['Distance_km'].sum().ge(10000).sum())
-        },
-        {
-            'name': '100,000 Elevation Year',
-            'emoji': '🧗',
-            'description': 'Year with 100,000 total elevation gain',
-            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(100000).sum())
-        },
-        {
-            'name': '150,000 Elevation Year',
-            'emoji': '🚀',
-            'description': 'Year with 150,000 total elevation gain',
-            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(150000).sum())
-        },
-        {
-            'name': '200,000 Elevation Year',
-            'emoji': '🏔️🏔️',
-            'description': 'Year with 200,000 total elevation gain',
-            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(200000).sum())
-        },
-    ]
-
-    for achievement in new_achievements:
-        achievements['Achievements'].append(achievement)
-
     # ------------------ New Medals ------------------
-    # Define new Medals
+    # Define new Medals with their respective emojis
     new_medals = [
         {
             'name': 'Steep Climber',
             'emoji': '🧗‍♀️',
-            'description': 'Logged an activity with elevation gain > 3000m and length < 100 km',
+            'description': 'Logged an activity with elevation gain > 3000m and distance < 100 km',
             'count': int(df[(df['Elevation_Gain'] > 3000) & (df['Distance_km'] < 100)].shape[0])
         },
         {
             'name': 'Coppa Coppi Protector',
             'emoji': '🥩',
-            'description': 'Logged an activity with elevation gain > 2000m and length < 100 km',
+            'description': 'Logged an activity with elevation gain > 2000m and distance < 100 km',
             'count': int(df[(df['Elevation_Gain'] > 2000) & (df['Distance_km'] < 100)].shape[0])
         }
     ]
 
     for medal in new_medals:
-        achievements['Medals'].append(medal)
+        achievements['Medals'].append({
+            'name': medal['name'],
+            'emoji': medal['emoji'],
+            'description': medal['description'],
+            'count': medal['count']
+        })
 
-    # Additional Achievements (could be Medals or Achievements based on your design)
-    additional_achievements = [
-        {
-            'name': 'Marathon Master',
-            'emoji': '🇬🇷',
-            'description': 'Completed a marathon (42.195 km)',
-            'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 42.195)].shape[0])
-        },
-        {
-            'name': 'Half Marathon Master',
-            'emoji': '👟',
-            'description': 'Completed a half marathon (21.0975 km)',
-            'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 21.0975)].shape[0])
-        },
-        {
-            'name': 'Climbing King',
-            'emoji': '🧗‍♂️',
-            'description': 'Total Elevation_Gain over 1000m',
-            'count': int(df['Elevation_Gain'].sum() // 1000)
-        },
-        {
-            'name': 'Speedster',
-            'emoji': '🏎️',
-            'description': 'Achieved an average speed over 30 km/h',
-            'count': int(df['Max_Speed'].fillna(0).apply(lambda x: x * 3.6 > 30).sum()) if 'Max_Speed' in df.columns else 0
-        },
-        # Add more as needed
-    ]
-
-    for badge in additional_achievements:
-        if badge['name'] in ['Marathon Master', 'Half Marathon Master']:
-            # Assuming these are Medals
-            achievements['Medals'].append(badge)
-        else:
-            # Assuming these are Achievements
-            achievements['Achievements'].append(badge)
-
-    # Convert to native types
+    # Convert all NumPy types to native Python types
     achievements = convert_to_native(achievements)
 
     return achievements
-
-
-
 def calculate_coins(df):
     """Calculate coins based on activities."""
     coins = {

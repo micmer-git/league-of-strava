@@ -840,24 +840,54 @@
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="section-content">
-                <!-- Achievements Category -->
-                {% if user.achievements.Achievements %}
-                    <div class="achievements-category">
-                        <h3>Achievements</h3>
-                        <div class="achievements-list">
-                            {% for badge in user.achievements.Achievements %}
-                                <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
-                                    <p class="achievement-emoji">{{ badge.emoji }}</p>
-                                    <p class="achievement-count">{{ badge.count }}</p>
-                                    {% if badge.last_month_earned %}
-                                        <span class="new-earned">+{{ badge.last_month_earned }}</span>
-                                    {% endif %}
-                                    <div class="tooltip">{{ badge.description or badge.name }}</div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endif %}
+              <!-- Achievements Categories -->
+              <!-- Achievement Categories -->
+                              {% if user.achievements.categories %}
+                                  {% for category in user.achievements.categories %}
+                                      <div class="achievements-category">
+                                          <h3>{{ category.name }}</h3>
+                                          <p class="category-intro">{{ category.intro }}</p>
+
+                                          <!-- Run Subcategory -->
+                                          {% if category.achievements.Run %}
+                                              <div class="subcategory">
+                                                  <h4>Run Achievements</h4>
+                                                  <div class="achievements-list">
+                                                      {% for badge in category.achievements.Run %}
+                                                          <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
+                                                              <p class="achievement-emoji">{{ badge.emoji }}</p>
+                                                              <p class="achievement-count">{{ badge.count }}</p>
+                                                              {% if badge.last_month_earned %}
+                                                                  <span class="new-earned">+{{ badge.last_month_earned }}</span>
+                                                              {% endif %}
+                                                              <div class="tooltip">{{ badge.description or badge.name }}</div>
+                                                          </div>
+                                                      {% endfor %}
+                                                  </div>
+                                              </div>
+                                          {% endif %}
+
+                                          <!-- Ride Subcategory -->
+                                          {% if category.achievements.Ride %}
+                                              <div class="subcategory">
+                                                  <h4>Ride Achievements</h4>
+                                                  <div class="achievements-list">
+                                                      {% for badge in category.achievements.Ride %}
+                                                          <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
+                                                              <p class="achievement-emoji">{{ badge.emoji }}</p>
+                                                              <p class="achievement-count">{{ badge.count }}</p>
+                                                              {% if badge.last_month_earned %}
+                                                                  <span class="new-earned">+{{ badge.last_month_earned }}</span>
+                                                              {% endif %}
+                                                              <div class="tooltip">{{ badge.description or badge.name }}</div>
+                                                          </div>
+                                                      {% endfor %}
+                                                  </div>
+                                              </div>
+                                          {% endif %}
+                                      </div>
+                                  {% endfor %}
+                              {% endif %}
 
                 <!-- Medals Category -->
                 {% if user.achievements.Medals %}

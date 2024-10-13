@@ -892,8 +892,10 @@ def get_user_rank(total_hours):
     }
 
 
+
+
 def calculate_max_metrics(df):
-    """Determine the user's top activities."""
+    """Determine the user's top activities, including fastest 10K and Marathon."""
     if df.empty:
         return {
             'max_elevation': 0,
@@ -904,7 +906,13 @@ def calculate_max_metrics(df):
             'max_distance_link': '#',
             'fastest_half_marathon': 0,
             'fastest_half_marathon_link': '#',
+            'fastest_10k': 0,
+            'fastest_10k_link': '#',
+            'fastest_marathon': 0,
+            'fastest_marathon_link': '#',
         }
+
+    df['Type'] = df['Type'].astype(str)
 
     # Max Elevation Gain
     max_elevation = df['Elevation_Gain'].max()
@@ -923,7 +931,8 @@ def calculate_max_metrics(df):
 
     # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
     half_marathons = df[df['Distance_km'] >= 21]
-    half_marathons = half_marathons[half_marathons['Activity_Type'] == 'Run']
+    half_marathons = half_marathons[half_marathons['Activity_Type'].str.contains('Run', case=False, na=False)]
+
     if not half_marathons.empty:
         fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
         fastest_half_marathon_activity = half_marathons.loc[half_marathons['Moving_Time'].idxmin()]
@@ -931,6 +940,30 @@ def calculate_max_metrics(df):
     else:
         fastest_half_marathon_duration = 0
         fastest_half_marathon_link = '#'
+
+    # Fastest Marathon (Minimum Duration for Distance >= 42.195 km)
+    marathons = df[df['Distance_km'] >= 42]
+    marathons = marathons[marathons['Activity_Type'].str.contains('Run', case=False, na=False)]
+
+    if not marathons.empty:
+        fastest_marathon_duration = marathons['Moving_Time'].min() / 3600  # in hours
+        fastest_marathon_activity = marathons.loc[marathons['Moving_Time'].idxmin()]
+        fastest_marathon_link = f"https://www.strava.com/activities/{fastest_marathon_activity['Activity_ID']}"
+    else:
+        fastest_marathon_duration = 0
+        fastest_marathon_link = '#'
+
+    # Fastest 10K (Minimum Duration for Distance >= 10 km)
+    ten_k_runs = df[df['Distance_km'] >= 10]
+    ten_k_runs = ten_k_runs[ten_k_runs['Activity_Type'].str.contains('Run', case=False, na=False)]
+
+    if not ten_k_runs.empty:
+        fastest_10k_duration = ten_k_runs['Moving_Time'].min() / 3600  # in hours
+        fastest_10k_activity = ten_k_runs.loc[ten_k_runs['Moving_Time'].idxmin()]
+        fastest_10k_link = f"https://www.strava.com/activities/{fastest_10k_activity['Activity_ID']}"
+    else:
+        fastest_10k_duration = 0
+        fastest_10k_link = '#'
 
     return {
         'max_elevation': float(max_elevation),
@@ -945,61 +978,8 @@ def calculate_max_metrics(df):
         'fastest_10k_link': fastest_10k_link,
         'fastest_marathon': float(round(fastest_marathon_duration, 2)),
         'fastest_marathon_link': fastest_marathon_link,
-
     }
 
-def calculate_max_metrics(df):
-    """Determine the user's top activities."""
-    if df.empty:
-        return {
-            'max_elevation': 0,
-            'max_elevation_link': '#',
-            'max_duration': 0,
-            'max_duration_link': '#',
-            'max_distance': 0,
-            'max_distance_link': '#',
-            'fastest_half_marathon': 0,
-            'fastest_half_marathon_link': '#',
-        }
-
-    # Max Elevation Gain
-    max_elevation = df['Elevation_Gain'].max()
-    max_elevation_activity = df.loc[df['Elevation_Gain'].idxmax()]
-    max_elevation_link = f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}"
-
-    # Max Duration
-    max_duration = df['Moving_Time'].max() / 3600  # Convert to hours
-    max_duration_activity = df.loc[df['Moving_Time'].idxmax()]
-    max_duration_link = f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}"
-
-    # Max Distance
-    max_distance = df['Distance_km'].max()  # Already in km
-    max_distance_activity = df.loc[df['Distance_km'].idxmax()]
-    max_distance_link = f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}"
-
-    # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
-    half_marathons = df[df['Distance_km'] >= 21.0975]
-    half_marathons = half_marathons[half_marathons['Type'] == 'Run']
-
-    if not half_marathons.empty:
-
-        fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
-        fastest_half_marathon_activity = half_marathons.loc[half_marathons['Moving_Time'].idxmin()]
-        fastest_half_marathon_link = f"https://www.strava.com/activities/{fastest_half_marathon_activity['Activity_ID']}"
-    else:
-        fastest_half_marathon_duration = 0
-        fastest_half_marathon_link = '#'
-
-    return {
-        'max_elevation': float(max_elevation),
-        'max_elevation_link': max_elevation_link,
-        'max_duration': float(round(max_duration, 2)),
-        'max_duration_link': max_duration_link,
-        'max_distance': float(round(max_distance, 2)),
-        'max_distance_link': max_distance_link,
-        'fastest_half_marathon': float(round(fastest_half_marathon_duration, 2)),
-        'fastest_half_marathon_link': fastest_half_marathon_link,
-    }
 
 @app.route('/about')
 def about():
@@ -1064,15 +1044,15 @@ def index():
                     user.max_duration_link = max_metrics['max_duration_link']
                     user.max_distance = max_metrics['max_distance']
                     user.max_distance_link = max_metrics['max_distance_link']
-                    # **Assign New Fields**
+
+                    # Assign New Fields
                     user.fastest_half_marathon = max_metrics.get('fastest_half_marathon', 0)
                     user.fastest_half_marathon_link = max_metrics.get('fastest_half_marathon_link', '#')
-                    # **Assign Newly Added Fields for 10K and Marathon**
                     user.fastest_10k = max_metrics.get('fastest_10k', 0)
                     user.fastest_10k_link = max_metrics.get('fastest_10k_link', '#')
-
                     user.fastest_marathon = max_metrics.get('fastest_marathon', 0)
                     user.fastest_marathon_link = max_metrics.get('fastest_marathon_link', '#')
+
                     # Delete existing activities
                     Activity.query.filter_by(user_id=user.id).delete()
                 else:
@@ -1080,8 +1060,6 @@ def index():
                     user = User(
                         username=username,
                         strava_link=strava_link,  # Assign the Strava link
-                        # athlete_id=athlete_id,  # Store the extracted athlete_id
-
                         rank_name=user_rank['current_rank']['name'],
                         rank_emoji=user_rank['current_rank']['emoji'],
                         total_hours=total_hours,
@@ -1096,85 +1074,86 @@ def index():
                         max_duration_link=max_metrics['max_duration_link'],
                         max_distance=max_metrics['max_distance'],
                         max_distance_link=max_metrics['max_distance_link'],
-
-                        # **Assign New Fields**
                         fastest_half_marathon=max_metrics.get('fastest_half_marathon', 0),
                         fastest_half_marathon_link=max_metrics.get('fastest_half_marathon_link', '#'),
+                        fastest_10k=max_metrics.get('fastest_10k', 0),
+                        fastest_10k_link=max_metrics.get('fastest_10k_link', '#'),
+                        fastest_marathon=max_metrics.get('fastest_marathon', 0),
+                        fastest_marathon_link=max_metrics.get('fastest_marathon_link', '#'),
                     )
                     db.session.add(user)
                     db.session.flush()  # Flush to get user.id
 
-                    # Add activities
+                # Add activities
+                for _, row in df.iterrows():
+                    # Extract essential fields
+                    activity_id = row['Activity_ID']
+                    name = row['Activity_Name']
+                    date = row['Activity_Date']
+                    distance = row['Distance_km']  # Already in km
+                    moving_time = row['Moving_Time']
+                    duration = row['Moving_Time'] / 3600  # Convert to hours
+                    duration_minutes = int((row['Moving_Time'] % 3600) / 60)
+                    elevation_gain = row['Elevation_Gain']
+                    calories = row['Calories']
+                    max_heart_rate = row['Max_Heart_Rate_1']  # or 'Max_Heart_Rate_2' based on your logic
+                    heartbeats = int(max_heart_rate * (moving_time / 60))  # Example calculation
+                    coins_everest = round(elevation_gain / 8848, 2)
+                    coins_pizza = round(calories / 1000, 2)
+                    coins_heartbeat = heartbeats
+                    link = f"https://www.strava.com/activities/{activity_id}"
 
-                    for _, row in df.iterrows():
-                        # Extract essential fields
-                        activity_id = row['Activity_ID']
-                        name = row['Activity_Name']
-                        date = row['Activity_Date']
-                        distance = row['Distance_km']  # or 'Distance_2' based on your logic
-                        moving_time = row['Moving_Time']
-                        duration = row['Moving_Time'] / 3600  # Convert to hours
-                        duration_minutes = int((row['Moving_Time'] % 3600) / 60)
-                        elevation_gain = row['Elevation_Gain']
-                        calories = row['Calories']
-                        max_heart_rate = row['Max_Heart_Rate_1']  # or 'Max_Heart_Rate_2' based on your logic
-                        heartbeats = int(max_heart_rate * (moving_time / 60))  # Example calculation
-                        coins_everest = round(elevation_gain / 8848, 2)
-                        coins_pizza = round(calories / 1000, 2)
-                        coins_heartbeat = heartbeats
-                        link = f"https://www.strava.com/activities/{activity_id}"
+                    # Collect additional data
+                    additional_data = row.to_dict()
 
-                        # Collect additional data
-                        additional_data = row.to_dict()
+                    # Remove already stored fields to avoid duplication
+                    for key in [
+                        'Activity_ID', 'Activity_Date', 'Activity_Name', 'Activity_Type', 'Activity_Description',
+                        'Elapsed_Time_1', 'Distance_1', 'Max_Heart_Rate_1', 'Relative_Effort_1',
+                        'Commute_1', 'Activity_Private_Note', 'Activity_Gear_1', 'Filename',
+                        'Athlete_Weight', 'Bike_Weight', 'Elapsed_Time_2', 'Moving_Time',
+                        'Distance_2', 'Max_Speed', 'Average_Speed', 'Elevation_Gain',
+                        'Elevation_Loss', 'Elevation_Low', 'Elevation_High', 'Max_Grade',
+                        'Average_Grade_1', 'Average_Positive_Grade', 'Average_Negative_Grade',
+                        'Max_Cadence', 'Average_Cadence', 'Max_Heart_Rate_2', 'Average_Heart_Rate',
+                        'Max_Watts', 'Average_Watts', 'Calories', 'Max_Temperature',
+                        'Average_Temperature', 'Relative_Effort_2', 'Total_Work',
+                        'Number_of_Runs', 'Uphill_Time', 'Downhill_Time', 'Other_Time',
+                        'Perceived_Exertion_1', 'Type', 'Start_Time', 'Weighted_Average_Power',
+                        'Power_Count', 'Prefer_Perceived_Exertion', 'Perceived_Relative_Effort',
+                        'Commute_2', 'Total_Weight_Lifted', 'From_Upload',
+                        'Grade_Adjusted_Distance', 'Weather_Observation_Time', 'Weather_Condition',
+                        'Weather_Temperature', 'Apparent_Temperature', 'Dewpoint', 'Humidity',
+                        'Weather_Pressure', 'Wind_Speed', 'Wind_Gust', 'Wind_Bearing',
+                        'Precipitation_Intensity', 'Sunrise_Time', 'Sunset_Time', 'Moon_Phase',
+                        'Bike_1', 'Gear', 'Precipitation_Probability', 'Precipitation_Type',
+                        'Cloud_Cover', 'Weather_Visibility', 'UV_Index', 'Weather_Ozone',
+                        'Jump_Count', 'Total_Grit', 'Average_Flow', 'Flagged',
+                        'Average_Elapsed_Speed', 'Dirt_Distance', 'Newly_Explored_Distance',
+                        'Newly_Explored_Dirt_Distance', 'Activity_Count', 'Total_Steps',
+                        'Carbon_Saved', 'Pool_Length', 'Training_Load', 'Intensity',
+                        'Average_Grade_Adjusted_Pace', 'Timer_Time', 'Total_Cycles', 'Media'
+                    ]:
+                        additional_data.pop(key, None)
 
-                        # Remove already stored fields to avoid duplication
-                        for key in [
-                            'Activity_ID', 'Activity_Date', 'Activity_Name', 'Activity_Type', 'Activity_Description',
-                            'Elapsed_Time_1', 'Distance_1', 'Max_Heart_Rate_1', 'Relative_Effort_1',
-                            'Commute_1', 'Activity_Private_Note', 'Activity_Gear_1', 'Filename',
-                            'Athlete_Weight', 'Bike_Weight', 'Elapsed_Time_2', 'Moving_Time',
-                            'Distance_2', 'Max_Speed', 'Average_Speed', 'Elevation_Gain',
-                            'Elevation_Loss', 'Elevation_Low', 'Elevation_High', 'Max_Grade',
-                            'Average_Grade_1', 'Average_Positive_Grade', 'Average_Negative_Grade',
-                            'Max_Cadence', 'Average_Cadence', 'Max_Heart_Rate_2', 'Average_Heart_Rate',
-                            'Max_Watts', 'Average_Watts', 'Calories', 'Max_Temperature',
-                            'Average_Temperature', 'Relative_Effort_2', 'Total_Work',
-                            'Number_of_Runs', 'Uphill_Time', 'Downhill_Time', 'Other_Time',
-                            'Perceived_Exertion_1', 'Type', 'Start_Time', 'Weighted_Average_Power',
-                            'Power_Count', 'Prefer_Perceived_Exertion', 'Perceived_Relative_Effort',
-                            'Commute_2', 'Total_Weight_Lifted', 'From_Upload',
-                            'Grade_Adjusted_Distance', 'Weather_Observation_Time', 'Weather_Condition',
-                            'Weather_Temperature', 'Apparent_Temperature', 'Dewpoint', 'Humidity',
-                            'Weather_Pressure', 'Wind_Speed', 'Wind_Gust', 'Wind_Bearing',
-                            'Precipitation_Intensity', 'Sunrise_Time', 'Sunset_Time', 'Moon_Phase',
-                            'Bike_1', 'Gear', 'Precipitation_Probability', 'Precipitation_Type',
-                            'Cloud_Cover', 'Weather_Visibility', 'UV_Index', 'Weather_Ozone',
-                            'Jump_Count', 'Total_Grit', 'Average_Flow', 'Flagged',
-                            'Average_Elapsed_Speed', 'Dirt_Distance', 'Newly_Explored_Distance',
-                            'Newly_Explored_Dirt_Distance', 'Activity_Count', 'Total_Steps',
-                            'Carbon_Saved', 'Pool_Length', 'Training_Load', 'Intensity',
-                            'Average_Grade_Adjusted_Pace', 'Timer_Time', 'Total_Cycles', 'Media'
-                        ]:
-                            additional_data.pop(key, None)
-
-                        activity = Activity(
-                            activity_id=activity_id,
-                            name=name,
-                            date=date,
-                            distance=distance,  # Adjust based on which 'Distance' column you prefer
-                            duration=duration,
-                            duration_minutes=duration_minutes,
-                            elevation_gain=elevation_gain,
-                            calories=calories,
-                            heartbeats=heartbeats,
-                            coins_everest=coins_everest,
-                            coins_pizza=coins_pizza,
-                            coins_heartbeat=coins_heartbeat,
-                            link=link,
-                            user_id=user.id,
-                            additional_data=additional_data  # Store the remaining data
-                        )
-                        db.session.add(activity)
+                    activity = Activity(
+                        activity_id=activity_id,
+                        name=name,
+                        date=date,
+                        distance=distance,  # Already in km
+                        duration=duration,
+                        duration_minutes=duration_minutes,
+                        elevation_gain=elevation_gain,
+                        calories=calories,
+                        heartbeats=heartbeats,
+                        coins_everest=coins_everest,
+                        coins_pizza=coins_pizza,
+                        coins_heartbeat=coins_heartbeat,
+                        link=link,
+                        user_id=user.id,
+                        additional_data=additional_data  # Store the remaining data
+                    )
+                    db.session.add(activity)
 
                 db.session.commit()
                 flash('File successfully uploaded and processed!', 'success')

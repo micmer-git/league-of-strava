@@ -8,6 +8,7 @@ from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import dj_database_url  # Add this import
 import json
+import re
 
 
 
@@ -439,7 +440,6 @@ def process_dataframe(df):
     'nov': 'Nov',
     'dic': 'Dec'
     }
-    import re
 
     # Compile a regex pattern for Italian month abbreviations
     month_pattern = re.compile(r'\b(' + '|'.join(month_map.keys()) + r')\b', re.IGNORECASE)

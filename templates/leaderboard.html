@@ -13,6 +13,22 @@
         *, *::before, *::after {
             box-sizing: border-box;
         }
+        .headcol {
+          position: absolute;
+          width: 5em;
+          left: 0;
+          top: auto;
+          border-top-width: 1px;
+          /*only relevant for first row*/
+          margin-top: -1px;
+          /*compensate for top border*/
+        }
+
+        .headcol:before {
+          content: 'Row ';
+        }
+
+
 
         body {
             background-color: #f4f6f8;
@@ -321,7 +337,7 @@
             </a>
         </div>
         <nav id="nav-menu">
-            <a href="https://linktr.ee/micmer">About</a>
+            <a href="/about">About</a>
             <a href="/leaderboard">Leaderboard</a>
             <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
         </nav>
@@ -334,7 +350,7 @@
 
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
-        <a href="https://linktr.ee/micmer">About</a>
+        <a href="/about">About</a>
         <a href="/leaderboard">Leaderboard</a>
         <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
     </div>
@@ -345,7 +361,7 @@
             <table class="leaderboard-table">
                 <thead>
                     <tr>
-                        <th data-sort="rank" title="Rank">
+                        <th class="headcol" data-sort="rank" title="Rank">
                             🏅
                             <div class="tooltip-text">Rank</div>
                         </th>
@@ -372,14 +388,14 @@
                         <!-- Dynamic Achievement Columns -->
                         {% for achievement in all_achievements %}
                             <th data-sort="{{ achievement | lower | replace(' ', '_') }}" title="{{ achievement }}">
-                                {{ badge_emoji_mapping.get(achievement, '') }} {{ achievement }}
+                                {{ badge_emoji_mapping.get(achievement, '') }}
                                 <div class="tooltip-text">{{ achievement }}</div>
                             </th>
                         {% endfor %}
                         <!-- Dynamic Medal Columns -->
                         {% for medal in all_medals %}
                             <th data-sort="{{ medal | lower | replace(' ', '_') }}" title="{{ medal }}">
-                                {{ badge_emoji_mapping.get(medal, '') }} {{ medal }}
+                                {{ badge_emoji_mapping.get(medal, '') }}
                                 <div class="tooltip-text">{{ medal }}</div>
                             </th>
                         {% endfor %}

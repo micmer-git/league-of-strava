@@ -21,7 +21,7 @@
             background-color: #f4f6f8;
             font-family: 'Montserrat', sans-serif;
             margin: 0px;
-            padding: 0;
+            padding: 5;
             color: #333;
         }
 
@@ -175,6 +175,7 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            font-size: 0.8em; /* Smaller size for coins */
         }
 
         .coin {
@@ -221,8 +222,11 @@
         .rank-details {
             text-align: center;
             font-size: 1em;
-            margin:0px;
+            margin: 0px;
             color: #555;
+            display: flex;
+            justify-content: space-between; /* Aligns items to the ends */
+            align-items: center; /* Centers vertically */
         }
 
         /* Section Styles (Toggleable Sections) */
@@ -330,9 +334,9 @@
         .top-activity-card {
             background-color: #ff6600;
             border-radius: 20px;
-            padding: 10px;
+            padding: 8px; /* Adjusted padding */
             text-align: center;
-            font-size: 1em;
+            font-size: 0.85em; /* Decreased overall size */
             color: #fff;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             transition: transform 0.2s;
@@ -363,7 +367,7 @@
         .achievements-section h2 {
             text-align: left;
             margin-bottom: 0px;
-            font-size: 2.5em;
+            font-size: 1.5em;
             color: #ff6600;
         }
 
@@ -404,8 +408,9 @@
         }
 
         .achievement-emoji, .medal-emoji {
-            font-size: 1.5em;
-            margin-bottom: 5px;
+            font-size: 2.5em; /* Increased size */
+            margin:0px;
+
             filter: none;
             transition: filter 0.3s ease;
         }
@@ -416,8 +421,10 @@
         }
 
         .achievement-count, .medal-count {
-            font-size: 1.2em;
+            font-size: 1.5em; /* Increased size */
             font-weight: bold;
+            margin:0px;
+
             color: green;
         }
 
@@ -576,11 +583,15 @@
             }
 
             .achievement-emoji, .medal-emoji {
-                font-size: 1.3em;
+                font-size: 1.5em;
+                margin:0px;
+
             }
 
             .achievement-count, .medal-count {
-                font-size: 1em;
+                font-size: 1.2em;
+                margin:0px;
+
             }
 
             .additional-infos li {
@@ -678,11 +689,14 @@
             }
 
             .achievement-emoji, .medal-emoji {
-                font-size: 1.2em;
+                font-size: 1.4em;
+                margin:0px;
+
             }
 
             .achievement-count, .medal-count {
                 font-size: 0.95em;
+                margin:0px;
             }
 
             .additional-infos h3 {
@@ -716,7 +730,7 @@
             </a>
         </div>
         <nav id="nav-menu">
-            <a href="https://linktr.ee/micmer">About</a>
+            <a href="/about">About</a>
             <a href="/leaderboard">Leaderboard</a>
             <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
         </nav>
@@ -729,7 +743,7 @@
 
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
-        <a href="https://linktr.ee/micmer">About</a>
+        <a href="/about">About</a>
         <a href="/leaderboard">Leaderboard</a>
         <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
     </div>
@@ -750,7 +764,14 @@
 
         <!-- Overview Section (Always Visible) -->
         <div class="overview-section hidden">
+          <div class="coin-metrics-inline">
+              <span class="coin" title="Everest Coins: Represents your total elevation gain">🏔️ {{ user.coins.everest | round(2) }}</span>
+              <span class="coin" title="Pizza Coins: Represents your total calories burned">🍕 {{ user.coins.pizza | int }}</span>
+              <span class="coin" title="Heartbeat Coins: Represents your total heartbeats">❤️ {{ user.coins.heartbeat | int }}</span>
+              <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
+          </div>
             <div class="overview-full-width">
+
                 <div class="athlete-info">
                     <h1 style="margin:0px"  id="athlete-name">{{ user.username }}</h1>
 
@@ -760,12 +781,6 @@
                 <h2 style="margin:0px" id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
                 <span id="rank-emoji"></span>
                 <!-- Coins Displayed Next to Name -->
-                <div class="coin-metrics-inline">
-                    <span class="coin" title="Everest Coins: Represents your total elevation gain">🏔️ {{ user.coins.everest | round(2) }}</span>
-                    <span class="coin" title="Pizza Coins: Represents your total calories burned">🍕 {{ user.coins.pizza | int }}</span>
-                    <span class="coin" title="Heartbeat Coins: Represents your total heartbeats">❤️ {{ user.coins.heartbeat | int }}</span>
-                    <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
-                </div>
             </div>
             <div class="current-rank-full">
                 <!-- Rank Progress Bar -->
@@ -775,12 +790,12 @@
 
                 <div class="rank-details">
                     <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
+                <div class="rank-details">
+                    <span id="current-rank-label"> </span>
+                    <span id="next-rank-label">Next level: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
                 </div>
             </div>
-            <div class="progress-labels">
-                <span id="current-rank-label"> </span>
-                <span id="next-rank-label">{{ rank_info.next_rank.name }}</span>
-            </div>
+
             <!-- Top Activities Section (Toggleable) -->
             <div class="section top-activities-section hidden">
                 <div class="section-header" data-section="top-activities">
@@ -843,7 +858,7 @@
                             {% for badge in user.achievements.Medals %}
                                 <div class="medal-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
                                     <p class="medal-emoji">{{ badge.emoji }}</p>
-                                    <p class="medal-count">{{ badge.count }}</p>
+                                    <p style="margin:5px" class="medal-count">{{ badge.count }}</p>
                                     {% if badge.last_month_earned %}
                                         <span class="new-earned">+{{ badge.last_month_earned }}</span>
                                     {% endif %}

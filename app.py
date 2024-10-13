@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import dj_database_url  # Add this import
+import json
 
 
 
@@ -423,8 +424,41 @@ def process_dataframe(df):
     # Convert numeric columns
     # (Already handled above)
 
+
+    month_map = {
+    'gen': 'Jan',
+    'feb': 'Feb',
+    'mar': 'Mar',
+    'apr': 'Apr',
+    'mag': 'May',
+    'giu': 'Jun',
+    'lug': 'Jul',
+    'ago': 'Aug',
+    'set': 'Sep',
+    'ott': 'Oct',
+    'nov': 'Nov',
+    'dic': 'Dec'
+    }
+    import re
+
+    # Compile a regex pattern for Italian month abbreviations
+    month_pattern = re.compile(r'\b(' + '|'.join(month_map.keys()) + r')\b', re.IGNORECASE)
+
+    def replace_italian_month(date_str):
+        """
+        Replace Italian month abbreviations with English ones in the date string.
+        """
+        return month_pattern.sub(lambda match: month_map[match.group(1).lower()], date_str)
+
+
     # Parse 'Activity_Date'
     def parse_date(date_str):
+        """
+        Parse the date string, handling Italian month abbreviations.
+        """
+        # Replace Italian month abbreviations with English
+        date_str = replace_italian_month(date_str)
+
         try:
             # First conversion attempt with inferred format
             return pd.to_datetime(date_str, errors='raise', dayfirst=False, infer_datetime_format=True)
@@ -438,7 +472,6 @@ def process_dataframe(df):
                     return parser.parse(date_str, dayfirst=False, fuzzy=True)
                 except:
                     return pd.NaT
-
     df['Activity_Date'] = df['Activity_Date'].astype(str).apply(parse_date)
 
     # Drop rows with invalid 'Activity_Date'
@@ -514,6 +547,20 @@ def calculate_rank(total_hours):
     points_between_ranks = next_rank['minPoints'] - current_rank['minPoints']
     progress_percent = (points_into_current_rank / points_between_ranks) * 100 if points_between_ranks > 0 else 100
     return current_rank, next_rank, progress_percent
+
+import pandas as pd
+from datetime import timedelta
+
+def convert_to_native(data):
+    """Convert all items in the dictionary to native Python types."""
+    if isinstance(data, dict):
+        return {k: convert_to_native(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_to_native(item) for item in data]
+    elif isinstance(data, pd.Timestamp):
+        return data.isoformat()
+    else:
+        return data
 
 def calculate_achievements(df):
     """Calculate user achievements based on activities."""
@@ -615,9 +662,16 @@ def calculate_achievements(df):
     print(df_sorted[['Activity_Date', 'Month-Day']].head())
 
     special_occasions = [
-        {'name': 'New Year Run', 'emoji': '🎉', 'dates': ['01-01']},
-        {'name': 'Christmas Run', 'emoji': '🎄', 'dates': ['12-25']},
-        # Add more special occasions as needed
+        { 'name': 'New Year Run', 'emoji': '🎉', 'dates': ['01-01'] },
+        { 'name': 'Christmas Run', 'emoji': '🎄', 'dates': ['12-25'] },
+        { 'name': 'Valentine\'s Day', 'emoji': '❤️', 'dates': ['02-14'] },
+        { 'name': 'Easter', 'emoji': '🐣', 'dates': ['04-04'] },  # Adjust as needed
+        { 'name': 'Halloween', 'emoji': '🎃', 'dates': ['10-31'] },
+        { 'name': 'Thanksgiving', 'emoji': '🦃', 'dates': ['11-25'] },  # Adjust date as needed
+        { 'name': 'Diwali', 'emoji': '🪔', 'dates': ['11-04'] },  # Adjust date as needed
+        { 'name': 'Hanukkah', 'emoji': '🕎', 'dates': ['12-18'] },  # Adjust date as needed
+        { 'name': 'Chinese New Year', 'emoji': '🐉', 'dates': ['02-01'] },  # Adjust date as needed
+        { 'name': 'International Workers\' Day', 'emoji': '✊', 'dates': ['05-01'] }
     ]
     for occasion in special_occasions:
         count = int(df_sorted[df_sorted['Month-Day'].isin(occasion['dates'])].shape[0])
@@ -628,17 +682,93 @@ def calculate_achievements(df):
             'count': count
         })
 
+    # ------------------ New Achievements ------------------
+    # Define new Achievements
+    new_achievements = [
+        {
+            'name': 'Everesting Ascent',
+            'emoji': '🏔️',
+            'description': 'Logged an activity with Everesting ascention',
+            'count': int(df[df['Elevation_Gain'] >= 8848].shape[0])  # Assuming Everesting ~ 8848m
+        },
+        {
+            'name': '2000m Ascent',
+            'emoji': '⬆️',
+            'description': 'Logged an activity with 2000m of ascention',
+            'count': int(df[df['Elevation_Gain'] >= 2000].shape[0])
+        },
+        {
+            'name': 'Half Everesting',
+            'emoji': '🌄',
+            'description': 'Logged an activity with 1/2 Everesting ascention (~4424m)',
+            'count': int(df[df['Elevation_Gain'] >= 4424].shape[0])
+        },
+        {
+            'name': '2000 km Month',
+            'emoji': '📅',
+            'description': 'Month with 2000 km of total distance',
+            'count': int(df.groupby(df['Activity_Date'].dt.to_period('M'))['Distance_km'].sum().ge(2000).sum())
+        },
+        {
+            'name': '10,000 km Year',
+            'emoji': '🌍',
+            'description': 'Year with 10,000 km total distance',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Distance_km'].sum().ge(10000).sum())
+        },
+        {
+            'name': '100,000 Elevation Year',
+            'emoji': '🧗',
+            'description': 'Year with 100,000 total elevation gain',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(100000).sum())
+        },
+        {
+            'name': '150,000 Elevation Year',
+            'emoji': '🚀',
+            'description': 'Year with 150,000 total elevation gain',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(150000).sum())
+        },
+        {
+            'name': '200,000 Elevation Year',
+            'emoji': '🏔️🏔️',
+            'description': 'Year with 200,000 total elevation gain',
+            'count': int(df.groupby(df['Activity_Date'].dt.year)['Elevation_Gain'].sum().ge(200000).sum())
+        },
+    ]
+
+    for achievement in new_achievements:
+        achievements['Achievements'].append(achievement)
+
+    # ------------------ New Medals ------------------
+    # Define new Medals
+    new_medals = [
+        {
+            'name': 'Steep Climber',
+            'emoji': '🧗‍♀️',
+            'description': 'Logged an activity with elevation gain > 3000m and length < 100 km',
+            'count': int(df[(df['Elevation_Gain'] > 3000) & (df['Distance_km'] < 100)].shape[0])
+        },
+        {
+            'name': 'Coppa Coppi Protector',
+            'emoji': '🥩',
+            'description': 'Logged an activity with elevation gain > 2000m and length < 100 km',
+            'count': int(df[(df['Elevation_Gain'] > 2000) & (df['Distance_km'] < 100)].shape[0])
+        }
+    ]
+
+    for medal in new_medals:
+        achievements['Medals'].append(medal)
+
     # Additional Achievements (could be Medals or Achievements based on your design)
     additional_achievements = [
         {
             'name': 'Marathon Master',
-            'emoji': '🏃‍♂️',
+            'emoji': '🇬🇷',
             'description': 'Completed a marathon (42.195 km)',
             'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 42.195)].shape[0])
         },
         {
             'name': 'Half Marathon Master',
-            'emoji': '️2️⃣1️⃣🏃',
+            'emoji': '👟',
             'description': 'Completed a half marathon (21.0975 km)',
             'count': int(df[df['Activity_Type'].str.contains('Run', case=False, na=False) & (df['Distance_km'] >= 21.0975)].shape[0])
         },
@@ -658,7 +788,7 @@ def calculate_achievements(df):
     ]
 
     for badge in additional_achievements:
-        if badge['name'] in ['Climbing King', 'Speedster']:
+        if badge['name'] in ['Marathon Master', 'Half Marathon Master']:
             # Assuming these are Medals
             achievements['Medals'].append(badge)
         else:
@@ -669,6 +799,7 @@ def calculate_achievements(df):
     achievements = convert_to_native(achievements)
 
     return achievements
+
 
 
 def calculate_coins(df):
@@ -743,6 +874,60 @@ def get_user_rank(total_hours):
         'next_rank_minPoints': next_rank['minPoints']
     }
 
+
+
+def calculate_max_metrics(df):
+    """Determine the user's top activities."""
+    if df.empty:
+        return {
+            'max_elevation': 0,
+            'max_elevation_link': '#',
+            'max_duration': 0,
+            'max_duration_link': '#',
+            'max_distance': 0,
+            'max_distance_link': '#',
+            'fastest_half_marathon': 0,
+            'fastest_half_marathon_link': '#',
+        }
+
+    # Max Elevation Gain
+    max_elevation = df['Elevation_Gain'].max()
+    max_elevation_activity = df.loc[df['Elevation_Gain'].idxmax()]
+    max_elevation_link = f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}"
+
+    # Max Duration
+    max_duration = df['Moving_Time'].max() / 3600  # Convert to hours
+    max_duration_activity = df.loc[df['Moving_Time'].idxmax()]
+    max_duration_link = f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}"
+
+    # Max Distance
+    max_distance = df['Distance_km'].max()  # Already in km
+    max_distance_activity = df.loc[df['Distance_km'].idxmax()]
+    max_distance_link = f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}"
+
+    # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
+    half_marathons = df[df['Distance_km'] >= 21.0975]
+    print(half_marathons)
+    half_marathons = half_marathons[half_marathons['Activity_Type'] == 'Run']
+    if not half_marathons.empty:
+        fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
+        fastest_half_marathon_activity = half_marathons.loc[half_marathons['Moving_Time'].idxmin()]
+        fastest_half_marathon_link = f"https://www.strava.com/activities/{fastest_half_marathon_activity['Activity_ID']}"
+    else:
+        fastest_half_marathon_duration = 0
+        fastest_half_marathon_link = '#'
+
+    return {
+        'max_elevation': float(max_elevation),
+        'max_elevation_link': max_elevation_link,
+        'max_duration': float(round(max_duration, 2)),
+        'max_duration_link': max_duration_link,
+        'max_distance': float(round(max_distance, 2)),
+        'max_distance_link': max_distance_link,
+        'fastest_half_marathon': float(round(fastest_half_marathon_duration, 2)),
+        'fastest_half_marathon_link': fastest_half_marathon_link,
+    }
+
 def calculate_max_metrics(df):
     """Determine the user's top activities."""
     if df.empty:
@@ -796,6 +981,9 @@ def calculate_max_metrics(df):
         'fastest_half_marathon_link': fastest_half_marathon_link,
     }
 
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 # Routes
 @app.route('/', methods=['GET', 'POST'])
@@ -892,7 +1080,6 @@ def index():
                     db.session.flush()  # Flush to get user.id
 
                     # Add activities
-                    import json
 
                     for _, row in df.iterrows():
                         # Extract essential fields
@@ -1098,57 +1285,45 @@ def dashboard(username):
                            rank_config=rank_config,
                            rank_info=user_rank)
 
-def calculate_max_metrics(df):
-    """Determine the user's top activities."""
-    if df.empty:
-        return {
-            'max_elevation': 0,
-            'max_elevation_link': '#',
-            'max_duration': 0,
-            'max_duration_link': '#',
-            'max_distance': 0,
-            'max_distance_link': '#',
-            'fastest_half_marathon': 0,
-            'fastest_half_marathon_link': '#',
+
+# Route to handle submission of new achievements or medals
+@app.route('/submit-achievement', methods=['GET', 'POST'])
+@app.route('/submit-achievement', methods=['GET', 'POST'])
+def submit_achievement():
+    if request.method == 'POST':
+        achievement = {
+            'name': request.form['name'],
+            'emoji': request.form['emoji'],
+            'description': request.form['description'],
+            'type': request.form['type']  # 'Achievement' or 'Medal'
         }
+        # Load existing achievements
+        with open('achievements.json', 'r') as file:
+            data = json.load(file)
 
-    # Max Elevation Gain
-    max_elevation = df['Elevation_Gain'].max()
-    max_elevation_activity = df.loc[df['Elevation_Gain'].idxmax()]
-    max_elevation_link = f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}"
+        # Append the new achievement or medal
+        if achievement['type'] == 'Achievement':
+            data['Achievements'].append(achievement)
+        elif achievement['type'] == 'Medal':
+            data['Medals'].append(achievement)
 
-    # Max Duration
-    max_duration = df['Moving_Time'].max() / 3600  # Convert to hours
-    max_duration_activity = df.loc[df['Moving_Time'].idxmax()]
-    max_duration_link = f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}"
+        # Save back to the file
+        with open('achievements.json', 'w') as file:
+            json.dump(data, file, indent=4)
 
-    # Max Distance
-    max_distance = df['Distance_km'].max()  # Already in km
-    max_distance_activity = df.loc[df['Distance_km'].idxmax()]
-    max_distance_link = f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}"
+        return redirect('/')  # Redirect to a thank you page
+    return render_template('submit_achievement.html')  # Render the submission form
 
-    # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
-    half_marathons = df[df['Distance_km'] >= 21.0975]
-    print(half_marathons)
-    half_marathons = half_marathons[half_marathons['Activity_Type'] == 'Run']
-    if not half_marathons.empty:
-        fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
-        fastest_half_marathon_activity = half_marathons.loc[half_marathons['Moving_Time'].idxmin()]
-        fastest_half_marathon_link = f"https://www.strava.com/activities/{fastest_half_marathon_activity['Activity_ID']}"
-    else:
-        fastest_half_marathon_duration = 0
-        fastest_half_marathon_link = '#'
 
-    return {
-        'max_elevation': float(max_elevation),
-        'max_elevation_link': max_elevation_link,
-        'max_duration': float(round(max_duration, 2)),
-        'max_duration_link': max_duration_link,
-        'max_distance': float(round(max_distance, 2)),
-        'max_distance_link': max_distance_link,
-        'fastest_half_marathon': float(round(fastest_half_marathon_duration, 2)),
-        'fastest_half_marathon_link': fastest_half_marathon_link,
-    }
+# Route to handle contact/more info
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        # Handle contact form submission
+        # e.g., send an email or store the message
+        return redirect('/')
+    return render_template('contact.html')  # Render the contact form
+
 
 @app.route('/search', methods=['GET'])
 def search():
@@ -1234,12 +1409,57 @@ def leaderboard():
         user_data['rank'] = idx
 
 
-    # Define a mapping of column names to emojis
+    # badge_emoji_mapping.py or within your Flask view
     badge_emoji_mapping = {
+        # Achievements
+        'Longest Streak': '🔥',
+        '100 km': '💯',
+        '200 km': '🔱',
+        '300 km': '⚜️',
+        '3 Hours': '⌛',
+        '6 Hours': '⏱️',
+        '12 Hours': '🌇',
+        '5 Hours Week': '💰',
+        '10 Hours Week': '🧈',
+        '20 Hours Week': '💎',
+        'Consistency Champion': '🔁',
+        'Daily kcal Burner': '🔥',
+        'Everesting Ascent': '🏔️',
+        '2000m Ascent': '⬆️',
+        'Half Everesting': '🌄',
+        '2000 km Month': '📅',
+        '10,000 km Year': '🌍',
+        '100,000 Elevation Year': '🧗',
+        '150,000 Elevation Year': '🚀',
+        '200,000 Elevation Year': '🏔️🏔️',
         'Marathon Master': '🏃‍♂️',
+        'Half Marathon Master': '👟',
         'Climbing King': '🧗‍♂️',
         'Speedster': '🏎️',
-        'Consistency Champion': '🔁',
+
+        # Medals
+        'New Year Run': '🎉',
+        'Christmas Run': '🎄',
+        "Valentine's Day": '❤️',
+        'Easter': '🐣',
+        'Halloween': '🎃',
+        'Thanksgiving': '🦃',
+        'Diwali': '🪔',
+        'Hanukkah': '🕎',
+        'Chinese New Year': '🐉',
+        "International Workers' Day": '✊',
+        '20 km Challenge': '🏅',
+        'Steep Climber': '🧗‍♀️',
+        'Coppa Coppi Protector': '🥩',
+
+        # Master Prestige Levels (using a generic star emoji)
+        'Master Prestige 2': '⭐',
+        'Master Prestige 3': '⭐',
+        'Master Prestige 4': '⭐',
+        # ...
+        # Continue up to 'Master Prestige 100' as needed
+        'Master Prestige 100': '⭐',
+
         # Add more mappings as needed
     }
 

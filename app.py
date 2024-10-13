@@ -384,6 +384,7 @@ def process_dataframe(df):
         column_names = italian_column_names
         logging.info("Detected Italian CSV.")
         df['Tipo attività'] = df['Tipo attività'].replace(activity_type_mapping)
+        df['Activity_Type'] = df['Activity_Type'].replace(activity_type_mapping)
 
     elif first_3_headers == english_headers_sample:
         language = 'English'
@@ -525,12 +526,12 @@ def process_dataframe(df):
             distance = 0
 
         if language == 'Italian':
-            if isinstance(activity_type, str) and activity_type.strip().lower() in ['nuoto', 'nuotata']:
+            if isinstance(activity_type, str) and activity_type.strip().lower() in ['nuoto', 'nuotata', 'swim']:
                 return distance / 1000  # Convert meters to kilometers
             else:
                 return distance  # Already in kilometers
         else:  # English
-            if isinstance(activity_type, str) and activity_type.strip().lower() == 'swim':
+            if isinstance(activity_type, str) and activity_type.strip().lower() == ['nuoto', 'nuotata', 'swim']:
                 return distance / 1000  # Convert meters to kilometers
             else:
                 return distance  # Already in kilometers
@@ -1089,7 +1090,7 @@ def calculate_coins(df):
     coins = {
         'everest': float(round(df['Elevation_Gain'].sum() / 8848, 2)),  # 1 Everest = 8848m
         'pizza': float(round(df['Calories'].sum() / 1000, 2)),         # 1 Pizza = 1000 kcal
-        'heartbeat': int(df['Average_Heart_Rate'].sum())                   # 1 Heartbeat Coin = 1 heartbeat (adjust as needed)
+        'heartbeat': int(df['Average_Heart_Rate'].sum()/1000000)                   # 1 Heartbeat Coin = 1 heartbeat (adjust as needed)
     }
     coins = convert_to_native(coins)
     return coins

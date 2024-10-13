@@ -765,9 +765,9 @@
         <!-- Overview Section (Always Visible) -->
         <div class="overview-section hidden">
           <div class="coin-metrics-inline">
-              <span class="coin" title="Everest Coins: Represents your total elevation gain">🏔️ {{ user.coins.everest | round(2) }}</span>
-              <span class="coin" title="Pizza Coins: Represents your total calories burned">🍕 {{ user.coins.pizza | int }}</span>
-              <span class="coin" title="Heartbeat Coins: Represents your total heartbeats">❤️ {{ user.coins.heartbeat | int }}</span>
+              <span class="coin" title="Everest Coins: total elevation gain (measured in Mount Everest units)">🏔️ {{ user.coins.everest | round(2) }}</span>
+              <span class="coin" title="Pizza Coins: total calories burned in pizzas (1000 kcal each)">🍕 {{ user.coins.pizza | int }}</span>
+              <span class="coin" title="Heartbeat Coins: Represents your total heartbeats (in milions)">❤️ {{ user.coins.heartbeat | int }}</span>
               <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
           </div>
             <div class="overview-full-width">
@@ -950,7 +950,7 @@
                             <div class="activity-coins">
                                 <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
                                 <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
-                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️ (M)</span>
                             </div>
                         </div>
                     {% endfor %}

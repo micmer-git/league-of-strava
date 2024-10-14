@@ -2387,6 +2387,7 @@ def leaderboard():
                         elif category.lower() == 'medals':
                             all_medals.add(badge['name'])
 
+
     # Sort them for consistent display
     sorted_all_achievements = sorted(all_achievements)
     sorted_all_medals = sorted(all_medals)
@@ -2401,12 +2402,17 @@ def leaderboard():
                     if 'name' in badge:
                         if 'achievements' in badge.keys():
                             for achievements_badge in badge['achievements']:
-                                print(achievements_badge)
                                 badges_counts[achievements_badge['name']] = achievements_badge.get('count', 0)
+                                for sub_achievement in badges_counts:
+                                    badges_counts[achievements_badge['name']] = achievements_badge.get('count', 0)
+
+
+
 
                         else:
                             badges_counts[badge['name']] = badge.get('count', 0)
 
+        # print(badges_counts) in theory it is loaded but not shown?
 
         leaderboard_data.append({
             'rank': 0,  # Placeholder, will set later

@@ -1340,8 +1340,6 @@ def convert_to_native(data):
     else:
         return data
 
-import pandas as pd
-from datetime import timedelta
 
 def convert_to_native(data):
     """

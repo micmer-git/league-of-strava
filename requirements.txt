@@ -1,6 +1,7 @@
-Flask==2.3.2
+datetimeFlask==2.3.2
 Flask-SQLAlchemy==3.0.5
 gunicorn
+Werkzeug==2.3.6
 psycopg2-binary==2.9.6
 Flask-Migrate==4.0.4
 dj_database_url
@@ -10,3 +11,4 @@ whitenoise==6.4.0
 python-dotenv==1.0.0
 geopy
 shapely
+datetime

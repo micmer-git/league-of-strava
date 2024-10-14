@@ -649,7 +649,7 @@ def calculate_achievements(df):
     categories_info = {
         'Distance Run': '💲 Run 10 km | 💰 Run 21 km | 🧈 Run 42 km | 💎 Run 50 km/week | 👑 Run 100 km/week',
         'Distance Ride': '💲 Ride 100 km | 💰 Ride 150 km | 🧈 Ride 200 km | 💎 Ride 300 km/week | 👑 Ride 600 km/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 30k Elevation/Month',
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month, 👑 25k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
     }
     # Initialize categories dictionary
@@ -752,8 +752,8 @@ def calculate_achievements(df):
                     break
 
     # ========== Elevation Badges ==========
-    elevation_thresholds = [1000, 2000, 4424, 30000]  # in meters (Half Everest ~4424m, 30k/month)
-    elevation_emojis = ['💲', '💰', '🧈', '💎']  # Using only specified emojis
+    elevation_thresholds = [1000, 2000, 4424, 8868, 25000]  # in meters (Half Everest ~4424m, 30k/month)
+    elevation_emojis = ['💲', '💰', '🧈', '💎', '👑']  # Using only specified emojis
 
     for idx, threshold in enumerate(elevation_thresholds):
         if idx < len(elevation_emojis):
@@ -764,17 +764,25 @@ def calculate_achievements(df):
         if threshold == 4424:
             name = 'Half Everest'
             description = 'Completed activities with elevation gain of at least Half Everest (4424 meters)'
-        elif threshold == 30000:
-            name = '30k Elevation/Month'
+        elif threshold == 25000:
+            name = '25k Elevation/Month'
             description = 'Achieved a total of 30,000 meters elevation gain in a month'
+        elif threshold == 8868:
+            name = 'Everest/Week'
+            description = 'Achieved a total of an Everest elevation gain in a week'
         else:
             name = f'{threshold}m Elevation'
             description = f'Completed activities with elevation gain of at least {threshold} meters'
 
-        if threshold == 30000:
+        if threshold == 25000:
             # Monthly elevation threshold
             df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
             monthly_elevation = df_sorted.groupby('Month')['Elevation_Gain'].sum()
+            count = int((monthly_elevation >= threshold).sum())
+        elif threshold == 8868:
+            # Monthly elevation threshold
+            df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
+            monthly_elevation = df_sorted.groupby('Week')['Elevation_Gain'].sum()
             count = int((monthly_elevation >= threshold).sum())
         else:
             # Per activity elevation threshold
@@ -1314,7 +1322,7 @@ def calculate_achievements(df):
     categories_info = {
         'Distance Run': '💲 Run 10 km | 💰 Run 21 km | 🧈 Run 42 km | 💎 Run 50 km/week | 👑 Run 100 km/week',
         'Distance Ride': '💲 Ride 100 km | 💰 Ride 150 km | 🧈 Ride 200 km | 💎 Ride 300 km/week | 👑 Ride 600 km/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 30k Elevation/Month',
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 Everest/Week | 👑 25k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
     }
 
@@ -1431,7 +1439,7 @@ def calculate_achievements(df):
                 break
 
     # ========== Elevation Badges ==========
-    elevation_thresholds = [1000, 2000, 4424, 10000, 30000]  # in meters (Half Everest ~4424m, 30k/month)
+    elevation_thresholds = [1000, 2000, 4424, 8868, 25000]  # in meters (Half Everest ~4424m, 30k/month)
     elevation_emojis = ['💲', '💰', '🧈', '💎','👑']  # Distinct emojis for Elevation
 
     for idx, threshold in enumerate(elevation_thresholds):
@@ -1443,23 +1451,23 @@ def calculate_achievements(df):
         if threshold == 4424:
             name = 'Half Everest'
             description = 'Completed activities with elevation gain of at least Half Everest (4424 meters)'
-        elif threshold == 30000:
-            name = '30k Elevation/Month'
+        elif threshold == 25000:
+            name = '25k Elevation/Month'
             description = 'Achieved a total of 30,000 meters elevation gain in a month'
-        elif threshold == 10000:
-            name = '10k Elevation/Week'
-            description = 'Achieved a total of 10,000 meters elevation gain in a week'
+        elif threshold == 8868:
+            name = 'Everest/Week'
+            description = 'Achieved a total of 8868 meters elevation gain in a week'
         else:
             name = f'{threshold}m Elevation'
             description = f'Completed activities with elevation gain of at least {threshold} meters'
 
-        if threshold == 30000:
+        if threshold == 25000:
             # Monthly elevation threshold
             df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
             monthly_elevation = df_sorted.groupby('Month')['Elevation_Gain'].sum()
             count = int((monthly_elevation >= threshold).sum())
 
-        if threshold == 10000:
+        if threshold == 8868:
             # Monthly elevation threshold
             df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
             monthly_elevation = df_sorted.groupby('Week')['Elevation_Gain'].sum()
@@ -2361,7 +2369,7 @@ def leaderboard():
     categories_info = {
         'Distance Run': '💲 Run 10 km | 💰 Run 21 km | 🧈 Run 42 km | 💎 Run 50 km/week | 👑 Run 100 km/week',
         'Distance Ride': '💲 Ride 100 km | 💰 Ride 150 km | 🧈 Ride 200 km | 💎 Ride 300 km/week | 👑 Ride 600 km/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 30k Elevation/Month',
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week'
     }
 
@@ -2423,6 +2431,43 @@ def leaderboard():
 
     # Define badge emoji mapping
     badge_emoji_mapping = {
+            # -------------------- Distance Run Badges --------------------
+        'run 10 km': '💲',
+        'run 21 km': '💰',
+        'run 42 km': '🧈',
+        'run 50 km/week': '💎',
+        'run 100 km/week': '👑',
+
+        # -------------------- Distance Ride Badges --------------------
+        'ride 100 km': '💲',
+        'ride 150 km': '💰',
+        'ride 200 km': '🧈',
+        'ride 300 km/week': '💎',
+        'ride 600 km/week': '👑',
+
+        # -------------------- Elevation Badges --------------------
+        '1000m elevation': '💲',
+        '2000m elevation': '💰',
+        'half everest': '🧈',
+        'Everest/Week': '💎',
+        '25k elevation/month': '👑',
+
+        # -------------------- KCal Badges --------------------
+        '1000kcal activity': '💲',
+        '2000kcal activity': '💰',
+        '4000kcal activity': '🧈',
+        '12000kcal week': '💰',
+        '24000kcal week': '👑',
+
+        # -------------------- Other Achievements --------------------
+        'everesting ascent': '💎',
+        '2000m ascent': '🧈',
+        'half everesting': '💰',
+        '2000 km month': '💰',
+        '10,000 km year': '🧈',
+        '100,000 elevation year': '💎',
+        '150,000 elevation year': '👑',
+        '200,000 elevation year': '👑',
         # Achievements
         'Run 10 km': '💲',
         'Run 21 km': '💰',
@@ -2437,7 +2482,7 @@ def leaderboard():
         '1000m Elevation': '💲',
         '2000m Elevation': '💰',
         'Half Everest': '🧈',
-        '30k Elevation/Month': '💎',
+        '25k Elevation/Month': '💎',
         '1000kCal Activity': '💲',
         '2000kCal Activity': '💰',
         '4000kCal Activity': '🧈',

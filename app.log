@@ -1153,3 +1153,15 @@ NameError: name 'categories_info' is not defined
 2024-10-14 11:47:11,734 [INFO] 127.0.0.1 - - [14/Oct/2024 11:47:11] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
 2024-10-14 11:47:27,847 [INFO] 127.0.0.1 - - [14/Oct/2024 11:47:27] "GET /dashboard/SaENGs HTTP/1.1" 200 -
 2024-10-14 11:47:28,030 [INFO] 127.0.0.1 - - [14/Oct/2024 11:47:28] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:48:17,598 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:17] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-14 11:48:17,681 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:17] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:48:38,305 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:38] "GET /about HTTP/1.1" 200 -
+2024-10-14 11:48:38,614 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:38] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:48:40,322 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:40] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-14 11:48:40,431 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:40] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:48:41,843 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:41] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:48:42,064 [INFO] 127.0.0.1 - - [14/Oct/2024 11:48:42] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:52:31,166 [INFO] 127.0.0.1 - - [14/Oct/2024 11:52:31] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-14 11:52:31,247 [INFO] 127.0.0.1 - - [14/Oct/2024 11:52:31] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:52:41,059 [INFO] 127.0.0.1 - - [14/Oct/2024 11:52:41] "GET / HTTP/1.1" 200 -
+2024-10-14 11:52:41,365 [INFO] 127.0.0.1 - - [14/Oct/2024 11:52:41] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -

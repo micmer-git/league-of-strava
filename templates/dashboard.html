@@ -578,8 +578,8 @@
             }
 
             .achievement-card, .medal-card {
-                padding: 8px;
-                font-size: 0.85em;
+                padding: 5px;
+                font-size: 0.95em;
             }
 
             .achievement-emoji, .medal-emoji {
@@ -637,7 +637,7 @@
             }
 
             .achievement-card, .medal-card {
-                padding: 6px;
+                padding: 3px;
                 font-size: 0.8em;
             }
 
@@ -684,7 +684,7 @@
             }
 
             .achievement-card, .medal-card {
-                padding: 5px;
+                padding: 3px;
                 font-size: 0.75em;
             }
 
@@ -812,86 +812,86 @@
                     <span id="current-rank-label"> </span>
                     <span id="next-rank-label">Next level: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
                 </div>
-                <!-- Achievements & Medals Section (Toggleable) -->
 
-            </div>
-
-            <div class="section achievements-section hidden">
-                <div class="section-header" data-section="achievements">
-                    <h2>Achievements & Medals</h2>
-                    <i class="fas fa-chevron-down toggle-icon"></i>
-                </div>
-                <div class="section-content">
-
-                    <!-- Achievements Categories -->
-                    {% if user.achievements.categories %}
-            <table class="achievements-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                {% for category in user.achievements.categories %}
-                  {% if loop.first %}
-                    {% for badge in category.achievements %}
-                      <th>{{ badge.emoji }}</th>
-                    {% endfor %}
-                  {% endif %}
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for category in user.achievements.categories %}
-                <tr>
-                  <th><h4>{{ category.name }}</h4></th>
-                  {% for badge in category.achievements %}
-                    <td>
-                      <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
-                        <p class="achievement-count">{{ badge.count }}</p>
-                        {% if badge.last_month_earned %}
-                          <span class="new-earned">+{{ badge.last_month_earned }}</span>
-                        {% endif %}
-                      </div>
-                    </td>
-                  {% endfor %}
-                </tr>
-              {% endfor %}
-            </tbody>
-            </table>
-
-            <div class="legends">
-            {% for category in user.achievements.categories %}
-              <div class="legend">
-                <h5>{{ category.name }}: {{ category.intro }}</h5>
-              </div>
-            {% endfor %}
-            </div>
-            {% endif %}
-
-
-                    <!-- Medals -->
-                    {% if user.achievements.Medals %}
-                        <div class="achievements-medals">
-                            <h3>Medals</h3>
-                            <div class="medals-slider">
-                                {% for medal in user.achievements.Medals %}
-                                    <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" data-popup="{{ medal.name }}" title="{{ medal.description or medal.name }}">
-                                        <p class="medal-emoji">{{ medal.emoji }}</p>
-                                        <p class="medal-count">{{ medal.count }}</p>
-                                        {% if medal.last_month_earned %}
-                                            <span class="new-earned">+{{ medal.last_month_earned }}</span>
-                                        {% endif %}
-                                        <div class="tooltip">{{ medal.description or medal.name }}</div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
-
-                </div>
-            </div>
 
       </div>
   </div>
+  <!-- Achievements & Medals Section (Toggleable) -->
 
+</div>
+
+<div class="section achievements-section hidden">
+  <div class="section-header" data-section="achievements">
+      <h2>Achievements & Medals</h2>
+      <i class="fas fa-chevron-down toggle-icon"></i>
+  </div>
+  <div class="section-content">
+
+      <!-- Achievements Categories -->
+      {% if user.achievements.categories %}
+<table class="achievements-table">
+<thead>
+<tr>
+  <th>Category</th>
+  {% for category in user.achievements.categories %}
+    {% if loop.first %}
+      {% for badge in category.achievements %}
+        <th>{{ badge.emoji }}</th>
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+</tr>
+</thead>
+<tbody>
+{% for category in user.achievements.categories %}
+  <tr>
+    <th><h4>{{ category.name }}</h4></th>
+    {% for badge in category.achievements %}
+      <td>
+        <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
+          <p class="achievement-count">{{ badge.count }}</p>
+          {% if badge.last_month_earned %}
+            <span class="new-earned">+{{ badge.last_month_earned }}</span>
+          {% endif %}
+        </div>
+      </td>
+    {% endfor %}
+  </tr>
+{% endfor %}
+</tbody>
+</table>
+
+<div class="legends">
+{% for category in user.achievements.categories %}
+<div class="legend">
+  <h5>{{ category.name }}: {{ category.intro }}</h5>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+
+      <!-- Medals -->
+      {% if user.achievements.Medals %}
+          <div class="achievements-medals">
+              <h3>Medals</h3>
+              <div class="medals-slider">
+                  {% for medal in user.achievements.Medals %}
+                      <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" data-popup="{{ medal.name }}" title="{{ medal.description or medal.name }}">
+                          <p class="medal-emoji">{{ medal.emoji }}</p>
+                          <p class="medal-count">{{ medal.count }}</p>
+                          {% if medal.last_month_earned %}
+                              <span class="new-earned">+{{ medal.last_month_earned }}</span>
+                          {% endif %}
+                          <div class="tooltip">{{ medal.description or medal.name }}</div>
+                      </div>
+                  {% endfor %}
+              </div>
+          </div>
+      {% endif %}
+
+  </div>
+</div>
   <!-- Top Activities Section (Toggleable) -->
   <div class="section top-activities-section hidden">
       <div class="section-header" data-section="top-activities">

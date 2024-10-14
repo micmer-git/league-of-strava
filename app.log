@@ -1118,3 +1118,38 @@ NameError: name 'categories_info' is not defined
 2024-10-14 11:32:52,749 [INFO]  * Restarting with stat
 2024-10-14 11:32:53,973 [WARNING]  * Debugger is active!
 2024-10-14 11:32:53,978 [INFO]  * Debugger PIN: 247-777-320
+2024-10-14 11:34:07,664 [INFO] 127.0.0.1 - - [14/Oct/2024 11:34:07] "[32mGET /dashboard/micmer HTTP/1.1[0m" 302 -
+2024-10-14 11:34:07,683 [INFO] 127.0.0.1 - - [14/Oct/2024 11:34:07] "GET / HTTP/1.1" 200 -
+2024-10-14 11:34:07,958 [INFO] 127.0.0.1 - - [14/Oct/2024 11:34:07] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:34:09,815 [INFO] 127.0.0.1 - - [14/Oct/2024 11:34:09] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-14 11:34:09,898 [INFO] 127.0.0.1 - - [14/Oct/2024 11:34:09] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:34:10,831 [INFO] 127.0.0.1 - - [14/Oct/2024 11:34:10] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:34:10,999 [INFO] 127.0.0.1 - - [14/Oct/2024 11:34:10] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:40:13,631 [INFO] 127.0.0.1 - - [14/Oct/2024 11:40:13] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:40:13,657 [INFO] 127.0.0.1 - - [14/Oct/2024 11:40:13] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:40:40,031 [INFO] 127.0.0.1 - - [14/Oct/2024 11:40:40] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:40:40,232 [INFO] 127.0.0.1 - - [14/Oct/2024 11:40:40] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:41:06,297 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:06] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:41:06,321 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:06] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:41:22,697 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:22] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:41:22,864 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:22] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:41:27,314 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:27] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:41:27,336 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:27] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:41:32,366 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:32] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:41:32,581 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:32] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:41:57,064 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:57] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:41:57,095 [INFO] 127.0.0.1 - - [14/Oct/2024 11:41:57] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:42:22,514 [INFO] 127.0.0.1 - - [14/Oct/2024 11:42:22] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:42:22,715 [INFO] 127.0.0.1 - - [14/Oct/2024 11:42:22] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:43:15,247 [INFO] 127.0.0.1 - - [14/Oct/2024 11:43:15] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:43:15,269 [INFO] 127.0.0.1 - - [14/Oct/2024 11:43:15] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:43:28,279 [INFO] 127.0.0.1 - - [14/Oct/2024 11:43:28] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:43:28,480 [INFO] 127.0.0.1 - - [14/Oct/2024 11:43:28] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:43:39,181 [INFO] 127.0.0.1 - - [14/Oct/2024 11:43:39] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:43:39,207 [INFO] 127.0.0.1 - - [14/Oct/2024 11:43:39] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:45:58,214 [INFO] 127.0.0.1 - - [14/Oct/2024 11:45:58] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:45:58,242 [INFO] 127.0.0.1 - - [14/Oct/2024 11:45:58] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:47:11,714 [INFO] 127.0.0.1 - - [14/Oct/2024 11:47:11] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:47:11,734 [INFO] 127.0.0.1 - - [14/Oct/2024 11:47:11] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:47:27,847 [INFO] 127.0.0.1 - - [14/Oct/2024 11:47:27] "GET /dashboard/SaENGs HTTP/1.1" 200 -
+2024-10-14 11:47:28,030 [INFO] 127.0.0.1 - - [14/Oct/2024 11:47:28] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -

@@ -2399,7 +2399,14 @@ def leaderboard():
             for category, badges in user.achievements.items():
                 for badge in badges:
                     if 'name' in badge:
-                        badges_counts[badge['name']] = badge.get('count', 0)
+                        if 'achievements' in badge.keys():
+                            for achievements_badge in badge['achievements']:
+                                print(achievements_badge)
+                                badges_counts[achievements_badge['name']] = achievements_badge.get('count', 0)
+
+                        else:
+                            badges_counts[badge['name']] = badge.get('count', 0)
+
 
         leaderboard_data.append({
             'rank': 0,  # Placeholder, will set later
@@ -2541,6 +2548,7 @@ def leaderboard():
             'other_achievements': other_achievements_counts,
             'badges_counts': user['badges_counts']  # Added badges_counts
         })
+
 
     return render_template('leaderboard.html',
                            categories_info=categories_info,

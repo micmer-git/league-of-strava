@@ -1107,3 +1107,14 @@ NameError: name 'categories_info' is not defined
 2024-10-14 11:00:47,581 [INFO] 127.0.0.1 - - [14/Oct/2024 11:00:47] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
 2024-10-14 11:06:01,738 [INFO] 127.0.0.1 - - [14/Oct/2024 11:06:01] "GET /dashboard/micmer.ig44 HTTP/1.1" 200 -
 2024-10-14 11:06:01,760 [INFO] 127.0.0.1 - - [14/Oct/2024 11:06:01] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-14 11:08:57,869 [INFO] 127.0.0.1 - - [14/Oct/2024 11:08:57] "GET / HTTP/1.1" 200 -
+2024-10-14 11:30:46,748 [INFO] 127.0.0.1 - - [14/Oct/2024 11:30:46] "GET /dashboard/micmer.ig44 HTTP/1.1" 200 -
+2024-10-14 11:30:46,763 [INFO] 127.0.0.1 - - [14/Oct/2024 11:30:46] "GET /static/league-of-strava.png HTTP/1.1" 200 -
+2024-10-14 11:32:25,250 [INFO]  * Detected change in 'C:\\Users\\m.merelli\\Documents\\GitHub\\league-of-strava\\app.py', reloading
+2024-10-14 11:32:25,388 [INFO]  * Restarting with stat
+2024-10-14 11:32:26,998 [WARNING]  * Debugger is active!
+2024-10-14 11:32:27,002 [INFO]  * Debugger PIN: 247-777-320
+2024-10-14 11:32:52,631 [INFO]  * Detected change in 'C:\\Users\\m.merelli\\Documents\\GitHub\\league-of-strava\\app.py', reloading
+2024-10-14 11:32:52,749 [INFO]  * Restarting with stat
+2024-10-14 11:32:53,973 [WARNING]  * Debugger is active!
+2024-10-14 11:32:53,978 [INFO]  * Debugger PIN: 247-777-320

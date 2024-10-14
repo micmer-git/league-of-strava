@@ -9,6 +9,10 @@ import pandas as pd
 import dj_database_url  # Add this import
 import json
 import re
+from urllib.parse import urlparse
+import pandas as pd
+from datetime import timedelta
+import numpy as np
 
 
 
@@ -1243,7 +1247,6 @@ def calculate_rank(total_hours):
     progress_percent = (points_into_current_rank / points_between_ranks) * 100 if points_between_ranks > 0 else 100
     return current_rank, next_rank, progress_percent
 
-import pandas as pd
 from datetime import timedelta
 
 def convert_to_native(data):
@@ -1265,9 +1268,6 @@ def convert_to_native(data):
     """
     return data
 
-import pandas as pd
-from datetime import timedelta
-import numpy as np
 
 def convert_to_native(obj):
     """
@@ -1286,7 +1286,6 @@ def convert_to_native(obj):
     else:
         return obj
 
-import pandas as pd
 
 def convert_to_native(obj):
     """
@@ -2055,7 +2054,6 @@ def index():
     return render_template('index.html')
 
 
-from urllib.parse import urlparse
 
 def extract_strava_id(link):
     """Extract Strava user ID from the link."""

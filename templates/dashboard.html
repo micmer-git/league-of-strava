@@ -894,6 +894,13 @@
                                                   <td>
                                                       <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
                                                           <p class="achievement-count">{{ badge.count }}</p>
+                                                          <!-- Remove first character of each description part -->
+                                                          <small>
+                                                              {% set description_parts = category.intro.split('|') %}
+                                                              {% if description_parts[loop.index0] %}
+                                                                  {{ description_parts[loop.index0][1:] }}
+                                                              {% endif %}
+                                                          </small>
                                                           {% if badge.last_month_earned %}
                                                               <span class="new-earned">+{{ badge.last_month_earned }}</span>
                                                           {% endif %}
@@ -903,15 +910,11 @@
                                           </tr>
                                       {% endfor %}
                                   </tbody>
+
+
                               </table>
 
-                              <div class="legends">
-                                  {% for category in achievements_tf.categories %}
-                                      <div class="legend">
-                                          <h5>{{ category.name }}: {{ category.intro }}</h5>
-                                      </div>
-                                  {% endfor %}
-                              </div>
+
                           {% endif %}
 
                           <!-- Medals -->

@@ -410,25 +410,7 @@
             <p>Bulk Export your Strava <a href="https://www.youtube.com/watch?v=IbWMFikIGLo">(see how)</a> and start your journey uploading the <strong> activities.csv </strong> file </p>
         </div>
 
-        <!-- Forms Section: Search and Upload -->
-        <div class="forms-section">
-            <!-- Search Form -->
-            <div class="form-container">
-                <h3>Search for a Strava User</h3>
-                {% if search_error %}
-                    <div class="alert alert-danger" role="alert">
-                        {{ search_error }}
-                    </div>
-                {% endif %}
-                <form method="get" action="{{ url_for('search') }}">
-                    <div class="mb-3">
-                        <label for="search-query" class="form-label">Search by Username or Strava User Link:</label>
-                        <input type="text" class="form-control" id="search-query" name="query" placeholder="Enter username, ID, or Strava profile link" required>
-                        <div class="form-text">Enter the Strava profile link or League of Strava username.</div>
-                    </div>
-                    <button type="submit" class="btn">Search</button>
-                </form>
-            </div>
+        
 
             <!-- Upload Form -->
             <div class="form-container">

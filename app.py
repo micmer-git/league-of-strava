@@ -2,24 +2,123 @@ import os
 import logging
 import numpy as np
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, g
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
-import dj_database_url  # Add this import
+import dj_database_url
 import json
 import re
 from urllib.parse import urlparse
-import pandas as pd
-from datetime import timedelta
-import numpy as np
-
+import glob
+import csv
 
 # Strava API Credentials
 STRAVA_CLIENT_ID = os.environ.get('STRAVA_CLIENT_ID')
 STRAVA_CLIENT_SECRET = os.environ.get('STRAVA_CLIENT_SECRET')
 STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.com/strava/callback'
 
+
+
+def process_backup_csv_files():
+    backup_folder = os.path.join(app.static_folder, 'backup')
+    csv_files = glob.glob(os.path.join(backup_folder, '*.csv'))
+    print(csv_files)
+    
+    encodings_to_try = ['utf-8', 'iso-8859-1', 'cp1252']
+    
+    for csv_file in csv_files:
+        for encoding in encodings_to_try:
+            try:
+                with open(csv_file, 'r', encoding=encoding) as file:
+                    reader = csv.DictReader(file)     
+                    print(csv_file)
+                    username = csv_file.split('\\')[-1].split('_')[0]
+                    strava_link = 'https://www.strava.com/athletes/'+csv_file.split('_')[1]
+
+                    try:
+                        df = pd.read_csv(csv_file, encoding=encoding)
+                        df, error = process_dataframe(df)
+                        if error:
+                            logging.error(f"Error processing {csv_file}: {error}")
+                            continue
+                        
+                        achievements = calculate_achievements(df)
+                        coins = calculate_coins(df)
+                        stats = calculate_stats(df)
+                        total_hours = stats['hours']
+                        user_rank = get_user_rank(total_hours)
+                        max_metrics = calculate_max_metrics(df)
+                        
+                        user = User.query.filter_by(strava_link=strava_link).first()
+                        if user:
+                            # Update existing user
+                            user.username = username
+                            user.rank_name = user_rank['current_rank']['name']
+                            user.rank_emoji = user_rank['current_rank']['emoji']
+                            user.total_hours = total_hours
+                            user.coins_everest = coins['everest']
+                            user.coins_pizza = coins['pizza']
+                            user.coins_heartbeat = coins['heartbeat']
+                            user.achievements = achievements
+                            user.stats = stats
+                            user.max_elevation = max_metrics['max_elevation']
+                            user.max_elevation_link = max_metrics['max_elevation_link']
+                            user.max_duration = max_metrics['max_duration']
+                            user.max_duration_link = max_metrics['max_duration_link']
+                            user.max_distance = max_metrics['max_distance']
+                            user.max_distance_link = max_metrics['max_distance_link']
+                            user.fastest_half_marathon = max_metrics.get('fastest_half_marathon', 0)
+                            user.fastest_half_marathon_link = max_metrics.get('fastest_half_marathon_link', '#')
+                            user.fastest_10k = max_metrics.get('fastest_10k', 0)
+                            user.fastest_10k_link = max_metrics.get('fastest_10k_link', '#')
+                            user.fastest_marathon = max_metrics.get('fastest_marathon', 0)
+                            user.fastest_marathon_link = max_metrics.get('fastest_marathon_link', '#')
+                        else:
+                            # Create new user
+                            user = User(
+                                username=username,
+                                strava_link=strava_link,
+                                rank_name=user_rank['current_rank']['name'],
+                                rank_emoji=user_rank['current_rank']['emoji'],
+                                total_hours=total_hours,
+                                coins_everest=coins['everest'],
+                                coins_pizza=coins['pizza'],
+                                coins_heartbeat=coins['heartbeat'],
+                                achievements=achievements,
+                                stats=stats,
+                                max_elevation=max_metrics['max_elevation'],
+                                max_elevation_link=max_metrics['max_elevation_link'],
+                                max_duration=max_metrics['max_duration'],
+                                max_duration_link=max_metrics['max_duration_link'],
+                                max_distance=max_metrics['max_distance'],
+                                max_distance_link=max_metrics['max_distance_link'],
+                                fastest_half_marathon=max_metrics.get('fastest_half_marathon', 0),
+                                fastest_half_marathon_link=max_metrics.get('fastest_half_marathon_link', '#'),
+                                fastest_10k=max_metrics.get('fastest_10k', 0),
+                                fastest_10k_link=max_metrics.get('fastest_10k_link', '#'),
+                                fastest_marathon=max_metrics.get('fastest_marathon', 0),
+                                fastest_marathon_link=max_metrics.get('fastest_marathon_link', '#'),
+                            )
+                            db.session.add(user)
+                        
+                        db.session.commit()
+                        logging.info(f"Processed user data for {username}")
+                    except Exception as e:
+                        logging.exception(f"Error processing user data for {username}: {str(e)}")
+            
+                # If we've successfully read the file, break out of the encoding loop
+                break
+            
+            except UnicodeDecodeError:
+                # If this encoding didn't work, try the next one
+                continue
+        
+        else:
+            # If we've tried all encodings and none worked
+            logging.error(f"Failed to read {csv_file} with any of the attempted encodings")
+    
+    logging.info("Finished processing backup CSV files")
 
 
 # Initialize Flask app
@@ -32,6 +131,15 @@ UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'csv'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+app.config['INITIALIZATION_DONE'] = False
+
+@app.before_request
+def initialize_app():
+    if not app.config['INITIALIZATION_DONE']:
+        with app.app_context():
+            process_backup_csv_files()
+        app.config['INITIALIZATION_DONE'] = True
 
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -431,7 +539,7 @@ def process_dataframe(df):
     expected_num_columns_english = 94
 
     # Define known header samples for language detection
-    italian_headers_sample = ['ID attività', "Data dell’attività", 'Nome attività']
+    italian_headers_sample = ['ID attività', "Data dell'attività", 'Nome attività']
     english_headers_sample = ['Activity ID', 'Activity Date', 'Activity Name']
 
     # Define month mapping for Italian to English
@@ -1054,7 +1162,7 @@ def calculate_achievements(df):
             },
             {
                 'name': 'Climbing King',
-                'emoji': '🧗‍♂️',
+                'emoji': '����‍♂️',
                 'description': 'Total Elevation_Gain over 1000m',
                 'count': int(df_tf['Elevation_Gain'].sum() // 1000),
             },
@@ -1920,7 +2028,7 @@ badge_emoji_mapping = {
     '1000kCal Activity': '💲',
     '2000kCal Activity': '💰',
     '4000kCal Activity': '🧈',
-    '12000kCal Week': '💰',
+    '12000kCal Week': '💎',
     '24000kCal Week': '👑',
     # Medals
     'New Year Run': '🎉',

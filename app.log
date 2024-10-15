@@ -1620,3 +1620,24 @@ NameError: name 'categories_info' is not defined
 2024-10-14 16:40:04,605 [INFO]  * Restarting with stat
 2024-10-14 16:40:05,809 [WARNING]  * Debugger is active!
 2024-10-14 16:40:05,809 [INFO]  * Debugger PIN: 247-777-320
+2024-10-15 02:58:54,270 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-15 02:58:54,272 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-15 02:58:54,277 [INFO]  * Restarting with stat
+2024-10-15 02:58:55,652 [WARNING]  * Debugger is active!
+2024-10-15 02:58:55,658 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 02:58:57,177 [INFO] 127.0.0.1 - - [15/Oct/2024 02:58:57] "GET / HTTP/1.1" 200 -
+2024-10-15 02:58:57,274 [INFO] 127.0.0.1 - - [15/Oct/2024 02:58:57] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 02:58:57,434 [INFO] 127.0.0.1 - - [15/Oct/2024 02:58:57] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2024-10-15 02:58:59,118 [INFO] 127.0.0.1 - - [15/Oct/2024 02:58:59] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 02:58:59,145 [INFO] 127.0.0.1 - - [15/Oct/2024 02:58:59] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 02:59:00,263 [INFO] 127.0.0.1 - - [15/Oct/2024 02:59:00] "GET /dashboard/micmer HTTP/1.1" 200 -
+2024-10-15 02:59:00,537 [INFO] 127.0.0.1 - - [15/Oct/2024 02:59:00] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 02:59:45,695 [INFO] 127.0.0.1 - - [15/Oct/2024 02:59:45] "GET / HTTP/1.1" 200 -
+2024-10-15 02:59:45,714 [INFO] 127.0.0.1 - - [15/Oct/2024 02:59:45] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 02:59:48,453 [INFO] 127.0.0.1 - - [15/Oct/2024 02:59:48] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 02:59:48,755 [INFO] 127.0.0.1 - - [15/Oct/2024 02:59:48] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 03:06:00,747 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 03:06:00,906 [INFO]  * Restarting with stat
+2024-10-15 03:06:02,226 [WARNING]  * Debugger is active!
+2024-10-15 03:06:02,236 [INFO]  * Debugger PIN: 166-676-058

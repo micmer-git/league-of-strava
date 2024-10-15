@@ -470,8 +470,9 @@
                             {% for user in users %}
                                 <tr>
                                     <td data-label="Rank">
+                                        <span class="rank-number">{{ user.rank_name }}</span>
+
                                         <span class="rank-emoji">{{ user.rank_emoji }}</span>
-                                        <span class="rank-number">{{ user.rank }}</span>
                                     </td>
                                     <td data-label="Username" class="username-cell">
                                         <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>

@@ -657,8 +657,8 @@ def calculate_achievements(df):
 
     # Define Categories and their Introductions
     categories_info = {
-        'Distance Run': '💲 Run 10 km | 💰 Run 21 km | 🧈 Run 42 km | 💎 Run 50 km/week | 👑 Run 100 km/week',
-        'Distance Ride': '💲 Ride 100 km | 💰 Ride 150 km | 🧈 Ride 200 km | 💎 Ride 300 km/week | 👑 Ride 600 km/week',
+        'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
+        'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
         'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month, 👑 25k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
     }
@@ -786,14 +786,12 @@ def calculate_achievements(df):
 
         if threshold == 25000:
             # Monthly elevation threshold
-            df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
-            monthly_elevation = df_sorted.groupby('Month')['Elevation_Gain'].sum()
-            count = int((monthly_elevation >= threshold).sum())
+            rolling_elevation = df_sorted['Elevation_Gain'].rolling('30D').sum()
+            count = int((rolling_elevation >= threshold).sum())
         elif threshold == 8868:
             # Monthly elevation threshold
-            df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
-            monthly_elevation = df_sorted.groupby('Week')['Elevation_Gain'].sum()
-            count = int((monthly_elevation >= threshold).sum())
+            rolling_elevation = df_sorted['Elevation_Gain'].rolling('7D').sum()
+            count = int((rolling_elevation >= threshold).sum())
         else:
             # Per activity elevation threshold
             count = int(df_sorted[df_sorted['Elevation_Gain'] >= threshold].shape[0])
@@ -1325,12 +1323,11 @@ def calculate_achievements(df):
     }
 
     categories_info = {
-        'Distance Run': '💲 Run 10 km | 💰 Run 21 km | 🧈 Run 42 km | 💎 Run 50 km/week | 👑 Run 100 km/week',
-        'Distance Ride': '💲 Ride 100 km | 💰 Ride 150 km | 🧈 Ride 200 km | 💎 Ride 300 km/week | 👑 Ride 600 km/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 Everest/Week | 👑 25k Elevation/Month',
+        'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
+        'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month, 👑 25k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
     }
-
     # Initialize categories dictionary
     for category, intro in categories_info.items():
         if category in ['Distance Run', 'Distance Ride']:
@@ -1388,7 +1385,7 @@ def calculate_achievements(df):
         if threshold >= 50:
             # Weekly threshold for Run
             df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
-            weekly_distance = df_sorted[df_sorted['Activity_Type'] == 'Run'].groupby('Week')['Distance_km'].sum()
+            weekly_distance = df_sorted[df_sorted['Activity_Type'] == 'Run'].rolling('7D', on='Activity_Date')['Distance_km'].sum()
             count = int((weekly_distance >= threshold).sum())
             name = f'{threshold}k Run/Week'
             description = f'Completed at least {threshold} km running in a week'
@@ -1411,7 +1408,7 @@ def calculate_achievements(df):
 
     # ========== Distance Ride Badges ==========
     distance_ride_badges = {
-        'thresholds': [100, 150, 200, 300, 600],  # in km or km/week
+        'thresholds': [100, 150, 200, 500, 750],  # in km or km/week
         'unit': 'km',
         'emoji_sequence': ['💲', '💰', '🧈', '💎','👑']
     }
@@ -1422,7 +1419,7 @@ def calculate_achievements(df):
         if threshold >= 300:
             # Weekly threshold for Ride
             df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
-            weekly_distance = df_sorted[df_sorted['Activity_Type'] == 'Ride'].groupby('Week')['Distance_km'].sum()
+            weekly_distance = df_sorted[df_sorted['Activity_Type'] == 'Ride'].rolling('7D', on='Activity_Date')['Distance_km'].sum()
             count = int((weekly_distance >= threshold).sum())
             name = f'{threshold}k Ride/Week'
             description = f'Completed at least {threshold} km riding in a week'
@@ -1577,6 +1574,17 @@ def calculate_achievements(df):
     # Additional Achievements with distinct emojis
     additional_achievements = [
             {
+            'name': '7-Day Caloric Champion',
+            'emoji': '📅🔥',
+            'description': 'Logged at least 1000 kcal consumed each day for 7 consecutive days',
+            'count': int(
+                (df_sorted.groupby('Date')['Calories'].sum()
+                 .ge(1000)
+                 .rolling(7)
+                 .sum() == 7).sum()
+            )
+            },
+            {
                 'name': 'Weekly Consistency',
                 'emoji': '📅',
                 'description': 'Logged activities every day of a week',
@@ -1724,6 +1732,7 @@ def calculate_stats(df):
         'hours': float(round(df['Moving_Time'].sum() / 3600, 1)),        # Convert to hours
         'distance': float(round(df['Distance_km'].sum(), 1)),           # Already in km
         'elevation': float(round(df['Elevation_Gain'].sum(), 1)),       # in meters
+        'bpm': float(round(df['Average_Heart_Rate'].mean(), 1)),       # in meters
         'calories': float(round(df['Calories'].sum(), 1)),              # in kcal
     }
 
@@ -2371,12 +2380,11 @@ def leaderboard():
 def leaderboard():
     # Define Categories and their Achievements with Emojis
     categories_info = {
-        'Distance Run': '💲 Run 10 km | 💰 Run 21 km | 🧈 Run 42 km | 💎 Run 50 km/week | 👑 Run 100 km/week',
-        'Distance Ride': '💲 Ride 100 km | 💰 Ride 150 km | 🧈 Ride 200 km | 💎 Ride 300 km/week | 👑 Ride 600 km/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month',
-        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week'
+        'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
+        'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month, 👑 25k Elevation/Month',
+        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
     }
-
     # Retrieve all users from the database
     users = User.query.all()
 
@@ -2413,8 +2421,6 @@ def leaderboard():
                                     badges_counts[achievements_badge['name']] = achievements_badge.get('count', 0)
 
 
-
-
                         else:
                             badges_counts[badge['name']] = badge.get('count', 0)
 
@@ -2449,18 +2455,18 @@ def leaderboard():
     # Define badge emoji mapping
     badge_emoji_mapping = {
             # -------------------- Distance Run Badges --------------------
-        'run 10 km': '💲',
-        'run 21 km': '💰',
-        'run 42 km': '🧈',
-        'run 50 km/week': '💎',
-        'run 100 km/week': '👑',
+        '10k run': '💲',
+        '21k run': '💰',
+        '50k run/week': '🧈',
+        '42k run': '💎',
+        '100k run/week': '👑',
 
         # -------------------- Distance Ride Badges --------------------
-        'ride 100 km': '💲',
-        'ride 150 km': '💰',
-        'ride 200 km': '🧈',
-        'ride 300 km/week': '💎',
-        'ride 600 km/week': '👑',
+        '100k ride': '💲',
+        '150k ride': '💰',
+        '200k ride': '🧈',
+        '300k ride/week': '💎',
+        '600k ride/week': '👑',
 
         # -------------------- Elevation Badges --------------------
         '1000m elevation': '💲',

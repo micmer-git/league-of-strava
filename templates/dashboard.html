@@ -810,7 +810,7 @@
                     <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
                 <div class="rank-details">
                     <span id="current-rank-label"> </span>
-                    <span id="next-rank-label">Next level: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
+                    <span id="next-rank-label">Next: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
                 </div>
 
 
@@ -939,11 +939,10 @@
                 <h3>Additional Infos</h3>
                 <ul>
                     <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
-                    <li><strong>Total Likes:</strong> {{ user.stats.total_likes }}</li>
                     <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
                     <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
                     <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
-                    <li><strong>Most Common Activity Hour:</strong> {{ user.stats.most_common_hour }}:00</li>
+                    <li><strong>Average Heart Rate:</strong> {{ user.stats.bpm }} km</li>
                     <!-- Add more stats as needed -->
                 </ul>
             </div>
@@ -969,7 +968,7 @@
                             <div class="activity-coins">
                                 <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
                                 <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
-                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️ (M)</span>
+                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
                             </div>
                         </div>
                     {% endfor %}

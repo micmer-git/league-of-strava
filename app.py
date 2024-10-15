@@ -31,7 +31,7 @@ def process_backup_csv_files():
         print(f"Processing file: {csv_file}")
         username = csv_file.split('\\')[-1].split('_')[0]
         try:
-            username = username.replace('/app/static/backup/','')
+            username = username.split('backup')[-1]
         except:
             continue
         strava_link = 'https://www.strava.com/athletes/' + csv_file.split('_')[1]

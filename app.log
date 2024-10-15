@@ -4051,3 +4051,13 @@ ValueError: Invalid frequency: "M", failed to parse with error message: ValueErr
 2024-10-15 15:59:21,598 [INFO]  * Debugger PIN: 166-676-058
 2024-10-15 15:59:26,620 [INFO] 127.0.0.1 - - [15/Oct/2024 15:59:26] "GET /dashboard/Lacco1 HTTP/1.1" 200 -
 2024-10-15 15:59:26,690 [INFO] 127.0.0.1 - - [15/Oct/2024 15:59:26] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 16:05:08,829 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:08] "GET /dashboard/Lacco1 HTTP/1.1" 200 -
+2024-10-15 16:05:08,847 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:08] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 16:05:11,233 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:11] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 16:05:11,525 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:11] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 16:05:17,063 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:17] "GET /leaderboard?timeframe=last_14_days HTTP/1.1" 200 -
+2024-10-15 16:05:17,092 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:17] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 16:05:38,617 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:38] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
+2024-10-15 16:05:38,934 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:38] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 16:05:59,559 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:59] "GET /leaderboard?timeframe=ytd HTTP/1.1" 200 -
+2024-10-15 16:05:59,577 [INFO] 127.0.0.1 - - [15/Oct/2024 16:05:59] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -

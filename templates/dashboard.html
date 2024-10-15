@@ -997,6 +997,35 @@
                   </ul>
               </div>
           </div>
+          <!-- Races Section (Toggleable) -->
+          <div class="section races-section hidden">
+              <div class="section-header" data-section="races">
+                  <h2>Races</h2>
+                  <i class="fas fa-chevron-down toggle-icon"></i>
+              </div>
+              <div class="section-content">
+                  {% if user.matched_races %}
+                      <div class="races-list">
+                          {% for race in user.matched_races %}
+                              <div class="race-item">
+                                  <h3>{{ race.race_name }}</h3>
+                                  <p><strong>Name:</strong> <a href="{{ race.link }}" target="_blank">{{ race.name }}</a></p>
+                                  <p><strong>Date:</strong> {{ race.date }}</p>
+                                  <p><strong>Distance:</strong> {{ race.distance }} km</p>
+                                  <p><strong>Ascent:</strong> {{ race.elevation_gain }} m</p>
+                                  <p><strong>Duration:</strong> {{ race.duration | round(1) }} h {{ race.duration_minutes | round(0) }} m</p>
+                                  <p><strong>Calories:</strong> {{ race.calories }} kcal</p>
+                                  <p><strong>Activity Type:</strong> {{ race.additional_data.Activity_Type or 'N/A' }}</p>
+                                  <!-- Add more details as needed -->
+                              </div>
+                          {% endfor %}
+                      </div>
+                  {% else %}
+                      <p>No races completed yet.</p>
+                  {% endif %}
+              </div>
+          </div>
+
 
           <!-- Recent Activities Section (Toggleable) -->
           <div class="section activities-container hidden">

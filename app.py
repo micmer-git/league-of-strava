@@ -640,6 +640,59 @@ def get_user_rank(total_hours):
 import pandas as pd
 from datetime import datetime, timedelta
 
+
+races = [
+    {
+        'name': 'Maratona dles Dolomites (Lungo)',
+        'start_date': datetime(2024, 7, 7),
+        'end_date': datetime(2024, 7, 7),
+        'distance_km': 135.8,
+        'distance_variance': 0.05,  # 1%
+        'ascent_m': 4272,
+        'ascent_variance': 0.05
+    },
+    {
+        'name': 'Trail Run',
+        'start_date': datetime(2023, 7, 2),
+        'end_date': datetime(2023, 7, 2),
+        'distance_km': 54,
+        'distance_variance': 0.05,
+        'ascent_m': 1745,
+        'ascent_variance': 0.05
+    },
+    {
+        'name': 'Boston Marathon',
+        'start_date': datetime(2024, 4, 15),
+        'end_date': datetime(2024, 4, 15),
+        'distance_km': 42.6,
+        'distance_variance': 0.05,
+        'ascent_m': 250,
+        'ascent_variance': 0.05
+    },
+    {
+        'name': 'Berghem Mola Mia 2024 (Mez)',
+        'start_date': datetime(2024, 6, 16),
+        'end_date': datetime(2024, 6, 16),
+        'distance_km': 136.36,
+        'distance_variance': 0.05,
+        'ascent_m': 3112,
+        'ascent_variance': 0.05
+    },
+    {
+        'name': 'Berghem Mola Mia 2023 (Lonk)',
+        'start_date': datetime(2024, 6, 11),
+        'end_date': datetime(2024, 6, 11),
+        'distance_km': 177.82,
+        'distance_variance': 0.05,
+        'ascent_m': 3389,
+        'ascent_variance': 0.05
+    },
+    # Add more races as needed
+]
+
+
+
+
 def calculate_achievements(df):
     """
     Calculate user achievements based on activities across various timeframes.
@@ -864,7 +917,7 @@ def calculate_achievements(df):
 
             elif threshold == 10000:
                 # Monthly elevation threshold
-                df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('"M"')
+                df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
                 monthly_elevation = df_sorted.groupby('Week')['Elevation_Gain'].sum()
                 count = int((monthly_elevation >= threshold).sum())
             else:
@@ -1677,6 +1730,34 @@ def dashboard(username):
     activities_display = activities_list_sorted[:10]
     remaining_activities = activities_list_sorted[10:]
 
+    # Identify Races
+    matched_races = []
+    for race in races:
+        for activity in activities_list:
+            # Check date range
+            activity_date = datetime.strptime(activity['date'], '%b %d, %Y')
+            if not (race['start_date'] <= activity_date <= race['end_date']):
+                continue
+
+            # Check distance within variance
+            distance_lower = race['distance_km'] * (1 - race['distance_variance'])
+            distance_upper = race['distance_km'] * (1 + race['distance_variance'])
+            if not (distance_lower <= activity['distance'] <= distance_upper):
+                continue
+
+            # Check ascent within variance
+            ascent_lower = race['ascent_m'] * (1 - race['ascent_variance'])
+            ascent_upper = race['ascent_m'] * (1 + race['ascent_variance'])
+            if not (ascent_lower <= activity['elevation_gain'] <= ascent_upper):
+                continue
+
+            # If all criteria met, add to matched races
+            race_info = activity.copy()
+            race_info['race_name'] = race['name']
+            matched_races.append(race_info)
+
+
+
     # Prepare user data
     user_data = {
         'username': user.username,
@@ -1705,6 +1786,8 @@ def dashboard(username):
         },
         'activities': activities_display,
         'remaining_activities': remaining_activities,  # Add this line
+        'matched_races': matched_races  # Add matched races
+
     }
 
     # Fetch rank information

@@ -738,391 +738,466 @@
         .legend {
           margin-bottom: 10px;
         }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="logo" id="logo">
-            <a href="/">
-                <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
-            </a>
-        </div>
-        <nav id="nav-menu">
-            <a href="/about">About</a>
-            <a href="/leaderboard">Leaderboard</a>
-            <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
-        </nav>
-        <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
-            <div></div>
-            <div></div>
-            <div></div>
-        </div>
-    </header>
+        /* Timeframe Buttons */
+          .timeframe-buttons {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 20px;
+              flex-wrap: wrap;
+          }
 
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav">
-        <a href="/about">About</a>
-        <a href="/leaderboard">Leaderboard</a>
-        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
-    </div>
+          .timeframe-button {
+              padding: 8px 16px;
+              background-color: #ff6600;
+              color: #fff;
+              border: none;
+              border-radius: 8px;
+              cursor: pointer;
+              transition: background-color 0.2s;
+              font-weight: 600;
+          }
 
-    <!-- Pop-up Overlay -->
-    <div class="popup-overlay" id="popup-overlay" aria-hidden="true">
-        <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
-            <button class="popup-close" id="popup-close" aria-label="Close pop-up">&times;</button>
-            <div id="popup-content">
-                <!-- Dynamic Content Goes Here -->
-            </div>
-        </div>
-    </div>
+          .timeframe-button.active, .timeframe-button:hover {
+              background-color: #e0a800;
+          }
 
-    <div id="dashboard-container">
-        <!-- Loading Indicator -->
-        <div id="loading">Loading your dashboard...</div>
+          /* Achievements Data Sections */
+          .achievements-data {
+              display: none;
+          }
 
-        <!-- Overview Section (Always Visible) -->
-        <div class="overview-section hidden">
-          <div class="coin-metrics-inline">
-              <span class="coin" title="Everest Coins: total elevation gain (measured in Mount Everest units)">🏔️ {{ user.coins.everest | round(2) }}</span>
-              <span class="coin" title="Pizza Coins: total calories burned in pizzas (1000 kcal each)">🍕 {{ user.coins.pizza | int }}</span>
-              <span class="coin" title="Heartbeat Coins: Represents your total heartbeats (in milions)">❤️ {{ user.coins.heartbeat | int }}</span>
-              <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
+          .achievements-data.active {
+              display: block;
+          }
+
+
+
+          /* Additional Styles as Needed */
+      </style>
+  </head>
+  <body>
+      <header>
+          <div class="logo" id="logo">
+              <a href="/">
+                  <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
+              </a>
           </div>
-            <div class="overview-full-width">
+          <nav id="nav-menu">
+              <a href="/about">About</a>
+              <a href="/leaderboard">Leaderboard</a>
+              <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+          </nav>
+          <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+              <div></div>
+              <div></div>
+              <div></div>
+          </div>
+      </header>
 
-                <div class="athlete-info">
-                    <h1 style="margin:0px"  id="athlete-name">{{ user.username }}</h1>
-
-                </div>
-            </div>
-            <div>
-                <h2 style="margin:0px" id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
-                <span id="rank-emoji"></span>
-                <!-- Coins Displayed Next to Name -->
-            </div>
-            <div class="current-rank-full">
-                <!-- Rank Progress Bar -->
-                <div class="rank-progress">
-                    <div class="progress-bar"></div>
-                </div>
-
-                <div class="rank-details">
-                    <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
-                <div class="rank-details">
-                    <span id="current-rank-label"> </span>
-                    <span id="next-rank-label">Next: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
-                </div>
-
-
+      <!-- Mobile Navigation -->
+      <div class="mobile-nav" id="mobile-nav">
+          <a href="/about">About</a>
+          <a href="/leaderboard">Leaderboard</a>
+          <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
       </div>
-  </div>
-  <!-- Achievements & Medals Section (Toggleable) -->
 
-</div>
-
-<div class="section achievements-section hidden">
-  <div class="section-header" data-section="achievements">
-      <h2>Achievements & Medals</h2>
-      <i class="fas fa-chevron-down toggle-icon"></i>
-  </div>
-  <div class="section-content">
-
-      <!-- Achievements Categories -->
-      {% if user.achievements.categories %}
-<table class="achievements-table">
-<thead>
-<tr>
-  <th>Category</th>
-  {% for category in user.achievements.categories %}
-    {% if loop.first %}
-      {% for badge in category.achievements %}
-        <th>{{ badge.emoji }}</th>
-      {% endfor %}
-    {% endif %}
-  {% endfor %}
-</tr>
-</thead>
-<tbody>
-{% for category in user.achievements.categories %}
-  <tr>
-    <th><h4>{{ category.name }}</h4></th>
-    {% for badge in category.achievements %}
-      <td>
-        <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
-          <p class="achievement-count">{{ badge.count }}</p>
-          {% if badge.last_month_earned %}
-            <span class="new-earned">+{{ badge.last_month_earned }}</span>
-          {% endif %}
-        </div>
-      </td>
-    {% endfor %}
-  </tr>
-{% endfor %}
-</tbody>
-</table>
-
-<div class="legends">
-{% for category in user.achievements.categories %}
-<div class="legend">
-  <h5>{{ category.name }}: {{ category.intro }}</h5>
-</div>
-{% endfor %}
-</div>
-{% endif %}
-
-
-      <!-- Medals -->
-      {% if user.achievements.Medals %}
-          <div class="achievements-medals">
-              <h3>Medals</h3>
-              <div class="medals-slider">
-                  {% for medal in user.achievements.Medals %}
-                      <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" data-popup="{{ medal.name }}" title="{{ medal.description or medal.name }}">
-                          <p class="medal-emoji">{{ medal.emoji }}</p>
-                          <p class="medal-count">{{ medal.count }}</p>
-                          {% if medal.last_month_earned %}
-                              <span class="new-earned">+{{ medal.last_month_earned }}</span>
-                          {% endif %}
-                          <div class="tooltip">{{ medal.description or medal.name }}</div>
-                      </div>
-                  {% endfor %}
+      <!-- Pop-up Overlay -->
+      <div class="popup-overlay" id="popup-overlay" aria-hidden="true">
+          <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
+              <button class="popup-close" id="popup-close" aria-label="Close pop-up">&times;</button>
+              <div id="popup-content">
+                  <!-- Dynamic Content Goes Here -->
               </div>
           </div>
-      {% endif %}
-
-  </div>
-</div>
-  <!-- Top Activities Section (Toggleable) -->
-  <div class="section top-activities-section hidden">
-      <div class="section-header" data-section="top-activities">
-          <h2>Top Activities</h2>
-          <i class="fas fa-chevron-down toggle-icon"></i>
       </div>
-      <div class="section-content">
-          <div class="top-activities">
-              <a href="{{ user.max_metrics.max_elevation_link }}" class="top-activity-card" aria-label="Max Elevation Gain Details">
-                  <h4>Max Elevation Gain</h4>
-                  <p>{{ user.max_metrics.max_elevation | int }} m</p>
-              </a>
-              <a href="{{ user.max_metrics.max_duration_link }}" class="top-activity-card" aria-label="Longest Duration Details">
-                  <h4>Longest Duration</h4>
-                  <p>{{ user.max_metrics.max_duration | format_duration }}</p>
-              </a>
-              <a href="{{ user.max_metrics.max_distance_link }}" class="top-activity-card" aria-label="Greatest Distance Details">
-                  <h4>Greatest Distance</h4>
-                  <p>{{ user.max_metrics.max_distance | int }} km</p>
-              </a>
-              <!-- **New Fastest 10K Display** -->
-              <a href="{{ user.max_metrics.fastest_10k_link }}" class="top-activity-card" aria-label="Fastest 10k Details">
-                  <h4>Fastest 10K</h4>
-                  <p>{{ user.max_metrics.fastest_10k | format_duration }}</p>
-              </a>
-              <a href="{{ user.max_metrics.fastest_half_marathon_link }}" class="top-activity-card" aria-label="Fastest Half Marathon Details">
-                  <h4>Fastest Half Marathon</h4>
-                  <p>{{ user.max_metrics.fastest_half_marathon | format_duration }}</p>
-              </a>
-              <a href="{{ user.max_metrics.fastest_marathon_link }}" class="top-activity-card" aria-label="Fastest Marathon Details">
-                  <h4>Fastest Marathon</h4>
-                  <p>{{ user.max_metrics.fastest_marathon | format_duration }}</p>
-              </a>
+
+      <div id="dashboard-container">
+          <!-- Loading Indicator -->
+          <div id="loading">Loading your dashboard...</div>
+
+          <!-- Overview Section (Always Visible) -->
+          <div class="overview-section hidden">
+              <div class="coin-metrics-inline">
+                  <span class="coin" title="Everest Coins: total elevation gain (measured in Mount Everest units)">🏔️ {{ user.coins.everest | round(2) }}</span>
+                  <span class="coin" title="Pizza Coins: total calories burned in pizzas (1000 kcal each)">🍕 {{ user.coins.pizza | int }}</span>
+                  <span class="coin" title="Heartbeat Coins: Represents your total heartbeats (in millions)">❤️ {{ user.coins.heartbeat | int }}</span>
+                  <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
+              </div>
+              <div class="overview-full-width">
+
+                  <div class="athlete-info">
+                      <h1 style="margin:0px" id="athlete-name">{{ user.username }}</h1>
+                  </div>
+              </div>
+              <div>
+                  <h2 style="margin:0px" id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
+                  <span id="rank-emoji"></span>
+                  <!-- Coins Displayed Next to Name -->
+              </div>
+              <div class="current-rank-full">
+                  <!-- Rank Progress Bar -->
+                  <div class="rank-progress">
+                      <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
+                  </div>
+
+                  <div class="rank-details">
+                      <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
+                      <div class="rank-details">
+                          <span id="current-rank-label"> </span>
+                          <span id="next-rank-label">Next: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <!-- Achievements & Medals Section (Toggleable) -->
+          <div class="section achievements-section hidden">
+              <div class="section-header" data-section="achievements">
+                  <h2>Achievements & Medals</h2>
+                  <i class="fas fa-chevron-down toggle-icon"></i>
+              </div>
+              <div class="section-content">
+
+                  <!-- Timeframe Buttons -->
+                  <div class="timeframe-buttons">
+                      <button class="timeframe-btn active" data-timeframe="all_time">All Time</button>
+                      <button class="timeframe-btn" data-timeframe="last_7_days">Last 7 Days</button>
+                      <button class="timeframe-btn" data-timeframe="last_14_days">Last 14 Days</button>
+                      <button class="timeframe-btn" data-timeframe="last_30_days">Last 30 Days</button>
+                      <button class="timeframe-btn" data-timeframe="ytd">Year to Date</button>
+                      <button class="timeframe-btn" data-timeframe="last_365_days">Last 365 Days</button>
+                  </div>
+                  <!-- Achievements Categories per Timeframe -->
+                  {% for tf in timeframes %}
+                      <div class="achievements-data {% if tf == 'all_time' %}active{% endif %}" data-timeframe="{{ tf }}">
+                          <!-- Achievements Categories -->
+                          {% set achievements_tf = achievements[tf] %}
+                          {% if achievements_tf.categories %}
+                              <table class="achievements-table">
+                                  <thead>
+                                      <tr>
+                                          <th>Category</th>
+                                          {% for category in achievements_tf.categories %}
+                                              {% if loop.first %}
+                                                  {% for badge in category.achievements %}
+                                                      <th>{{ badge.emoji }}</th>
+                                                  {% endfor %}
+                                              {% endif %}
+                                          {% endfor %}
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {% for category in achievements_tf.categories %}
+                                          <tr>
+                                              <th><h4>{{ category.name }}</h4></th>
+                                              {% for badge in category.achievements %}
+                                                  <td>
+                                                      <div class="achievement-card {% if badge.count == 0 %}not-obtained{% endif %}" data-popup="{{ badge.name }}" title="{{ badge.description or badge.name }}">
+                                                          <p class="achievement-count">{{ badge.count }}</p>
+                                                          {% if badge.last_month_earned %}
+                                                              <span class="new-earned">+{{ badge.last_month_earned }}</span>
+                                                          {% endif %}
+                                                      </div>
+                                                  </td>
+                                              {% endfor %}
+                                          </tr>
+                                      {% endfor %}
+                                  </tbody>
+                              </table>
+
+                              <div class="legends">
+                                  {% for category in achievements_tf.categories %}
+                                      <div class="legend">
+                                          <h5>{{ category.name }}: {{ category.intro }}</h5>
+                                      </div>
+                                  {% endfor %}
+                              </div>
+                          {% endif %}
+
+                          <!-- Medals -->
+
+                          {% if achievements_tf.Medals %}
+                              <div class="achievements-medals">
+                                  <h3>Medals</h3>
+                                  <div class="medals-slider">
+                                      {% for medal in achievements_tf.Medals %}
+                                          <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" data-popup="{{ medal.name }}" title="{{ medal.description or medal.name }}">
+                                              <p class="medal-emoji">{{ medal.emoji }}</p>
+                                              <p class="medal-count">{{ medal.count }}</p>
+                                              {% if medal.last_month_earned %}
+                                                  <span class="new-earned">+{{ medal.last_month_earned }}</span>
+                                              {% endif %}
+                                              <div class="tooltip">{{ medal.description or medal.name }}</div>
+                                          </div>
+                                      {% endfor %}
+                                  </div>
+                              </div>
+                          {% endif %}
+                      </div>
+                  {% endfor %}
+
+              </div>
+          </div>
+
+          <!-- Top Activities Section (Toggleable) -->
+          <div class="section top-activities-section hidden">
+              <div class="section-header" data-section="top-activities">
+                  <h2>Top Activities</h2>
+                  <i class="fas fa-chevron-down toggle-icon"></i>
+              </div>
+              <div class="section-content">
+                  <div class="top-activities">
+                      <a href="{{ user.max_metrics.max_elevation_link }}" class="top-activity-card" aria-label="Max Elevation Gain Details">
+                          <h4>Max Elevation Gain</h4>
+                          <p>{{ user.max_metrics.max_elevation | int }} m</p>
+                      </a>
+                      <a href="{{ user.max_metrics.max_duration_link }}" class="top-activity-card" aria-label="Longest Duration Details">
+                          <h4>Longest Duration</h4>
+                          <p>{{ user.max_metrics.max_duration | format_duration }}</p>
+                      </a>
+                      <a href="{{ user.max_metrics.max_distance_link }}" class="top-activity-card" aria-label="Greatest Distance Details">
+                          <h4>Greatest Distance</h4>
+                          <p>{{ user.max_metrics.max_distance | int }} km</p>
+                      </a>
+                      <!-- **New Fastest 10K Display** -->
+                      <a href="{{ user.max_metrics.fastest_10k_link }}" class="top-activity-card" aria-label="Fastest 10k Details">
+                          <h4>Fastest 10K</h4>
+                          <p>{{ user.max_metrics.fastest_10k | format_duration }}</p>
+                      </a>
+                      <a href="{{ user.max_metrics.fastest_half_marathon_link }}" class="top-activity-card" aria-label="Fastest Half Marathon Details">
+                          <h4>Fastest Half Marathon</h4>
+                          <p>{{ user.max_metrics.fastest_half_marathon | format_duration }}</p>
+                      </a>
+                      <a href="{{ user.max_metrics.fastest_marathon_link }}" class="top-activity-card" aria-label="Fastest Marathon Details">
+                          <h4>Fastest Marathon</h4>
+                          <p>{{ user.max_metrics.fastest_marathon | format_duration }}</p>
+                      </a>
+                  </div>
+              </div>
+          </div>
+
+          <!-- Additional Infos Section (Toggleable) -->
+          <div class="section additional-infos hidden">
+              <div class="section-header" data-section="additional-infos">
+                  <h2>Additional Infos</h2>
+                  <i class="fas fa-chevron-down toggle-icon"></i>
+              </div>
+              <div class="section-content">
+                  <h3>Additional Infos</h3>
+                  <ul>
+                      <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
+                      <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
+                      <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
+                      <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
+                      <li><strong>Average Heart Rate:</strong> {{ user.stats.bpm }} bpm</li>
+                      <!-- Add more stats as needed -->
+                  </ul>
+              </div>
+          </div>
+
+          <!-- Recent Activities Section (Toggleable) -->
+          <div class="section activities-container hidden">
+              <div class="section-header" data-section="activities">
+                  <h2>Recent Activities</h2>
+                  <i class="fas fa-chevron-down toggle-icon"></i>
+              </div>
+              <div class="section-content">
+                  <div id="activities-list">
+                      {% for activity in user.activities[:10] %}
+                          <div class="activity-item">
+                              <div class="activity-main">
+                                  <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m</h3>
+                                  <p>{{ activity.date }}</p>
+                                  <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
+                                  <p>{{ activity.calories | round(0) }} kcal</p>
+                                  <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
+                              </div>
+                              <div class="activity-coins">
+                                  <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
+                                  <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
+                                  <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                              </div>
+                          </div>
+                      {% endfor %}
+                  </div>
+                  {% if user.activities|length > 10 %}
+                      <button id="load-more-button">Load More</button>
+                  {% endif %}
+              </div>
           </div>
       </div>
-  </div>
 
-        <!-- Additional Infos Section (Toggleable) -->
-        <div class="section additional-infos hidden">
-            <div class="section-header" data-section="additional-infos">
-                <h2>Additional Infos</h2>
-                <i class="fas fa-chevron-down toggle-icon"></i>
-            </div>
-            <div class="section-content">
-                <h3>Additional Infos</h3>
-                <ul>
-                    <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
-                    <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
-                    <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
-                    <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
-                    <li><strong>Average Heart Rate:</strong> {{ user.stats.bpm }} km</li>
-                    <!-- Add more stats as needed -->
-                </ul>
-            </div>
-        </div>
+      <!-- JavaScript for Interactivity -->
+      <script>
+          document.addEventListener('DOMContentLoaded', function() {
+              const hamburger = document.getElementById('hamburger');
+              const mobileNav = document.getElementById('mobile-nav');
+              const logo = document.getElementById('logo');
 
-        <!-- Recent Activities Section (Toggleable) -->
-        <div class="section activities-container hidden">
-            <div class="section-header" data-section="activities">
-                <h2>Recent Activities</h2>
-                <i class="fas fa-chevron-down toggle-icon"></i>
-            </div>
-            <div class="section-content">
-                <div id="activities-list">
-                    {% for activity in user.activities[:10] %}
-                        <div class="activity-item">
-                            <div class="activity-main">
-                                <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m</h3>
-                                <p>{{ activity.date }}</p>
-                                <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
-                                <p>{{ activity.calories | round(0) }} kcal</p>
-                                <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
-                            </div>
-                            <div class="activity-coins">
-                                <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
-                                <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
-                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-                {% if user.activities|length > 10 %}
-                    <button id="load-more-button">Load More</button>
-                {% endif %}
-            </div>
-        </div>
-    </div>
+              const toggleMenu = () => {
+                  hamburger.classList.toggle('active');
+                  mobileNav.classList.toggle('active');
+                  const isExpanded = hamburger.classList.contains('active');
+                  hamburger.setAttribute('aria-expanded', isExpanded);
+              };
 
-    <!-- JavaScript for Interactivity -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const hamburger = document.getElementById('hamburger');
-            const mobileNav = document.getElementById('mobile-nav');
-            const logo = document.getElementById('logo');
+              hamburger.addEventListener('click', toggleMenu);
+              logo.addEventListener('click', toggleMenu);
 
-            const toggleMenu = () => {
-                hamburger.classList.toggle('active');
-                mobileNav.classList.toggle('active');
-                const isExpanded = hamburger.classList.contains('active');
-                hamburger.setAttribute('aria-expanded', isExpanded);
-            };
+              // Hide loading indicator and show content
+              document.getElementById('loading').style.display = 'none';
+              const sections = document.querySelectorAll('.section');
+              sections.forEach(section => {
+                  section.classList.remove('hidden');
+              });
+              // Show Overview section (which does not have the 'section' class and toggle)
+              const overviewSection = document.querySelector('.overview-section');
+              overviewSection.classList.remove('hidden');
 
-            hamburger.addEventListener('click', toggleMenu);
-            logo.addEventListener('click', toggleMenu);
+              // Section Toggles
+              const sectionHeaders = document.querySelectorAll('.section-header');
+              sectionHeaders.forEach(header => {
+                  header.addEventListener('click', () => {
+                      const section = header.parentElement;
+                      section.classList.toggle('active');
+                  });
+              });
 
-            // Hide loading indicator and show content
-            document.getElementById('loading').style.display = 'none';
-            const sections = document.querySelectorAll('.section');
-            sections.forEach(section => {
-                section.classList.remove('hidden');
-            });
-            // Show Overview section (which does not have the 'section' class and toggle)
-            const overviewSection = document.querySelector('.overview-section');
-            overviewSection.classList.remove('hidden');
+              // Pop-up Functionality
+              const popupOverlay = document.getElementById('popup-overlay');
+              const popupContent = document.getElementById('popup-content');
+              const popupClose = document.getElementById('popup-close');
 
-            // Section Toggles
-            const sectionHeaders = document.querySelectorAll('.section-header');
-            sectionHeaders.forEach(header => {
-                header.addEventListener('click', () => {
-                    const section = header.parentElement;
-                    section.classList.toggle('active');
-                });
-            });
+              const openPopup = (title, content) => {
+                  popupContent.innerHTML = `<h2 id="popup-title">${title}</h2><p>${content}</p>`;
+                  popupOverlay.classList.add('active');
+                  popupOverlay.setAttribute('aria-hidden', 'false');
+                  // Trap focus within the popup for accessibility
+                  popupClose.focus();
+              };
 
-            // Pop-up Functionality
-            const popupOverlay = document.getElementById('popup-overlay');
-            const popupContent = document.getElementById('popup-content');
-            const popupClose = document.getElementById('popup-close');
+              const closePopup = () => {
+                  popupOverlay.classList.remove('active');
+                  popupOverlay.setAttribute('aria-hidden', 'true');
+              };
 
-            const openPopup = (title, content) => {
-                popupContent.innerHTML = `<h2 id="popup-title">${title}</h2><p>${content}</p>`;
-                popupOverlay.classList.add('active');
-                popupOverlay.setAttribute('aria-hidden', 'false');
-                // Trap focus within the popup for accessibility
-                popupClose.focus();
-            };
+              popupClose.addEventListener('click', closePopup);
+              popupOverlay.addEventListener('click', (e) => {
+                  if (e.target === popupOverlay) {
+                      closePopup();
+                  }
+              });
 
-            const closePopup = () => {
-                popupOverlay.classList.remove('active');
-                popupOverlay.setAttribute('aria-hidden', 'true');
-            };
+              // Close popup with Esc key
+              document.addEventListener('keydown', (e) => {
+                  if (e.key === 'Escape' && popupOverlay.classList.contains('active')) {
+                      closePopup();
+                  }
+              });
 
-            popupClose.addEventListener('click', closePopup);
-            popupOverlay.addEventListener('click', (e) => {
-                if (e.target === popupOverlay) {
-                    closePopup();
+              // Attach pop-up to achievement and medal cards
+              const popupElements = document.querySelectorAll('[data-popup]');
+              popupElements.forEach(elem => {
+                  elem.addEventListener('click', () => {
+                      const title = elem.getAttribute('data-popup');
+                      let content = '';
+                      // Customize content based on the achievement or medal name
+                      switch(title) {
+                          case 'Max Elevation Gain':
+                              content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
+                              break;
+                          case 'Longest Duration':
+                              content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
+                              break;
+                          case 'Greatest Distance':
+                              content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
+                              break;
+                          // Add more cases as needed
+                          default:
+                              content = 'More information about this achievement.';
+                      }
+                      openPopup(title, content);
+                  });
+              });
+
+              // Make top-activity-cards clickable and redirect
+              const topActivityCards = document.querySelectorAll('.top-activity-card');
+              topActivityCards.forEach(card => {
+                  card.addEventListener('click', (e) => {
+                      // Prevent triggering pop-up if it's inside a link
+                      if (card.tagName.toLowerCase() === 'a') {
+                          // Allow default link behavior
+                          return;
+                      }
+                      const href = card.getAttribute('href');
+                      if (href) {
+                          window.location.href = href;
+                      }
+                  });
+              });
+
+              // Load More functionality
+              const loadMoreButton = document.getElementById('load-more-button');
+              if (loadMoreButton) {
+                  let currentCount = 10;
+                  const totalActivities = {{ user.activities|length }};
+                  const additionalActivities = {{ user.activities|tojson }};
+                  loadMoreButton.addEventListener('click', function() {
+                      const activitiesList = document.getElementById('activities-list');
+                      const nextCount = currentCount + 10;
+                      for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
+                          const activity = additionalActivities[i];
+                          const activityItem = document.createElement('div');
+                          activityItem.classList.add('activity-item');
+                          activityItem.innerHTML = `
+                              <div class="activity-main">
+                                  <h3><a href="${activity.link}" target="_blank">${activity.name}</a> | ${Math.round(activity.distance)} km | ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</h3>
+                                  <p>${activity.date}</p>
+                                  <p>${Math.round(activity.elevation_gain)} vertical m</p>
+                                  <p>${Math.round(activity.calories)} kcal</p>
+                                  <p>${activity.additional_data.Activity_Type}</p>
+                              </div>
+                              <div class="activity-coins">
+                                  <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
+                                  <span class="coin">+${Math.round(activity.coins.pizza)} 🍕</span>
+                                  <span class="coin">+${Math.round(activity.coins.heartbeat)} ❤️</span>
+                              </div>
+                          `;
+                          activitiesList.appendChild(activityItem);
+                      }
+                      currentCount = nextCount;
+                      if (currentCount >= totalActivities) {
+                          loadMoreButton.style.display = 'none';
+                      }
+                  });
+              }
+
+              // Timeframe Buttons Interactivity
+    const timeframeButtons = document.querySelectorAll('.timeframe-btn');
+    const achievementsData = document.querySelectorAll('.achievements-data');
+
+    timeframeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove 'active' class from all buttons
+            timeframeButtons.forEach(btn => btn.classList.remove('active'));
+            // Add 'active' class to clicked button
+            button.classList.add('active');
+
+            // Get selected timeframe
+            const selectedTimeframe = button.getAttribute('data-timeframe');
+
+            // Show achievements for selected timeframe, hide others
+            achievementsData.forEach(data => {
+                if (data.getAttribute('data-timeframe') === selectedTimeframe) {
+                    data.classList.add('active');
+                } else {
+                    data.classList.remove('active');
                 }
             });
-
-            // Close popup with Esc key
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && popupOverlay.classList.contains('active')) {
-                    closePopup();
-                }
-            });
-
-            // Attach pop-up to achievement and medal cards
-            const popupElements = document.querySelectorAll('[data-popup]');
-            popupElements.forEach(elem => {
-                elem.addEventListener('click', () => {
-                    const title = elem.getAttribute('data-popup');
-                    let content = '';
-                    switch(title) {
-                        case 'Max Elevation Gain':
-                            content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
-                            break;
-                        case 'Longest Duration':
-                            content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
-                            break;
-                        case 'Greatest Distance':
-                            content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
-                            break;
-                        default:
-                            content = 'More information about this achievement.';
-                    }
-                    openPopup(title, content);
-                });
-            });
-
-            // Make top-activity-cards clickable and redirect
-            const topActivityCards = document.querySelectorAll('.top-activity-card');
-            topActivityCards.forEach(card => {
-                card.addEventListener('click', (e) => {
-                    // Prevent triggering pop-up if it's inside a link
-                    if (card.tagName.toLowerCase() === 'a') {
-                        // Allow default link behavior
-                        return;
-                    }
-                    const href = card.getAttribute('href');
-                    if (href) {
-                        window.location.href = href;
-                    }
-                });
-            });
-
-            // Load More functionality
-            const loadMoreButton = document.getElementById('load-more-button');
-            if (loadMoreButton) {
-                let currentCount = 10;
-                const totalActivities = {{ user.activities|length }};
-                const additionalActivities = {{ user.activities|tojson }};
-                loadMoreButton.addEventListener('click', function() {
-                    const activitiesList = document.getElementById('activities-list');
-                    const nextCount = currentCount + 10;
-                    for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
-                        const activity = additionalActivities[i];
-                        const activityItem = document.createElement('div');
-                        activityItem.classList.add('activity-item');
-                        activityItem.innerHTML = `
-                            <div class="activity-main">
-                                <h3><a href="${activity.link}" target="_blank">${activity.name}</a> | ${Math.round(activity.distance)} km | ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</h3>
-                                <p>${activity.date}</p>
-                                <p>${Math.round(activity.elevation_gain)} vertical m</p>
-                                <p>${Math.round(activity.calories)} kcal</p>
-                                <p>${activity.additional_data.Activity_Type}</p>
-                            </div>
-                            <div class="activity-coins">
-                                <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
-                                <span class="coin">+${Math.round(activity.coins.pizza)} 🍕</span>
-                                <span class="coin">+${Math.round(activity.coins.heartbeat)} ❤️</span>
-                            </div>
-                        `;
-                        activitiesList.appendChild(activityItem);
-                    }
-                    currentCount = nextCount;
-                    if (currentCount >= totalActivities) {
-                        loadMoreButton.style.display = 'none';
-                    }
-                });
-            }
         });
-    </script>
-</body>
-</html>
+    });
+
+});
+      </script>
+  </body>
+  </html>

@@ -2881,3 +2881,360 @@ KeyError: 'Distance_1'
 2024-10-15 06:04:04,222 [INFO] 127.0.0.1 - - [15/Oct/2024 06:04:04] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
 2024-10-15 06:04:47,943 [INFO] 127.0.0.1 - - [15/Oct/2024 06:04:47] "GET / HTTP/1.1" 200 -
 2024-10-15 06:04:48,243 [INFO] 127.0.0.1 - - [15/Oct/2024 06:04:48] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 08:04:23,769 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 08:04:23,952 [INFO]  * Restarting with stat
+2024-10-15 08:05:00,427 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-15 08:05:00,427 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-15 08:05:00,432 [INFO]  * Restarting with stat
+2024-10-15 08:08:24,965 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-15 08:08:24,966 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-15 08:08:24,968 [INFO]  * Restarting with stat
+2024-10-15 08:08:26,264 [WARNING]  * Debugger is active!
+2024-10-15 08:08:26,270 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 08:08:31,936 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:31] "GET / HTTP/1.1" 200 -
+2024-10-15 08:08:32,018 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:32] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 08:08:33,142 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:33] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 08:08:33,422 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:33] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 08:08:35,622 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:35] "[35m[1mGET /dashboard/TEs HTTP/1.1[0m" 500 -
+2024-10-15 08:08:35,644 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:35] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 08:08:35,874 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:35] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 08:08:36,219 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:36] "GET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png&s=cVcWCARew5UQMPQqnJL2 HTTP/1.1" 200 -
+2024-10-15 08:08:36,484 [INFO] 127.0.0.1 - - [15/Oct/2024 08:08:36] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2024-10-15 08:10:11,322 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 08:10:11,489 [INFO]  * Restarting with stat
+2024-10-15 08:10:12,836 [WARNING]  * Debugger is active!
+2024-10-15 08:10:12,842 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 08:10:15,044 [INFO] 127.0.0.1 - - [15/Oct/2024 08:10:15] "[35m[1mGET /dashboard/TEs HTTP/1.1[0m" 500 -
+2024-10-15 08:10:15,120 [INFO] 127.0.0.1 - - [15/Oct/2024 08:10:15] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 08:10:15,286 [INFO] 127.0.0.1 - - [15/Oct/2024 08:10:15] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 08:10:15,599 [INFO] 127.0.0.1 - - [15/Oct/2024 08:10:15] "GET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png&s=CAOtrTvadef4ky33VN0D HTTP/1.1" 200 -
+2024-10-15 08:10:15,863 [INFO] 127.0.0.1 - - [15/Oct/2024 08:10:15] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2024-10-15 08:11:17,916 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 08:11:18,066 [INFO]  * Restarting with stat
+2024-10-15 08:11:19,435 [WARNING]  * Debugger is active!
+2024-10-15 08:11:19,440 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 08:11:23,551 [INFO] 127.0.0.1 - - [15/Oct/2024 08:11:23] "[35m[1mGET /dashboard/TEs HTTP/1.1[0m" 500 -
+2024-10-15 08:11:23,636 [INFO] 127.0.0.1 - - [15/Oct/2024 08:11:23] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 08:11:23,711 [INFO] 127.0.0.1 - - [15/Oct/2024 08:11:23] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 08:11:24,022 [INFO] 127.0.0.1 - - [15/Oct/2024 08:11:24] "GET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png&s=yOmmBXQLo3VH3IrFuXQ2 HTTP/1.1" 200 -
+2024-10-15 08:11:24,286 [INFO] 127.0.0.1 - - [15/Oct/2024 08:11:24] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2024-10-15 08:11:40,189 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 08:11:40,391 [INFO]  * Restarting with stat
+2024-10-15 08:11:41,771 [WARNING]  * Debugger is active!
+2024-10-15 08:11:41,777 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 09:46:51,647 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-15 09:46:51,648 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-15 09:46:51,650 [INFO]  * Restarting with stat
+2024-10-15 09:46:53,035 [WARNING]  * Debugger is active!
+2024-10-15 09:46:53,041 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 09:46:58,433 [INFO] 127.0.0.1 - - [15/Oct/2024 09:46:58] "GET / HTTP/1.1" 200 -
+2024-10-15 09:46:58,523 [INFO] 127.0.0.1 - - [15/Oct/2024 09:46:58] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:46:59,711 [INFO] 127.0.0.1 - - [15/Oct/2024 09:46:59] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 09:46:59,989 [INFO] 127.0.0.1 - - [15/Oct/2024 09:46:59] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:47:01,783 [INFO] 127.0.0.1 - - [15/Oct/2024 09:47:01] "[35m[1mGET /dashboard/TEs HTTP/1.1[0m" 500 -
+2024-10-15 09:47:01,797 [INFO] 127.0.0.1 - - [15/Oct/2024 09:47:01] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 09:47:01,872 [INFO] 127.0.0.1 - - [15/Oct/2024 09:47:01] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 09:47:02,207 [INFO] 127.0.0.1 - - [15/Oct/2024 09:47:02] "GET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png&s=upyGUgl8rIFG2QQwHUic HTTP/1.1" 200 -
+2024-10-15 09:47:02,473 [INFO] 127.0.0.1 - - [15/Oct/2024 09:47:02] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2024-10-15 09:50:30,061 [INFO] 127.0.0.1 - - [15/Oct/2024 09:50:30] "[35m[1mGET /dashboard/TEs HTTP/1.1[0m" 500 -
+2024-10-15 09:50:30,072 [INFO] 127.0.0.1 - - [15/Oct/2024 09:50:30] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 09:50:30,206 [INFO] 127.0.0.1 - - [15/Oct/2024 09:50:30] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 09:50:30,532 [INFO] 127.0.0.1 - - [15/Oct/2024 09:50:30] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png&s=upyGUgl8rIFG2QQwHUic HTTP/1.1[0m" 304 -
+2024-10-15 09:50:30,789 [INFO] 127.0.0.1 - - [15/Oct/2024 09:50:30] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2024-10-15 09:52:28,565 [INFO] 127.0.0.1 - - [15/Oct/2024 09:52:28] "[33mGET /dashboard/ HTTP/1.1[0m" 404 -
+2024-10-15 09:52:30,719 [INFO] 127.0.0.1 - - [15/Oct/2024 09:52:30] "GET / HTTP/1.1" 200 -
+2024-10-15 09:52:30,745 [INFO] 127.0.0.1 - - [15/Oct/2024 09:52:30] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:52:42,303 [INFO] Starting CSV processing.
+2024-10-15 09:52:42,303 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-15 09:52:42,303 [INFO] Detected English CSV.
+2024-10-15 09:52:42,304 [INFO] Number of columns in CSV: 94
+2024-10-15 09:52:42,306 [INFO] Assigned column names for English CSV.
+2024-10-15 09:52:42,391 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-15 09:52:42,408 [INFO] Converted numeric columns for English CSV.
+2024-10-15 09:52:43,793 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-15 09:52:43,794 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-15 09:52:43,830 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-15 09:52:43,832 [INFO] CSV processing completed successfully.
+2024-10-15 09:52:44,087 [ERROR] Error processing the file.
+Traceback (most recent call last):
+  File "C:\Users\Alessandro Merelli\Documents\GitHub\Sites\league-of-strava\app.py", line 1509, in index
+    achievements = calculate_achievements(df)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Alessandro Merelli\Documents\GitHub\Sites\league-of-strava\app.py", line 1068, in calculate_achievements
+    achievements = convert_to_native(achievements)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Alessandro Merelli\Documents\GitHub\Sites\league-of-strava\app.py", line 659, in convert_to_native
+    return {k: convert_to_native(v) for k, v in data.items()}
+               ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Alessandro Merelli\Documents\GitHub\Sites\league-of-strava\app.py", line 659, in convert_to_native
+    return {k: convert_to_native(v) for k, v in data.items()}
+               ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Alessandro Merelli\Documents\GitHub\Sites\league-of-strava\app.py", line 661, in convert_to_native
+    return [convert_to_native(item) for item in data]
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Alessandro Merelli\Documents\GitHub\Sites\league-of-strava\app.py", line 659, in convert_to_native
+    return {k: convert_to_native(v) for k, v in data.items()}
+               ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Alessandro Merelli\Documents\GitHub\Sites\league-of-strava\app.py", line 664, in convert_to_native
+    elif isinstance(data, (pd.integer.IntegerDtype, int, float, pd.Float64Dtype)):
+                           ^^^^^^^^^^
+AttributeError: module 'pandas' has no attribute 'integer'
+2024-10-15 09:52:44,093 [INFO] 127.0.0.1 - - [15/Oct/2024 09:52:44] "[32mPOST / HTTP/1.1[0m" 302 -
+2024-10-15 09:52:44,097 [INFO] 127.0.0.1 - - [15/Oct/2024 09:52:44] "GET / HTTP/1.1" 200 -
+2024-10-15 09:52:44,113 [INFO] 127.0.0.1 - - [15/Oct/2024 09:52:44] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:54:05,495 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 09:54:05,720 [INFO]  * Restarting with stat
+2024-10-15 09:54:07,218 [WARNING]  * Debugger is active!
+2024-10-15 09:54:07,224 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 09:54:52,976 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 09:54:53,121 [INFO]  * Restarting with stat
+2024-10-15 09:54:54,460 [WARNING]  * Debugger is active!
+2024-10-15 09:54:54,467 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 09:54:56,754 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 09:54:56,899 [INFO]  * Restarting with stat
+2024-10-15 09:54:58,256 [WARNING]  * Debugger is active!
+2024-10-15 09:54:58,262 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 09:55:07,176 [INFO] Starting CSV processing.
+2024-10-15 09:55:17,988 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-15 09:55:17,993 [INFO] Detected English CSV.
+2024-10-15 09:55:17,994 [INFO] Number of columns in CSV: 94
+2024-10-15 09:55:17,995 [INFO] Assigned column names for English CSV.
+2024-10-15 09:55:18,073 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-15 09:55:18,088 [INFO] Converted numeric columns for English CSV.
+2024-10-15 09:55:19,413 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-15 09:55:19,414 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-15 09:55:19,445 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-15 09:55:19,446 [INFO] CSV processing completed successfully.
+2024-10-15 09:55:19,697 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-15 09:55:19,704 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-15 09:55:20,388 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:20] "[32mPOST / HTTP/1.1[0m" 302 -
+2024-10-15 09:55:20,540 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:20] "GET /dashboard/satimeframe HTTP/1.1" 200 -
+2024-10-15 09:55:20,944 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:20] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:55:30,613 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:30] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 09:55:30,906 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:30] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:55:33,812 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:33] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 09:55:33,825 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:33] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:55:35,964 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:35] "[35m[1mGET /dashboard/TEs HTTP/1.1[0m" 500 -
+2024-10-15 09:55:36,157 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:36] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 09:55:36,283 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:36] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 09:55:36,610 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:36] "GET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png&s=SxJ3SG2W9FGiwdb37yUc HTTP/1.1" 200 -
+2024-10-15 09:55:38,405 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:38] "GET /dashboard/satimeframe HTTP/1.1" 200 -
+2024-10-15 09:55:38,422 [INFO] 127.0.0.1 - - [15/Oct/2024 09:55:38] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 09:59:42,179 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:42] "[35m[1mGET /dashboard/satimeframe HTTP/1.1[0m" 500 -
+2024-10-15 09:59:42,192 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:42] "GET /dashboard/satimeframe?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+2024-10-15 09:59:42,304 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:42] "GET /dashboard/satimeframe?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+2024-10-15 09:59:42,635 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:42] "GET /dashboard/satimeframe?__debugger__=yes&cmd=resource&f=console.png&s=SxJ3SG2W9FGiwdb37yUc HTTP/1.1" 200 -
+2024-10-15 09:59:42,889 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:42] "GET /dashboard/satimeframe?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+2024-10-15 09:59:52,314 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:52] "[35m[1mGET /dashboard/TEs HTTP/1.1[0m" 500 -
+2024-10-15 09:59:52,329 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:52] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 09:59:52,634 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:52] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 09:59:52,965 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:52] "[36mGET /dashboard/TEs?__debugger__=yes&cmd=resource&f=console.png&s=SxJ3SG2W9FGiwdb37yUc HTTP/1.1[0m" 304 -
+2024-10-15 09:59:55,125 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:55] "[35m[1mGET /dashboard/satimeframe HTTP/1.1[0m" 500 -
+2024-10-15 09:59:55,137 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:55] "[36mGET /dashboard/satimeframe?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 09:59:55,449 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:55] "[36mGET /dashboard/satimeframe?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 09:59:55,775 [INFO] 127.0.0.1 - - [15/Oct/2024 09:59:55] "[36mGET /dashboard/satimeframe?__debugger__=yes&cmd=resource&f=console.png&s=SxJ3SG2W9FGiwdb37yUc HTTP/1.1[0m" 304 -
+2024-10-15 10:02:11,828 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 10:02:12,118 [INFO]  * Restarting with stat
+2024-10-15 10:02:13,640 [WARNING]  * Debugger is active!
+2024-10-15 10:02:13,646 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 10:02:32,213 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 10:02:32,367 [INFO]  * Restarting with stat
+2024-10-15 10:02:33,788 [WARNING]  * Debugger is active!
+2024-10-15 10:02:33,794 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 10:05:30,885 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 10:05:31,052 [INFO]  * Restarting with stat
+2024-10-15 10:05:35,054 [WARNING]  * Debugger is active!
+2024-10-15 10:05:35,060 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 10:08:00,332 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 10:08:00,492 [INFO]  * Restarting with stat
+2024-10-15 10:08:01,882 [WARNING]  * Debugger is active!
+2024-10-15 10:08:01,888 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 10:08:03,555 [INFO] 127.0.0.1 - - [15/Oct/2024 10:08:03] "GET / HTTP/1.1" 200 -
+2024-10-15 10:08:03,647 [INFO] 127.0.0.1 - - [15/Oct/2024 10:08:03] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:08:15,493 [INFO] Starting CSV processing.
+2024-10-15 10:08:15,499 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-15 10:08:15,500 [INFO] Detected English CSV.
+2024-10-15 10:08:15,501 [INFO] Number of columns in CSV: 94
+2024-10-15 10:08:15,502 [INFO] Assigned column names for English CSV.
+2024-10-15 10:08:15,583 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-15 10:08:15,598 [INFO] Converted numeric columns for English CSV.
+2024-10-15 10:08:17,120 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-15 10:08:17,120 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-15 10:08:17,157 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-15 10:08:17,159 [INFO] CSV processing completed successfully.
+2024-10-15 10:08:17,437 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-15 10:08:17,444 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-15 10:08:18,170 [INFO] 127.0.0.1 - - [15/Oct/2024 10:08:18] "[32mPOST / HTTP/1.1[0m" 302 -
+2024-10-15 10:08:18,334 [INFO] 127.0.0.1 - - [15/Oct/2024 10:08:18] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:08:18,667 [INFO] 127.0.0.1 - - [15/Oct/2024 10:08:18] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:09:09,033 [INFO] 127.0.0.1 - - [15/Oct/2024 10:09:09] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:09:09,202 [INFO] 127.0.0.1 - - [15/Oct/2024 10:09:09] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:09:21,636 [INFO] 127.0.0.1 - - [15/Oct/2024 10:09:21] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:09:21,654 [INFO] 127.0.0.1 - - [15/Oct/2024 10:09:21] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:09:27,329 [INFO] 127.0.0.1 - - [15/Oct/2024 10:09:27] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:09:27,528 [INFO] 127.0.0.1 - - [15/Oct/2024 10:09:27] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:14:37,267 [INFO] 127.0.0.1 - - [15/Oct/2024 10:14:37] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:14:37,281 [INFO] 127.0.0.1 - - [15/Oct/2024 10:14:37] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:16:51,309 [INFO] 127.0.0.1 - - [15/Oct/2024 10:16:51] "[35m[1mGET /dashboard/%3Fprova HTTP/1.1[0m" 500 -
+2024-10-15 10:16:51,323 [INFO] 127.0.0.1 - - [15/Oct/2024 10:16:51] "GET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+2024-10-15 10:16:51,439 [INFO] 127.0.0.1 - - [15/Oct/2024 10:16:51] "GET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+2024-10-15 10:16:51,789 [INFO] 127.0.0.1 - - [15/Oct/2024 10:16:51] "GET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=console.png&s=CM3XpgoKBlWq56bvZBdf HTTP/1.1" 200 -
+2024-10-15 10:16:52,026 [INFO] 127.0.0.1 - - [15/Oct/2024 10:16:52] "GET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+2024-10-15 10:16:58,089 [INFO] 127.0.0.1 - - [15/Oct/2024 10:16:58] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:16:58,268 [INFO] 127.0.0.1 - - [15/Oct/2024 10:16:58] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:17:05,051 [INFO] 127.0.0.1 - - [15/Oct/2024 10:17:05] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:17:05,064 [INFO] 127.0.0.1 - - [15/Oct/2024 10:17:05] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:17:20,719 [INFO] 127.0.0.1 - - [15/Oct/2024 10:17:20] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:17:20,909 [INFO] 127.0.0.1 - - [15/Oct/2024 10:17:20] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:20:25,208 [INFO] 127.0.0.1 - - [15/Oct/2024 10:20:25] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:20:25,221 [INFO] 127.0.0.1 - - [15/Oct/2024 10:20:25] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:21:26,970 [INFO] 127.0.0.1 - - [15/Oct/2024 10:21:26] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:21:26,986 [INFO] 127.0.0.1 - - [15/Oct/2024 10:21:26] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:21:51,034 [INFO] 127.0.0.1 - - [15/Oct/2024 10:21:51] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:21:51,177 [INFO] 127.0.0.1 - - [15/Oct/2024 10:21:51] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:23:24,572 [INFO] 127.0.0.1 - - [15/Oct/2024 10:23:24] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:23:24,592 [INFO] 127.0.0.1 - - [15/Oct/2024 10:23:24] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:24:21,835 [INFO] 127.0.0.1 - - [15/Oct/2024 10:24:21] "[35m[1mGET /dashboard/%3Fprova HTTP/1.1[0m" 500 -
+2024-10-15 10:24:22,040 [INFO] 127.0.0.1 - - [15/Oct/2024 10:24:22] "[36mGET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2024-10-15 10:24:22,159 [INFO] 127.0.0.1 - - [15/Oct/2024 10:24:22] "[36mGET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+2024-10-15 10:24:22,479 [INFO] 127.0.0.1 - - [15/Oct/2024 10:24:22] "[36mGET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=console.png&s=CM3XpgoKBlWq56bvZBdf HTTP/1.1[0m" 304 -
+2024-10-15 10:24:22,750 [INFO] 127.0.0.1 - - [15/Oct/2024 10:24:22] "[36mGET /dashboard/%3Fprova?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+2024-10-15 10:24:34,186 [INFO] 127.0.0.1 - - [15/Oct/2024 10:24:34] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:24:34,312 [INFO] 127.0.0.1 - - [15/Oct/2024 10:24:34] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:28:35,913 [INFO] 127.0.0.1 - - [15/Oct/2024 10:28:35] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:28:35,927 [INFO] 127.0.0.1 - - [15/Oct/2024 10:28:35] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:29:17,276 [INFO] 127.0.0.1 - - [15/Oct/2024 10:29:17] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:29:17,450 [INFO] 127.0.0.1 - - [15/Oct/2024 10:29:17] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:31:09,860 [INFO] 127.0.0.1 - - [15/Oct/2024 10:31:09] "GET /dashboard/%3Fprova HTTP/1.1" 200 -
+2024-10-15 10:31:09,874 [INFO] 127.0.0.1 - - [15/Oct/2024 10:31:09] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:45:20,883 [INFO] 127.0.0.1 - - [15/Oct/2024 10:45:20] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 10:45:20,898 [INFO] 127.0.0.1 - - [15/Oct/2024 10:45:20] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:47:18,005 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-15 10:47:18,005 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-15 10:47:18,008 [INFO]  * Restarting with stat
+2024-10-15 10:47:19,376 [WARNING]  * Debugger is active!
+2024-10-15 10:47:19,383 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 10:47:20,481 [INFO] 127.0.0.1 - - [15/Oct/2024 10:47:20] "GET / HTTP/1.1" 200 -
+2024-10-15 10:47:20,563 [INFO] 127.0.0.1 - - [15/Oct/2024 10:47:20] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:47:27,893 [INFO] Starting CSV processing.
+2024-10-15 10:47:27,894 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-15 10:47:27,894 [INFO] Detected English CSV.
+2024-10-15 10:47:27,895 [INFO] Number of columns in CSV: 94
+2024-10-15 10:47:27,896 [INFO] Assigned column names for English CSV.
+2024-10-15 10:47:27,974 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-15 10:47:27,991 [INFO] Converted numeric columns for English CSV.
+2024-10-15 10:47:29,319 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-15 10:47:29,319 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-15 10:47:29,348 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-15 10:47:29,350 [INFO] CSV processing completed successfully.
+2024-10-15 10:47:29,594 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-15 10:47:29,610 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-15 10:47:30,287 [INFO] 127.0.0.1 - - [15/Oct/2024 10:47:30] "[32mPOST / HTTP/1.1[0m" 302 -
+2024-10-15 10:47:30,404 [INFO] 127.0.0.1 - - [15/Oct/2024 10:47:30] "GET /dashboard/sasssss HTTP/1.1" 200 -
+2024-10-15 10:47:30,723 [INFO] 127.0.0.1 - - [15/Oct/2024 10:47:30] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:47:34,493 [INFO] 127.0.0.1 - - [15/Oct/2024 10:47:34] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 10:47:34,763 [INFO] 127.0.0.1 - - [15/Oct/2024 10:47:34] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:48:16,448 [INFO] 127.0.0.1 - - [15/Oct/2024 10:48:16] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 10:48:16,461 [INFO] 127.0.0.1 - - [15/Oct/2024 10:48:16] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:55:40,117 [INFO] 127.0.0.1 - - [15/Oct/2024 10:55:40] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 10:55:40,130 [INFO] 127.0.0.1 - - [15/Oct/2024 10:55:40] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 10:55:48,987 [INFO] 127.0.0.1 - - [15/Oct/2024 10:55:48] "GET /dashboard/sasssss HTTP/1.1" 200 -
+2024-10-15 10:55:49,175 [INFO] 127.0.0.1 - - [15/Oct/2024 10:55:49] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:26:17,068 [INFO] 127.0.0.1 - - [15/Oct/2024 11:26:17] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:26:17,103 [INFO] 127.0.0.1 - - [15/Oct/2024 11:26:17] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:27:31,829 [INFO] 127.0.0.1 - - [15/Oct/2024 11:27:31] "GET / HTTP/1.1" 200 -
+2024-10-15 11:27:31,849 [INFO] 127.0.0.1 - - [15/Oct/2024 11:27:31] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:27:32,691 [INFO] 127.0.0.1 - - [15/Oct/2024 11:27:32] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:27:32,997 [INFO] 127.0.0.1 - - [15/Oct/2024 11:27:32] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:27:34,932 [INFO] 127.0.0.1 - - [15/Oct/2024 11:27:34] "GET /dashboard/sasssss HTTP/1.1" 200 -
+2024-10-15 11:27:34,950 [INFO] 127.0.0.1 - - [15/Oct/2024 11:27:34] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:33:58,490 [INFO] 127.0.0.1 - - [15/Oct/2024 11:33:58] "GET /dashboard/sasssss HTTP/1.1" 200 -
+2024-10-15 11:33:58,518 [INFO] 127.0.0.1 - - [15/Oct/2024 11:33:58] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:34:41,513 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:41] "GET /dashboard/sasssss HTTP/1.1" 200 -
+2024-10-15 11:34:41,707 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:41] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:34:43,298 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:43] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:34:43,308 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:43] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:34:49,402 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:49] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:34:49,715 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:49] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:34:51,868 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:51] "GET / HTTP/1.1" 200 -
+2024-10-15 11:34:51,886 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:51] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:34:58,856 [INFO] Starting CSV processing.
+2024-10-15 11:34:58,856 [INFO] First 3 headers: ['ID attività', 'Data dell’attività', 'Nome attività']
+2024-10-15 11:34:58,856 [INFO] Detected Italian CSV.
+2024-10-15 11:34:58,856 [INFO] Number of columns in CSV: 94
+2024-10-15 11:34:58,856 [INFO] Assigned column names for Italian CSV.
+2024-10-15 11:34:58,893 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-15 11:34:58,992 [INFO] Replaced commas with dots in numeric columns for Italian CSV.
+2024-10-15 11:34:59,496 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-15 11:34:59,506 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-15 11:34:59,513 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-15 11:34:59,513 [INFO] CSV processing completed successfully.
+2024-10-15 11:34:59,734 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-15 11:34:59,738 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-15 11:34:59,854 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:59] "[32mPOST / HTTP/1.1[0m" 302 -
+2024-10-15 11:34:59,859 [INFO] 127.0.0.1 - - [15/Oct/2024 11:34:59] "GET / HTTP/1.1" 200 -
+2024-10-15 11:35:00,174 [INFO] 127.0.0.1 - - [15/Oct/2024 11:35:00] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:35:15,464 [INFO] Starting CSV processing.
+2024-10-15 11:35:15,464 [INFO] First 3 headers: ['ID attività', 'Data dell’attività', 'Nome attività']
+2024-10-15 11:35:15,474 [INFO] Detected Italian CSV.
+2024-10-15 11:35:15,474 [INFO] Number of columns in CSV: 94
+2024-10-15 11:35:15,474 [INFO] Assigned column names for Italian CSV.
+2024-10-15 11:35:15,505 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-15 11:35:15,606 [INFO] Replaced commas with dots in numeric columns for Italian CSV.
+2024-10-15 11:35:16,118 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-15 11:35:16,118 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-15 11:35:16,128 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-15 11:35:16,128 [INFO] CSV processing completed successfully.
+2024-10-15 11:35:16,348 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-15 11:35:16,348 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-15 11:35:16,622 [INFO] 127.0.0.1 - - [15/Oct/2024 11:35:16] "[32mPOST / HTTP/1.1[0m" 302 -
+2024-10-15 11:35:16,655 [INFO] 127.0.0.1 - - [15/Oct/2024 11:35:16] "GET /dashboard/Lacco HTTP/1.1" 200 -
+2024-10-15 11:35:16,990 [INFO] 127.0.0.1 - - [15/Oct/2024 11:35:16] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:35:24,564 [INFO] 127.0.0.1 - - [15/Oct/2024 11:35:24] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:35:24,871 [INFO] 127.0.0.1 - - [15/Oct/2024 11:35:24] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:37:15,137 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:15] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:37:15,158 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:15] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:37:15,390 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:15] "GET /about HTTP/1.1" 200 -
+2024-10-15 11:37:15,656 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:15] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:37:16,523 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:16] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:37:16,547 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:16] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:37:17,411 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:17] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:37:17,712 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:17] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:37:18,542 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:18] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:37:18,565 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:18] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:37:37,742 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:37] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:37:37,758 [INFO] 127.0.0.1 - - [15/Oct/2024 11:37:37] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:38:40,918 [INFO] 127.0.0.1 - - [15/Oct/2024 11:38:40] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:38:40,940 [INFO] 127.0.0.1 - - [15/Oct/2024 11:38:40] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:38:49,283 [INFO] 127.0.0.1 - - [15/Oct/2024 11:38:49] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:38:49,580 [INFO] 127.0.0.1 - - [15/Oct/2024 11:38:49] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:43:37,298 [INFO] 127.0.0.1 - - [15/Oct/2024 11:43:37] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:43:37,318 [INFO] 127.0.0.1 - - [15/Oct/2024 11:43:37] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:44:06,806 [INFO] 127.0.0.1 - - [15/Oct/2024 11:44:06] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:44:07,083 [INFO] 127.0.0.1 - - [15/Oct/2024 11:44:07] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:44:51,724 [INFO] 127.0.0.1 - - [15/Oct/2024 11:44:51] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:44:51,741 [INFO] 127.0.0.1 - - [15/Oct/2024 11:44:51] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:44:52,920 [INFO] 127.0.0.1 - - [15/Oct/2024 11:44:52] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:44:53,225 [INFO] 127.0.0.1 - - [15/Oct/2024 11:44:53] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:48:33,822 [INFO] 127.0.0.1 - - [15/Oct/2024 11:48:33] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:48:33,848 [INFO] 127.0.0.1 - - [15/Oct/2024 11:48:33] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:49:51,670 [INFO] 127.0.0.1 - - [15/Oct/2024 11:49:51] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:49:51,680 [INFO] 127.0.0.1 - - [15/Oct/2024 11:49:51] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:51:00,625 [INFO] 127.0.0.1 - - [15/Oct/2024 11:51:00] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:51:00,648 [INFO] 127.0.0.1 - - [15/Oct/2024 11:51:00] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:52:12,658 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 11:52:12,824 [INFO]  * Restarting with stat
+2024-10-15 11:52:14,309 [WARNING]  * Debugger is active!
+2024-10-15 11:52:14,315 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 11:52:19,475 [INFO] 127.0.0.1 - - [15/Oct/2024 11:52:19] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:52:19,555 [INFO] 127.0.0.1 - - [15/Oct/2024 11:52:19] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:53:03,906 [INFO] 127.0.0.1 - - [15/Oct/2024 11:53:03] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:53:04,173 [INFO] 127.0.0.1 - - [15/Oct/2024 11:53:04] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:53:06,992 [INFO] 127.0.0.1 - - [15/Oct/2024 11:53:06] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 11:53:07,006 [INFO] 127.0.0.1 - - [15/Oct/2024 11:53:07] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 11:53:08,745 [INFO] 127.0.0.1 - - [15/Oct/2024 11:53:08] "GET /dashboard/Lacco HTTP/1.1" 200 -
+2024-10-15 11:53:08,947 [INFO] 127.0.0.1 - - [15/Oct/2024 11:53:08] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -

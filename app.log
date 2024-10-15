@@ -16788,3 +16788,7 @@ UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 59007: ch
 2024-10-15 16:43:53,569 [INFO] 127.0.0.1 - - [15/Oct/2024 16:43:53] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
 2024-10-15 16:44:16,123 [INFO] 127.0.0.1 - - [15/Oct/2024 16:44:16] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
 2024-10-15 16:44:16,427 [INFO] 127.0.0.1 - - [15/Oct/2024 16:44:16] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 16:48:23,968 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 16:48:24,126 [INFO]  * Restarting with stat
+2024-10-15 16:48:25,490 [WARNING]  * Debugger is active!
+2024-10-15 16:48:25,496 [INFO]  * Debugger PIN: 166-676-058

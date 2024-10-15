@@ -284,77 +284,7 @@
             </p>
         </details>
 
-        <!-- Toggle Section: Coins System -->
-        <details>
-            <summary>💰 Coins System</summary>
-            <p>
-                The **Coins System** rewards users with virtual coins as they unlock achievements and medals. These coins can be utilized in various ways to enhance your experience on the platform:
-            </p>
-            <h3>Earning Coins</h3>
-            <ul>
-                <li><strong>Achievements:</strong> Earn 10 coins for each achievement unlocked.</li>
-                <li><strong>Medals:</strong> Earn 5 coins for each medal earned.</li>
-            </ul>
-            <h3>Using Coins</h3>
-            <ul>
-                <li><strong>Unlock Exclusive Features:</strong> Redeem coins to access premium features such as advanced analytics, personalized training plans, and more.</li>
-                <li><strong>Customize Your Profile:</strong> Use coins to personalize your profile with unique themes, badges, and avatars.</li>
-                <li><strong>Participate in Special Events:</strong> Enter exclusive competitions and events that require a certain number of coins to join.</li>
-            </ul>
-            <p>
-                Earn coins effortlessly by achieving your goals and stay motivated to reach new heights!
-            </p>
-        </details>
 
-        <!-- Toggle Section: Achievements -->
-        <details>
-            <summary>🏆 Achievements</summary>
-            <p>
-                **Achievements** are milestones that recognize your dedication and performance. They are automatically unlocked as you meet specific criteria in your logged activities. Each achievement is represented with a unique emoji, making your progress visually appealing.
-            </p>
-            <h3>Core Achievements</h3>
-            <ul>
-                <li><strong>Longest Streak 🔥:</strong> Maintain the longest consecutive days with logged activities. Unlock higher levels as your streak grows.</li>
-                <li><strong>Distance Badges 💯🔱⚜️:</strong> Complete activities covering significant distances:
-                    <ul>
-                        <li>100 km 💯</li>
-                        <li>200 km 🔱</li>
-                        <li>300 km ⚜️</li>
-                    </ul>
-                </li>
-                <li><strong>Duration Badges ⌛⏱️🌇:</strong> Engage in long-duration activities:
-                    <ul>
-                        <li>3 Hours ⌛</li>
-                        <li>6 Hours ⏱️</li>
-                        <li>12 Hours 🌇</li>
-                    </ul>
-                </li>
-                <li><strong>Weekly Badges 💰🧈💎:</strong> Achieve weekly activity goals:
-                    <ul>
-                        <li>5 Hours Week 💰</li>
-                        <li>10 Hours Week 🧈</li>
-                        <li>20 Hours Week 💎</li>
-                    </ul>
-                </li>
-                <li><strong>Consistency Champion 🔁:</strong> Log activities every day for an entire month.</li>
-                <li><strong>Daily kcal Burner 🔥:</strong> Burn over 2,000 kcal in total activities.</li>
-            </ul>
-            <h3>Advanced Achievements</h3>
-            <ul>
-                <li><strong>Everesting Ascent 🏔️:</strong> Complete an activity with an elevation gain equivalent to Mount Everest (~8,848m).</li>
-                <li><strong>2000m Ascent ⬆️:</strong> Log an activity with a total elevation gain of at least 2,000 meters.</li>
-                <li><strong>Half Everesting 🌄:</strong> Achieve an elevation gain of approximately half of Everest's height (~4,424m).</li>
-                <li><strong>2000 km Month 📅:</strong> Cover a total distance of 2,000 kilometers within a single month.</li>
-                <li><strong>10,000 km Year 🌍:</strong> Accumulate a total distance of 10,000 kilometers over the course of a year.</li>
-                <li><strong>100,000 Elevation Year 🧗:</strong> Reach a total elevation gain of 100,000 meters in a year.</li>
-                <li><strong>150,000 Elevation Year 🚀:</strong> Achieve a yearly elevation gain of 150,000 meters.</li>
-                <li><strong>200,000 Elevation Year 🏔️🏔️:</strong> The ultimate achievement for a yearly elevation gain of 200,000 meters.</li>
-                <li><strong>Marathon Master 🇬🇷:</strong> Successfully complete a marathon (42.195 kilometers).</li>
-                <li><strong>Half Marathon Master 👟:</strong> Complete a half marathon (21.0975 kilometers).</li>
-                <li><strong>Climbing King 🧗‍♂️:</strong> Accumulate a total elevation gain of over 1,000 meters.</li>
-                <li><strong>Speedster 🏎️:</strong> Maintain an average speed exceeding 30 km/h in an activity.</li>
-            </ul>
-        </details>
 
         <!-- Toggle Section: Medals -->
         <details>
@@ -385,12 +315,15 @@
 
         <div class="cta-buttons">
             <a href="{{ url_for('submit_achievement') }}" class="cta-submit">Request New Achievement/Medal</a>
-            <a href="{{ url_for('contact') }}" class="cta-info">More Info</a>
         </div>
+        <div class="cta-buttons">
+          <a href="{{ url_for('contact') }}" class="cta-info">More Info</a>
+        </div>
+
     </div>
 
     <footer>
-        &copy; 2024 League of Strava. Curated by Micmer Michele Merelli.
+        &copy; 2024 League of Strava. Curated by <a href='https://linktr.ee/micmer'>Micmer Michele Merelli</a>.
     </footer>
 
     <!-- JavaScript for Navigation -->

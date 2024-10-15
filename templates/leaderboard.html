@@ -295,7 +295,7 @@
                 display: block;
             }
 
-            /* Style for Rank Emoji and Number */
+            /* Style for rank_name Emoji and Number */
             .rank-emoji {
                 font-size: 1.2em;
                 margin-right: 5px;
@@ -456,6 +456,15 @@
             <input type="text" id="search-input" placeholder="Search by username...">
         </div>
 
+        <!-- Timeframe Buttons -->
+        <div class="timeframe-buttons">
+            {% for tf in timeframes %}
+                <button class="timeframe-btn {% if tf == selected_timeframe %}active{% endif %}" data-timeframe="{{ tf }}">
+                    {{ tf.replace('_', ' ').title() }}
+                </button>
+            {% endfor %}
+        </div>
+
         <!-- Category Buttons -->
         <div class="category-buttons">
             <button class="category-btn" data-category="coins">Coins</button>
@@ -466,63 +475,106 @@
             <button class="category-btn" data-category="other-achievements">Other Achievements</button>
         </div>
 
-        <!-- Timeframe Buttons -->
-        <div class="timeframe-buttons">
-            {% for tf in timeframes %}
-                <button class="timeframe-btn {% if tf == selected_timeframe %}active{% endif %}" data-timeframe="{{ tf }}">
-                    {{ tf.replace('_', ' ').title() }}
-                </button>
-            {% endfor %}
-        </div>
-
         <!-- Leaderboard Tables -->
         <div class="leaderboard-tables">
+            <!-- Coins Table -->
+            <div class="leaderboard-table-wrapper" id="coins">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th class="col-rank" data-sort="rank" title="Rank">
+                                🏅
+                                <div class="tooltip-text">Rank</div>
+                            </th>
+                            <th class="col-username" data-sort="username" title="Username">
+                                👤
+                                <div class="tooltip-text">Username</div>
+                            </th>
+                            <th class="col-total-achievements" data-sort="coins_everest" title="Everest Coins">
+                                🏔️
+                                <div class="tooltip-text">Everest Coins</div>
+                            </th>
+                            <th class="col-total-achievements" data-sort="coins_pizza" title="Pizza Coins">
+                                🍕
+                                <div class="tooltip-text">Pizza Coins</div>
+                            </th>
+                            <th class="col-total-achievements" data-sort="coins_heartbeat" title="Heartbeat Coins">
+                                ❤️
+                                <div class="tooltip-text">Heartbeat Coins</div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in coins_users %}
+                            <tr>
+                                <td class="col-rank" data-label="Rank">
+                                    <span class="rank-number">{{ user.rank_name }}</span>
+                                    <span class="rank-emoji">{{ user.rank_emoji }}</span>
+                                </td>
+                                <td class="col-username" data-label="Username">
+                                    <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
+                                </td>
+                                <td class="col-total-achievements" data-label="Everest Coins">
+                                    {{ user.coins_everest }}
+                                </td>
+                                <td class="col-total-achievements" data-label="Pizza Coins">
+                                    {{ user.coins_pizza }}
+                                </td>
+                                <td class="col-total-achievements" data-label="Heartbeat Coins">
+                                    {{ user.coins_heartbeat }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
             <!-- Dynamic Category Tables -->
-            {% for category, achievements_str in categories_info.items() %}
+            {% for category in categories_info.keys() %}
                 <div class="leaderboard-table-wrapper {% if loop.first %}active{% endif %}" id="{{ category | lower | replace(' ', '-') }}">
                     <table class="leaderboard-table">
                         <thead>
                             <tr>
-                                <th data-sort="rank" title="Rank">
+                                <th class="col-rank" data-sort="rank" title="Rank">
                                     🏅
                                     <div class="tooltip-text">Rank</div>
                                 </th>
-                                <th data-sort="username" title="Username">
+                                <th class="col-username" data-sort="username" title="Username">
                                     👤
                                     <div class="tooltip-text">Username</div>
                                 </th>
-                                {% for achievement in achievements_str.split(' | ') %}
-                                    {% set parts = achievement.split(' ', 1) %}
-                                    {% set emoji = parts[0] %}
-                                    {% set name = parts[1] %}
-                                    <th data-sort="{{ name | lower | replace(' ', '_') }}" title="{{ name }}">
-                                        {{ emoji }}
-                                        <div class="tooltip-text">{{ name }}</div>
+                                <!-- New Total Achievements Column -->
+                                <th class="col-total-achievements" data-sort="total_achievements" title="Total Achievements">
+                                    🏆
+                                    <div class="tooltip-text">Total Achievements</div>
+                                </th>
+                                {% for achievement in category_achievements[category] %}
+                                    <th class="col-achievement" data-sort="{{ achievement | lower | replace(' ', '_') }}" title="{{ achievement }}">
+                                        {{ badge_emoji_mapping.get(achievement.lower(), '') }}
+                                        <div class="tooltip-text">{{ achievement }}</div>
                                     </th>
                                 {% endfor %}
-                                <!-- Medals Columns -->
-
                             </tr>
                         </thead>
                         <tbody>
-                            {% for user in users %}
+                            {% for user in category_leaderboards[category] %}
                                 <tr>
-                                    <td data-label="Rank">
-                                        <span class="rank-number">{{ user.rank_name }}</span>
-
-                                        <span class="rank-emoji">{{ user.rank_emoji }}</span>
-                                    </td>
-                                    <td data-label="Username" class="username-cell">
+                                  <td class="col-rank" data-label="Rank">
+                                      <span class="rank-number">{{ user.rank_name }}</span>
+                                      <span class="rank-emoji">{{ user.rank_emoji }}</span>
+                                  </td>
+                                    <td class="col-username" data-label="Username">
                                         <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
                                     </td>
-                                    {% for achievement in categories_info[category].split(' | ') %}
-                                        {% set name = achievement.split(' ', 1)[1] %}
-                                        <td data-label="{{ name }}">
-                                            {{ user.badges_counts.get(name, 0) }}
+                                    <!-- New Total Achievements Data Cell -->
+                                    <td class="col-total-achievements" data-label="Total Achievements">
+                                        🏆 {{ user.total_achievements_count }}
+                                    </td>
+                                    {% for achievement in category_achievements[category] %}
+                                        <td class="col-achievement" data-label="{{ achievement }}">
+                                            {{ user.badges_counts.get(achievement, 0) }}
                                         </td>
                                     {% endfor %}
-                                    <!-- Medals Data -->
-
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -530,110 +582,55 @@
                 </div>
             {% endfor %}
 
-            <!-- Coins Table -->
-            <div class="leaderboard-table-wrapper" id="coins">
-    <table class="leaderboard-table">
-        <thead>
-            <tr>
-                <th data-sort="rank" title="Rank">
-                    🏅
-                    <div class="tooltip-text">Rank</div>
-                </th>
-                <th data-sort="username" title="Username">
-                    👤
-                    <div class="tooltip-text">Username</div>
-                </th>
-                <th data-sort="coins_everest" title="Everest Coins">
-                    🏔️
-                    <div class="tooltip-text">Everest Coins</div>
-                </th>
-                <th data-sort="coins_pizza" title="Pizza Coins">
-                    🍕
-                    <div class="tooltip-text">Pizza Coins</div>
-                </th>
-                <th data-sort="coins_heartbeat" title="Heartbeat Coins">
-                    ❤️
-                    <div class="tooltip-text">Heartbeat Coins</div>
-                </th>
-                <!-- Medals Columns -->
-            </tr>
-        </thead>
-        <tbody>
-          {% for user in users %}
-                <tr>
-                    <td data-label="Rank">
-                        <span class="rank-number">{{ user.rank_name}}</span> <!-- Adjust to fallback to rank if rank_name is missing -->
-
-                        <span class="rank-emoji">{{ user.rank_emoji }}</span> <!-- Ensure the rank emoji is set correctly -->
-                    </td>
-                    <td data-label="Username" class="username-cell">
-                        <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
-                    </td>
-                    <td data-label="Everest Coins">{{ user.coins_everest | int }}</td>
-                    <td data-label="Pizza Coins">{{ user.coins_pizza | int }}</td>
-                    <td data-label="Heartbeat Coins">{{ user.coins_heartbeat | int }}</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
             <!-- Other Achievements Table -->
             <div class="leaderboard-table-wrapper" id="other-achievements">
-              <table class="leaderboard-table">
-  <thead>
-      <tr>
-          <th data-sort="rank" title="Rank">
-              🏅
-              <div class="tooltip-text">Rank</div>
-          </th>
-          <th data-sort="username" title="Username">
-              👤
-              <div class="tooltip-text">Username</div>
-          </th>
-          {% for achievement in sorted_other_achievements %}
-              {% set name = achievement %}
-              <th data-sort="{{ name | lower | replace(' ', '_') }}" title="{{ name }}">
-                  {{ badge_emoji_mapping.get(name, '') }}
-                  <div class="tooltip-text">{{ name }}</div>
-              </th>
-          {% endfor %}
-          <!-- Medals Columns -->
-          {% for medal in all_medals %}
-              <th data-sort="{{ medal | lower | replace(' ', '_') }}" title="{{ medal }}">
-                  {{ badge_emoji_mapping.get(medal, '') }}
-                  <div class="tooltip-text">{{ medal }}</div>
-              </th>
-          {% endfor %}
-      </tr>
-  </thead>
-  <tbody>
-      {% for user in users %}
-          <tr>
-              <td data-label="Rank">
-                  <span class="rank-number">{{ user.rank_name }}</span> <!-- Add fallback in case rank_name is missing -->
-
-                  <span class="rank-emoji">{{ user.rank_emoji }}</span> <!-- Correct rank emoji display -->
-              </td>
-              <td data-label="Username" class="username-cell">
-                  <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
-              </td>
-              {% for achievement in sorted_other_achievements %}
-                  {% set name = achievement %}
-                  <td data-label="{{ name }}">
-                      {{ user.other_achievements.get(name, 0) }}
-                  </td>
-              {% endfor %}
-              <!-- Medals Data -->
-              {% for medal in all_medals %}
-                  <td data-label="{{ medal }}">
-                      {{ user.badges_counts.get(medal, 0) }}
-                  </td>
-              {% endfor %}
-          </tr>
-      {% endfor %}
-  </tbody>
-</table>
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th class="col-rank" data-sort="rank" title="Rank">
+                                🏅
+                                <div class="tooltip-text">Rank</div>
+                            </th>
+                            <th class="col-username" data-sort="username" title="Username">
+                                👤
+                                <div class="tooltip-text">Username</div>
+                            </th>
+                            <!-- New Total Achievements Column -->
+                            <th class="col-total-achievements" data-sort="total_achievements" title="Total Achievements">
+                                🏆
+                                <div class="tooltip-text">Total Achievements</div>
+                            </th>
+                            {% for achievement in sorted_all_other_achievements %}
+                                <th class="col-achievement" data-sort="{{ achievement | lower | replace(' ', '_') }}" title="{{ achievement }}">
+                                    {{ badge_emoji_mapping.get(achievement.lower(), '') }}
+                                    <div class="tooltip-text">{{ achievement }}</div>
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in other_achievements_users %}
+                            <tr>
+                                <td class="col-rank" data-label="Rank">
+                                    <span class="rank-number">{{ user.rank_name }}</span>
+                                    <span class="rank-emoji">{{ user.rank_emoji }}</span>
+                                </td>
+                                <td class="col-username" data-label="Username">
+                                    <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
+                                </td>
+                                <!-- New Total Achievements Data Cell -->
+                                <td class="col-total-achievements" data-label="Total Achievements">
+                                    🏆 {{ user.total_achievements_count }}
+                                </td>
+                                {% for achievement in sorted_all_other_achievements %}
+                                    <td class="col-achievement" data-label="{{ achievement }}">
+                                        {{ user.badges_counts.get(achievement, 0) }}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -850,6 +847,20 @@
                 });
             });
                         // Timeframe Buttons Logic
+
+
+            // Trigger initial sorting on 'Total Achievements' column
+            function initialSort() {
+                const activeTable = document.getElementById(currentCategory);
+                const totalAchievementsHeader = activeTable.querySelector('th[data-sort="total_achievements"]');
+                if (totalAchievementsHeader) {
+                    // Simulate a click on the header to sort the table
+                    totalAchievementsHeader.click();
+                }
+            }
+
+            initialSort();
+
             const timeframeButtons = document.querySelectorAll('.timeframe-btn');
 
             timeframeButtons.forEach(button => {

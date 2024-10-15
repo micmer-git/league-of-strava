@@ -1781,6 +1781,87 @@ def search():
         flash('User not found. Please ensure the link is correct or upload the user\'s activities.', 'danger')
         return redirect(url_for('index'))
 
+badge_emoji_mapping = {
+        # -------------------- Distance Run Badges --------------------
+    '10k run': '💲',
+    '21k run': '💰',
+    '50k run/week': '🧈',
+    '42k run': '💎',
+    '100k run/week': '👑',
+
+    # -------------------- Distance Ride Badges --------------------
+    '100k ride': '💲',
+    '150k ride': '💰',
+    '200k ride': '🧈',
+    '300k ride/week': '💎',
+    '600k ride/week': '👑',
+
+    # -------------------- Elevation Badges --------------------
+    '1000m elevation': '💲',
+    '2000m elevation': '💰',
+    'half everest': '🧈',
+    'Everest/Week': '💎',
+    '25k elevation/month': '👑',
+
+    # -------------------- KCal Badges --------------------
+    '1000kcal activity': '💲',
+    '2000kcal activity': '💰',
+    '4000kcal activity': '🧈',
+    '12000kcal week': '💰',
+    '24000kcal week': '👑',
+
+    # -------------------- Other Achievements --------------------
+    'everesting ascent': '💎',
+    '2000m ascent': '🧈',
+    'half everesting': '💰',
+    '2000 km month': '💰',
+    '10,000 km year': '🧈',
+    '100,000 elevation year': '💎',
+    '150,000 elevation year': '👑',
+    '200,000 elevation year': '👑',
+    # Achievements
+    'Run 10 km': '💲',
+    'Run 21 km': '💰',
+    'Run 42 km': '🧈',
+    'Run 50 km/week': '💎',
+    'Run 100 km/week': '👑',
+    'Ride 100 km': '💲',
+    'Ride 150 km': '💰',
+    'Ride 200 km': '🧈',
+    'Ride 300 km/week': '💎',
+    'Ride 600 km/week': '👑',
+    '1000m Elevation': '💲',
+    '2000m Elevation': '💰',
+    'Half Everest': '🧈',
+    '25k Elevation/Month': '💎',
+    '1000kCal Activity': '💲',
+    '2000kCal Activity': '💰',
+    '4000kCal Activity': '🧈',
+    '12000kCal Week': '💰',
+    '24000kCal Week': '👑',
+    # Medals
+    'New Year Run': '🎉',
+    'Christmas Run': '🎄',
+    "Valentine's Day": '❤️',
+    'Easter': '🐣',
+    'Halloween': '🎃',
+    'Thanksgiving': '🦃',
+    'Diwali': '🪔',
+    'Hanukkah': '🕎',
+    'Chinese New Year': '🐉',
+    "International Workers' Day": '✊',
+    '20 km Challenge': '🏅',
+    'Steep Climber': '🧗‍♀️',
+    'Coppa Coppi Protector': '🥩',
+    # Master Prestige Levels
+    'Master Prestige 2': '⭐',
+    'Master Prestige 3': '⭐',
+    'Master Prestige 4': '⭐',
+    'Master Prestige 100': '⭐',
+    # Add more mappings as needed
+}
+
+
 
 @app.route('/leaderboard')
 def leaderboard():
@@ -1788,209 +1869,121 @@ def leaderboard():
     categories_info = {
         'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
         'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 25k Elevation/Month',
-        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💎 12000kCal Week | 👑 24000kCal Week '
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 50k Elevation/Month',
+        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💎 12000kCal Week | 👑 24000kCal Week'
     }
-    # Retrieve all users from the database
-    users = User.query.all()
 
-    # Collect all unique achievements and medals
+    # Define timeframes
     timeframes = ['all_time', 'last_7_days', 'last_14_days', 'last_30_days', 'ytd', 'last_365_days']
-
-    # Get the selected timeframe from query parameters, default to 'all_time'
     timeframe = request.args.get('timeframe', 'all_time')
     if timeframe not in timeframes:
-        timeframe = 'all_time'  # Fallback to 'all_time' if invalid timeframe is provided
+        timeframe = 'all_time'
 
     # Retrieve all users from the database
     users = User.query.all()
 
-    # Collect achievements and medals for the selected timeframe
-    all_achievements = set()
-    all_medals = set()
-    for user in users:
-        if user.achievements and timeframe in user.achievements:
-            tf_achievements = user.achievements[timeframe]
-            for category in tf_achievements.get('categories', []):
-                for badge in category.get('achievements', []):
-                    all_achievements.add(badge['name'])
-            for other in tf_achievements.get('other_achievements', []):
-                all_achievements.add(other['name'])
-            for medal in tf_achievements.get('Medals', []):
-                all_medals.add(medal['name'])
+    # Prepare per-category user data
+    category_leaderboards = {}  # Key: category, Value: list of user data for that category
+    category_achievements = {}  # Mapping category to its achievements list
 
-    # Sort achievements and medals
-    sorted_all_achievements = sorted(all_achievements)
-    sorted_all_medals = sorted(all_medals)
+    for category, achievements_str in categories_info.items():
+        achievements_list = [ach.split(' ', 1)[1] for ach in achievements_str.split(' | ')]
+        category_achievements[category] = achievements_list
 
-    # Prepare leaderboard data
-    leaderboard_data = []
+        users_data = []
+        for user in users:
+            badges_counts = {}
+            total_achievements_count = 0
+
+            if user.achievements and timeframe in user.achievements:
+                tf_achievements = user.achievements[timeframe]
+                # Find the category in user's achievements
+                user_categories = tf_achievements.get('categories', [])
+                user_category_data = None
+                for cat in user_categories:
+                    if cat['name'] == category:
+                        user_category_data = cat
+                        break
+                if user_category_data:
+                    # Sum up achievements in this category
+                    for badge in user_category_data.get('achievements', []):
+                        count = badge.get('count', 0)
+                        badges_counts[badge['name']] = count
+                        total_achievements_count += count
+
+            users_data.append({
+                'rank': 0,  # Placeholder, will set later
+                'username': user.username,
+                'rank_name': user.rank_name,
+                'rank_emoji': user.rank_emoji,
+                'badges_counts': badges_counts,
+                'total_achievements_count': total_achievements_count,
+                'total_hours': user.total_hours,
+            })
+
+        # Sort users_data by total_achievements_count descending
+        sorted_users_data = sorted(users_data, key=lambda x: -x['total_achievements_count'])
+        # Assign ranks
+        for idx, user_data in enumerate(sorted_users_data, start=1):
+            user_data['rank'] = idx
+        # Store in category_leaderboards
+        category_leaderboards[category] = sorted_users_data
+
+    # Process 'Other Achievements' similarly
+    other_achievements_users = []
+    all_other_achievements = set()
     for user in users:
         badges_counts = {}
-
+        total_achievements_count = 0
         if user.achievements and timeframe in user.achievements:
             tf_achievements = user.achievements[timeframe]
-            # Process categories
-            for category in tf_achievements.get('categories', []):
-                for badge in category.get('achievements', []):
-                    badges_counts[badge['name']] = badge.get('count', 0)
             # Process other achievements
             for other in tf_achievements.get('other_achievements', []):
-                badges_counts[other['name']] = other.get('count', 0)
-            # Process medals
-            for medal in tf_achievements.get('Medals', []):
-                badges_counts[medal['name']] = medal.get('count', 0)
-
-        leaderboard_data.append({
-            'rank': 0,  # Placeholder, will set later
+                count = other.get('count', 0)
+                badges_counts[other['name']] = count
+                total_achievements_count += count
+                all_other_achievements.add(other['name'])
+        other_achievements_users.append({
+            'rank': 0,
             'username': user.username,
+            'rank_name': user.rank_name,
+            'rank_emoji': user.rank_emoji,
+            'badges_counts': badges_counts,
+            'total_achievements_count': total_achievements_count,
             'total_hours': user.total_hours,
+        })
+    # Sort and assign ranks
+    sorted_other_achievements_users = sorted(other_achievements_users, key=lambda x: -x['total_achievements_count'])
+    for idx, user_data in enumerate(sorted_other_achievements_users, start=1):
+        user_data['rank'] = idx
+    sorted_all_other_achievements = sorted(all_other_achievements)
+
+    # Prepare data for Coins (if needed)
+    coins_users = []
+    for user in users:
+        coins_users.append({
+            'rank': 0,  # Placeholder, will set later if you sort them
+            'username': user.username,
             'rank_name': user.rank_name,
             'rank_emoji': user.rank_emoji,
             'coins_everest': user.coins_everest,
             'coins_pizza': user.coins_pizza,
             'coins_heartbeat': user.coins_heartbeat,
-            'badges_counts': badges_counts
+            'total_coins': user.coins_everest + user.coins_pizza + user.coins_heartbeat  # Example total coins
         })
-    # Sort the users based on rank and total_hours
-    rank_order = {rank['name']: index for index, rank in enumerate(rank_config)}
-    sorted_users = sorted(
-        leaderboard_data,
-        key=lambda x: (
-            rank_order.get(x['rank_name'], len(rank_order)),
-            -x['total_hours']
-        )
-    )
-
-    # Assign ranks
-    for idx, user_data in enumerate(sorted_users, start=1):
-        user_data['rank'] = idx
-
-    # Define badge emoji mapping
-    badge_emoji_mapping = {
-            # -------------------- Distance Run Badges --------------------
-        '10k run': '💲',
-        '21k run': '💰',
-        '50k run/week': '🧈',
-        '42k run': '💎',
-        '100k run/week': '👑',
-
-        # -------------------- Distance Ride Badges --------------------
-        '100k ride': '💲',
-        '150k ride': '💰',
-        '200k ride': '🧈',
-        '300k ride/week': '💎',
-        '600k ride/week': '👑',
-
-        # -------------------- Elevation Badges --------------------
-        '1000m elevation': '💲',
-        '2000m elevation': '💰',
-        'half everest': '🧈',
-        'Everest/Week': '💎',
-        '25k elevation/month': '👑',
-
-        # -------------------- KCal Badges --------------------
-        '1000kcal activity': '💲',
-        '2000kcal activity': '💰',
-        '4000kcal activity': '🧈',
-        '12000kcal week': '💰',
-        '24000kcal week': '👑',
-
-        # -------------------- Other Achievements --------------------
-        'everesting ascent': '💎',
-        '2000m ascent': '🧈',
-        'half everesting': '💰',
-        '2000 km month': '💰',
-        '10,000 km year': '🧈',
-        '100,000 elevation year': '💎',
-        '150,000 elevation year': '👑',
-        '200,000 elevation year': '👑',
-        # Achievements
-        'Run 10 km': '💲',
-        'Run 21 km': '💰',
-        'Run 42 km': '🧈',
-        'Run 50 km/week': '💎',
-        'Run 100 km/week': '👑',
-        'Ride 100 km': '💲',
-        'Ride 150 km': '💰',
-        'Ride 200 km': '🧈',
-        'Ride 300 km/week': '💎',
-        'Ride 600 km/week': '👑',
-        '1000m Elevation': '💲',
-        '2000m Elevation': '💰',
-        'Half Everest': '🧈',
-        '25k Elevation/Month': '💎',
-        '1000kCal Activity': '💲',
-        '2000kCal Activity': '💰',
-        '4000kCal Activity': '🧈',
-        '12000kCal Week': '💰',
-        '24000kCal Week': '👑',
-        # Medals
-        'New Year Run': '🎉',
-        'Christmas Run': '🎄',
-        "Valentine's Day": '❤️',
-        'Easter': '🐣',
-        'Halloween': '🎃',
-        'Thanksgiving': '🦃',
-        'Diwali': '🪔',
-        'Hanukkah': '🕎',
-        'Chinese New Year': '🐉',
-        "International Workers' Day": '✊',
-        '20 km Challenge': '🏅',
-        'Steep Climber': '🧗‍♀️',
-        'Coppa Coppi Protector': '🥩',
-        # Master Prestige Levels
-        'Master Prestige 2': '⭐',
-        'Master Prestige 3': '⭐',
-        'Master Prestige 4': '⭐',
-        'Master Prestige 100': '⭐',
-        # Add more mappings as needed
-    }
-
-    # Prepare data for Coins
-    coins_users = []
-    for user in sorted_users:
-        coins_users.append({
-            'rank': user['rank'],
-            'username': user['username'],
-            'coins_everest': user['coins_everest'],
-            'coins_pizza': user['coins_pizza'],
-            'coins_heartbeat': user['coins_heartbeat'],
-            'badges_counts': user['badges_counts']  # Added badges_counts
-        })
-
-    # Prepare data for Other Achievements (if any)
-    # Assuming 'Other Achievements' are achievements not in categories_info
-    other_achievements_users = []
-    other_achievements = all_achievements.copy()
-    # Remove achievements that are part of categories_info
-    for category, achievements_str in categories_info.items():
-        achievements_list = [ach.split(' ', 1)[1] for ach in achievements_str.split(' | ')]
-        other_achievements -= set(achievements_list)
-    # Sort the remaining achievements
-    sorted_other_achievements = sorted(other_achievements)
-
-    for user in sorted_users:
-        other_achievements_counts = {}
-        for ach in sorted_other_achievements:
-            other_achievements_counts[ach] = user['badges_counts'].get(ach, 0)
-        other_achievements_users.append({
-            'rank': user['rank'],
-            'username': user['username'],
-            'other_achievements': other_achievements_counts,
-            'badges_counts': user['badges_counts']  # Added badges_counts
-        })
+    # Optionally sort coins_users if you want
 
 
-    # Pass the timeframes and selected timeframe to the template
+
     return render_template(
         'leaderboard.html',
         categories_info=categories_info,
-        users=sorted_users,
-        all_medals=sorted_all_medals,
+        category_achievements=category_achievements,
+        category_leaderboards=category_leaderboards,
+        other_achievements_users=sorted_other_achievements_users,
+        sorted_all_other_achievements=sorted_all_other_achievements,
         badge_emoji_mapping=badge_emoji_mapping,
         coins_users=coins_users,
-        other_achievements_users=other_achievements_users,
         timeframes=timeframes,
         selected_timeframe=timeframe
     )

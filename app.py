@@ -659,7 +659,7 @@ def calculate_achievements(df):
     categories_info = {
         'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
         'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month, 👑 25k Elevation/Month',
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 25k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
     }
     # Initialize categories dictionary
@@ -1325,8 +1325,8 @@ def calculate_achievements(df):
     categories_info = {
         'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
         'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month, 👑 25k Elevation/Month',
-        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 25k Elevation/Month',
+        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💎 12000kCal Week | 👑 24000kCal Week '
     }
     # Initialize categories dictionary
     for category, intro in categories_info.items():
@@ -2382,7 +2382,7 @@ def leaderboard():
     categories_info = {
         'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
         'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month, 👑 25k Elevation/Month',
+        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 25k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
     }
     # Retrieve all users from the database

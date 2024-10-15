@@ -691,10 +691,10 @@ def calculate_achievements(df):
 
     # Define categories information
     categories_info = {
-        'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
-        'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/Week | 👑 600k Ride/Week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 25k Elevation/Month',
-        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💎 12000kCal Week | 👑 24000kCal Week'
+        'Distance Run': '💲 10k | 21k | 42k | 50km/Week | 100km/Week',
+        'Distance Ride': '💲 100km |  150km |  200km | 300km/Week | 600k Ride/Week',
+        'Elevation': '💲 1000m | 2000m | Half Everest | 25k/Month | 25k/Month',
+        'KCal': '💲 1000kCal |  2000kCal  | 4000kCal | 12000kCal/Week | 24000kCal/Week'
     }
 
     # Define special occasions for Medals
@@ -1052,7 +1052,6 @@ def calculate_achievements(df):
 
     # Convert all NumPy types to native Python types if necessary
     achievements = convert_to_native(achievements)
-    print(achievements)
     return achievements
 
 def calculate_coins(df):
@@ -1780,7 +1779,7 @@ def leaderboard():
         'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
         'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
         'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 25k Elevation/Month',
-        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💰 12000kCal Week | 👑 24000kCal Week '
+        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💎 12000kCal Week | 👑 24000kCal Week '
     }
     # Retrieve all users from the database
     users = User.query.all()
@@ -1807,8 +1806,6 @@ def leaderboard():
     leaderboard_data = []
     for user in users:
         badges_counts = {}
-        print(f"Processing user: {user.username}")  # Debugging
-        print(f"Achievements: {user.achievements}")  # Debugging
 
         if user.achievements:
             for category, badges in user.achievements.items():
@@ -1821,7 +1818,6 @@ def leaderboard():
                         else:
                             badges_counts[badge['name']] = badge.get('count', 0)
 
-        print(f"Badges Counts: {badges_counts}")  # Debugging
 
         leaderboard_data.append({
             'rank': 0,  # Placeholder, will set later

@@ -833,8 +833,8 @@ def calculate_achievements(df):
                     break
 
         # ========== Elevation Badges ==========
-        elevation_thresholds = [1000, 2000, 4424, 25000]  # in meters (Half Everest ~4424m, 25k/month)
-        elevation_emojis = ['💲', '💰', '🧈', '💎','👑']  # Distinct emojis for Elevation
+        elevation_thresholds = [1000, 2000, 4424, 10000, 25000]  # in meters (Half Everest ~4424m, 25k/month)
+        elevation_emojis = ['💲', '💰', '🧈', '👑','💎']  # Distinct emojis for Elevation
 
         for idx, threshold in enumerate(elevation_thresholds):
             if idx < len(elevation_emojis):
@@ -848,6 +848,10 @@ def calculate_achievements(df):
             elif threshold == 25000:
                 name = '25k Elevation/Month'
                 description = 'Achieved a total of 25,000 meters elevation gain in a month'
+
+            elif threshold == 10000:
+                name = '10k Elevation/Week'
+                description = 'Achieved a total of 10,000 meters elevation gain in a week'
             else:
                 name = f'{threshold}m Elevation'
                 description = f'Completed activities with elevation gain of at least {threshold} meters'
@@ -856,6 +860,12 @@ def calculate_achievements(df):
                 # Monthly elevation threshold
                 df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
                 monthly_elevation = df_sorted.groupby('Month')['Elevation_Gain'].sum()
+                count = int((monthly_elevation >= threshold).sum())
+
+            elif threshold == 10000:
+                # Monthly elevation threshold
+                df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('"M"')
+                monthly_elevation = df_sorted.groupby('Week')['Elevation_Gain'].sum()
                 count = int((monthly_elevation >= threshold).sum())
             else:
                 # Per activity elevation threshold
@@ -1785,20 +1795,31 @@ def leaderboard():
     users = User.query.all()
 
     # Collect all unique achievements and medals
+    timeframes = ['all_time', 'last_7_days', 'last_14_days', 'last_30_days', 'ytd', 'last_365_days']
+
+    # Get the selected timeframe from query parameters, default to 'all_time'
+    timeframe = request.args.get('timeframe', 'all_time')
+    if timeframe not in timeframes:
+        timeframe = 'all_time'  # Fallback to 'all_time' if invalid timeframe is provided
+
+    # Retrieve all users from the database
+    users = User.query.all()
+
+    # Collect achievements and medals for the selected timeframe
     all_achievements = set()
     all_medals = set()
     for user in users:
-        if user.achievements:
-            for category, badges in user.achievements.items():
-                for badge in badges:
-                    if 'name' in badge:
-                        if category.lower() == 'achievements':
-                            all_achievements.add(badge['name'])
-                        elif category.lower() == 'medals':
-                            all_medals.add(badge['name'])
+        if user.achievements and timeframe in user.achievements:
+            tf_achievements = user.achievements[timeframe]
+            for category in tf_achievements.get('categories', []):
+                for badge in category.get('achievements', []):
+                    all_achievements.add(badge['name'])
+            for other in tf_achievements.get('other_achievements', []):
+                all_achievements.add(other['name'])
+            for medal in tf_achievements.get('Medals', []):
+                all_medals.add(medal['name'])
 
-
-    # Sort them for consistent display
+    # Sort achievements and medals
     sorted_all_achievements = sorted(all_achievements)
     sorted_all_medals = sorted(all_medals)
 
@@ -1807,31 +1828,18 @@ def leaderboard():
     for user in users:
         badges_counts = {}
 
-        if user.achievements:
-            for category, badges in user.achievements.items():
-                for badge in badges:
-                    if 'name' in badge:
-                        if 'achievements' in badge.keys():
-                            for achievements_badge in badge['achievements']:
-                                badges_counts[achievements_badge['name']] = achievements_badge.get('count', 0)
-                                # Removed redundant inner loop
-                        else:
-                            badges_counts[badge['name']] = badge.get('count', 0)
-
-
-        leaderboard_data.append({
-            'rank': 0,  # Placeholder, will set later
-            'username': user.username,
-            'total_hours': user.total_hours,
-            'rank_name': user.rank_name,
-            'rank_emoji': user.rank_emoji,
-            'coins_everest': user.coins_everest,
-            'coins_pizza': user.coins_pizza,
-            'coins_heartbeat': user.coins_heartbeat,
-            'badges_counts': badges_counts
-        })
-
-        # print(badges_counts) in theory it is loaded but not shown?
+        if user.achievements and timeframe in user.achievements:
+            tf_achievements = user.achievements[timeframe]
+            # Process categories
+            for category in tf_achievements.get('categories', []):
+                for badge in category.get('achievements', []):
+                    badges_counts[badge['name']] = badge.get('count', 0)
+            # Process other achievements
+            for other in tf_achievements.get('other_achievements', []):
+                badges_counts[other['name']] = other.get('count', 0)
+            # Process medals
+            for medal in tf_achievements.get('Medals', []):
+                badges_counts[medal['name']] = medal.get('count', 0)
 
         leaderboard_data.append({
             'rank': 0,  # Placeholder, will set later
@@ -1844,7 +1852,6 @@ def leaderboard():
             'coins_heartbeat': user.coins_heartbeat,
             'badges_counts': badges_counts
         })
-
     # Sort the users based on rank and total_hours
     rank_order = {rank['name']: index for index, rank in enumerate(rank_config)}
     sorted_users = sorted(
@@ -1975,15 +1982,18 @@ def leaderboard():
         })
 
 
-    return render_template('leaderboard.html',
-                           categories_info=categories_info,
-                           users=sorted_users,
-                           all_medals=sorted_all_medals,
-                           badge_emoji_mapping=badge_emoji_mapping,
-                           coins_users=coins_users,
-                           other_achievements_users=other_achievements_users)
-
-
+    # Pass the timeframes and selected timeframe to the template
+    return render_template(
+        'leaderboard.html',
+        categories_info=categories_info,
+        users=sorted_users,
+        all_medals=sorted_all_medals,
+        badge_emoji_mapping=badge_emoji_mapping,
+        coins_users=coins_users,
+        other_achievements_users=other_achievements_users,
+        timeframes=timeframes,
+        selected_timeframe=timeframe
+    )
 
 
 # Run the app

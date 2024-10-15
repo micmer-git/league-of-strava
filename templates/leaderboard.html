@@ -72,6 +72,34 @@
                 background-color: #fff;
                 transition: all 0.3s ease;
             }
+            .timeframe-buttons {
+                  display: flex;
+                  justify-content: center;
+                  margin-bottom: 20px;
+                  gap: 10px;
+                  flex-wrap: wrap;
+              }
+
+              .timeframe-btn {
+                  background-color: #fff;
+                  border: 2px solid #007bff;
+                  color: #007bff;
+                  padding: 8px 16px;
+                  border-radius: 25px;
+                  cursor: pointer;
+                  font-weight: 600;
+                  transition: background-color 0.3s, color 0.3s;
+              }
+
+              .timeframe-btn:hover {
+                  background-color: #007bff;
+                  color: #fff;
+              }
+
+              .timeframe-btn.active {
+                  background-color: #007bff;
+                  color: #fff;
+              }
 
             /* Mobile Navigation */
             .mobile-nav {
@@ -436,6 +464,15 @@
                 <button class="category-btn {% if loop.first %}active{% endif %}" data-category="{{ category | lower | replace(' ', '-') }}">{{ category }}</button>
             {% endfor %}
             <button class="category-btn" data-category="other-achievements">Other Achievements</button>
+        </div>
+
+        <!-- Timeframe Buttons -->
+        <div class="timeframe-buttons">
+            {% for tf in timeframes %}
+                <button class="timeframe-btn {% if tf == selected_timeframe %}active{% endif %}" data-timeframe="{{ tf }}">
+                    {{ tf.replace('_', ' ').title() }}
+                </button>
+            {% endfor %}
         </div>
 
         <!-- Leaderboard Tables -->
@@ -812,7 +849,19 @@
                     paginateTable(this.getAttribute('data-category'));
                 });
             });
-        });
+                        // Timeframe Buttons Logic
+            const timeframeButtons = document.querySelectorAll('.timeframe-btn');
+
+            timeframeButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const selectedTimeframe = this.getAttribute('data-timeframe');
+                    // Redirect to the same page with the selected timeframe
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('timeframe', selectedTimeframe);
+                    window.location.href = url.toString();
+                });
+          });
+      });
     </script>
 </body>
 </html>

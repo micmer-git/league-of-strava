@@ -3402,3 +3402,71 @@ AttributeError: module 'pandas' has no attribute 'integer'
 2024-10-15 13:35:36,844 [INFO] 127.0.0.1 - - [15/Oct/2024 13:35:36] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
 2024-10-15 13:37:06,431 [INFO] 127.0.0.1 - - [15/Oct/2024 13:37:06] "GET /leaderboard HTTP/1.1" 200 -
 2024-10-15 13:37:06,449 [INFO] 127.0.0.1 - - [15/Oct/2024 13:37:06] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:38:52,629 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:38:52,779 [INFO]  * Restarting with stat
+2024-10-15 13:38:54,130 [WARNING]  * Debugger is active!
+2024-10-15 13:38:54,136 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 13:40:01,296 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:40:01,442 [INFO]  * Restarting with stat
+2024-10-15 13:40:02,810 [WARNING]  * Debugger is active!
+2024-10-15 13:40:02,814 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 13:41:35,671 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:35] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-15 13:41:35,750 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:35] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:37,195 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:37] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
+2024-10-15 13:41:37,504 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:37] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:38,643 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:38] "GET /leaderboard?timeframe=last_14_days HTTP/1.1" 200 -
+2024-10-15 13:41:38,661 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:38] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:38,915 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:38] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
+2024-10-15 13:41:39,220 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:39] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:40,604 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:40] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
+2024-10-15 13:41:40,619 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:40] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:41,794 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:41] "GET /leaderboard?timeframe=ytd HTTP/1.1" 200 -
+2024-10-15 13:41:42,106 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:42] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:45,088 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:45] "GET /leaderboard?timeframe=last_365_days HTTP/1.1" 200 -
+2024-10-15 13:41:45,108 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:45] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:46,307 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:46] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
+2024-10-15 13:41:46,612 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:46] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:47,956 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:47] "GET /leaderboard?timeframe=last_14_days HTTP/1.1" 200 -
+2024-10-15 13:41:47,974 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:47] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:53,691 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:53] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
+2024-10-15 13:41:54,001 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:54] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:41:59,988 [INFO] 127.0.0.1 - - [15/Oct/2024 13:41:59] "GET /leaderboard?timeframe=last_365_days HTTP/1.1" 200 -
+2024-10-15 13:42:00,005 [INFO] 127.0.0.1 - - [15/Oct/2024 13:42:00] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:43:11,689 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:11] "GET /leaderboard?timeframe=last_14_days HTTP/1.1" 200 -
+2024-10-15 13:43:11,711 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:11] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:43:21,410 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:21] "GET /leaderboard?timeframe=last_30_days HTTP/1.1" 200 -
+2024-10-15 13:43:21,717 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:21] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:43:23,881 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:23] "GET /leaderboard?timeframe=ytd HTTP/1.1" 200 -
+2024-10-15 13:43:23,899 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:23] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:43:31,451 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:31] "GET /leaderboard?timeframe=all_time HTTP/1.1" 200 -
+2024-10-15 13:43:31,759 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:31] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:43:38,119 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:38] "GET /leaderboard?timeframe=last_14_days HTTP/1.1" 200 -
+2024-10-15 13:43:38,134 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:38] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:43:52,109 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:52] "GET /dashboard/Lacco HTTP/1.1" 200 -
+2024-10-15 13:43:52,342 [INFO] 127.0.0.1 - - [15/Oct/2024 13:43:52] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:44:04,006 [INFO] 127.0.0.1 - - [15/Oct/2024 13:44:04] "GET /dashboard/TEs HTTP/1.1" 200 -
+2024-10-15 13:44:04,030 [INFO] 127.0.0.1 - - [15/Oct/2024 13:44:04] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-15 13:44:56,424 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:44:56,580 [INFO]  * Restarting with stat
+2024-10-15 13:44:58,010 [WARNING]  * Debugger is active!
+2024-10-15 13:44:58,016 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 13:45:03,566 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:45:03,710 [INFO]  * Restarting with stat
+2024-10-15 13:45:05,110 [WARNING]  * Debugger is active!
+2024-10-15 13:45:05,116 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 13:45:06,350 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:45:06,512 [INFO]  * Restarting with stat
+2024-10-15 13:45:07,957 [WARNING]  * Debugger is active!
+2024-10-15 13:45:07,964 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 13:45:09,213 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:45:09,373 [INFO]  * Restarting with stat
+2024-10-15 13:45:10,795 [WARNING]  * Debugger is active!
+2024-10-15 13:45:10,801 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 13:45:33,746 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:45:33,891 [INFO]  * Restarting with stat
+2024-10-15 13:45:35,291 [WARNING]  * Debugger is active!
+2024-10-15 13:45:35,297 [INFO]  * Debugger PIN: 166-676-058
+2024-10-15 13:45:37,611 [INFO]  * Detected change in 'C:\\Users\\Alessandro Merelli\\Documents\\GitHub\\Sites\\league-of-strava\\app.py', reloading
+2024-10-15 13:45:37,772 [INFO]  * Restarting with stat
+2024-10-15 13:45:39,178 [WARNING]  * Debugger is active!
+2024-10-15 13:45:39,184 [INFO]  * Debugger PIN: 166-676-058

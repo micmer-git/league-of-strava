@@ -50,7 +50,6 @@ def process_backup_csv_files():
                     logging.error(f"Error processing {csv_file}: {error}")
                     continue
 
-
                 achievements = calculate_achievements(df)
                 coins = calculate_coins(df)
                 stats = calculate_stats(df)
@@ -58,7 +57,8 @@ def process_backup_csv_files():
                 user_rank = get_user_rank(total_hours)
                 max_metrics = calculate_max_metrics(df)
 
-                user = User.query.filter_by(strava_link=strava_link).first()
+                # Check if user exists by username
+                user = User.query.filter_by(username=username).first()
                 if user:
                     # Update existing user
                     user.username = username
@@ -110,14 +110,18 @@ def process_backup_csv_files():
                     )
                     db.session.add(user)
 
+                # Commit the session
                 db.session.commit()
                 logging.info(f"Processed user data for {username}")
                 print(f"Successfully processed {csv_file}")
                 break  # Break the encoding loop if successful
 
             except Exception as e:
+                # Rollback the session to reset the state
+                db.session.rollback()
                 logging.exception(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
                 print(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
+                continue  # Proceed to the next encoding
 
         else:
             # If we've tried all encodings and none worked

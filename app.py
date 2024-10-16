@@ -278,9 +278,7 @@ class Activity(db.Model):
     # New Field to Store Additional Data
     additional_data = db.Column(db.JSON, nullable=True)
 
-# Initialize the database
-with app.app_context():
-    db.create_all()
+
 
 def convert_to_native(data):
     """

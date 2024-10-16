@@ -71,6 +71,21 @@
         </div>
       </div>
     </div>
+
+    <div class="user-container">
+      <div class="user-info">
+        <div class="coins-container">
+          <span class="coins">{{ user.coins }}</span>
+          <img src="coin-icon.png" alt="Coins" class="coin-icon">
+        </div>
+        <h3>{{ user.name }}</h3>
+        <div class="progress-bar">
+          <div class="progress" :style="{ width: user.progress + '%' }"></div>
+        </div>
+      </div>
+      <img :src="user.image" :alt="user.name" class="user-image">
+    </div>
+
   </div>
 
 

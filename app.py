@@ -1819,6 +1819,13 @@ def dashboard_search():
 
     return redirect(url_for('index'))
 
+image_assignments = {
+    'lacco': '/static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg',
+    'mago': '/static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg',
+    'liuk': 'static\cards\Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg',
+    # Add more users as needed
+}
+
 @app.route('/dashboard/<username>')
 def dashboard(username):
     user = User.query.filter_by(username=username).first()
@@ -1850,7 +1857,7 @@ def dashboard(username):
         })
 
     # Sort activities by date descending
-    activities_list_sorted = sorted(activities_list, key=lambda x: x['date'], reverse=True)
+    activities_list_sorted = sorted(activities_list, key=lambda x: datetime.strptime(x['date'], '%b %d, %Y'), reverse=True)
     activities_display = activities_list_sorted[:10]
     remaining_activities = activities_list_sorted[10:]
 
@@ -1880,7 +1887,9 @@ def dashboard(username):
             race_info['race_name'] = race['name']
             matched_races.append(race_info)
 
-
+    # Determine the user's image URL
+    default_image_url = 'static\cards\Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg'  # Replace with your default image URL
+    user_image_url = image_assignments.get(user.username, default_image_url)
 
     # Prepare user data
     user_data = {
@@ -1910,8 +1919,8 @@ def dashboard(username):
         },
         'activities': activities_display,
         'remaining_activities': remaining_activities,  # Add this line
-        'matched_races': matched_races  # Add matched races
-
+        'matched_races': matched_races,  # Add matched races
+        'image_url': user_image_url  # Add image_url to user_data
     }
 
     # Fetch rank information

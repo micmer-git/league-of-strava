@@ -4,3 +4,4 @@ instance/
 app.log
 app.log
 instance/users.db
+instance/users.db

@@ -140,9 +140,90 @@
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .overview-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 20px;
+        }
+
+        .user-info {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            justify-content: space-between;
+        }
+
+        .coin-metrics-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .user-image-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            max-height: 400px; /* Adjust this value as needed */
+        }
+
+        #athlete-name {
+            margin: 0;
+            font-size: 2em;
+            color: #ff6600;
+        }
+
+        #current-rank {
+            margin: 5px 0 15px;
+            font-size: 1.5em;
+            color: #333;
+        }
+
+        .rank-progress {
+            width: 100%;
+            background-color: #e9ecef;
+            border-radius: 20px;
+            height: 20px;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            background-color: #28a745;
+            height: 100%;
+            border-radius: 20px 0 0 20px;
+            transition: width 0.3s ease-in-out;
+        }
+
+        .rank-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .overview-content {
+                flex-direction: column;
+            }
+
+            .user-image-container {
+                order: -1; /* Move image to the top on mobile */
+            }
+
+            .user-image {
+                max-height: 300px; /* Adjust for mobile */
+            }
         }
 
         /* **Integrated Coins Styling Start** */
@@ -773,6 +854,38 @@
                 font-size: 0.9em;
             }
         }
+                .athlete-info {
+            display: flex;
+            align-items: center;
+            gap: 15px; /* Space between name and image */
+        }
+
+        /* User Image Styling */
+        /* Updated User Image Styling */
+        .user-image {
+            width: 300px; /* Increased size */
+            height: 300px;
+            object-fit: cover; /* Ensures the image covers the container without distortion */
+            transition: transform 0.3s ease; /* Smooth transition for zoom effect */
+            /* Optional: Add a subtle zoom on hover */
+        }
+
+        .user-image:hover {
+            transform: scale(1.05); /* Slightly zooms in the image on hover */
+        }
+
+        /* Ensure coin-metrics-inline is left-justified */
+        .coin-metrics-inline {
+            justify-content: flex-start;
+        }
+
+        /* Optional: Adjust overview-section layout */
+        .overview-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px; /* Space between coins and athlete info */
+        }
 
     </style>
 </head>
@@ -818,29 +931,27 @@
 
         <!-- Overview Section (Always Visible) -->
         <div class="overview-section hidden">
-            <div class="coin-metrics-inline">
-                <span class="coin" title="Everest Coins: total elevation gain (measured in Mount Everest units)">🏔️ {{ user.coins.everest | round(2) }}</span>
-                <span class="coin" title="Pizza Coins: total calories burned in pizzas (1000 kcal each)">🍕 {{ user.coins.pizza | int }}</span>
-                <span class="coin" title="Heartbeat Coins: Represents your total heartbeats (in millions)">❤️ {{ user.coins.heartbeat | int }}</span>
-                <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
-            </div>
-            <div class="overview-full-width">
-
-                <div class="athlete-info">
-                    <h1 style="margin:0px" id="athlete-name">{{ user.username }}</h1>
+            <div class="overview-content">
+                <div class="user-info">
+                    <div class="coin-metrics-inline">
+                        <span class="coin" title="Everest Coins: total elevation gain (measured in Mount Everest units)">🏔️ {{ user.coins.everest | round(2) }}</span>
+                        <span class="coin" title="Pizza Coins: total calories burned in pizzas (1000 kcal each)">🍕 {{ user.coins.pizza | int }}</span>
+                        <span class="coin" title="Heartbeat Coins: Represents your total heartbeats (in millions)">❤️ {{ user.coins.heartbeat | int }}</span>
+                        <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
+                    </div>
+                    <h1 id="athlete-name">{{ user.username }}</h1>
+                    <h2 id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
+                    <div class="rank-progress">
+                        <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
+                    </div>
+                    <div class="rank-details">
+                        <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
+                        <span id="next-rank-label">Next: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
+                    </div>
                 </div>
-            </div>
-            <div>
-                <h2 style="margin:0px" id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
-                <span id="rank-emoji"></span>
-                <!-- Coins Displayed Next to Name -->
-            </div>
-            <div class="rank-progress">
-                <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
-            </div>
-            <div class="rank-details">
-                <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
-                <span id="next-rank-label">Next: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
+                <div class="user-image-container">
+                    <img src="{{ user.image_url }}" alt="{{ user.username }}'s Profile Picture" class="user-image" onerror="this.onerror=null; this.src='static\cards\Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg';">
+                </div>
             </div>
         </div>
 

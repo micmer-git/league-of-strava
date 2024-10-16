@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ user.username }}'s Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        /* Basic Reset */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0px;
+            padding: 5px;
+            color: #333;
+        }
+
+        /* Header Styles */
+        header {
+            background-color: #ff6600;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header .logo img {
+            height: 50px;
+            width: auto;
+        }
+
+        /* Navigation Styles */
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #e0e0e0;
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .hamburger div {
+            width: 25px;
+            height: 3px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.95);
+            padding: 60px 20px;
+            gap: 30px;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 999;
+        }
+
+        .mobile-nav.active {
+            transform: translateY(0);
+        }
+
+        .mobile-nav a {
+            color: #fff;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        /* Toggle Animation for Hamburger */
+        .hamburger.active div:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active div:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active div:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Dashboard Container */
+        #dashboard-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Loading Indicator */
+        #loading {
+            text-align: center;
+            font-size: 1.5em;
+            color: #555;
+        }
+
+        /* Overview Section (Always Visible) */
+        .overview-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        /* **Integrated Coins Styling Start** */
+        .coin-metrics-inline {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 1em;
+            justify-content: center;
+        }
+
+        .coin {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background-color: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .coin:hover {
+            transform: scale(1.05);
+            background-color: #adb5bd;
+            color: #fff;
+        }
+        /* **Integrated Coins Styling End** */
+
+        .overview-full-width {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .athlete-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .athlete-info h1 {
+            margin: 0;
+            font-size: 2em;
+            color: #ff6600;
+        }
+
+        .current-rank {
+            font-size: 1em;
+            margin:0px;
+        }
+
+        /* Rank Progress Bar */
+        .rank-progress {
+            width: 100%;
+            background-color: #e9ecef;
+            border-radius: 20px;
+            height: 20px;
+            margin: 2px;
+            position: relative;
+        }
+
+        .progress-bar {
+            background-color: #28a745;
+            height: 100%;
+            border-radius: 20px 0 0 20px;
+            width: {{ rank_info.progress_percent }}%;
+            transition: width 0.3s ease-in-out;
+        }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2px;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .rank-details {
+            text-align: center;
+            font-size: 1em;
+            margin: 0px;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Section Styles (Toggleable Sections) */
+        .section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .section-header h2 {
+            font-size: 1.8em;
+            color: #ff6600;
+            margin: 0px;
+        }
+
+        .toggle-icon {
+            font-size: 1.5em;
+            transition: transform 0.3s ease;
+        }
+
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease, padding 0.3s ease;
+            padding-top: 0;
+        }
+
+        .section.active .section-content {
+            max-height: 2000px; /* Arbitrary large value */
+            padding-top: 20px;
+        }
+
+        .section.active .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Pop-up Styles */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            padding: 20px;
+        }
+
+        .popup-overlay.active {
+            display: flex;
+        }
+
+        .popup {
+            background-color: #fff;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #ff6600;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Top Activities Section */
+        .top-activities {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            width: 100%;
+        }
+
+        .top-activity-card {
+            background-color: #ff6600;
+            border-radius: 20px;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.85em;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100px;
+        }
+
+        .top-activity-card:hover {
+            transform: scale(1.05);
+        }
+
+        .top-activity-card h4 {
+            margin: 0px;
+            font-size: 1.2em;
+        }
+
+        .top-activity-card p {
+            margin: 0;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        /* **Integrated Achievements Table Styling Start** */
+        .achievements-table {
+            table-layout: fixed;
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .achievements-table th, .achievements-table td {
+            width: 20%; /* Assuming 5 columns including the category column */
+            text-align: center;
+            vertical-align: middle;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .achievements-table th:first-child, .achievements-table td:first-child {
+            text-align: left;
+        }
+
+        .achievement-card, .medal-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            position: relative;
+            font-size: 0.9em;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f1f1f1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-decoration: none;
+        }
+
+        .achievement-card:hover, .achievement-card:focus,
+        .medal-card:hover, .medal-card:focus {
+            transform: scale(1.05);
+            background-color: #e9ecef;
+        }
+
+        .achievement-emoji, .medal-emoji {
+            font-size: 2.5em; /* Increased size */
+            margin:0px;
+            filter: none;
+            transition: filter 0.3s ease;
+        }
+
+        .achievement-card.not-obtained .achievement-emoji,
+        .medal-card.not-obtained .medal-emoji {
+            filter: grayscale(100%);
+        }
+
+        .achievement-count, .medal-count {
+            font-size: 1.5em; /* Increased size */
+            font-weight: bold;
+            margin:0px;
+            color: green;
+        }
+
+        .new-earned {
+            background-color: #28a745;
+            color: #fff;
+            border-radius: 12px;
+            padding: 2px 6px;
+            font-size: 0.8em;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 1000;
+        }
+
+        .achievement-card:hover .tooltip, .achievement-card:focus .tooltip,
+        .medal-card:hover .tooltip, .medal-card:focus .tooltip {
+            display: block;
+        }
+        /* **Integrated Achievements Table Styling End** */
+
+        /* Timeframe Buttons Styling */
+        .timeframe-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .timeframe-btn {
+            padding: 8px 16px;
+            background-color: #fff;
+            border: 2px solid #ff6600;
+            border-radius: 25px;
+            color: #ff6600;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+            font-weight: 500;
+            outline: none;
+        }
+
+        .timeframe-btn:hover {
+            background-color: #ff6600;
+            color: #fff;
+        }
+
+        .timeframe-btn.active {
+            background-color: #ff6600;
+            color: #fff;
+        }
+
+        /* Additional Infos Section */
+        .additional-infos h2 {
+            text-align: left;
+            margin-bottom: 0px;
+            font-size: 1.5em;
+            color: #ff6600;
+        }
+
+        .achievements-category {
+            margin-bottom: 20px;
+        }
+
+        .achievements-category h3 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            color: #ff6600;
+        }
+
+        .achievements-list, .medals-slider {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .additional-infos ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .additional-infos li {
+            margin-bottom: 10px;
+            font-size: 1em;
+            color: #555;
+        }
+
+        .additional-infos li strong {
+            color: #333;
+        }
+
+        .activities-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ff6600;
+        }
+
+        .activity-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: box-shadow 0.2s;
+        }
+
+        .activity-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .activity-main h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.2em;
+            color: #ff6600;
+        }
+
+        .activity-main p {
+            margin: 2px 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .activity-coins {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .activity-coins .coin {
+            display: flex;
+            align-items: center;
+            color: green;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: transform 0.2s;
+        }
+
+        .activity-coins .coin:hover {
+            transform: scale(1.1);
+        }
+
+        /* Load More Button */
+        #load-more-button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #load-more-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .overview-section {
+                padding: 15px;
+                gap: 5px;
+            }
+
+            #dashboard-container h1 {
+                font-size: 2em;
+            }
+
+            .top-activities {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 10px;
+            }
+
+            .top-activity-card {
+                padding: 10px;
+                font-size: 0.95em;
+            }
+
+            .achievements-section h2, .additional-infos h2, .activities-container h2 {
+                font-size: 1.8em;
+            }
+
+            .achievement-card, .medal-card {
+                padding: 5px;
+                font-size: 0.95em;
+            }
+
+            .achievement-emoji, .medal-emoji {
+                font-size: 1.5em;
+                margin:0px;
+
+            }
+
+            .achievement-count, .medal-count {
+                font-size: 1.2em;
+                margin:0px;
+
+            }
+
+            .additional-infos li {
+                font-size: 0.95em;
+            }
+
+            .activity-main h3 {
+                font-size: 1.1em;
+            }
+
+            .activity-main p, .activity-coins .coin {
+                font-size: 0.85em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .overview-full-width {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .coin-metrics-inline {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .rank-progress {
+                height: 15px;
+            }
+
+            .progress-bar {
+                height: 100%;
+                border-radius: 15px 0 0 15px;
+            }
+
+            .top-activities {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 10px;
+            }
+
+            .achievements-category h3 {
+                font-size: 1em;
+            }
+
+            .achievement-card, .medal-card {
+                padding: 3px;
+                font-size: 0.8em;
+            }
+
+            .additional-infos h2 {
+                font-size: 1.2em;
+            }
+
+            .additional-infos li {
+                font-size: 0.9em;
+            }
+
+            .activity-main h3 {
+                font-size: 1em;
+            }
+
+            .activity-main p, .activity-coins .coin {
+                font-size: 0.8em;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .overview-section {
+                padding: 10px;
+                gap: 5px;
+            }
+
+            #dashboard-container h1 {
+                font-size: 1.8em;
+            }
+
+            .top-activities {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .top-activity-card {
+                font-size: 0.9em;
+                padding: 8px;
+                height: auto;
+            }
+
+            .achievements-section h2, .additional-infos h2, .activities-container h2 {
+                font-size: 1.5em;
+            }
+
+            .achievement-card, .medal-card {
+                padding: 3px;
+                font-size: 0.75em;
+            }
+
+            .achievement-emoji, .medal-emoji {
+                font-size: 1.4em;
+                margin:0px;
+
+            }
+
+            .achievement-count, .medal-count {
+                font-size: 0.95em;
+                margin:0px;
+            }
+
+            .additional-infos h2 {
+                font-size: 1em;
+                text-align: center;
+            }
+
+            .additional-infos li {
+                font-size: 0.85em;
+                text-align: center;
+            }
+
+            .activity-main h3 {
+                font-size: 0.95em;
+            }
+
+            .activity-main p, .activity-coins .coin {
+                font-size: 0.75em;
+            }
+
+            #load-more-button {
+                padding: 8px 16px;
+                font-size: 0.9em;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo" id="logo" tabindex="0">
+            <a href="/">
+                <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
+            </a>
+        </div>
+        <nav id="nav-menu">
+            <a href="/about">About</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+        </nav>
+        <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false" tabindex="0">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="/about">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+    </div>
+
+    <!-- Pop-up Overlay -->
+    <div class="popup-overlay" id="popup-overlay" aria-hidden="true">
+        <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
+            <button class="popup-close" id="popup-close" aria-label="Close pop-up">&times;</button>
+            <div id="popup-content">
+                <!-- Dynamic Content Goes Here -->
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-container">
+        <!-- Loading Indicator -->
+        <div id="loading">Loading your dashboard...</div>
+
+        <!-- Overview Section (Always Visible) -->
+        <div class="overview-section hidden">
+            <div class="coin-metrics-inline">
+                <span class="coin" title="Everest Coins: total elevation gain (measured in Mount Everest units)">🏔️ {{ user.coins.everest | round(2) }}</span>
+                <span class="coin" title="Pizza Coins: total calories burned in pizzas (1000 kcal each)">🍕 {{ user.coins.pizza | int }}</span>
+                <span class="coin" title="Heartbeat Coins: Represents your total heartbeats (in millions)">❤️ {{ user.coins.heartbeat | int }}</span>
+                <span class="coin" title="Distance: 100km per icon">🚴 {{ user.stats.distance | int }}</span>
+            </div>
+            <div class="overview-full-width">
+
+                <div class="athlete-info">
+                    <h1 style="margin:0px" id="athlete-name">{{ user.username }}</h1>
+                </div>
+            </div>
+            <div>
+                <h2 style="margin:0px" id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
+                <span id="rank-emoji"></span>
+                <!-- Coins Displayed Next to Name -->
+            </div>
+            <div class="rank-progress">
+                <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
+            </div>
+            <div class="rank-details">
+                <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
+                <span id="next-rank-label">Next: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
+            </div>
+        </div>
+
+        <!-- Achievements & Medals Section (Toggleable) -->
+        <div class="section achievements-section hidden">
+            <div class="section-header" data-section="achievements" tabindex="0" aria-expanded="false">
+                <h2>Achievements & Medals</h2>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <!-- Timeframe Buttons -->
+                <div class="timeframe-buttons">
+                    <button class="timeframe-btn active" data-timeframe="all_time" tabindex="0">All Time</button>
+                    <button class="timeframe-btn" data-timeframe="last_7_days" tabindex="0">Last 7 Days</button>
+                    <button class="timeframe-btn" data-timeframe="last_14_days" tabindex="0">Last 14 Days</button>
+                    <button class="timeframe-btn" data-timeframe="last_30_days" tabindex="0">Last 30 Days</button>
+                    <button class="timeframe-btn" data-timeframe="ytd" tabindex="0">Year to Date</button>
+                    <button class="timeframe-btn" data-timeframe="last_365_days" tabindex="0">Last 365 Days</button>
+                </div>
+
+                <!-- Achievements Table -->
+                <div class="achievements-table-container">
+                    <table class="achievements-table">
+                        <thead id="achievements-thead">
+                            <!-- Dynamic Headers -->
+                        </thead>
+                        <tbody id="achievements-tbody">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Medals Section -->
+                <div class="achievements-medals">
+                    <h3>Medals</h3>
+                    <div class="medals-slider">
+                        {% for tf in timeframes %}
+                            {% set achievements_tf = achievements[tf] %}
+                            {% if achievements_tf.Medals %}
+                                <div class="medals-data" data-timeframe="{{ tf }}" style="display: none;">
+                                    {% for medal in achievements_tf.Medals %}
+                                        <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" data-popup="{{ medal.name }}" title="{{ medal.description or medal.name }}" tabindex="0">
+                                            <p class="medal-emoji">{{ medal.emoji }}</p>
+                                            <p class="medal-count">{{ medal.count }}</p>
+                                            {% if medal.last_month_earned %}
+                                                <span class="new-earned">+{{ medal.last_month_earned }}</span>
+                                            {% endif %}
+                                            <div class="tooltip">{{ medal.description or medal.name }}</div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Activities Section (Toggleable) -->
+        <div class="section top-activities-section hidden">
+            <div class="section-header" data-section="top-activities" tabindex="0" aria-expanded="false">
+                <h2>Top Activities</h2>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <div class="top-activities">
+                    <a href="{{ user.max_metrics.max_elevation_link }}" class="top-activity-card" aria-label="Max Elevation Gain Details" tabindex="0">
+                        <h4>Max Elevation Gain</h4>
+                        <p>{{ user.max_metrics.max_elevation | int }} m</p>
+                    </a>
+                    <a href="{{ user.max_metrics.max_duration_link }}" class="top-activity-card" aria-label="Longest Duration Details" tabindex="0">
+                        <h4>Longest Duration</h4>
+                        <p>{{ user.max_metrics.max_duration | format_duration }}</p>
+                    </a>
+                    <a href="{{ user.max_metrics.max_distance_link }}" class="top-activity-card" aria-label="Greatest Distance Details" tabindex="0">
+                        <h4>Greatest Distance</h4>
+                        <p>{{ user.max_metrics.max_distance | int }} km</p>
+                    </a>
+                    <!-- **New Fastest 10K Display** -->
+                    <a href="{{ user.max_metrics.fastest_10k_link }}" class="top-activity-card" aria-label="Fastest 10k Details" tabindex="0">
+                        <h4>Fastest 10K</h4>
+                        <p>{{ user.max_metrics.fastest_10k | format_duration }}</p>
+                    </a>
+                    <a href="{{ user.max_metrics.fastest_half_marathon_link }}" class="top-activity-card" aria-label="Fastest Half Marathon Details" tabindex="0">
+                        <h4>Fastest Half Marathon</h4>
+                        <p>{{ user.max_metrics.fastest_half_marathon | format_duration }}</p>
+                    </a>
+                    <a href="{{ user.max_metrics.fastest_marathon_link }}" class="top-activity-card" aria-label="Fastest Marathon Details" tabindex="0">
+                        <h4>Fastest Marathon</h4>
+                        <p>{{ user.max_metrics.fastest_marathon | format_duration }}</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Infos Section (Toggleable) -->
+        <div class="section additional-infos hidden">
+            <div class="section-header" data-section="additional-infos" tabindex="0" aria-expanded="false">
+                <h2>Additional Infos</h2>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <h3>Additional Infos</h3>
+                <ul>
+                    <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
+                    <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
+                    <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
+                    <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
+                    <li><strong>Average Heart Rate:</strong> {{ user.stats.bpm }} bpm</li>
+                    <!-- Add more stats as needed -->
+                </ul>
+            </div>
+        </div>
+        <!-- Races Section (Toggleable) -->
+        <div class="section races-section hidden">
+            <div class="section-header" data-section="races" tabindex="0" aria-expanded="false">
+                <h2>Races</h2>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                {% if user.matched_races %}
+                    <div class="races-list">
+                        {% for race in user.matched_races %}
+                            <div class="race-item">
+                                <h3>{{ race.race_name }}</h3>
+                                <p><strong>Name:</strong> <a href="{{ race.link }}" target="_blank">{{ race.name }}</a></p>
+                                <p><strong>Date:</strong> {{ race.date }}</p>
+                                <p><strong>Distance:</strong> {{ race.distance }} km</p>
+                                <p><strong>Ascent:</strong> {{ race.elevation_gain }} m</p>
+                                <p><strong>Duration:</strong> {{ race.duration | round(1) }} h {{ race.duration_minutes | round(0) }} m</p>
+                                <p><strong>Calories:</strong> {{ race.calories }} kcal</p>
+                                <p><strong>Activity Type:</strong> {{ race.additional_data.Activity_Type or 'N/A' }}</p>
+                                <!-- Add more details as needed -->
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No races completed yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+
+        <!-- Recent Activities Section (Toggleable) -->
+        <div class="section activities-container hidden">
+            <div class="section-header" data-section="activities" tabindex="0" aria-expanded="false">
+                <h2>Recent Activities</h2>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <div id="activities-list">
+                    {% for activity in user.activities[:10] %}
+                        <div class="activity-item">
+                            <div class="activity-main">
+                                <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m</h3>
+                                <p>{{ activity.date }}</p>
+                                <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
+                                <p>{{ activity.calories | round(0) }} kcal</p>
+                                <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
+                            </div>
+                            <div class="activity-coins">
+                                <span class="coin" title="Everest Coins">+{{ activity.coins.everest | round(2) }} 🏔️</span>
+                                <span class="coin" title="Pizza Coins">+{{ activity.coins.pizza | round(1) }} 🍕</span>
+                                <span class="coin" title="Heartbeat Coins">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if user.activities|length > 10 %}
+                    <button id="load-more-button" tabindex="0">Load More</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript for Interactivity -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const mobileNav = document.getElementById('mobile-nav');
+            const logo = document.getElementById('logo');
+
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                mobileNav.classList.toggle('active');
+                const isExpanded = hamburger.classList.contains('active');
+                hamburger.setAttribute('aria-expanded', isExpanded);
+                mobileNav.setAttribute('aria-hidden', !isExpanded);
+            };
+
+            hamburger.addEventListener('click', toggleMenu);
+            hamburger.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    toggleMenu();
+                }
+            });
+
+            logo.addEventListener('click', toggleMenu);
+            logo.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    toggleMenu();
+                }
+            });
+
+            // Hide loading indicator and show content
+            document.getElementById('loading').style.display = 'none';
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => {
+                section.classList.remove('hidden');
+            });
+            // Show Overview section (which does not have the 'section' class and toggle)
+            const overviewSection = document.querySelector('.overview-section');
+            overviewSection.classList.remove('hidden');
+
+            // Section Toggles
+            const sectionHeaders = document.querySelectorAll('.section-header');
+            sectionHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const section = header.parentElement;
+                    const isActive = section.classList.toggle('active');
+                    header.setAttribute('aria-expanded', isActive);
+                });
+
+                header.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        const section = header.parentElement;
+                        const isActive = section.classList.toggle('active');
+                        header.setAttribute('aria-expanded', isActive);
+                    }
+                });
+            });
+
+            // Pop-up Functionality
+            const popupOverlay = document.getElementById('popup-overlay');
+            const popupContent = document.getElementById('popup-content');
+            const popupClose = document.getElementById('popup-close');
+
+            const openPopup = (title, content) => {
+                popupContent.innerHTML = `<h2 id="popup-title">${title}</h2><p>${content}</p>`;
+                popupOverlay.classList.add('active');
+                popupOverlay.setAttribute('aria-hidden', 'false');
+                // Trap focus within the popup for accessibility
+                popupClose.focus();
+            };
+
+            const closePopup = () => {
+                popupOverlay.classList.remove('active');
+                popupOverlay.setAttribute('aria-hidden', 'true');
+            };
+
+            popupClose.addEventListener('click', closePopup);
+            popupClose.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    closePopup();
+                }
+            });
+
+            popupOverlay.addEventListener('click', (e) => {
+                if (e.target === popupOverlay) {
+                    closePopup();
+                }
+            });
+
+            // Close popup with Esc key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && popupOverlay.classList.contains('active')) {
+                    closePopup();
+                }
+            });
+
+            // Attach pop-up to achievement and medal cards
+            const popupElements = document.querySelectorAll('[data-popup]');
+            popupElements.forEach(elem => {
+                elem.addEventListener('click', () => {
+                    const title = elem.getAttribute('data-popup');
+                    let content = '';
+                    // Customize content based on the achievement or medal name
+                    switch(title) {
+                        case 'Max Elevation Gain':
+                            content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
+                            break;
+                        case 'Longest Duration':
+                            content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
+                            break;
+                        case 'Greatest Distance':
+                            content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
+                            break;
+                        // Add more cases as needed
+                        default:
+                            content = 'More information about this achievement.';
+                    }
+                    openPopup(title, content);
+                });
+
+                elem.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        const title = elem.getAttribute('data-popup');
+                        let content = '';
+                        // Customize content based on the achievement or medal name
+                        switch(title) {
+                            case 'Max Elevation Gain':
+                                content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
+                                break;
+                            case 'Longest Duration':
+                                content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
+                                break;
+                            case 'Greatest Distance':
+                                content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
+                                break;
+                            // Add more cases as needed
+                            default:
+                                content = 'More information about this achievement.';
+                        }
+                        openPopup(title, content);
+                    }
+                });
+            });
+
+            // Make top-activity-cards clickable and redirect
+            const topActivityCards = document.querySelectorAll('.top-activity-card');
+            topActivityCards.forEach(card => {
+                card.addEventListener('click', (e) => {
+                    // Prevent triggering pop-up if it's inside a link
+                    if (card.tagName.toLowerCase() === 'a') {
+                        // Allow default link behavior
+                        return;
+                    }
+                    const href = card.getAttribute('href');
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            });
+
+            // Load More functionality
+            const loadMoreButton = document.getElementById('load-more-button');
+            if (loadMoreButton) {
+                let currentCount = 10;
+                const totalActivities = {{ user.activities|length }};
+                const additionalActivities = {{ user.activities|tojson }};
+                loadMoreButton.addEventListener('click', function() {
+                    const activitiesList = document.getElementById('activities-list');
+                    const nextCount = currentCount + 10;
+                    for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
+                        const activity = additionalActivities[i];
+                        const activityItem = document.createElement('div');
+                        activityItem.classList.add('activity-item');
+                        activityItem.innerHTML = `
+                            <div class="activity-main">
+                                <h3><a href="${activity.link}" target="_blank">${activity.name}</a> | ${Math.round(activity.distance)} km | ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</h3>
+                                <p>${activity.date}</p>
+                                <p>${Math.round(activity.elevation_gain)} vertical m</p>
+                                <p>${Math.round(activity.calories)} kcal</p>
+                                <p>${activity.additional_data.Activity_Type}</p>
+                            </div>
+                            <div class="activity-coins">
+                                <span class="coin" title="Everest Coins">+${activity.coins.everest.toFixed(2)} 🏔️</span>
+                                <span class="coin" title="Pizza Coins">+${Math.round(activity.coins.pizza)} 🍕</span>
+                                <span class="coin" title="Heartbeat Coins">+${Math.round(activity.coins.heartbeat)} ❤️</span>
+                            </div>
+                        `;
+                        activitiesList.appendChild(activityItem);
+                    }
+                    currentCount = nextCount;
+                    if (currentCount >= totalActivities) {
+                        loadMoreButton.style.display = 'none';
+                    }
+                });
+
+                loadMoreButton.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        loadMoreButton.click();
+                    }
+                });
+            }
+
+            // Timeframe Buttons Interactivity and Achievements Table
+            const timeframeButtons = document.querySelectorAll('.timeframe-btn');
+            const achievementsTbody = document.getElementById('achievements-tbody');
+            const achievementsThead = document.getElementById('achievements-thead');
+
+            // Prepare achievements data
+            const achievementsData = {
+                {% for tf in timeframes %}
+                    "{{ tf }}": {
+                        "categories": [
+                            {% for category in achievements[tf].categories %}
+                                {
+                                    "name": "{{ category.name }}",
+                                    "intro": "{{ category.intro }}",
+                                    "achievements": [
+                                        {% for badge in category.achievements %}
+                                            {
+                                                "name": "{{ badge.name }}",
+                                                "emoji": "{{ badge.emoji }}",
+                                                "count": {{ badge.count }},
+                                                "description": "{{ badge.description or badge.name }}",
+                                                "last_month_earned": {{ badge.last_month_earned or 'null' }}
+                                            }{% if not loop.last %},{% endif %}
+                                        {% endfor %}
+                                    ]
+                                }{% if not loop.last %},{% endif %}
+                            {% endfor %}
+                        ]
+                    }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
+
+            // Function to render achievements table based on timeframe
+            const renderAchievementsTable = (timeframe) => {
+                const data = achievementsData[timeframe];
+                if (!data || !data.categories.length) {
+                    achievementsThead.innerHTML = '<tr><th>Category</th><th colspan="4">No Achievements Found</th></tr>';
+                    achievementsTbody.innerHTML = '';
+                    return;
+                }
+
+                // Determine the maximum number of badges across categories
+                let maxBadges = 0;
+                data.categories.forEach(category => {
+                    if (category.achievements.length > maxBadges) {
+                        maxBadges = category.achievements.length;
+                    }
+                });
+
+                // Build table headers
+                let theadHTML = '<tr><th>Category</th>';
+                for (let i = 0; i < maxBadges; i++) {
+                    theadHTML += `<th>Badge ${i + 1}</th>`;
+                }
+                theadHTML += '</tr>';
+                achievementsThead.innerHTML = theadHTML;
+
+                // Build table body
+                let tbodyHTML = '';
+                data.categories.forEach(category => {
+                    tbodyHTML += `<tr><th><h4>${category.name}</h4></th>`;
+                    for (let i = 0; i < maxBadges; i++) {
+                        if (category.achievements[i]) {
+                            const badge = category.achievements[i];
+                            tbodyHTML += `
+                                <td>
+                                    <div class="achievement-card ${badge.count === 0 ? 'not-obtained' : ''}" data-popup="${badge.name}" title="${badge.description}">
+                                        <p class="achievement-count">${badge.count}</p>
+                                        <small>
+                                            ${category.intro.split('|')[i] ? category.intro.split('|')[i].substring(1) : ''}
+                                        </small>
+                                        ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
+                                        <div class="tooltip">${badge.description}</div>
+                                    </div>
+                                </td>
+                            `;
+                        } else {
+                            tbodyHTML += `<td></td>`;
+                        }
+                    }
+                    tbodyHTML += `</tr>`;
+                });
+                achievementsTbody.innerHTML = tbodyHTML;
+
+                // Update Medals Display
+                updateMedalsDisplay(timeframe);
+            };
+
+            // Function to update medals based on timeframe
+            const updateMedalsDisplay = (timeframe) => {
+                const medalsDataElements = document.querySelectorAll('.medals-data');
+                medalsDataElements.forEach(element => {
+                    if (element.getAttribute('data-timeframe') === timeframe) {
+                        element.style.display = 'flex';
+                    } else {
+                        element.style.display = 'none';
+                    }
+                });
+            };
+
+            // Initialize table with default timeframe
+            const defaultTimeframe = 'all_time';
+            renderAchievementsTable(defaultTimeframe);
+
+            // Event listeners for timeframe buttons
+            timeframeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Remove 'active' class from all buttons
+                    timeframeButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add 'active' class to clicked button
+                    button.classList.add('active');
+
+                    // Get selected timeframe
+                    const selectedTimeframe = button.getAttribute('data-timeframe');
+
+                    // Render table for selected timeframe
+                    renderAchievementsTable(selectedTimeframe);
+                });
+
+                button.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        button.click();
+                    }
+                });
+            });
+
+            // Attach pop-up to dynamically created achievement cards
+            const achievementsContainer = document.querySelector('.achievements-table-container');
+            achievementsContainer.addEventListener('click', function(e) {
+                const achievementCard = e.target.closest('.achievement-card');
+                if (achievementCard) {
+                    const title = achievementCard.getAttribute('data-popup');
+                    let content = '';
+                    // Customize content based on the achievement name
+                    switch(title) {
+                        case 'Max Elevation Gain':
+                            content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
+                            break;
+                        case 'Longest Duration':
+                            content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
+                            break;
+                        case 'Greatest Distance':
+                            content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
+                            break;
+                        // Add more cases as needed
+                        default:
+                            content = 'More information about this achievement.';
+                    }
+                    openPopup(title, content);
+                }
+            });
+
+            achievementsContainer.addEventListener('keypress', function(e) {
+                if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.achievement-card')) {
+                    const achievementCard = e.target.closest('.achievement-card');
+                    const title = achievementCard.getAttribute('data-popup');
+                    let content = '';
+                    // Customize content based on the achievement name
+                    switch(title) {
+                        case 'Max Elevation Gain':
+                            content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
+                            break;
+                        case 'Longest Duration':
+                            content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
+                            break;
+                        case 'Greatest Distance':
+                            content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
+                            break;
+                        // Add more cases as needed
+                        default:
+                            content = 'More information about this achievement.';
+                    }
+                    openPopup(title, content);
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>

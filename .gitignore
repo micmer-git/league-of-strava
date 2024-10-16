@@ -1,2 +1,13 @@
 node_modules/
 .env
+*.pyc
+__pycache__/
+instance/
+.pytest_cache/
+.env
+env/
+venv/
+ENV/
+*.sqlite3
+cleaning_db.py
+instance/user.db

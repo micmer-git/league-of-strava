@@ -24,39 +24,35 @@ def process_backup_csv_files():
     backup_folder = os.path.join(app.static_folder, 'backup')
     csv_files = glob.glob(os.path.join(backup_folder, '*.csv'))
     print(f"CSV files found: {csv_files}")
-    
+
     encodings_to_try = ['utf-8', 'iso-8859-1', 'cp1252', 'latin-1']
-    
+
     for csv_file in csv_files:
         print(f"Processing file: {csv_file}")
-        username = csv_file.split('\\')[-1].split('_')[0]
-        try:
-            username = username.split('backup')[-1]
-        except:
-            continue
-        strava_link = 'https://www.strava.com/athletes/' + csv_file.split('_')[1]
-    
+        username = csv_file.split('__')[1]
+        strava_link = 'https://www.strava.com/athletes/' + csv_file.split('__')[2]
+
         for encoding in encodings_to_try:
             try:
                 print(f"Trying encoding: {encoding}")
                 df = pd.read_csv(csv_file, encoding=encoding)
-                
+
                 # Normalize headers
                 df.columns = df.columns.str.replace('’', "'", regex=False)
-                
+
                 df, error = process_dataframe(df)
                 if error:
                     logging.error(f"Error processing {csv_file}: {error}")
                     continue
-                
-                
+
+
                 achievements = calculate_achievements(df)
                 coins = calculate_coins(df)
                 stats = calculate_stats(df)
                 total_hours = stats['hours']
                 user_rank = get_user_rank(total_hours)
                 max_metrics = calculate_max_metrics(df)
-                
+
                 user = User.query.filter_by(strava_link=strava_link).first()
                 if user:
                     # Update existing user
@@ -108,21 +104,21 @@ def process_backup_csv_files():
                         fastest_marathon_link=max_metrics.get('fastest_marathon_link', '#'),
                     )
                     db.session.add(user)
-                
+
                 db.session.commit()
                 logging.info(f"Processed user data for {username}")
                 print(f"Successfully processed {csv_file}")
                 break  # Break the encoding loop if successful
-            
+
             except Exception as e:
                 logging.exception(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
                 print(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
-        
+
         else:
             # If we've tried all encodings and none worked
             logging.error(f"Failed to process {csv_file} with any of the attempted encodings")
             print(f"Failed to process {csv_file} with any of the attempted encodings")
-    
+
     logging.info("Finished processing backup CSV files")
     print("Finished processing backup CSV files")
 # Initialize Flask app

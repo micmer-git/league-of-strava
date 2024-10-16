@@ -812,13 +812,6 @@
         </div>
     </div>
 
-        <div class="debug-section">
-            <h2>Debug: User Activities</h2>
-            <pre>{{ user.activities | tojson(indent=2) }}</pre>
-
-            <h2>Debug: Matched Races</h2>
-            <pre>{{ user.matched_races | tojson(indent=2) }}</pre>
-        </div>
     <div id="dashboard-container">
         <!-- Loading Indicator -->
         <div id="loading">Loading your dashboard...</div>
@@ -962,66 +955,66 @@
             </div>
         </div>
         <!-- Races Section (Toggleable) -->
-          <div class="section races-section hidden">
-              <div class="section-header" data-section="races">
-                  <h2>Races</h2>
-                  <i class="fas fa-chevron-down toggle-icon"></i>
-              </div>
-              <div class="section-content">
-                  {% if user.matched_races %}
-                      <div class="races-list">
-                          {% for race in user.matched_races %}
-                              <div class="race-item">
-                                  <h3>{{ race.race_name }}</h3>
-                                  <p><strong>Name:</strong> <a href="{{ race.link }}" target="_blank">{{ race.name }}</a></p>
-                                  <p><strong>Date:</strong> {{ race.date }}</p>
-                                  <p><strong>Distance:</strong> {{ race.distance }} km</p>
-                                  <p><strong>Ascent:</strong> {{ race.elevation_gain }} m</p>
-                                  <p><strong>Duration:</strong> {{ race.duration | round(1) }} h {{ race.duration_minutes | round(0) }} m</p>
-                                  <p><strong>Calories:</strong> {{ race.calories }} kcal</p>
-                                  <p><strong>Activity Type:</strong> {{ race.additional_data.Activity_Type or 'N/A' }}</p>
-                                  <!-- Add more details as needed -->
-                              </div>
-                          {% endfor %}
-                      </div>
-                  {% else %}
-                      <p>No races completed yet.</p>
-                  {% endif %}
-              </div>
-          </div>
+        <div class="section races-section hidden">
+            <div class="section-header" data-section="races" tabindex="0" aria-expanded="false">
+                <h2>Races</h2>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                {% if user.matched_races %}
+                    <div class="races-list">
+                        {% for race in user.matched_races %}
+                            <div class="race-item">
+                                <h3>{{ race.race_name }}</h3>
+                                <p><strong>Name:</strong> <a href="{{ race.link }}" target="_blank">{{ race.name }}</a></p>
+                                <p><strong>Date:</strong> {{ race.date }}</p>
+                                <p><strong>Distance:</strong> {{ race.distance }} km</p>
+                                <p><strong>Ascent:</strong> {{ race.elevation_gain }} m</p>
+                                <p><strong>Duration:</strong> {{ race.duration | round(1) }} h {{ race.duration_minutes | round(0) }} m</p>
+                                <p><strong>Calories:</strong> {{ race.calories }} kcal</p>
+                                <p><strong>Activity Type:</strong> {{ race.additional_data.Activity_Type or 'N/A' }}</p>
+                                <!-- Add more details as needed -->
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No races completed yet.</p>
+                {% endif %}
+            </div>
+        </div>
 
 
-          <!-- Recent Activities Section (Toggleable) -->
-          <div class="section activities-container hidden">
-              <div class="section-header" data-section="activities">
-                  <h2>Recent Activities</h2>
-                  <i class="fas fa-chevron-down toggle-icon"></i>
-              </div>
-              <div class="section-content">
-                  <div id="activities-list">
-                      {% for activity in user.activities[:10] %}
-                          <div class="activity-item">
-                              <div class="activity-main">
-                                  <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m</h3>
-                                  <p>{{ activity.date }}</p>
-                                  <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
-                                  <p>{{ activity.calories | round(0) }} kcal</p>
-                                  <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
-                              </div>
-                              <div class="activity-coins">
-                                  <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
-                                  <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
-                                  <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
-                              </div>
-                          </div>
-                      {% endfor %}
-                  </div>
-                  {% if user.activities|length > 10 %}
-                      <button id="load-more-button">Load More</button>
-                  {% endif %}
-              </div>
-          </div>
-      </div>
+        <!-- Recent Activities Section (Toggleable) -->
+        <div class="section activities-container hidden">
+            <div class="section-header" data-section="activities" tabindex="0" aria-expanded="false">
+                <h2>Recent Activities</h2>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <div id="activities-list">
+                    {% for activity in user.activities[:10] %}
+                        <div class="activity-item">
+                            <div class="activity-main">
+                                <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m</h3>
+                                <p>{{ activity.date }}</p>
+                                <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
+                                <p>{{ activity.calories | round(0) }} kcal</p>
+                                <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
+                            </div>
+                            <div class="activity-coins">
+                                <span class="coin" title="Everest Coins">+{{ activity.coins.everest | round(2) }} 🏔️</span>
+                                <span class="coin" title="Pizza Coins">+{{ activity.coins.pizza | round(1) }} 🍕</span>
+                                <span class="coin" title="Heartbeat Coins">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if user.activities|length > 10 %}
+                    <button id="load-more-button" tabindex="0">Load More</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
     <!-- JavaScript for Interactivity -->
     <script>
@@ -1404,3 +1397,4 @@
     </script>
 </body>
 </html>
+  

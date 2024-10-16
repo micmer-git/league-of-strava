@@ -17504,3 +17504,5 @@ UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 59151: ch
 2024-10-16 06:05:15,818 [INFO] Finished processing backup CSV files
 2024-10-16 06:05:15,850 [INFO] 127.0.0.1 - - [16/Oct/2024 06:05:15] "GET /leaderboard HTTP/1.1" 200 -
 2024-10-16 06:05:15,897 [INFO] 127.0.0.1 - - [16/Oct/2024 06:05:15] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 06:06:21,724 [INFO] 127.0.0.1 - - [16/Oct/2024 06:06:21] "GET /dashboard/micmer HTTP/1.1" 200 -
+2024-10-16 06:06:21,796 [INFO] 127.0.0.1 - - [16/Oct/2024 06:06:21] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -

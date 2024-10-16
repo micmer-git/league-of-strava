@@ -3,3 +3,4 @@ node_modules/
 instance/
 app.log
 app.log
+instance/users.db

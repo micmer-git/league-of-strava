@@ -143,11 +143,9 @@ app.config['INITIALIZATION_DONE'] = False
 def initialize_app():
     if not app.config['INITIALIZATION_DONE']:
         with app.app_context():
-            # Drop all tables and recreate them
-            db.drop_all()
-            db.create_all()
             process_backup_csv_files()
         app.config['INITIALIZATION_DONE'] = True
+
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:

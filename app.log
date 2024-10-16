@@ -17510,3 +17510,106 @@ UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 59151: ch
 2024-10-16 06:16:12,142 [INFO]  * Restarting with stat
 2024-10-16 06:16:13,452 [WARNING]  * Debugger is active!
 2024-10-16 06:16:13,455 [INFO]  * Debugger PIN: 247-777-320
+2024-10-16 06:19:20,824 [INFO] Starting CSV processing.
+2024-10-16 06:19:20,824 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:19:20,824 [INFO] Detected English CSV.
+2024-10-16 06:19:20,824 [INFO] Number of columns in CSV: 94
+2024-10-16 06:19:20,824 [INFO] Assigned column names for English CSV.
+2024-10-16 06:19:20,870 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:19:20,870 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:19:21,339 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:19:21,339 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:19:21,339 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:19:21,339 [INFO] CSV processing completed successfully.
+2024-10-16 06:19:21,480 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:19:21,480 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:19:21,638 [INFO] Starting CSV processing.
+2024-10-16 06:19:21,638 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:19:21,639 [INFO] Detected English CSV.
+2024-10-16 06:19:21,639 [INFO] Number of columns in CSV: 94
+2024-10-16 06:19:21,640 [INFO] Assigned column names for English CSV.
+2024-10-16 06:19:21,699 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:19:21,699 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:19:22,590 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:19:22,591 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:19:22,612 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:19:22,613 [INFO] CSV processing completed successfully.
+2024-10-16 06:19:22,761 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:19:22,761 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:19:22,803 [INFO] Finished processing backup CSV files
+2024-10-16 06:19:22,837 [INFO] 127.0.0.1 - - [16/Oct/2024 06:19:22] "GET /dashboard/micmer HTTP/1.1" 200 -
+2024-10-16 06:19:22,890 [INFO] 127.0.0.1 - - [16/Oct/2024 06:19:22] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 06:19:24,481 [INFO] 127.0.0.1 - - [16/Oct/2024 06:19:24] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-16 06:19:24,746 [INFO] 127.0.0.1 - - [16/Oct/2024 06:19:24] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 06:20:06,900 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-16 06:20:06,900 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-16 06:20:06,900 [INFO]  * Restarting with stat
+2024-10-16 06:20:08,052 [WARNING]  * Debugger is active!
+2024-10-16 06:20:08,056 [INFO]  * Debugger PIN: 247-777-320
+2024-10-16 06:20:11,681 [INFO] Starting CSV processing.
+2024-10-16 06:20:11,681 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:20:11,681 [INFO] Detected English CSV.
+2024-10-16 06:20:11,681 [INFO] Number of columns in CSV: 94
+2024-10-16 06:20:11,682 [INFO] Assigned column names for English CSV.
+2024-10-16 06:20:11,713 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:20:11,722 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:20:12,167 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:20:12,167 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:20:12,187 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:20:12,188 [INFO] CSV processing completed successfully.
+2024-10-16 06:20:12,334 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:20:12,337 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:20:12,402 [INFO] Starting CSV processing.
+2024-10-16 06:20:12,402 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:20:12,402 [INFO] Detected English CSV.
+2024-10-16 06:20:12,402 [INFO] Number of columns in CSV: 94
+2024-10-16 06:20:12,402 [INFO] Assigned column names for English CSV.
+2024-10-16 06:20:12,464 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:20:12,479 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:20:13,354 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:20:13,354 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:20:13,369 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:20:13,369 [INFO] CSV processing completed successfully.
+2024-10-16 06:20:13,526 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:20:13,543 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:20:13,558 [INFO] Finished processing backup CSV files
+2024-10-16 06:20:13,589 [INFO] 127.0.0.1 - - [16/Oct/2024 06:20:13] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-16 06:20:13,647 [INFO] 127.0.0.1 - - [16/Oct/2024 06:20:13] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 06:21:03,572 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-16 06:21:03,572 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-16 06:21:03,572 [INFO]  * Restarting with stat
+2024-10-16 06:21:04,728 [WARNING]  * Debugger is active!
+2024-10-16 06:21:04,728 [INFO]  * Debugger PIN: 247-777-320
+2024-10-16 06:21:07,445 [INFO] Starting CSV processing.
+2024-10-16 06:21:07,446 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:21:07,446 [INFO] Detected English CSV.
+2024-10-16 06:21:07,446 [INFO] Number of columns in CSV: 94
+2024-10-16 06:21:07,447 [INFO] Assigned column names for English CSV.
+2024-10-16 06:21:07,479 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:21:07,489 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:21:07,948 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:21:07,948 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:21:07,964 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:21:07,965 [INFO] CSV processing completed successfully.
+2024-10-16 06:21:08,104 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:21:08,104 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:21:08,227 [INFO] Processed user data for mago
+2024-10-16 06:21:08,244 [INFO] Starting CSV processing.
+2024-10-16 06:21:08,244 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:21:08,244 [INFO] Detected English CSV.
+2024-10-16 06:21:08,244 [INFO] Number of columns in CSV: 94
+2024-10-16 06:21:08,244 [INFO] Assigned column names for English CSV.
+2024-10-16 06:21:08,307 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:21:08,307 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:21:09,192 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:21:09,192 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:21:09,213 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:21:09,214 [INFO] CSV processing completed successfully.
+2024-10-16 06:21:09,369 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:21:09,369 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:21:09,529 [INFO] Processed user data for micmer
+2024-10-16 06:21:09,530 [INFO] Finished processing backup CSV files
+2024-10-16 06:21:09,542 [INFO] 127.0.0.1 - - [16/Oct/2024 06:21:09] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-16 06:21:09,603 [INFO] 127.0.0.1 - - [16/Oct/2024 06:21:09] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -

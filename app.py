@@ -124,7 +124,7 @@ def process_backup_csv_files():
 # Initialize Flask app
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
+app.secret_key = os.environ.get('SECRET_KEY')
 
 # Configuration for file uploads
 UPLOAD_FOLDER = 'static/uploads'
@@ -141,12 +141,8 @@ def initialize_app():
             process_backup_csv_files()
         app.config['INITIALIZATION_DONE'] = True
 
-# Database configuration
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Fallback to SQLite for local development
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Fallback to SQLite for local development
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy

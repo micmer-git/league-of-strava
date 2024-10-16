@@ -221,10 +221,10 @@ rank_config = [
     {'name': 'Challenger', 'emoji': '🌟', 'minPoints': 3150},
 ]
 
-# Dynamically add Master Prestige levels
+# Dynamically add Prestige levels
 for i in range(2, 101):
     rank_config.append({
-        'name': f'Master Prestige {i}',
+        'name': f'Prestige {i}',
         'emoji': '⭐',
         'minPoints': 3150 + (i - 1) * 75,  # Each level requires 75 additional points
     })
@@ -841,23 +841,23 @@ def calculate_achievements(df):
             'start_date': pd.Timestamp.min,
             'end_date': current_date
         },
-        'last_7_days': {
+        '7_D': {
             'start_date': current_date - pd.Timedelta(days=6),
             'end_date': current_date
         },
-        'last_14_days': {
+        '14_D': {
             'start_date': current_date - pd.Timedelta(days=13),
             'end_date': current_date
         },
-        'last_30_days': {
+        '30_D': {
             'start_date': current_date - pd.Timedelta(days=29),
             'end_date': current_date
         },
-        'ytd': {
+        'YTD': {
             'start_date': pd.Timestamp(year=current_date.year, month=1, day=1),
             'end_date': current_date
         },
-        'last_365_days': {
+        '365_D': {
             'start_date': current_date - pd.Timedelta(days=364),
             'end_date': current_date
         }
@@ -868,8 +868,8 @@ def calculate_achievements(df):
 
     # Define categories information
     categories_info = {
-        'Distance Run': '💲 10k | 21k | 42k | 50km/Week | 100km/Week',
-        'Distance Ride': '💲 100km |  150km |  200km | 300km/Week | 600k Ride/Week',
+        'Run': '💲 10k | 21k | 42k | 50km/Week | 100km/Week',
+        'Ride': '💲 100km |  150km |  200km | 300km/Week | 600k Ride/Week',
         'Elevation': '💲 1000m | 2000m | Half Everest | 25k/Month | 25k/Month',
         'KCal': '💲 1000kCal |  2000kCal  | 4000kCal | 12000kCal/Week | 24000kCal/Week'
     }
@@ -964,9 +964,9 @@ def calculate_achievements(df):
                 name = f'{threshold}k Run'
                 description = f'Completed activities covering at least {threshold} km running'
 
-            # Assign to 'Distance Run' category
+            # Assign to 'Run' category
             for category in achievements[timeframe]['categories']:
-                if category['name'] == 'Distance Run':
+                if category['name'] == 'Run':
                     category['achievements'].append({
                         'name': name,
                         'emoji': emoji,
@@ -998,9 +998,9 @@ def calculate_achievements(df):
                 name = f'{threshold}k Ride'
                 description = f'Completed activities covering at least {threshold} km riding'
 
-            # Assign to 'Distance Ride' category
+            # Assign to 'Ride' category
             for category in achievements[timeframe]['categories']:
-                if category['name'] == 'Distance Ride':
+                if category['name'] == 'Ride':
                     category['achievements'].append({
                         'name': name,
                         'emoji': emoji,
@@ -1927,7 +1927,7 @@ def dashboard(username):
     user_rank = get_user_rank(user.total_hours)
 
     # Define the timeframes as per calculate_achievements function
-    timeframes = ['all_time', 'last_7_days', 'last_14_days', 'last_30_days', 'ytd', 'last_365_days']
+    timeframes = ['all_time', '7_D', '14_D', '30_D', 'YTD', '365_D']
 
     return render_template('dashboard.html',
                            user=user_data,
@@ -2069,11 +2069,11 @@ badge_emoji_mapping = {
     '20 km Challenge': '🏅',
     'Steep Climber': '🧗‍♀️',
     'Coppa Coppi Protector': '🥩',
-    # Master Prestige Levels
-    'Master Prestige 2': '⭐',
-    'Master Prestige 3': '⭐',
-    'Master Prestige 4': '⭐',
-    'Master Prestige 100': '⭐',
+    # Prestige Levels
+    'Prestige 2': '⭐',
+    'Prestige 3': '⭐',
+    'Prestige 4': '⭐',
+    'Prestige 100': '⭐',
     # Add more mappings as needed
 }
 
@@ -2083,14 +2083,14 @@ badge_emoji_mapping = {
 def leaderboard():
     # Define Categories and their Achievements with Emojis
     categories_info = {
-        'Distance Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
-        'Distance Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
+        'Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
+        'Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
         'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 50k Elevation/Month',
         'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💎 12000kCal Week | 👑 24000kCal Week'
     }
 
     # Define timeframes
-    timeframes = ['all_time', 'last_7_days', 'last_14_days', 'last_30_days', 'ytd', 'last_365_days']
+    timeframes = ['all_time', '7_D', '14_D', '30_D', 'YTD', '365_D']
     timeframe = request.args.get('timeframe', 'all_time')
     if timeframe not in timeframes:
         timeframe = 'all_time'

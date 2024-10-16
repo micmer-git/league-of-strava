@@ -467,7 +467,7 @@
 
         <!-- Category Buttons -->
         <div class="category-buttons">
-            <button class="category-btn" data-category="coins">Coins</button>
+            <button class="category-btn" data-category="coins">General</button>
 
             {% for category in categories_info.keys() %}
                 <button class="category-btn {% if loop.first %}active{% endif %}" data-category="{{ category | lower | replace(' ', '-') }}">{{ category }}</button>
@@ -515,13 +515,13 @@
                                     <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
                                 </td>
                                 <td class="col-total-achievements" data-label="Everest Coins">
-                                    {{ user.coins_everest }}
+                                    {{ user.coins_everest | int}}
                                 </td>
                                 <td class="col-total-achievements" data-label="Pizza Coins">
-                                    {{ user.coins_pizza }}
+                                    {{ user.coins_pizza | int}}
                                 </td>
                                 <td class="col-total-achievements" data-label="Heartbeat Coins">
-                                    {{ user.coins_heartbeat }}
+                                    {{ user.coins_heartbeat | int}}
                                 </td>
                             </tr>
                         {% endfor %}

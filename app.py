@@ -143,6 +143,9 @@ app.config['INITIALIZATION_DONE'] = False
 def initialize_app():
     if not app.config['INITIALIZATION_DONE']:
         with app.app_context():
+            # Drop all tables and recreate them
+            db.drop_all()
+            db.create_all()
             process_backup_csv_files()
         app.config['INITIALIZATION_DONE'] = True
 
@@ -1627,7 +1630,7 @@ def index():
                 max_metrics = calculate_max_metrics(df)
 
                 # Check if user with the same strava_link already exists
-                user = User.query.filter_by(strava_link=strava_link).first()
+                user = User.query.filter_by(username=username).first()
                 if user:
                     # Update existing user
                     user.username = username  # Optionally update username

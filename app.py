@@ -12,13 +12,38 @@ import re
 from urllib.parse import urlparse
 import glob
 import csv
+from flask_migrate import Migrate
+
 
 # Strava API Credentials
 STRAVA_CLIENT_ID = os.environ.get('STRAVA_CLIENT_ID')
 STRAVA_CLIENT_SECRET = os.environ.get('STRAVA_CLIENT_SECRET')
 STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.com/strava/callback'
 
+# Initialize Flask app
 
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
+
+
+
+# Database configuration
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Fallback to SQLite for local development
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Configuration for file uploads
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'csv'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['INITIALIZATION_DONE'] = False
+
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 def process_backup_csv_files():
     backup_folder = os.path.join(app.static_folder, 'backup')
@@ -122,18 +147,6 @@ def process_backup_csv_files():
 
     logging.info("Finished processing backup CSV files")
     print("Finished processing backup CSV files")
-# Initialize Flask app
-
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
-
-# Configuration for file uploads
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'csv'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-
-app.config['INITIALIZATION_DONE'] = False
 
 @app.before_request
 def initialize_app():
@@ -142,16 +155,7 @@ def initialize_app():
             process_backup_csv_files()
         app.config['INITIALIZATION_DONE'] = True
 
-# Database configuration
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Fallback to SQLite for local development
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize SQLAlchemy
-db = SQLAlchemy(app)
 
 # Set up detailed logging
 logging.basicConfig(

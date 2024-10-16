@@ -30,6 +30,9 @@ def process_backup_csv_files():
     for csv_file in csv_files:
         print(f"Processing file: {csv_file}")
         username = csv_file.split('\\')[-1].split('_')[0]
+        if '/' in username:
+            username = csv_file.split('/')[-1]
+
         strava_link = 'https://www.strava.com/athletes/' + csv_file.split('_')[1]
 
         for encoding in encodings_to_try:

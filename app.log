@@ -17096,3 +17096,288 @@ UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 59007: ch
 2024-10-16 05:54:47,000 [INFO]  * Restarting with stat
 2024-10-16 05:54:48,378 [WARNING]  * Debugger is active!
 2024-10-16 05:54:48,382 [INFO]  * Debugger PIN: 247-777-320
+2024-10-16 05:56:32,747 [INFO] Starting CSV processing.
+2024-10-16 05:56:32,747 [INFO] First 3 headers: ['ID attivit‡', "Data dell'attivit‡", 'Nome attivit‡']
+2024-10-16 05:56:32,748 [INFO] Detected Italian CSV.
+2024-10-16 05:56:32,748 [INFO] Number of columns in CSV: 94
+2024-10-16 05:56:32,748 [INFO] Assigned column names for Italian CSV.
+2024-10-16 05:56:32,763 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 05:56:32,841 [INFO] Replaced commas with dots in numeric columns for Italian CSV.
+2024-10-16 05:56:33,185 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 05:56:33,185 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 05:56:33,200 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 05:56:33,200 [INFO] CSV processing completed successfully.
+2024-10-16 05:56:33,341 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 05:56:33,341 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 05:56:33,356 [INFO] Processed user data for lacco
+2024-10-16 05:56:33,372 [INFO] Starting CSV processing.
+2024-10-16 05:56:33,372 [INFO] First 3 headers: ['ID attivit‡', "Data dell'attivit‡", 'Nome attivit‡']
+2024-10-16 05:56:33,372 [INFO] Detected Italian CSV.
+2024-10-16 05:56:33,372 [INFO] Number of columns in CSV: 94
+2024-10-16 05:56:33,372 [INFO] Assigned column names for Italian CSV.
+2024-10-16 05:56:33,434 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 05:56:33,606 [INFO] Replaced commas with dots in numeric columns for Italian CSV.
+2024-10-16 05:56:34,559 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 05:56:34,559 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 05:56:34,591 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 05:56:34,591 [INFO] CSV processing completed successfully.
+2024-10-16 05:56:34,762 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 05:56:34,768 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 05:56:34,783 [INFO] Processed user data for liuk
+2024-10-16 05:56:34,797 [INFO] Starting CSV processing.
+2024-10-16 05:56:34,797 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 05:56:34,798 [INFO] Detected English CSV.
+2024-10-16 05:56:34,798 [INFO] Number of columns in CSV: 94
+2024-10-16 05:56:34,799 [INFO] Assigned column names for English CSV.
+2024-10-16 05:56:34,832 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 05:56:34,842 [INFO] Converted numeric columns for English CSV.
+2024-10-16 05:56:35,317 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 05:56:35,317 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 05:56:35,355 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 05:56:35,356 [INFO] CSV processing completed successfully.
+2024-10-16 05:56:35,496 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 05:56:35,500 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 05:56:35,510 [INFO] Processed user data for mago
+2024-10-16 05:56:35,530 [INFO] Starting CSV processing.
+2024-10-16 05:56:35,531 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 05:56:35,531 [INFO] Detected English CSV.
+2024-10-16 05:56:35,532 [INFO] Number of columns in CSV: 94
+2024-10-16 05:56:35,533 [INFO] Assigned column names for English CSV.
+2024-10-16 05:56:35,596 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 05:56:35,608 [INFO] Converted numeric columns for English CSV.
+2024-10-16 05:56:36,480 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 05:56:36,480 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 05:56:36,496 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 05:56:36,496 [INFO] CSV processing completed successfully.
+2024-10-16 05:56:36,668 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 05:56:36,668 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 05:56:36,683 [INFO] Processed user data for micmer
+2024-10-16 05:56:36,683 [INFO] Finished processing backup CSV files
+2024-10-16 05:56:36,730 [INFO] 127.0.0.1 - - [16/Oct/2024 05:56:36] "GET /dashboard/micmer HTTP/1.1" 200 -
+2024-10-16 05:56:36,783 [INFO] 127.0.0.1 - - [16/Oct/2024 05:56:36] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 05:57:04,497 [INFO] 127.0.0.1 - - [16/Oct/2024 05:57:04] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-16 05:57:04,780 [INFO] 127.0.0.1 - - [16/Oct/2024 05:57:04] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 05:57:20,169 [INFO] 127.0.0.1 - - [16/Oct/2024 05:57:20] "GET /leaderboard?timeframe=last_365_days HTTP/1.1" 200 -
+2024-10-16 05:57:20,191 [INFO] 127.0.0.1 - - [16/Oct/2024 05:57:20] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 05:58:54,771 [INFO]  * Detected change in 'C:\\Users\\m.merelli\\Documents\\GitHub\\league-of-strava\\app.py', reloading
+2024-10-16 05:58:54,889 [INFO]  * Restarting with stat
+2024-10-16 05:58:56,081 [WARNING]  * Debugger is active!
+2024-10-16 05:58:56,085 [INFO]  * Debugger PIN: 247-777-320
+2024-10-16 05:59:08,401 [INFO] Starting CSV processing.
+2024-10-16 05:59:08,401 [INFO] First 3 headers: ['ID attivit‡', 'Data dellíattivit‡', 'Nome attivit‡']
+2024-10-16 05:59:08,401 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,401 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__lacco__30840719__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,433 [INFO] Starting CSV processing.
+2024-10-16 05:59:08,433 [INFO] First 3 headers: ['ID attivit√\xa0', 'Data dell‚\x80\x99attivit√\xa0', 'Nome attivit√\xa0']
+2024-10-16 05:59:08,433 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,433 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__lacco__30840719__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,448 [ERROR] Error processing user data for : 'charmap' codec can't decode byte 0x8d in position 42887: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\m.merelli\Documents\GitHub\league-of-strava\app.py", line 40, in process_backup_csv_files
+    df = pd.read_csv(csv_file, encoding=encoding)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1898, in _make_engine
+    return mapping[engine](f, **self.options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\c_parser_wrapper.py", line 93, in __init__
+    self._reader = parsers.TextReader(src, **kwds)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "parsers.pyx", line 574, in pandas._libs.parsers.TextReader.__cinit__
+  File "parsers.pyx", line 663, in pandas._libs.parsers.TextReader._get_header
+  File "parsers.pyx", line 874, in pandas._libs.parsers.TextReader._tokenize_rows
+  File "parsers.pyx", line 891, in pandas._libs.parsers.TextReader._check_tokenize_status
+  File "parsers.pyx", line 2053, in pandas._libs.parsers.raise_parser_error
+  File "C:\Python312\Lib\encodings\cp1252.py", line 23, in decode
+    return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x8d in position 42887: character maps to <undefined>
+2024-10-16 05:59:08,535 [INFO] Starting CSV processing.
+2024-10-16 05:59:08,536 [INFO] First 3 headers: ['ID attivit‡', 'Data dellíattivit‡', 'Nome attivit‡']
+2024-10-16 05:59:08,536 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,536 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__liuk__13909465__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,561 [INFO] Starting CSV processing.
+2024-10-16 05:59:08,562 [INFO] First 3 headers: ['ID attivit√\xa0', 'Data dell‚\x80\x99attivit√\xa0', 'Nome attivit√\xa0']
+2024-10-16 05:59:08,562 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,563 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__liuk__13909465__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 05:59:08,564 [ERROR] Error processing user data for : 'charmap' codec can't decode byte 0x9d in position 59151: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\m.merelli\Documents\GitHub\league-of-strava\app.py", line 40, in process_backup_csv_files
+    df = pd.read_csv(csv_file, encoding=encoding)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1898, in _make_engine
+    return mapping[engine](f, **self.options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\c_parser_wrapper.py", line 93, in __init__
+    self._reader = parsers.TextReader(src, **kwds)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "parsers.pyx", line 574, in pandas._libs.parsers.TextReader.__cinit__
+  File "parsers.pyx", line 663, in pandas._libs.parsers.TextReader._get_header
+  File "parsers.pyx", line 874, in pandas._libs.parsers.TextReader._tokenize_rows
+  File "parsers.pyx", line 891, in pandas._libs.parsers.TextReader._check_tokenize_status
+  File "parsers.pyx", line 2053, in pandas._libs.parsers.raise_parser_error
+  File "C:\Python312\Lib\encodings\cp1252.py", line 23, in decode
+    return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 59151: character maps to <undefined>
+2024-10-16 05:59:08,578 [INFO] Starting CSV processing.
+2024-10-16 05:59:08,578 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 05:59:08,578 [INFO] Detected English CSV.
+2024-10-16 05:59:08,578 [INFO] Number of columns in CSV: 94
+2024-10-16 05:59:08,580 [INFO] Assigned column names for English CSV.
+2024-10-16 05:59:08,611 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 05:59:08,622 [INFO] Converted numeric columns for English CSV.
+2024-10-16 05:59:09,088 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 05:59:09,088 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 05:59:09,100 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 05:59:09,100 [INFO] CSV processing completed successfully.
+2024-10-16 05:59:09,248 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 05:59:09,252 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 05:59:09,351 [INFO] Processed user data for 
+2024-10-16 05:59:09,374 [INFO] Starting CSV processing.
+2024-10-16 05:59:09,374 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 05:59:09,375 [INFO] Detected English CSV.
+2024-10-16 05:59:09,375 [INFO] Number of columns in CSV: 94
+2024-10-16 05:59:09,376 [INFO] Assigned column names for English CSV.
+2024-10-16 05:59:09,438 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 05:59:09,448 [INFO] Converted numeric columns for English CSV.
+2024-10-16 05:59:10,323 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 05:59:10,323 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 05:59:10,339 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 05:59:10,339 [INFO] CSV processing completed successfully.
+2024-10-16 05:59:10,510 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 05:59:10,510 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 05:59:10,605 [INFO] Processed user data for 
+2024-10-16 05:59:10,605 [INFO] Finished processing backup CSV files
+2024-10-16 05:59:10,667 [INFO] 127.0.0.1 - - [16/Oct/2024 05:59:10] "GET /leaderboard?timeframe=last_365_days HTTP/1.1" 200 -
+2024-10-16 05:59:10,725 [INFO] 127.0.0.1 - - [16/Oct/2024 05:59:10] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 05:59:27,994 [INFO] 127.0.0.1 - - [16/Oct/2024 05:59:27] "GET / HTTP/1.1" 200 -
+2024-10-16 05:59:28,294 [INFO] 127.0.0.1 - - [16/Oct/2024 05:59:28] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -
+2024-10-16 06:00:45,993 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-10-16 06:00:45,993 [INFO] [33mPress CTRL+C to quit[0m
+2024-10-16 06:00:45,993 [INFO]  * Restarting with stat
+2024-10-16 06:00:47,165 [WARNING]  * Debugger is active!
+2024-10-16 06:00:47,165 [INFO]  * Debugger PIN: 247-777-320
+2024-10-16 06:00:48,338 [INFO] Starting CSV processing.
+2024-10-16 06:00:48,338 [INFO] First 3 headers: ['ID attivit‡', 'Data dellíattivit‡', 'Nome attivit‡']
+2024-10-16 06:00:48,338 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,338 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__lacco__30840719__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,353 [INFO] Starting CSV processing.
+2024-10-16 06:00:48,353 [INFO] First 3 headers: ['ID attivit√\xa0', 'Data dell‚\x80\x99attivit√\xa0', 'Nome attivit√\xa0']
+2024-10-16 06:00:48,353 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,353 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__lacco__30840719__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,368 [ERROR] Error processing user data for : 'charmap' codec can't decode byte 0x8d in position 42887: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\m.merelli\Documents\GitHub\league-of-strava\app.py", line 40, in process_backup_csv_files
+    df = pd.read_csv(csv_file, encoding=encoding)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1898, in _make_engine
+    return mapping[engine](f, **self.options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\c_parser_wrapper.py", line 93, in __init__
+    self._reader = parsers.TextReader(src, **kwds)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "parsers.pyx", line 574, in pandas._libs.parsers.TextReader.__cinit__
+  File "parsers.pyx", line 663, in pandas._libs.parsers.TextReader._get_header
+  File "parsers.pyx", line 874, in pandas._libs.parsers.TextReader._tokenize_rows
+  File "parsers.pyx", line 891, in pandas._libs.parsers.TextReader._check_tokenize_status
+  File "parsers.pyx", line 2053, in pandas._libs.parsers.raise_parser_error
+  File "C:\Python312\Lib\encodings\cp1252.py", line 23, in decode
+    return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x8d in position 42887: character maps to <undefined>
+2024-10-16 06:00:48,383 [INFO] Starting CSV processing.
+2024-10-16 06:00:48,383 [INFO] First 3 headers: ['ID attivit‡', 'Data dellíattivit‡', 'Nome attivit‡']
+2024-10-16 06:00:48,383 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,383 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__liuk__13909465__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,417 [INFO] Starting CSV processing.
+2024-10-16 06:00:48,417 [INFO] First 3 headers: ['ID attivit√\xa0', 'Data dell‚\x80\x99attivit√\xa0', 'Nome attivit√\xa0']
+2024-10-16 06:00:48,418 [ERROR] Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,418 [ERROR] Error processing C:\Users\m.merelli\Documents\GitHub\league-of-strava\static\backup\__liuk__13909465__.csv: Unsupported header language. Only Italian and English headers are supported.
+2024-10-16 06:00:48,419 [ERROR] Error processing user data for : 'charmap' codec can't decode byte 0x9d in position 59151: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\m.merelli\Documents\GitHub\league-of-strava\app.py", line 40, in process_backup_csv_files
+    df = pd.read_csv(csv_file, encoding=encoding)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\readers.py", line 1898, in _make_engine
+    return mapping[engine](f, **self.options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\m.merelli\AppData\Roaming\Python\Python312\site-packages\pandas\io\parsers\c_parser_wrapper.py", line 93, in __init__
+    self._reader = parsers.TextReader(src, **kwds)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "parsers.pyx", line 574, in pandas._libs.parsers.TextReader.__cinit__
+  File "parsers.pyx", line 663, in pandas._libs.parsers.TextReader._get_header
+  File "parsers.pyx", line 874, in pandas._libs.parsers.TextReader._tokenize_rows
+  File "parsers.pyx", line 891, in pandas._libs.parsers.TextReader._check_tokenize_status
+  File "parsers.pyx", line 2053, in pandas._libs.parsers.raise_parser_error
+  File "C:\Python312\Lib\encodings\cp1252.py", line 23, in decode
+    return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 59151: character maps to <undefined>
+2024-10-16 06:00:48,433 [INFO] Starting CSV processing.
+2024-10-16 06:00:48,434 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:00:48,434 [INFO] Detected English CSV.
+2024-10-16 06:00:48,434 [INFO] Number of columns in CSV: 94
+2024-10-16 06:00:48,435 [INFO] Assigned column names for English CSV.
+2024-10-16 06:00:48,466 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:00:48,477 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:00:48,936 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:00:48,937 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:00:48,947 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:00:48,948 [INFO] CSV processing completed successfully.
+2024-10-16 06:00:49,088 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:00:49,088 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:00:49,196 [INFO] Processed user data for 
+2024-10-16 06:00:49,212 [INFO] Starting CSV processing.
+2024-10-16 06:00:49,212 [INFO] First 3 headers: ['Activity ID', 'Activity Date', 'Activity Name']
+2024-10-16 06:00:49,212 [INFO] Detected English CSV.
+2024-10-16 06:00:49,212 [INFO] Number of columns in CSV: 94
+2024-10-16 06:00:49,212 [INFO] Assigned column names for English CSV.
+2024-10-16 06:00:49,274 [INFO] Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.
+2024-10-16 06:00:49,274 [INFO] Converted numeric columns for English CSV.
+2024-10-16 06:00:50,134 [INFO] Explicitly replaced 'Corsa' and 'Nuotata' in 'Activity_Type' column.
+2024-10-16 06:00:50,134 [INFO] Processed 'Moving_Time' to ensure it's integer and non-null.
+2024-10-16 06:00:50,150 [INFO] Assigned 'Distance_km' based on 'Activity_Type'.
+2024-10-16 06:00:50,150 [INFO] CSV processing completed successfully.
+2024-10-16 06:00:50,322 [WARNING] 'Likes' column not found in DataFrame. Setting 'total_likes' to 0.
+2024-10-16 06:00:50,322 [WARNING] 'Total_Steps' column not found in DataFrame. Setting 'total_total_steps' to 0.
+2024-10-16 06:00:50,400 [INFO] Processed user data for 
+2024-10-16 06:00:50,400 [INFO] Finished processing backup CSV files
+2024-10-16 06:00:50,416 [INFO] 127.0.0.1 - - [16/Oct/2024 06:00:50] "GET /leaderboard HTTP/1.1" 200 -
+2024-10-16 06:00:50,494 [INFO] 127.0.0.1 - - [16/Oct/2024 06:00:50] "[36mGET /static/league-of-strava.png HTTP/1.1[0m" 304 -

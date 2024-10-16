@@ -23,104 +23,104 @@ STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.co
 def process_backup_csv_files():
     backup_folder = os.path.join(app.static_folder, 'backup')
     csv_files = glob.glob(os.path.join(backup_folder, '*.csv'))
-    print(f"CSV files found: {csv_files}")
+    print(csv_files)
     
-    encodings_to_try = ['utf-8', 'iso-8859-1', 'cp1252', 'latin-1']
+    encodings_to_try = ['utf-8', 'iso-8859-1', 'cp1252']
     
     for csv_file in csv_files:
-        print(f"Processing file: {csv_file}")
-        username = csv_file.split('__')[1]
-        strava_link = 'https://www.strava.com/athletes/' + csv_file.split('__')[2]
-    
         for encoding in encodings_to_try:
             try:
-                print(f"Trying encoding: {encoding}")
-                df = pd.read_csv(csv_file, encoding=encoding)
-                
-                # Normalize headers
-                df.columns = df.columns.str.replace('’', "'", regex=False)
-                
-                df, error = process_dataframe(df)
-                if error:
-                    logging.error(f"Error processing {csv_file}: {error}")
-                    continue
-                
-                
-                achievements = calculate_achievements(df)
-                coins = calculate_coins(df)
-                stats = calculate_stats(df)
-                total_hours = stats['hours']
-                user_rank = get_user_rank(total_hours)
-                max_metrics = calculate_max_metrics(df)
-                
-                user = User.query.filter_by(strava_link=strava_link).first()
-                if user:
-                    # Update existing user
-                    user.username = username
-                    user.rank_name = user_rank['current_rank']['name']
-                    user.rank_emoji = user_rank['current_rank']['emoji']
-                    user.total_hours = total_hours
-                    user.coins_everest = coins['everest']
-                    user.coins_pizza = coins['pizza']
-                    user.coins_heartbeat = coins['heartbeat']
-                    user.achievements = achievements
-                    user.stats = stats
-                    user.max_elevation = max_metrics['max_elevation']
-                    user.max_elevation_link = max_metrics['max_elevation_link']
-                    user.max_duration = max_metrics['max_duration']
-                    user.max_duration_link = max_metrics['max_duration_link']
-                    user.max_distance = max_metrics['max_distance']
-                    user.max_distance_link = max_metrics['max_distance_link']
-                    user.fastest_half_marathon = max_metrics.get('fastest_half_marathon', 0)
-                    user.fastest_half_marathon_link = max_metrics.get('fastest_half_marathon_link', '#')
-                    user.fastest_10k = max_metrics.get('fastest_10k', 0)
-                    user.fastest_10k_link = max_metrics.get('fastest_10k_link', '#')
-                    user.fastest_marathon = max_metrics.get('fastest_marathon', 0)
-                    user.fastest_marathon_link = max_metrics.get('fastest_marathon_link', '#')
-                else:
-                    # Create new user
-                    user = User(
-                        username=username,
-                        strava_link=strava_link,
-                        rank_name=user_rank['current_rank']['name'],
-                        rank_emoji=user_rank['current_rank']['emoji'],
-                        total_hours=total_hours,
-                        coins_everest=coins['everest'],
-                        coins_pizza=coins['pizza'],
-                        coins_heartbeat=coins['heartbeat'],
-                        achievements=achievements,
-                        stats=stats,
-                        max_elevation=max_metrics['max_elevation'],
-                        max_elevation_link=max_metrics['max_elevation_link'],
-                        max_duration=max_metrics['max_duration'],
-                        max_duration_link=max_metrics['max_duration_link'],
-                        max_distance=max_metrics['max_distance'],
-                        max_distance_link=max_metrics['max_distance_link'],
-                        fastest_half_marathon=max_metrics.get('fastest_half_marathon', 0),
-                        fastest_half_marathon_link=max_metrics.get('fastest_half_marathon_link', '#'),
-                        fastest_10k=max_metrics.get('fastest_10k', 0),
-                        fastest_10k_link=max_metrics.get('fastest_10k_link', '#'),
-                        fastest_marathon=max_metrics.get('fastest_marathon', 0),
-                        fastest_marathon_link=max_metrics.get('fastest_marathon_link', '#'),
-                    )
-                    db.session.add(user)
-                
-                db.session.commit()
-                logging.info(f"Processed user data for {username}")
-                print(f"Successfully processed {csv_file}")
-                break  # Break the encoding loop if successful
+                with open(csv_file, 'r', encoding=encoding) as file:
+                    reader = csv.DictReader(file)     
+                    print(csv_file)
+                    username = csv_file.split('\\')[-1].split('_')[0]
+                    strava_link = 'https://www.strava.com/athletes/'+csv_file.split('_')[1]
+
+                    try:
+                        df = pd.read_csv(csv_file, encoding=encoding)
+                        df, error = process_dataframe(df)
+                        if error:
+                            logging.error(f"Error processing {csv_file}: {error}")
+                            continue
+                        
+                        achievements = calculate_achievements(df)
+                        coins = calculate_coins(df)
+                        stats = calculate_stats(df)
+                        total_hours = stats['hours']
+                        user_rank = get_user_rank(total_hours)
+                        max_metrics = calculate_max_metrics(df)
+                        
+                        user = User.query.filter_by(strava_link=strava_link).first()
+                        if user:
+                            # Update existing user
+                            user.username = username
+                            user.rank_name = user_rank['current_rank']['name']
+                            user.rank_emoji = user_rank['current_rank']['emoji']
+                            user.total_hours = total_hours
+                            user.coins_everest = coins['everest']
+                            user.coins_pizza = coins['pizza']
+                            user.coins_heartbeat = coins['heartbeat']
+                            user.achievements = achievements
+                            user.stats = stats
+                            user.max_elevation = max_metrics['max_elevation']
+                            user.max_elevation_link = max_metrics['max_elevation_link']
+                            user.max_duration = max_metrics['max_duration']
+                            user.max_duration_link = max_metrics['max_duration_link']
+                            user.max_distance = max_metrics['max_distance']
+                            user.max_distance_link = max_metrics['max_distance_link']
+                            user.fastest_half_marathon = max_metrics.get('fastest_half_marathon', 0)
+                            user.fastest_half_marathon_link = max_metrics.get('fastest_half_marathon_link', '#')
+                            user.fastest_10k = max_metrics.get('fastest_10k', 0)
+                            user.fastest_10k_link = max_metrics.get('fastest_10k_link', '#')
+                            user.fastest_marathon = max_metrics.get('fastest_marathon', 0)
+                            user.fastest_marathon_link = max_metrics.get('fastest_marathon_link', '#')
+                        else:
+                            # Create new user
+                            user = User(
+                                username=username,
+                                strava_link=strava_link,
+                                rank_name=user_rank['current_rank']['name'],
+                                rank_emoji=user_rank['current_rank']['emoji'],
+                                total_hours=total_hours,
+                                coins_everest=coins['everest'],
+                                coins_pizza=coins['pizza'],
+                                coins_heartbeat=coins['heartbeat'],
+                                achievements=achievements,
+                                stats=stats,
+                                max_elevation=max_metrics['max_elevation'],
+                                max_elevation_link=max_metrics['max_elevation_link'],
+                                max_duration=max_metrics['max_duration'],
+                                max_duration_link=max_metrics['max_duration_link'],
+                                max_distance=max_metrics['max_distance'],
+                                max_distance_link=max_metrics['max_distance_link'],
+                                fastest_half_marathon=max_metrics.get('fastest_half_marathon', 0),
+                                fastest_half_marathon_link=max_metrics.get('fastest_half_marathon_link', '#'),
+                                fastest_10k=max_metrics.get('fastest_10k', 0),
+                                fastest_10k_link=max_metrics.get('fastest_10k_link', '#'),
+                                fastest_marathon=max_metrics.get('fastest_marathon', 0),
+                                fastest_marathon_link=max_metrics.get('fastest_marathon_link', '#'),
+                            )
+                            db.session.add(user)
+                        
+                        db.session.commit()
+                        logging.info(f"Processed user data for {username}")
+                    except Exception as e:
+                        logging.exception(f"Error processing user data for {username}: {str(e)}")
             
-            except Exception as e:
-                logging.exception(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
-                print(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
+                # If we've successfully read the file, break out of the encoding loop
+                break
+            
+            except UnicodeDecodeError:
+                # If this encoding didn't work, try the next one
+                continue
         
         else:
             # If we've tried all encodings and none worked
-            logging.error(f"Failed to process {csv_file} with any of the attempted encodings")
-            print(f"Failed to process {csv_file} with any of the attempted encodings")
+            logging.error(f"Failed to read {csv_file} with any of the attempted encodings")
     
     logging.info("Finished processing backup CSV files")
-    print("Finished processing backup CSV files")
+
+
 # Initialize Flask app
 
 app = Flask(__name__)
@@ -143,10 +143,10 @@ def initialize_app():
 
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///users.db'
+if DATABASE_URL:
+    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Fallback to SQLite for local development
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy

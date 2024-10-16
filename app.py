@@ -33,9 +33,8 @@ def process_backup_csv_files():
                 with open(csv_file, 'r', encoding=encoding) as file:
                     reader = csv.DictReader(file)
                     print(csv_file)
-                    username = csv_file.split('__')[1]
-                    strava_link = 'https://www.strava.com/athletes/'+csv_file.split('__')[2]
-
+                    username = csv_file.split('\\')[-1].split('_')[0]
+                    strava_link = 'https://www.strava.com/athletes/' + csv_file.split('_')[1]
                     try:
                         df = pd.read_csv(csv_file, encoding=encoding)
                         df, error = process_dataframe(df)

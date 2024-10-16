@@ -771,45 +771,45 @@ races = [
         'start_date': datetime(2024, 7, 7),
         'end_date': datetime(2024, 7, 7),
         'distance_km': 135.8,
-        'distance_variance': 0.01,  # 1%
+        'distance_variance': 0.05,  # 1%
         'ascent_m': 4272,
-        'ascent_variance': 0.01
+        'ascent_variance': 0.05
     },
     {
         'name': 'Trail Run',
         'start_date': datetime(2023, 7, 2),
         'end_date': datetime(2023, 7, 2),
         'distance_km': 54,
-        'distance_variance': 0.01,
+        'distance_variance': 0.05,
         'ascent_m': 1745,
-        'ascent_variance': 0.01
+        'ascent_variance': 0.05
     },
     {
         'name': 'Boston Marathon',
         'start_date': datetime(2024, 4, 15),
         'end_date': datetime(2024, 4, 15),
         'distance_km': 42.6,
-        'distance_variance': 0.01,
+        'distance_variance': 0.05,
         'ascent_m': 250,
-        'ascent_variance': 0.01
+        'ascent_variance': 0.05
     },
     {
         'name': 'Berghem Mola Mia 2024 (Mez)',
         'start_date': datetime(2024, 6, 16),
         'end_date': datetime(2024, 6, 16),
         'distance_km': 136.36,
-        'distance_variance': 0.01,
+        'distance_variance': 0.05,
         'ascent_m': 3112,
-        'ascent_variance': 0.01
+        'ascent_variance': 0.05
     },
     {
         'name': 'Berghem Mola Mia 2023 (Lonk)',
         'start_date': datetime(2024, 6, 11),
         'end_date': datetime(2024, 6, 11),
         'distance_km': 177.82,
-        'distance_variance': 0.01,
+        'distance_variance': 0.05,
         'ascent_m': 3389,
-        'ascent_variance': 0.01
+        'ascent_variance': 0.05
     },
     # Add more races as needed
 ]
@@ -1824,13 +1824,10 @@ def dashboard(username):
     user = User.query.filter_by(username=username).first()
     if not user:
         flash('User not found. Please upload your CSV first.', 'danger')
-        logging.warning(f"Dashboard access attempted for non-existent user: {username}")
         return redirect(url_for('index'))
 
     # Fetch user activities, ordered by date descending
     activities = Activity.query.filter_by(user_id=user.id).order_by(Activity.date.desc()).all()
-    logging.info(f"Dashboard: Fetched {len(activities)} activities for user {username}")
-
     activities_list = []
     for activity in activities:
         activities_list.append({
@@ -1852,27 +1849,17 @@ def dashboard(username):
             'additional_data': activity.additional_data  # Ensure this is serializable
         })
 
-    logging.debug(f"Dashboard: Activities List for {username}: {activities_list}")
-
-    # Convert 'date' to datetime objects for accurate sorting
-    for activity in activities_list:
-        try:
-            activity['date_obj'] = datetime.strptime(activity['date'], '%b %d, %Y')
-        except ValueError as ve:
-            logging.error(f"Date parsing error for activity {activity['id']}: {ve}")
-            activity['date_obj'] = datetime.min  # Assign a minimal date to avoid sorting issues
-
-    # Sort activities by 'date_obj' descending
-    activities_list_sorted = sorted(activities_list, key=lambda x: x['date_obj'], reverse=True)
+    # Sort activities by date descending
+    activities_list_sorted = sorted(activities_list, key=lambda x: x['date'], reverse=True)
     activities_display = activities_list_sorted[:10]
     remaining_activities = activities_list_sorted[10:]
 
     # Identify Races
     matched_races = []
     for race in races:
-        for activity in activities_list_sorted:
+        for activity in activities_list:
             # Check date range
-            activity_date = activity['date_obj']
+            activity_date = datetime.strptime(activity['date'], '%b %d, %Y')
             if not (race['start_date'] <= activity_date <= race['end_date']):
                 continue
 
@@ -1892,9 +1879,8 @@ def dashboard(username):
             race_info = activity.copy()
             race_info['race_name'] = race['name']
             matched_races.append(race_info)
-            logging.info(f"Dashboard: Activity {activity['id']} matched race {race['name']}")
 
-    logging.info(f"Dashboard: Found {len(matched_races)} matched races for user {username}")
+
 
     # Prepare user data
     user_data = {
@@ -1925,9 +1911,8 @@ def dashboard(username):
         'activities': activities_display,
         'remaining_activities': remaining_activities,  # Add this line
         'matched_races': matched_races  # Add matched races
-    }
 
-    logging.debug(f"Dashboard: User Data for {username}: {json.dumps(user_data, indent=2)}")
+    }
 
     # Fetch rank information
     user_rank = get_user_rank(user.total_hours)

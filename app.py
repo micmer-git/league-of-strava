@@ -868,10 +868,10 @@ def calculate_achievements(df):
 
     # Define categories information
     categories_info = {
-        'Run': '💲 10k | 21k | 42k | 50km/Week | 100km/Week',
-        'Ride': '💲 100km |  150km |  200km | 300km/Week | 600k Ride/Week',
-        'Elevation': '💲 1000m | 2000m | Half Everest | 25k/Month | 25k/Month',
-        'KCal': '💲 1000kCal |  2000kCal  | 4000kCal | 12000kCal/Week | 24000kCal/Week'
+        'Run': '10k | 21k | 42k | 50km/Week | 100km/Week',
+        'Ride': '100km |  150km |  200km | 300km/Week | 600k Ride/Week',
+        'Elevation': '1000m | 2000m | Half Everest | 25k/Month | 25k/Month',
+        'KCal': '1000kCal |  2000kCal  | 4000kCal | 12000kCal/Week | 24000kCal/Week'
     }
 
     # Define special occasions for Medals
@@ -2023,7 +2023,7 @@ badge_emoji_mapping = {
     '1000kcal activity': '💲',
     '2000kcal activity': '💰',
     '4000kcal activity': '🧈',
-    '12000kcal week': '💰',
+    '12000kcal week': '💎',
     '24000kcal week': '👑',
 
     # -------------------- Other Achievements --------------------

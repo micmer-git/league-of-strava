@@ -535,10 +535,7 @@
                     <table class="leaderboard-table">
                         <thead>
                             <tr>
-                                <th class="col-rank" data-sort="rank" title="Rank">
-                                    🏅
-                                    <div class="tooltip-text">Rank</div>
-                                </th>
+
                                 <th class="col-username" data-sort="username" title="Username">
                                     👤
                                     <div class="tooltip-text">Username</div>
@@ -559,10 +556,7 @@
                         <tbody>
                             {% for user in category_leaderboards[category] %}
                                 <tr>
-                                  <td class="col-rank" data-label="Rank">
-                                      <span class="rank-number">{{ user.rank_name }}</span>
-                                      <span class="rank-emoji">{{ user.rank_emoji }}</span>
-                                  </td>
+
                                     <td class="col-username" data-label="Username">
                                         <a href="/dashboard/{{ user.username }}">{{ user.username }}</a>
                                     </td>

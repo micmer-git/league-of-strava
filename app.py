@@ -1890,7 +1890,7 @@ def dashboard(username):
             matched_races.append(race_info)
 
     # Determine the user's image URL
-    default_image_url = 'static\cards\Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg'  # Replace with your default image URL
+    default_image_url = '/static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg'  # Replace with your default image URL
     user_image_url = image_assignments.get(user.username, default_image_url)
 
     # Prepare user data

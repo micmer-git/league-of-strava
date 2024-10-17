@@ -851,92 +851,6 @@ def calculate_stats(df):
     stats = convert_to_native(stats)
     return stats
 
-def calculate_max_metrics(df):
-    """Determine the user's top activities, including fastest 10K and Marathon."""
-    if df.empty:
-        return {
-            'max_elevation': 0,
-            'max_elevation_link': '#',
-            'max_duration': 0,
-            'max_duration_link': '#',
-            'max_distance': 0,
-            'max_distance_link': '#',
-            'fastest_half_marathon': 0,
-            'fastest_half_marathon_link': '#',
-            'fastest_10k': 0,
-            'fastest_10k_link': '#',
-            'fastest_marathon': 0,
-            'fastest_marathon_link': '#',
-        }
-
-    df['Type'] = df['Activity_Type'].astype(str)
-
-    # Max Elevation Gain
-    max_elevation = df['Elevation_Gain'].max()
-    max_elevation_activity = df.loc[df['Elevation_Gain'].idxmax()]
-    max_elevation_link = f"https://www.strava.com/activities/{max_elevation_activity['Activity_ID']}"
-
-    # Max Duration
-    max_duration = df['Moving_Time'].max() / 3600  # Convert to hours
-    max_duration_activity = df.loc[df['Moving_Time'].idxmax()]
-    max_duration_link = f"https://www.strava.com/activities/{max_duration_activity['Activity_ID']}"
-
-    # Max Distance
-    max_distance = df['Distance_km'].max()  # Already in km
-    max_distance_activity = df.loc[df['Distance_km'].idxmax()]
-    max_distance_link = f"https://www.strava.com/activities/{max_distance_activity['Activity_ID']}"
-
-    # Fastest Half Marathon (Minimum Duration for Distance >= 21.0975 km)
-    half_marathons = df[df['Distance_km'] >= 21.0975]
-    half_marathons = half_marathons[half_marathons['Activity_Type'].str.contains('Run', case=False, na=False)]
-
-    if not half_marathons.empty:
-        fastest_half_marathon_duration = half_marathons['Moving_Time'].min() / 3600  # in hours
-        fastest_half_marathon_activity = half_marathons.loc[half_marathons['Moving_Time'].idxmin()]
-        fastest_half_marathon_link = f"https://www.strava.com/activities/{fastest_half_marathon_activity['Activity_ID']}"
-    else:
-        fastest_half_marathon_duration = 0
-        fastest_half_marathon_link = '#'
-
-    # Fastest Marathon (Minimum Duration for Distance >= 42.195 km)
-    marathons = df[df['Distance_km'] >= 42.195]
-    marathons = marathons[marathons['Activity_Type'].str.contains('Run', case=False, na=False)]
-
-    if not marathons.empty:
-        fastest_marathon_duration = marathons['Moving_Time'].min() / 3600  # in hours
-        fastest_marathon_activity = marathons.loc[marathons['Moving_Time'].idxmin()]
-        fastest_marathon_link = f"https://www.strava.com/activities/{fastest_marathon_activity['Activity_ID']}"
-    else:
-        fastest_marathon_duration = 0
-        fastest_marathon_link = '#'
-
-    # Fastest 10K (Minimum Duration for Distance >= 10 km)
-    ten_k_runs = df[df['Distance_km'] >= 10]
-    ten_k_runs = ten_k_runs[ten_k_runs['Activity_Type'].str.contains('Run', case=False, na=False)]
-
-    if not ten_k_runs.empty:
-        fastest_10k_duration = ten_k_runs['Moving_Time'].min() / 3600  # in hours
-        fastest_10k_activity = ten_k_runs.loc[ten_k_runs['Moving_Time'].idxmin()]
-        fastest_10k_link = f"https://www.strava.com/activities/{fastest_10k_activity['Activity_ID']}"
-    else:
-        fastest_10k_duration = 0
-        fastest_10k_link = '#'
-
-    return {
-        'max_elevation': float(max_elevation),
-        'max_elevation_link': max_elevation_link,
-        'max_duration': float(round(max_duration, 2)),
-        'max_duration_link': max_duration_link,
-        'max_distance': float(round(max_distance, 2)),
-        'max_distance_link': max_distance_link,
-        'fastest_half_marathon': float(round(fastest_half_marathon_duration, 2)),
-        'fastest_half_marathon_link': fastest_half_marathon_link,
-        'fastest_10k': float(round(fastest_10k_duration, 2)),
-        'fastest_10k_link': fastest_10k_link,
-        'fastest_marathon': float(round(fastest_marathon_duration, 2)),
-        'fastest_marathon_link': fastest_marathon_link,
-    }
-
 def calculate_rank_info(total_hours):
     """Determine user's rank and progress."""
     current_rank, next_rank, progress_percent = calculate_rank(total_hours)
@@ -1044,8 +958,16 @@ def get_user_rank(total_hours):
         'next_rank_minPoints': next_rank['minPoints']
     }
 
-
-
+def extract_strava_id(link):
+    """Extract Strava user ID from the link."""
+    try:
+        path = urlparse(link).path
+        parts = path.strip('/').split('/')
+        if len(parts) >= 2 and parts[0] == 'athletes':
+            return parts[1]
+        return None
+    except Exception:
+        return None
 
 def calculate_max_metrics(df):
     """Determine the user's top activities, including fastest 10K and Marathon."""
@@ -1133,12 +1055,12 @@ def calculate_max_metrics(df):
         'fastest_marathon_link': fastest_marathon_link,
     }
 
+# Routes
 
 @app.route('/about')
 def about():
     return render_template('about.html')
 
-# Routes
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -1323,18 +1245,6 @@ def index():
     return render_template('index.html')
 
 
-
-def extract_strava_id(link):
-    """Extract Strava user ID from the link."""
-    try:
-        path = urlparse(link).path
-        parts = path.strip('/').split('/')
-        if len(parts) >= 2 and parts[0] == 'athletes':
-            return parts[1]
-        return None
-    except Exception:
-        return None
-
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard_search():
     if request.method == 'GET':
@@ -1360,14 +1270,6 @@ def dashboard_search():
 
     return redirect(url_for('index'))
 
-image_assignments = {
-    'lacco': '/static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg',
-    'mago': '/static/cards/Gemini_Generated_Image_vzmsilvzmsilvzms.jpg',
-    'liuk': '/static/cards/Gemini_Generated_Image_kqrkiqkqrkiqkqrk.jpg',
-    'micmer': '/static/cards/Gemini_Generated_Image_118vyu118vyu118v.jpg',
-    # Add more users as needed
-
-}
 
 @app.route('/dashboard/<username>')
 def dashboard(username):

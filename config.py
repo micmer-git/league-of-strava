@@ -355,64 +355,45 @@ kcal_badges = {
 }
 
 badge_emoji_mapping = {
-        # -------------------- Distance Run Badges --------------------
-    '10k run': '💲',
-    '21k run': '💰',
-    '50k run/week': '🧈',
-    '42k run': '💎',
-    '100k run/week': '👑',
-
-    # -------------------- Distance Ride Badges --------------------
-    '100k ride': '💲',
-    '150k ride': '💰',
-    '200k ride': '🧈',
-    '300k ride/week': '💎',
-    '600k ride/week': '👑',
-
-    # -------------------- Elevation Badges --------------------
-    '1000m elevation': '💲',
-    '2000m elevation': '💰',
-    'half everest': '🧈',
-    'Everest/Week': '💎',
-    '25k elevation/month': '👑',
-
-    # -------------------- KCal Badges --------------------
-    '1000kcal activity': '💲',
-    '2000kcal activity': '💰',
-    '4000kcal activity': '🧈',
-    '12000kcal week': '💎',
-    '24000kcal week': '👑',
-
-    # -------------------- Other Achievements --------------------
-    'everesting ascent': '💎',
-    '2000m ascent': '🧈',
-    'half everesting': '💰',
-    '2000 km month': '💰',
-    '10,000 km year': '🧈',
-    '100,000 elevation year': '💎',
-    '150,000 elevation year': '👑',
-    '200,000 elevation year': '👑',
-    # Achievements
+    # -------------------- Distance Run Badges --------------------
     'Run 10 km': '💲',
     'Run 21 km': '💰',
     'Run 42 km': '🧈',
-    'Run 50 km/week': '💎',
-    'Run 100 km/week': '👑',
+    'Run 50 km/Week': '💎',
+    'Run 100 km/Week': '👑',
+
+    # -------------------- Distance Ride Badges --------------------
     'Ride 100 km': '💲',
     'Ride 150 km': '💰',
     'Ride 200 km': '🧈',
-    'Ride 300 km/week': '💎',
-    'Ride 600 km/week': '👑',
-    '1000m Elevation': '💲',
-    '2000m Elevation': '💰',
-    'Half Everest': '🧈',
-    '25k Elevation/Month': '💎',
-    '1000kCal Activity': '💲',
-    '2000kCal Activity': '💰',
-    '4000kCal Activity': '🧈',
-    '12000kCal Week': '💎',
-    '24000kCal Week': '👑',
-    # Medals
+    'Ride 300 km/Week': '💎',
+    'Ride 600 km/Week': '👑',
+
+    # -------------------- Elevation Badges --------------------
+    'Elevation 1000 m': '💲',
+    'Elevation 2000 m': '💰',
+    'Half Everesting': '🧈',
+    'Everest in a Week': '💎',
+    'Elevation 25,000 m/Month': '👑',
+
+    # -------------------- Calorie Burn Badges --------------------
+    'Burn 1000 kcal in Activity': '💲',
+    'Burn 2000 kcal in Activity': '💰',
+    'Burn 4000 kcal in Activity': '🧈',
+    'Burn 12,000 kcal in a Week': '💎',
+    'Burn 24,000 kcal in a Week': '👑',
+
+    # -------------------- Other Achievements --------------------
+    'Everesting Ascent': '💎',
+    '2000 m Ascent': '🧈',
+    'Half Everesting': '💰',
+    'Ride 2000 km in a Month': '💰',
+    'Ride 10,000 km in a Year': '🧈',
+    'Elevation 100,000 m in a Year': '💎',
+    'Elevation 150,000 m in a Year': '👑',
+    'Elevation 200,000 m in a Year': '👑',
+
+    # -------------------- Special Medals --------------------
     'New Year Run': '🎉',
     'Christmas Run': '🎄',
     "Valentine's Day": '❤️',
@@ -426,10 +407,21 @@ badge_emoji_mapping = {
     '20 km Challenge': '🏅',
     'Steep Climber': '🧗‍♀️',
     'Coppa Coppi Protector': '🥩',
-    # Prestige Levels
+
+    # -------------------- Prestige Levels --------------------
+    # All prestige levels use the same emoji
+    # e.g.,
     'Prestige 2': '⭐',
     'Prestige 3': '⭐',
-    'Prestige 4': '⭐',
+    # ...
     'Prestige 100': '⭐',
-    # Add more mappings as needed
+}
+
+image_assignments = {
+    'lacco': '/static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg',
+    'mago': '/static/cards/Gemini_Generated_Image_vzmsilvzmsilvzms.jpg',
+    'liuk': '/static/cards/Gemini_Generated_Image_kqrkiqkqrkiqkqrk.jpg',
+    'micmer': '/static/cards/Gemini_Generated_Image_118vyu118vyu118v.jpg',
+    # Add more users as needed
+
 }

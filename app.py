@@ -1820,10 +1820,10 @@ def dashboard_search():
     return redirect(url_for('index'))
 
 image_assignments = {
-    'lacco': '/static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg',
-    'mago': '/static/cards/Gemini_Generated_Image_vzmsilvzmsilvzms.jpg',
-    'liuk': '/static/cards/Gemini_Generated_Image_kqrkiqkqrkiqkqrk.jpg',
-    'micmer': '/static/cards/Gemini_Generated_Image_118vyu118vyu118v.jpg',
+    'lacco': 'static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg',
+    'mago': 'static/cards/Gemini_Generated_Image_vzmsilvzmsilvzms.jpg',
+    'liuk': 'static/cards/Gemini_Generated_Image_kqrkiqkqrkiqkqrk.jpg',
+    'micmer': 'static/cards/Gemini_Generated_Image_118vyu118vyu118v.jpg',
     # Add more users as needed
 
 }
@@ -1890,7 +1890,7 @@ def dashboard(username):
             matched_races.append(race_info)
 
     # Determine the user's image URL
-    default_image_url = 'static\cards\Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg'  # Replace with your default image URL
+    default_image_url = '/static/cards/Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg'  # Replace with your default image URL
     user_image_url = image_assignments.get(user.username, default_image_url)
 
     # Prepare user data

@@ -13,98 +13,17 @@ from urllib.parse import urlparse
 import glob
 import csv
 from flask_migrate import Migrate
+from datetime import timedelta
+from config import *
+from models import *
 
 
-import os
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-import dj_database_url
-
-# Strava API Credentials
-STRAVA_CLIENT_ID = os.environ.get('STRAVA_CLIENT_ID')
-STRAVA_CLIENT_SECRET = os.environ.get('STRAVA_CLIENT_SECRET')
-STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.com/strava/callback'
-
-# Initialize Flask app
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
-
-# Database configuration
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Fallback to SQLite for local development
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Configuration for file uploads
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'csv'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['INITIALIZATION_DONE'] = False
-
-# Initialize SQLAlchemy and Flask-Migrate
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-# Database Models
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    strava_link = db.Column(db.String(200), unique=True, nullable=False)
-    rank_name = db.Column(db.String(50), nullable=False)
-    rank_emoji = db.Column(db.String(10), nullable=False)
-    total_hours = db.Column(db.Float, nullable=False, default=0.0)
-    coins_everest = db.Column(db.Float, nullable=False, default=0.0)
-    coins_pizza = db.Column(db.Float, nullable=False, default=0.0)
-    coins_heartbeat = db.Column(db.Integer, nullable=False, default=0)
-    achievements = db.Column(db.JSON, nullable=False, default={})
-    stats = db.Column(db.JSON, nullable=False, default={})
-    max_elevation = db.Column(db.Float, nullable=True, default=0.0)
-    max_elevation_link = db.Column(db.String(200), nullable=True, default='#')
-    max_duration = db.Column(db.Float, nullable=True, default=0.0)
-    max_duration_link = db.Column(db.String(200), nullable=True, default='#')
-    max_distance = db.Column(db.Float, nullable=True, default=0.0)
-    max_distance_link = db.Column(db.String(200), nullable=True, default='#')
-
-    # New Fields for Fastest 10K and Marathon
-    fastest_10k = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
-    fastest_10k_link = db.Column(db.String(200), nullable=True, default='#')
-
-    fastest_marathon = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
-    fastest_marathon_link = db.Column(db.String(200), nullable=True, default='#')
-
-    # Fastest Half Marathon Fields
-    fastest_half_marathon = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
-    fastest_half_marathon_link = db.Column(db.String(200), nullable=True, default='#')
-
-    activities = db.relationship('Activity', backref='user', lazy=True)
-
-class Activity(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    activity_id = db.Column(db.String(100), nullable=False)
-    name = db.Column(db.String(200), nullable=False)
-    date = db.Column(db.DateTime, nullable=False)
-    distance = db.Column(db.Float, nullable=False)  # in km
-    duration = db.Column(db.Float, nullable=False)  # in hours
-    duration_minutes = db.Column(db.Integer, nullable=False)  # Remaining minutes
-    elevation_gain = db.Column(db.Float, nullable=False)  # in meters
-    calories = db.Column(db.Float, nullable=False)  # in kcal
-    heartbeats = db.Column(db.Integer, nullable=False)
-    coins_everest = db.Column(db.Float, nullable=False)
-    coins_pizza = db.Column(db.Float, nullable=False)
-    coins_heartbeat = db.Column(db.Integer, nullable=False)
-    link = db.Column(db.String(200), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-    # New Field to Store Additional Data
-    additional_data = db.Column(db.JSON, nullable=True)
-
-# Remove db.create_all() to prevent conflicts with migrations
-# with app.app_context():
-#     db.create_all()
-
+@app.before_request
+def initialize_app():
+    if not app.config['INITIALIZATION_DONE']:
+        with app.app_context():
+            process_backup_csv_files()
+        app.config['INITIALIZATION_DONE'] = True
 
 
 def process_backup_csv_files():
@@ -222,13 +141,6 @@ def process_backup_csv_files():
 
     logging.info("Finished processing backup CSV files")
     print("Finished processing backup CSV files")
-@app.before_request
-def initialize_app():
-    if not app.config['INITIALIZATION_DONE']:
-        with app.app_context():
-            process_backup_csv_files()
-        app.config['INITIALIZATION_DONE'] = True
-
 
 
 # Set up detailed logging
@@ -257,42 +169,6 @@ def format_duration(hours):
     return f"{h} h {m} m"
 
 app.jinja_env.filters['format_duration'] = format_duration
-
-# Rank System Configuration
-rank_config = [
-    {'name': 'Bronze 3', 'emoji': '🥉', 'minPoints': 0},
-    {'name': 'Bronze 2', 'emoji': '🥉', 'minPoints': 150},
-    {'name': 'Bronze 1', 'emoji': '🥉', 'minPoints': 300},
-    {'name': 'Silver 3', 'emoji': '🥈', 'minPoints': 450},
-    {'name': 'Silver 2', 'emoji': '🥈', 'minPoints': 600},
-    {'name': 'Silver 1', 'emoji': '🥈', 'minPoints': 750},
-    {'name': 'Gold 3', 'emoji': '🥇', 'minPoints': 900},
-    {'name': 'Gold 2', 'emoji': '🥇', 'minPoints': 1050},
-    {'name': 'Gold 1', 'emoji': '🥇', 'minPoints': 1200},
-    {'name': 'Platinum 3', 'emoji': '🏆', 'minPoints': 1350},
-    {'name': 'Platinum 2', 'emoji': '🏆', 'minPoints': 1500},
-    {'name': 'Platinum 1', 'emoji': '🏆', 'minPoints': 1650},
-    {'name': 'Diamond 3', 'emoji': '💎', 'minPoints': 1800},
-    {'name': 'Diamond 2', 'emoji': '💎', 'minPoints': 1950},
-    {'name': 'Diamond 1', 'emoji': '💎', 'minPoints': 2100},
-    {'name': 'Master 3', 'emoji': '🔥', 'minPoints': 2250},
-    {'name': 'Master 2', 'emoji': '🔥', 'minPoints': 2400},
-    {'name': 'Master 1', 'emoji': '🔥', 'minPoints': 2550},
-    {'name': 'Grandmaster 3', 'emoji': '🚀', 'minPoints': 2700},
-    {'name': 'Grandmaster 2', 'emoji': '🚀', 'minPoints': 2850},
-    {'name': 'Grandmaster 1', 'emoji': '🚀', 'minPoints': 3000},
-    {'name': 'Challenger', 'emoji': '🌟', 'minPoints': 3150},
-]
-
-# Dynamically add Prestige levels
-for i in range(2, 101):
-    rank_config.append({
-        'name': f'Prestige {i}',
-        'emoji': '⭐',
-        'minPoints': 3150 + (i - 1) * 75,  # Each level requires 75 additional points
-    })
-
-
 
 
 def convert_to_native(obj):
@@ -383,186 +259,7 @@ def process_dataframe(df):
     logging.info("Starting CSV processing.")
 
     # Define column name lists for Italian and English CSVs
-    italian_column_names = [
-        'Activity_ID',               # 0
-        'Activity_Date',             # 1
-        'Activity_Name',             # 2
-        'Activity_Type',             # 3
-        'Activity_Description',      # 4
-        'Elapsed_Time_1',            # 5
-        'Distance_1',                # 6
-        'Max_Heart_Rate_1',          # 7
-        'Relative_Effort_1',         # 8
-        'Commute_1',                 # 9
-        'Activity_Private_Note',     # 10
-        'Activity_Gear_1',           # 11
-        'Filename',                  # 12
-        'Athlete_Weight',            # 13
-        'Bike_Weight',               # 14
-        'Elapsed_Time_2',            # 15
-        'Moving_Time',               # 16
-        'Distance_2',                # 17
-        'Max_Speed',                 # 18
-        'Average_Speed',             # 19
-        'Elevation_Gain',            # 20
-        'Elevation_Loss',            # 21
-        'Elevation_Low',             # 22
-        'Elevation_High',            # 23
-        'Max_Grade',                 # 24
-        'Average_Grade_1',           # 25
-        'Average_Positive_Grade',    # 26
-        'Average_Negative_Grade',    # 27
-        'Max_Cadence',               # 28
-        'Average_Cadence',           # 29
-        'Max_Heart_Rate_2',          # 30
-        'Average_Heart_Rate',        # 31
-        'Max_Watts',                 # 32
-        'Average_Watts',             # 33
-        'Calories',                  # 34
-        'Max_Temperature',           # 35
-        'Average_Temperature',       # 36
-        'Relative_Effort_2',         # 37
-        'Total_Work',                # 38
-        'Number_of_Runs',            # 39
-        'Uphill_Time',               # 40
-        'Downhill_Time',             # 41
-        'Other_Time',                # 42
-        'Perceived_Exertion_1',      # 43
-        'Type',                      # 44
-        'Start_Time',                # 45
-        'Weighted_Average_Power',    # 46
-        'Power_Count',               # 47
-        'Prefer_Perceived_Exertion', # 48
-        'Perceived_Relative_Effort', # 49
-        'Commute_2',                 # 50
-        'Total_Weight_Lifted',       # 51
-        'From_Upload',               # 52
-        'Grade_Adjusted_Distance',   # 53
-        'Weather_Observation_Time',  # 54
-        'Weather_Condition',         # 55
-        'Weather_Temperature',       # 56
-        'Apparent_Temperature',      # 57
-        'Dewpoint',                  # 58
-        'Humidity',                  # 59
-        'Weather_Pressure',          # 60
-        'Wind_Speed',                # 61
-        'Wind_Gust',                 # 62
-        'Wind_Bearing',              # 63
-        'Precipitation_Intensity',   # 64
-        'Sunrise_Time',              # 65
-        'Sunset_Time',               # 66
-        'Moon_Phase',                # 67
-        'Bike_1',                    # 68
-        'Gear',                      # 69
-        'Precipitation_Probability', # 70
-        'Precipitation_Type',        # 71
-        'Cloud_Cover',               # 72
-        'Weather_Visibility',        # 73
-        'UV_Index',                  # 74
-        'Weather_Ozone',             # 75
-        'Jump_Count',                # 76
-        'Total_Grit',                # 77
-        'Average_Flow',              # 78
-        'Flagged',                   # 79
-    ]
 
-    english_column_names = [
-        'Activity_ID',               # 0
-        'Activity_Date',             # 1
-        'Activity_Name',             # 2
-        'Activity_Type',             # 3
-        'Activity_Description',      # 4
-        'Elapsed_Time_1',            # 5
-        'Distance_1',                # 6
-        'Max_Heart_Rate_1',          # 7
-        'Relative_Effort_1',         # 8
-        'Commute_1',                 # 9
-        'Activity_Private_Note',     # 10
-        'Activity_Gear_1',           # 11
-        'Filename',                  # 12
-        'Athlete_Weight',            # 13
-        'Bike_Weight',               # 14
-        'Elapsed_Time_2',            # 15
-        'Moving_Time',               # 16
-        'Distance_2',                # 17
-        'Max_Speed',                 # 18
-        'Average_Speed',             # 19
-        'Elevation_Gain',            # 20
-        'Elevation_Loss',            # 21
-        'Elevation_Low',             # 22
-        'Elevation_High',            # 23
-        'Max_Grade',                 # 24
-        'Average_Grade_1',           # 25
-        'Average_Positive_Grade',    # 26
-        'Average_Negative_Grade',    # 27
-        'Max_Cadence',               # 28
-        'Average_Cadence',           # 29
-        'Max_Heart_Rate_2',          # 30
-        'Average_Heart_Rate',        # 31
-        'Max_Watts',                 # 32
-        'Average_Watts',             # 33
-        'Calories',                  # 34
-        'Max_Temperature',           # 35
-        'Average_Temperature',       # 36
-        'Relative_Effort_2',         # 37
-        'Total_Work',                # 38
-        'Number_of_Runs',            # 39
-        'Uphill_Time',               # 40
-        'Downhill_Time',             # 41
-        'Other_Time',                # 42
-        'Perceived_Exertion_1',      # 43
-        'Type',                      # 44
-        'Start_Time',                # 45
-        'Weighted_Average_Power',    # 46
-        'Power_Count',               # 47
-        'Prefer_Perceived_Exertion', # 48
-        'Perceived_Relative_Effort', # 49
-        'Commute_2',                 # 50
-        'Total_Weight_Lifted',       # 51
-        'From_Upload',               # 52
-        'Grade_Adjusted_Distance',   # 53
-        'Weather_Observation_Time',  # 54
-        'Weather_Condition',         # 55
-        'Weather_Temperature',       # 56
-        'Apparent_Temperature',      # 57
-        'Dewpoint',                  # 58
-        'Humidity',                  # 59
-        'Weather_Pressure',          # 60
-        'Wind_Speed',                # 61
-        'Wind_Gust',                 # 62
-        'Wind_Bearing',              # 63
-        'Precipitation_Intensity',   # 64
-        'Sunrise_Time',              # 65
-        'Sunset_Time',               # 66
-        'Moon_Phase',                # 67
-        'Bike_1',                    # 68
-        'Gear',                      # 69
-        'Precipitation_Probability', # 70
-        'Precipitation_Type',        # 71
-        'Cloud_Cover',               # 72
-        'Weather_Visibility',        # 73
-        'UV_Index',                  # 74
-        'Weather_Ozone',             # 75
-        'Jump_Count',                # 76
-        'Total_Grit',                # 77
-        'Average_Flow',              # 78
-        'Flagged',                   # 79,
-        # Assuming columns 80 to 93 are additional in English CSVs
-        'Additional_Column_80',      # 80
-        'Additional_Column_81',      # 81
-        'Additional_Column_82',      # 82
-        'Additional_Column_83',      # 83
-        'Additional_Column_84',      # 84
-        'Additional_Column_85',      # 85
-        'Additional_Column_86',      # 86
-        'Additional_Column_87',      # 87
-        'Additional_Column_88',      # 88
-        'Additional_Column_89',      # 89
-        'Additional_Column_90',      # 90
-        'Additional_Column_91',      # 91
-        'Additional_Column_92',      # 92
-        'Additional_Column_93',      # 93
-    ]
 
     # Define expected column counts
     expected_num_columns_italian = 80
@@ -573,20 +270,7 @@ def process_dataframe(df):
     english_headers_sample = ['Activity ID', 'Activity Date', 'Activity Name']
 
     # Define month mapping for Italian to English
-    month_map = {
-        'gen': 'Jan',
-        'feb': 'Feb',
-        'mar': 'Mar',
-        'apr': 'Apr',
-        'mag': 'May',
-        'giu': 'Jun',
-        'lug': 'Jul',
-        'ago': 'Aug',
-        'set': 'Sep',
-        'ott': 'Oct',
-        'nov': 'Nov',
-        'dic': 'Dec'
-    }
+
 
     # Compile a regex pattern for Italian month abbreviations
     month_pattern = re.compile(r'\b(' + '|'.join(month_map.keys()) + r')\b', re.IGNORECASE)
@@ -658,21 +342,7 @@ def process_dataframe(df):
     df = df.applymap(replace_activity_types)
     logging.info("Replaced 'Corsa' with 'Run' and 'Nuotata' with 'Swim' across the DataFrame.")
 
-    # Handle numeric parsing based on language
-    numeric_columns = [
-        'Elapsed_Time_1', 'Distance_1', 'Max_Heart_Rate_1', 'Relative_Effort_1',
-        'Moving_Time', 'Distance_2', 'Max_Speed', 'Average_Speed', 'Elevation_Gain',
-        'Elevation_Loss', 'Elevation_Low', 'Elevation_High', 'Max_Grade',
-        'Average_Grade_1', 'Average_Positive_Grade', 'Average_Negative_Grade',
-        'Max_Cadence', 'Average_Cadence', 'Max_Heart_Rate_2', 'Average_Heart_Rate',
-        'Max_Watts', 'Average_Watts', 'Calories', 'Max_Temperature',
-        'Average_Temperature', 'Total_Work', 'Number_of_Runs', 'Uphill_Time',
-        'Downhill_Time', 'Other_Time', 'Perceived_Exertion_1', 'Weighted_Average_Power',
-        'Power_Count', 'Precipitation_Intensity', 'Total_Weight_Lifted',
-        'Grade_Adjusted_Distance', 'Humidity', 'Weather_Pressure', 'Wind_Speed',
-        'Wind_Gust', 'Wind_Bearing', 'Precipitation_Intensity', 'UV_Index',
-        'Jump_Count', 'Total_Grit', 'Average_Flow', 'Average_Elapsed_Speed', 'Total_Steps'
-    ]
+
 
     if language == 'Italian':
         # Replace comma with dot in numeric columns for Italian CSV
@@ -775,60 +445,6 @@ def get_user_rank(total_hours):
         'current_points': round(total_hours, 1),
         'next_rank_minPoints': next_rank['minPoints']
     }
-import pandas as pd
-from datetime import datetime, timedelta
-
-
-races = [
-    {
-        'name': 'Maratona dles Dolomites (Lungo)',
-        'start_date': datetime(2024, 7, 7),
-        'end_date': datetime(2024, 7, 7),
-        'distance_km': 135.8,
-        'distance_variance': 0.05,  # 1%
-        'ascent_m': 4272,
-        'ascent_variance': 0.05
-    },
-    {
-        'name': 'Trail Run',
-        'start_date': datetime(2023, 7, 2),
-        'end_date': datetime(2023, 7, 2),
-        'distance_km': 54,
-        'distance_variance': 0.05,
-        'ascent_m': 1745,
-        'ascent_variance': 0.05
-    },
-    {
-        'name': 'Boston Marathon',
-        'start_date': datetime(2024, 4, 15),
-        'end_date': datetime(2024, 4, 15),
-        'distance_km': 42.6,
-        'distance_variance': 0.05,
-        'ascent_m': 250,
-        'ascent_variance': 0.05
-    },
-    {
-        'name': 'Berghem Mola Mia 2024 (Mez)',
-        'start_date': datetime(2024, 6, 16),
-        'end_date': datetime(2024, 6, 16),
-        'distance_km': 136.36,
-        'distance_variance': 0.05,
-        'ascent_m': 3112,
-        'ascent_variance': 0.05
-    },
-    {
-        'name': 'Berghem Mola Mia 2023 (Lonk)',
-        'start_date': datetime(2024, 6, 11),
-        'end_date': datetime(2024, 6, 11),
-        'distance_km': 177.82,
-        'distance_variance': 0.05,
-        'ascent_m': 3389,
-        'ascent_variance': 0.05
-    },
-    # Add more races as needed
-]
-
-
 
 
 def calculate_achievements(df):
@@ -878,28 +494,6 @@ def calculate_achievements(df):
 
     # Initialize the achievements dictionary
     achievements = {}
-
-    # Define categories information
-    categories_info = {
-        'Run': '10k | 21k | 42k | 50km/Week | 100km/Week',
-        'Ride': '100km |  150km |  200km | 300km/Week | 600k Ride/Week',
-        'Elevation': '1000m | 2000m | Half Everest | 25k/Month | 25k/Month',
-        'KCal': '1000kCal |  2000kCal  | 4000kCal | 12000kCal/Week | 24000kCal/Week'
-    }
-
-    # Define special occasions for Medals
-    special_occasions = [
-        { 'name': 'New Year Run', 'emoji': '🎉', 'description': 'Participated in New Year Run', 'dates': ['01-01'] },
-        { 'name': 'Christmas Run', 'emoji': '🎄', 'description': 'Participated in Christmas Run', 'dates': ['12-25'] },
-        { 'name': 'Valentine\'s Day', 'emoji': '❤️', 'description': 'Participated on Valentine\'s Day', 'dates': ['02-14'] },
-        { 'name': 'Easter', 'emoji': '🐣', 'description': 'Participated during Easter', 'dates': ['04-04'] },  # Adjust as needed
-        { 'name': 'Halloween', 'emoji': '🎃', 'description': 'Participated during Halloween', 'dates': ['10-31'] },
-        { 'name': 'Thanksgiving', 'emoji': '🦃', 'description': 'Participated during Thanksgiving', 'dates': ['11-25'] },  # Adjust date as needed
-        { 'name': 'Diwali', 'emoji': '🪔', 'description': 'Participated during Diwali', 'dates': ['11-04'] },  # Adjust date as needed
-        { 'name': 'Hanukkah', 'emoji': '🕎', 'description': 'Participated during Hanukkah', 'dates': ['12-18'] },  # Adjust date as needed
-        { 'name': 'Chinese New Year', 'emoji': '🐉', 'description': 'Participated during Chinese New Year', 'dates': ['02-01'] },  # Adjust date as needed
-        { 'name': 'International Workers\' Day', 'emoji': '✊', 'description': 'Participated on International Workers\' Day', 'dates': ['05-01'] }
-    ]
 
     # Iterate over each timeframe and compute achievements
     for timeframe, dates in timeframes.items():
@@ -956,7 +550,6 @@ def calculate_achievements(df):
         # Weekly Consistency
         df_sorted['Week'] = df_sorted['Activity_Date'].dt.to_period('W')
         weekly_days = df_sorted.groupby('Week')['Date'].nunique()
-        weekly_consistent = int((weekly_days == 7).sum())
 
         # Monthly Consistency
         df_sorted['Month'] = df_sorted['Activity_Date'].dt.to_period('M')
@@ -971,30 +564,11 @@ def calculate_achievements(df):
             if active_days == days_in_month:
                 monthly_consistent += 1
 
-        consistency_achievements = [
-            {
-                'name': 'Weekly Consistency',
-                'emoji': '📅',
-                'description': 'Logged activities every day of a week',
-                'count': weekly_consistent
-            },
-            {
-                'name': 'Monthly Consistency',
-                'emoji': '🗓️',
-                'description': 'Logged activities every day of a month',
-                'count': monthly_consistent
-            }
-        ]
+        consistency_achievements = []
 
 
         # ------------------ Categories Achievements ------------------
 
-        # ========== Distance Run Badges ==========
-        distance_run_badges = {
-            'thresholds': [10, 21, 42, 50, 100],  # in km or km/week
-            'unit': 'km',
-            'emoji_sequence': ['💲', '💰', '🧈', '💎','👑']
-        }
 
         for idx, threshold in enumerate(distance_run_badges['thresholds']):
             emoji = distance_run_badges['emoji_sequence'][idx] if idx < len(distance_run_badges['emoji_sequence']) else '🏅'
@@ -1024,11 +598,7 @@ def calculate_achievements(df):
                     break
 
         # ========== Distance Ride Badges ==========
-        distance_ride_badges = {
-            'thresholds': [100, 150, 200, 300, 600],  # in km or km/week
-            'unit': 'km',
-            'emoji_sequence': ['💲', '💰', '🧈', '💎','👑']
-        }
+
 
         for idx, threshold in enumerate(distance_ride_badges['thresholds']):
             emoji = distance_ride_badges['emoji_sequence'][idx] if idx < len(distance_ride_badges['emoji_sequence']) else '🚴‍♂️'
@@ -1057,9 +627,6 @@ def calculate_achievements(df):
                     })
                     break
 
-        # ========== Elevation Badges ==========
-        elevation_thresholds = [1000, 2000, 4424, 10000, 25000]  # in meters (Half Everest ~4424m, 25k/month)
-        elevation_emojis = ['💲', '💰', '🧈', '👑','💎']  # Distinct emojis for Elevation
 
         for idx, threshold in enumerate(elevation_thresholds):
             if idx < len(elevation_emojis):
@@ -1107,18 +674,6 @@ def calculate_achievements(df):
                     break
 
         # ========== KCal Badges ==========
-        kcal_badges = {
-            'Per Activity': {
-                'thresholds': [1000, 2000, 4000],
-                'emojis': ['💲', '💰', '🧈'],
-                'description': 'Burned at least {} kcal in an activity'
-            },
-            'Weekly': {
-                'thresholds': [12000, 24000],  # Adjusted to realistic weekly kcal
-                'emojis': ['💎','👑'],
-                'description': 'Burned at least {} kcal in a week'
-            }
-        }
 
         # Assign KCal Achievements to 'KCal' category
         for category in achievements[timeframe]['categories']:
@@ -1149,23 +704,6 @@ def calculate_achievements(df):
                 break
 
         # ------------------ Integrate All Achievements into Medals ------------------
-
-
-
-        # Assign Special Occasions Medals
-        df_sorted['Month-Day'] = df_sorted['Activity_Date'].dt.strftime('%m-%d')
-
-        for occasion in special_occasions:
-            count = int(df_sorted[df_sorted['Month-Day'].isin(occasion['dates'])].shape[0])
-            achievements[timeframe]['Medals'].append({
-                'name': occasion['name'],
-                'emoji': occasion['emoji'],
-                'description': occasion['description'],
-                'count': count
-            })
-
-        # ------------------ Additional Medals ------------------
-        # Define additional Medals with their respective emojis
         additional_medals = [
             {
                 'name': 'Steep Climber',
@@ -1220,6 +758,24 @@ def calculate_achievements(df):
             'count': int(df_tf['Max_Speed'].fillna(0).apply(lambda x: x * 3.6 > 30).sum()) if 'Max_Speed' in df_tf.columns else 0,
         }
         ]
+
+
+
+        # Assign Special Occasions Medals
+        df_sorted['Month-Day'] = df_sorted['Activity_Date'].dt.strftime('%m-%d')
+
+        for occasion in special_occasions:
+            count = int(df_sorted[df_sorted['Month-Day'].isin(occasion['dates'])].shape[0])
+            achievements[timeframe]['Medals'].append({
+                'name': occasion['name'],
+                'emoji': occasion['emoji'],
+                'description': occasion['description'],
+                'count': count
+            })
+
+        # ------------------ Additional Medals ------------------
+        # Define additional Medals with their respective emojis
+
 
         for medal in additional_medals:
             achievements[timeframe]['Medals'].append({
@@ -1412,13 +968,6 @@ def calculate_rank(total_hours):
     points_between_ranks = next_rank['minPoints'] - current_rank['minPoints']
     progress_percent = (points_into_current_rank / points_between_ranks) * 100 if points_between_ranks > 0 else 100
     return current_rank, next_rank, progress_percent
-
-from datetime import timedelta
-
-
-
-
-
 
 
 
@@ -1921,7 +1470,6 @@ def dashboard(username):
     user_rank = get_user_rank(user.total_hours)
 
     # Define the timeframes as per calculate_achievements function
-    timeframes = ['all_time', '7_D', '14_D', '30_D', 'YTD', '365_D']
 
     return render_template('dashboard.html',
                            user=user_data,
@@ -1991,100 +1539,13 @@ def search():
         flash('User not found. Please ensure the link is correct or upload the user\'s activities.', 'danger')
         return redirect(url_for('index'))
 
-badge_emoji_mapping = {
-        # -------------------- Distance Run Badges --------------------
-    '10k run': '💲',
-    '21k run': '💰',
-    '50k run/week': '🧈',
-    '42k run': '💎',
-    '100k run/week': '👑',
-
-    # -------------------- Distance Ride Badges --------------------
-    '100k ride': '💲',
-    '150k ride': '💰',
-    '200k ride': '🧈',
-    '300k ride/week': '💎',
-    '600k ride/week': '👑',
-
-    # -------------------- Elevation Badges --------------------
-    '1000m elevation': '💲',
-    '2000m elevation': '💰',
-    'half everest': '🧈',
-    'Everest/Week': '💎',
-    '25k elevation/month': '👑',
-
-    # -------------------- KCal Badges --------------------
-    '1000kcal activity': '💲',
-    '2000kcal activity': '💰',
-    '4000kcal activity': '🧈',
-    '12000kcal week': '💎',
-    '24000kcal week': '👑',
-
-    # -------------------- Other Achievements --------------------
-    'everesting ascent': '💎',
-    '2000m ascent': '🧈',
-    'half everesting': '💰',
-    '2000 km month': '💰',
-    '10,000 km year': '🧈',
-    '100,000 elevation year': '💎',
-    '150,000 elevation year': '👑',
-    '200,000 elevation year': '👑',
-    # Achievements
-    'Run 10 km': '💲',
-    'Run 21 km': '💰',
-    'Run 42 km': '🧈',
-    'Run 50 km/week': '💎',
-    'Run 100 km/week': '👑',
-    'Ride 100 km': '💲',
-    'Ride 150 km': '💰',
-    'Ride 200 km': '🧈',
-    'Ride 300 km/week': '💎',
-    'Ride 600 km/week': '👑',
-    '1000m Elevation': '💲',
-    '2000m Elevation': '💰',
-    'Half Everest': '🧈',
-    '25k Elevation/Month': '💎',
-    '1000kCal Activity': '💲',
-    '2000kCal Activity': '💰',
-    '4000kCal Activity': '🧈',
-    '12000kCal Week': '💎',
-    '24000kCal Week': '👑',
-    # Medals
-    'New Year Run': '🎉',
-    'Christmas Run': '🎄',
-    "Valentine's Day": '❤️',
-    'Easter': '🐣',
-    'Halloween': '🎃',
-    'Thanksgiving': '🦃',
-    'Diwali': '🪔',
-    'Hanukkah': '🕎',
-    'Chinese New Year': '🐉',
-    "International Workers' Day": '✊',
-    '20 km Challenge': '🏅',
-    'Steep Climber': '🧗‍♀️',
-    'Coppa Coppi Protector': '🥩',
-    # Prestige Levels
-    'Prestige 2': '⭐',
-    'Prestige 3': '⭐',
-    'Prestige 4': '⭐',
-    'Prestige 100': '⭐',
-    # Add more mappings as needed
-}
-
 
 
 @app.route('/leaderboard')
 def leaderboard():
     # Define Categories and their Achievements with Emojis
-    categories_info = {
-        'Run': '💲 10k Run | 💰 21k Run | 🧈 42k Run | 💎 50k Run/Week | 👑 100k Run/Week',
-        'Ride': '💲 100k Ride | 💰 150k Ride | 🧈 200k Ride | 💎 300k Ride/week | 👑 600k Ride/week',
-        'Elevation': '💲 1000m Elevation | 💰 2000m Elevation | 🧈 Half Everest | 💎 25k Elevation/Month | 👑 50k Elevation/Month',
-        'KCal': '💲 1000kCal Activity | 💰 2000kCal Activity | 🧈 4000kCal Activity | 💎 12000kCal Week | 👑 24000kCal Week'
-    }
 
     # Define timeframes
-    timeframes = ['all_time', '7_D', '14_D', '30_D', 'YTD', '365_D']
     timeframe = request.args.get('timeframe', 'all_time')
     if timeframe not in timeframes:
         timeframe = 'all_time'
@@ -2097,7 +1558,7 @@ def leaderboard():
     category_achievements = {}  # Mapping category to its achievements list
 
     for category, achievements_str in categories_info.items():
-        achievements_list = [ach.split(' ', 1)[1] for ach in achievements_str.split(' | ')]
+        achievements_list = [ach for ach in achievements_str.split(' | ')]
         category_achievements[category] = achievements_list
 
         users_data = []

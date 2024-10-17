@@ -1,0 +1,353 @@
+<!-- templates/about.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>About - League of Strava</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        /* Reuse existing styles from your main template */
+        /* You can also link to a separate CSS file if preferred */
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #ff6600;
+        }
+
+        p {
+            color: #555;
+            line-height: 1.6;
+        }
+
+        /* Styling for Toggle Sections */
+        details {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #fafafa;
+            transition: background-color 0.3s ease;
+        }
+
+        summary {
+            font-size: 1.2em;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            padding-left: 25px;
+        }
+
+
+        details p, details ul {
+            margin-top: 10px;
+        }
+
+        /* CTA Buttons */
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .cta-buttons a {
+            text-decoration: none;
+            padding: 15px 25px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            color: #fff;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .cta-submit {
+            background-color: #28a745;
+        }
+
+        .cta-submit:hover {
+            background-color: #218838;
+        }
+
+        .cta-info {
+            background-color: #007bff;
+        }
+
+        .cta-info:hover {
+            background-color: #0069d9;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .cta-buttons a {
+                width: 100%;
+            }
+        }
+
+        /* Header Styles */
+        header {
+            background-color: #ff6600;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header .logo img {
+            height: 50px;
+            width: auto;
+        }
+
+        /* Navigation Styles */
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #e0e0e0;
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .hamburger div {
+            width: 25px;
+            height: 3px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.95);
+            padding: 60px 20px;
+            gap: 30px;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 999;
+        }
+
+        .mobile-nav.active {
+            transform: translateY(0);
+        }
+
+        .mobile-nav a {
+            color: #fff;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        /* Toggle Animation for Hamburger */
+        .hamburger.active div:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active div:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active div:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Footer Styles */
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #777;
+            padding: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo" id="logo">
+            <a href="/">
+                <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
+            </a>
+        </div>
+        <nav id="nav-menu">
+            <a href="{{ url_for('about') }}">About</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+        </nav>
+        <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="{{ url_for('about') }}">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+    </div>
+
+    <div class="container">
+        <h1>About League of Strava</h1>
+        <p>
+            Welcome to the <strong>League of Strava</strong>, a project curated by <em>Micmer Michele Merelli</em>. This platform empowers users to log their activities and earn unique achievements and medals based on their performance. Whether you're a runner, cyclist, or hiker, our system celebrates your milestones with engaging badges and rewards.
+        </p>
+
+        <!-- Toggle Section: Ranking System -->
+        <details>
+            <summary>🔝 Ranking System Overview</summary>
+            <p>
+                The **Ranking System** is designed to foster a competitive yet supportive community. Users are ranked based on various metrics such as total points accumulated through achievements and medals. Higher ranks unlock exclusive features and badges, motivating users to stay active and strive for excellence.
+            </p>
+            <h3>Rank Levels</h3>
+            <ul>
+                <li><strong>Bronze 3 🥉:</strong> Starting rank with 0 points.</li>
+                <li><strong>Bronze 2 🥉:</strong> Achieved at 150 points.</li>
+                <li><strong>Bronze 1 🥉:</strong> Achieved at 300 points.</li>
+                <li><strong>Silver 3 🥈:</strong> Achieved at 450 points.</li>
+                <li><strong>Silver 2 🥈:</strong> Achieved at 600 points.</li>
+                <li><strong>Silver 1 🥈:</strong> Achieved at 750 points.</li>
+                <li><strong>Gold 3 🥇:</strong> Achieved at 900 points.</li>
+                <li><strong>Gold 2 🥇:</strong> Achieved at 1050 points.</li>
+                <li><strong>Gold 1 🥇:</strong> Achieved at 1200 points.</li>
+                <li><strong>Platinum 3 🏆:</strong> Achieved at 1350 points.</li>
+                <li><strong>Platinum 2 🏆:</strong> Achieved at 1500 points.</li>
+                <li><strong>Platinum 1 🏆:</strong> Achieved at 1650 points.</li>
+                <li><strong>Diamond 3 💎:</strong> Achieved at 1800 points.</li>
+                <li><strong>Diamond 2 💎:</strong> Achieved at 1950 points.</li>
+                <li><strong>Diamond 1 💎:</strong> Achieved at 2100 points.</li>
+                <li><strong>Master 3 🔥:</strong> Achieved at 2250 points.</li>
+                <li><strong>Master 2 🔥:</strong> Achieved at 2400 points.</li>
+                <li><strong>Master 1 🔥:</strong> Achieved at 2550 points.</li>
+                <li><strong>Grandmaster 3 🚀:</strong> Achieved at 2700 points.</li>
+                <li><strong>Grandmaster 2 🚀:</strong> Achieved at 2850 points.</li>
+                <li><strong>Grandmaster 1 🚀:</strong> Achieved at 3000 points.</li>
+                <li><strong>Challenger 🌟:</strong> Achieved at 3150 points.</li>
+                <!-- Dynamically added Master Prestige levels -->
+                <li><strong>Master Prestige 2 ⭐:</strong> Achieved at 3225 points.</li>
+                <li><strong>Master Prestige 3 ⭐:</strong> Achieved at 3300 points.</li>
+                <!-- Continue up to Master Prestige 100 as needed -->
+            </ul>
+            <p>
+                <strong>Master Prestige Levels:</strong> Starting from **Master Prestige 2 ⭐** at 3,225 points, each subsequent level requires an additional 75 points. This continues up to **Master Prestige 100 ⭐**, encouraging continuous engagement and goal-setting.
+            </p>
+        </details>
+
+
+
+        <!-- Toggle Section: Medals -->
+        <details>
+            <summary>🥇 Medals</summary>
+            <p>
+                **Medals** are special recognitions for specific challenges and exceptional performances. Unlike achievements, medals often require a combination of distance, elevation gain, and other activity-specific criteria.
+            </p>
+            <h3>Core Medals</h3>
+            <ul>
+                <li><strong>New Year Run 🎉:</strong> Log activities on January 1st.</li>
+                <li><strong>Christmas Run 🎄:</strong> Log activities on December 25th.</li>
+                <li><strong>Valentine's Day ❤️:</strong> Log activities on February 14th.</li>
+                <li><strong>Easter 🐣:</strong> Log activities on Easter Sunday (date varies yearly).</li>
+                <li><strong>Halloween 🎃:</strong> Log activities on October 31st.</li>
+                <li><strong>Thanksgiving 🦃:</strong> Log activities on Thanksgiving Day (fourth Thursday of November in the US).</li>
+                <li><strong>Diwali 🪔:</strong> Log activities on Diwali (date varies yearly).</li>
+                <li><strong>Hanukkah 🕎:</strong> Log activities during Hanukkah (date varies yearly).</li>
+                <li><strong>Chinese New Year 🐉:</strong> Log activities on Chinese New Year (date varies yearly).</li>
+                <li><strong>International Workers' Day ✊:</strong> Log activities on May 1st.</li>
+            </ul>
+            <h3>Special Medals</h3>
+            <ul>
+                <li><strong>20 km Challenge 🏅:</strong> Log an activity covering 20 kilometers or more.</li>
+                <li><strong>Steep Climber 🧗‍♀️:</strong> Complete an activity with an elevation gain exceeding 3,000 meters and a distance less than 100 kilometers.</li>
+                <li><strong>Coppa Coppi Protector 🥩:</strong> Achieve an elevation gain of over 2,000 meters in an activity shorter than 100 kilometers.</li>
+            </ul>
+        </details>
+
+        <div class="cta-buttons">
+            <a href="{{ url_for('submit_achievement') }}" class="cta-submit">Request New Achievement/Medal</a>
+        </div>
+        <div class="cta-buttons">
+          <a href="{{ url_for('contact') }}" class="cta-info">More Info</a>
+        </div>
+
+    </div>
+
+    <footer>
+        &copy; 2024 League of Strava. Curated by <a href='https://linktr.ee/micmer'>Micmer Michele Merelli</a>.
+    </footer>
+
+    <!-- JavaScript for Navigation -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const mobileNav = document.getElementById('mobile-nav');
+            const navMenu = document.getElementById('nav-menu');
+            const logo = document.getElementById('logo');
+
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                mobileNav.classList.toggle('active');
+                const isExpanded = hamburger.classList.contains('active');
+                hamburger.setAttribute('aria-expanded', isExpanded);
+                mobileNav.style.display = isExpanded ? 'flex' : 'none';
+            };
+
+            hamburger.addEventListener('click', toggleMenu);
+            logo.addEventListener('click', toggleMenu);
+
+            // Initialize mobile nav display
+            mobileNav.style.display = 'none';
+        });
+    </script>
+</body>
+</html>

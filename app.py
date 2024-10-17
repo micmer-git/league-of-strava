@@ -1824,7 +1824,6 @@ image_assignments = {
     'mago': '/static/cards/Gemini_Generated_Image_vzmsilvzmsilvzms.jpg',
     'liuk': '/static/cards/Gemini_Generated_Image_kqrkiqkqrkiqkqrk.jpg',
     'micmer': '/static/cards/Gemini_Generated_Image_118vyu118vyu118v.jpg',
-
     # Add more users as needed
 
 }

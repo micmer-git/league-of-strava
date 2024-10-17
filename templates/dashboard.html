@@ -171,10 +171,10 @@
         }
 
         .user-image {
-            width: 100%;
-            height: 100%;
+            width: 20%;
+            height: 20%;
             object-fit: cover;
-            max-height: 400px; /* Adjust this value as needed */
+            max-height: 600px; /* Adjust this value as needed */
         }
 
         #athlete-name {
@@ -863,7 +863,7 @@
         /* User Image Styling */
         /* Updated User Image Styling */
         .user-image {
-            width: 300px; /* Increased size */
+            width: 200px; /* Increased size */
             height: 300px;
             object-fit: cover; /* Ensures the image covers the container without distortion */
             transition: transform 0.3s ease; /* Smooth transition for zoom effect */
@@ -940,7 +940,7 @@
                         <span class="coin" title="Distance: 100km per icon">🚴 {{ (user.stats.distance/1000) | int }}</span>
                     </div>
                     <h1 id="athlete-name">{{ user.username }}</h1>
-                    <h2 id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
+                    <h2 id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h3>
                     <div class="rank-progress">
                         <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
                     </div>
@@ -958,7 +958,7 @@
         <!-- Achievements & Medals Section (Toggleable) -->
         <div class="section achievements-section hidden">
             <div class="section-header" data-section="achievements" tabindex="0" aria-expanded="false">
-                <h2>Achievements & Medals</h2>
+                <h3>Achievements & Medals</h3>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="section-content">
@@ -1013,62 +1013,45 @@
         <!-- Top Activities Section (Toggleable) -->
         <div class="section top-activities-section hidden">
             <div class="section-header" data-section="top-activities" tabindex="0" aria-expanded="false">
-                <h2>Top Activities</h2>
+                <h3>Top Activities</h3>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="section-content">
                 <div class="top-activities">
                     <a href="{{ user.max_metrics.max_elevation_link }}" class="top-activity-card" aria-label="Max Elevation Gain Details" tabindex="0">
-                        <h4>Max Elevation Gain</h4>
+                        <h3>Max Elevation Gain</h3>
                         <p>{{ user.max_metrics.max_elevation | int }} m</p>
                     </a>
                     <a href="{{ user.max_metrics.max_duration_link }}" class="top-activity-card" aria-label="Longest Duration Details" tabindex="0">
-                        <h4>Longest Duration</h4>
+                        <h3>Longest Duration</h3>
                         <p>{{ user.max_metrics.max_duration | format_duration }}</p>
                     </a>
                     <a href="{{ user.max_metrics.max_distance_link }}" class="top-activity-card" aria-label="Greatest Distance Details" tabindex="0">
-                        <h4>Greatest Distance</h4>
+                        <h3>Greatest Distance</h3>
                         <p>{{ user.max_metrics.max_distance | int }} km</p>
                     </a>
                     <!-- **New Fastest 10K Display** -->
                     <a href="{{ user.max_metrics.fastest_10k_link }}" class="top-activity-card" aria-label="Fastest 10k Details" tabindex="0">
-                        <h4>Fastest 10K</h4>
+                        <h3>Fastest 10K</h3>
                         <p>{{ user.max_metrics.fastest_10k | format_duration }}</p>
                     </a>
                     <a href="{{ user.max_metrics.fastest_half_marathon_link }}" class="top-activity-card" aria-label="Fastest Half Marathon Details" tabindex="0">
-                        <h4>Fastest Half Marathon</h4>
+                        <h3>Fastest Half Marathon</h3>
                         <p>{{ user.max_metrics.fastest_half_marathon | format_duration }}</p>
                     </a>
                     <a href="{{ user.max_metrics.fastest_marathon_link }}" class="top-activity-card" aria-label="Fastest Marathon Details" tabindex="0">
-                        <h4>Fastest Marathon</h4>
+                        <h3>Fastest Marathon</h3>
                         <p>{{ user.max_metrics.fastest_marathon | format_duration }}</p>
                     </a>
                 </div>
             </div>
         </div>
 
-        <!-- Additional Infos Section (Toggleable) -->
-        <div class="section additional-infos hidden">
-            <div class="section-header" data-section="additional-infos" tabindex="0" aria-expanded="false">
-                <h2>Additional Infos</h2>
-                <i class="fas fa-chevron-down toggle-icon"></i>
-            </div>
-            <div class="section-content">
-                <h3>Additional Infos</h3>
-                <ul>
-                    <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
-                    <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
-                    <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
-                    <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
-                    <li><strong>Average Heart Rate:</strong> {{ user.stats.bpm }} bpm</li>
-                    <!-- Add more stats as needed -->
-                </ul>
-            </div>
-        </div>
+
         <!-- Races Section (Toggleable) -->
         <div class="section races-section hidden">
             <div class="section-header" data-section="races" tabindex="0" aria-expanded="false">
-                <h2>Races</h2>
+                <h3>Races</h3>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="section-content">
@@ -1098,7 +1081,7 @@
         <!-- Recent Activities Section (Toggleable) -->
         <div class="section activities-container hidden">
             <div class="section-header" data-section="activities" tabindex="0" aria-expanded="false">
-                <h2>Recent Activities</h2>
+                <h3>Recent Activities</h3>
                 <i class="fas fa-chevron-down toggle-icon"></i>
             </div>
             <div class="section-content">
@@ -1125,6 +1108,27 @@
                 {% endif %}
             </div>
         </div>
+
+
+        <!-- Additional Infos Section (Toggleable) -->
+        <div class="section additional-infos hidden">
+            <div class="section-header" data-section="additional-infos" tabindex="0" aria-expanded="false">
+                <h3>Additional Infos</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <ul>
+                    <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
+                    <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
+                    <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
+                    <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
+                    <li><strong>Average Heart Rate:</strong> {{ user.stats.bpm }} bpm</li>
+                    <!-- Add more stats as needed -->
+                </ul>
+            </div>
+        </div>
+
+
     </div>
 
     <!-- JavaScript for Interactivity -->
@@ -1190,7 +1194,7 @@
             const popupClose = document.getElementById('popup-close');
 
             const openPopup = (title, content) => {
-                popupContent.innerHTML = `<h2 id="popup-title">${title}</h2><p>${content}</p>`;
+                popupContent.innerHTML = `<h2 id="popup-title">${title}</h3><p>${content}</p>`;
                 popupOverlay.classList.add('active');
                 popupOverlay.setAttribute('aria-hidden', 'false');
                 // Trap focus within the popup for accessibility
@@ -1388,7 +1392,7 @@
                 // Build table body
                 let tbodyHTML = '';
                 data.categories.forEach(category => {
-                    tbodyHTML += `<tr><th><h4>${category.name}</h4></th>`;
+                    tbodyHTML += `<tr><th><h3>${category.name}</h3></th>`;
                     for (let i = 0; i < maxBadges; i++) {
                         if (category.achievements[i]) {
                             const badge = category.achievements[i];

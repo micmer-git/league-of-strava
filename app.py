@@ -23,11 +23,13 @@ app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
+    # Directly assign the DATABASE_URL string
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
     if os.environ.get('FLASK_ENV') == 'production':
         raise ValueError("No DATABASE_URL set for Flask application in production environment.")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # For local development
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuration for file uploads

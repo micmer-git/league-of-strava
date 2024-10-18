@@ -1,7 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
-
 class User(db.Model):
     __tablename__ = 'users'  # Changed from 'user' to 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -23,7 +22,7 @@ class User(db.Model):
     max_distance_link = db.Column(db.String(200), nullable=True, default='#')
 
     # New Fields for Fastest 10K and Marathon
-    fastest_10k = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
+    fastest_10k = db.Column(db.Float, nullable=True, default=0.0)
     fastest_10k_link = db.Column(db.String(200), nullable=True, default='#')
 
     fastest_marathon = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
@@ -34,7 +33,6 @@ class User(db.Model):
     fastest_half_marathon_link = db.Column(db.String(200), nullable=True, default='#')
 
     activities = db.relationship('Activity', backref='user', lazy=True)
-
 class Activity(db.Model):
     __tablename__ = 'activities'  # Changed to 'activities'
     id = db.Column(db.Integer, primary_key=True)

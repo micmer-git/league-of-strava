@@ -1,14 +1,9 @@
-from extensions import db  # Import db from extensions
-import os
+from flask_sqlalchemy import SQLAlchemy
 
-# Strava API Credentials (if needed in models, else consider moving to config)
-STRAVA_CLIENT_ID = os.environ.get('STRAVA_CLIENT_ID')
-STRAVA_CLIENT_SECRET = os.environ.get('STRAVA_CLIENT_SECRET')
-STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.com/strava/callback'
-REDIRECT_URI = os.environ.get('BASE_URL')
-# Database Models
+db = SQLAlchemy()
+
 class User(db.Model):
-    __tablename__ = 'users'  # Explicitly set table name to avoid confusion
+    __tablename__ = 'users'  # Changed from 'user' to 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     strava_link = db.Column(db.String(200), unique=True, nullable=False)
@@ -38,10 +33,10 @@ class User(db.Model):
     fastest_half_marathon = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
     fastest_half_marathon_link = db.Column(db.String(200), nullable=True, default='#')
 
-    activities = db.relationship('Activity', backref='users', lazy=True)
+    activities = db.relationship('Activity', backref='user', lazy=True)
 
 class Activity(db.Model):
-    __tablename__ = 'activities'  # Explicitly set table name
+    __tablename__ = 'activities'  # Changed to 'activities'
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.String(100), nullable=False)
     name = db.Column(db.String(200), nullable=False)

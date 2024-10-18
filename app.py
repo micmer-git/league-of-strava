@@ -23,7 +23,9 @@ app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 # Database configuration
 DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL:
-    # Directly assign the DATABASE_URL string
+    # Check if it's a Heroku PostgreSQL URL and update it if necessary
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
     if os.environ.get('FLASK_ENV') == 'production':
@@ -45,6 +47,9 @@ app.config['INITIALIZATION_DONE'] = False
 # Initialize extensions with the app
 db.init_app(app)
 migrate.init_app(app, db)
+
+with app.app_context():
+    db.create_all()
 
 # Import models after initializing db to avoid circular imports
 from models import User, Activity

@@ -25,9 +25,12 @@ def get_engine():
 
 
 def get_engine_url():
-    url = current_app.config.get('SQLALCHEMY_DATABASE_URI')
-    print("Retrieved SQLALCHEMY_DATABASE_URI in env.py:", url, type(url))
-    return url
+    try:
+        return get_engine().url.render_as_string(hide_password=False).replace(
+            '%', '%%')
+    except AttributeError:
+        return str(get_engine().url).replace('%', '%%')
+
 
 # add your model's MetaData object here
 # for 'autogenerate' support

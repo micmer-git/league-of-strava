@@ -38,7 +38,7 @@ class User(db.Model):
     fastest_half_marathon = db.Column(db.Float, nullable=True, default=0.0)  # Duration in hours
     fastest_half_marathon_link = db.Column(db.String(200), nullable=True, default='#')
 
-    activities = db.relationship('Activity', backref='user', lazy=True)
+    activities = db.relationship('Activity', backref='users', lazy=True)
 
 class Activity(db.Model):
     __tablename__ = 'activities'  # Explicitly set table name

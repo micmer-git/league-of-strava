@@ -32,7 +32,7 @@ else:
         raise ValueError("No DATABASE_URL set for Flask application in production environment.")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # For local development
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 # Configuration for file uploads
 # Configuration for file uploads
 UPLOAD_FOLDER = 'static/uploads'
@@ -50,6 +50,8 @@ migrate.init_app(app, db)
 # Import models after initializing db to avoid circular imports
 with app.app_context():
     db.create_all()
+
+
 
 # Import models after initializing db to avoid circular imports
 from models import User, Activity

@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, request, redirect, url_for, flash, g
+from flask import Flask, render_template, request, redirect, url_for, flash, g, session
 from werkzeug.utils import secure_filename
 import pandas as pd
 import dj_database_url
@@ -10,9 +10,12 @@ from urllib.parse import urlparse
 import glob
 import csv
 from datetime import datetime, timedelta
-from config import *
 from extensions import db, migrate  # Import from extensions
+from config import *
+from models import *
 import numpy as np
+from urllib.parse import urlencode
+
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
@@ -1084,6 +1087,67 @@ def about():
     return render_template('about.html')
 
 @app.route('/', methods=['GET', 'POST'])
+def upload_activities():
+    if request.method == 'POST':
+        # Existing upload logic...
+        # Handle the activities.csv upload
+        username = request.form.get('username')
+        link = request.form.get('link')
+        file = request.files.get('file')
+
+        if file and file.filename.endswith('.csv'):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            flash('Activities.csv uploaded successfully!', 'success')
+            # Process the CSV as needed
+        else:
+            flash('Please upload a valid CSV file.', 'danger')
+
+    strava_connected = 'access_token' in session
+    athlete = session.get('athlete', None)
+    return render_template('index.html', strava_connected=strava_connected, athlete=athlete)
+
+
+def fetch_last_10_activities(access_token):
+    activities_url = 'https://www.strava.com/api/v3/athlete/activities'
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    params = {
+        'per_page': 10,
+        'page': 1
+    }
+
+    response = requests.get(activities_url, headers=headers, params=params)
+    if response.status_code != 200:
+        flash('Failed to fetch activities from Strava.', 'danger')
+        return []
+
+    activities = response.json()
+    # Optionally, process activities to extract required fields
+    processed_activities = []
+    for activity in activities:
+        processed_activities.append({
+            'name': activity.get('name'),
+            'distance': activity.get('distance') / 1000,  # Convert to kilometers
+            'moving_time': str(datetime.utcfromtimestamp(activity.get('moving_time')).strftime('%H:%M:%S')),
+            'type': activity.get('type'),
+            'start_date': activity.get('start_date_local'),
+            'average_speed': activity.get('average_speed') * 3.6,  # Convert to km/h
+            'map': activity.get('map', {}).get('summary_polyline', '')
+        })
+    return processed_activities
+
+@app.route('/strava/disconnect')
+def disconnect_strava():
+    session.pop('access_token', None)
+    session.pop('refresh_token', None)
+    session.pop('expires_at', None)
+    session.pop('athlete', None)
+    flash('Disconnected from Strava successfully.', 'success')
+    return redirect(url_for('upload_activities'))
+
 def index():
     if request.method == 'POST':
         username = request.form.get('username').strip()
@@ -1583,6 +1647,58 @@ def leaderboard():
         selected_timeframe=timeframe
     )
 
+@app.route('/strava/auth')
+def strava_auth():
+    # Scope can be adjusted based on the permissions you need
+    scope = 'read,activity:read'
+    auth_url = 'https://www.strava.com/oauth/authorize?' + urlencode({
+        'client_id': STRAVA_CLIENT_ID,
+        'response_type': 'code',
+        'redirect_uri': REDIRECT_URI,
+        'approval_prompt': 'auto',
+        'scope': scope
+    })
+    return redirect(auth_url)
+
+@app.route('/strava/callback')
+def strava_callback():
+    code = request.args.get('code')
+    if not code:
+        flash('Authorization failed or was denied.', 'danger')
+        return redirect(url_for('upload_activities'))
+
+    # Exchange authorization code for access token
+    token_url = 'https://www.strava.com/oauth/token'
+    payload = {
+        'client_id': STRAVA_CLIENT_ID,
+        'client_secret': STRAVA_CLIENT_SECRET,
+        'code': code,
+        'grant_type': 'authorization_code'
+    }
+
+    response = requests.post(token_url, data=payload)
+    if response.status_code != 200:
+        flash('Failed to obtain access token from Strava.', 'danger')
+        return redirect(url_for('upload_activities'))
+
+    data = response.json()
+    access_token = data.get('access_token')
+    refresh_token = data.get('refresh_token')
+    expires_at = data.get('expires_at')
+    athlete = data.get('athlete')
+
+    if not access_token:
+        flash('No access token received from Strava.', 'danger')
+        return redirect(url_for('upload_activities'))
+
+    # Store tokens and athlete info in session or database
+    session['access_token'] = access_token
+    session['refresh_token'] = refresh_token
+    session['expires_at'] = expires_at
+    session['athlete'] = athlete
+
+    flash(f"Successfully connected with Strava! Welcome, {athlete.get('firstname')} {athlete.get('lastname')}.", 'success')
+    return redirect(url_for('upload_activities'))
 
 # Run the app
 if __name__ == '__main__':

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ athlete.firstname }}'s Last 10 Activities - League of Strava</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        /* Existing Styles... (Ensure to include your existing CSS or link to it) */
+        /* ... */
+
+        /* Activities Table Styles */
+        .activities-section {
+            background-color: #fff;
+            padding: 40px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .activities-section h2 {
+            color: #ff6600;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .activities-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .activities-table th, .activities-table td {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .activities-table th {
+            background-color: #ff6600;
+            color: #fff;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .activities-table th.sort-asc::after {
+            content: " ▲";
+            position: absolute;
+            right: 10px;
+        }
+
+        .activities-table th.sort-desc::after {
+            content: " ▼";
+            position: absolute;
+            right: 10px;
+        }
+
+        .activities-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .activity-type {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .activity-distance {
+            color: #555;
+        }
+
+        .activity-time {
+            color: #555;
+        }
+
+        .activity-speed {
+            color: #555;
+        }
+
+        .activity-date {
+            color: #555;
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #ff6600;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background-color 0.3s;
+        }
+
+        .back-button:hover {
+            background-color: #e03e00;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .activities-table th, .activities-table td {
+                padding: 8px 10px;
+            }
+
+            .activities-section {
+                padding: 30px 15px;
+            }
+
+            .activities-section h2 {
+                font-size: 1.8em;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .activities-table th, .activities-table td {
+                padding: 6px 8px;
+                font-size: 0.9em;
+            }
+
+            .activities-section h2 {
+                font-size: 1.6em;
+            }
+
+            .back-button {
+                padding: 8px 16px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+  <header>
+      <div class="logo" id="logo">
+          <a href="/">
+              <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
+          </a>
+      </div>
+      <nav id="nav-menu">
+          <a href="/about">About</a>
+          <a href="/leaderboard">Leaderboard</a>
+          <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+          <!-- Connect with Strava Button -->
+          <a href="{{ url_for('strava_auth') }}" class="strava-connect-btn">
+              <i class="fab fa-strava"></i> Connect with Strava
+          </a>
+          <!-- Disconnect Strava Button -->
+          {% if strava_connected %}
+              <a href="{{ url_for('disconnect_strava') }}" class="btn disconnect-btn">
+                  <i class="fas fa-sign-out-alt"></i> Disconnect Strava
+              </a>
+          {% endif %}
+      </nav>
+      <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+          <div></div>
+          <div></div>
+          <div></div>
+      </div>
+  </header>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="/about">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+        <!-- Connect with Strava Button for Mobile -->
+        <a href="{{ url_for('strava_auth') }}" class="strava-connect-btn">
+            <i class="fab fa-strava"></i> Connect with Strava
+        </a>
+        <!-- Disconnect Strava Button for Mobile -->
+        {% if strava_connected %}
+            <a href="{{ url_for('disconnect_strava') }}" class="btn disconnect-btn">
+                <i class="fas fa-sign-out-alt"></i> Disconnect Strava
+            </a>
+        {% endif %}
+    </div>
+
+    <div class="container">
+        <!-- Activities Section -->
+        <div class="activities-section">
+            <h2>Last 10 Activities of {{ athlete.firstname }} {{ athlete.lastname }}</h2>
+            {% if activities %}
+                <table class="activities-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Distance (km)</th>
+                            <th>Time</th>
+                            <th>Speed (km/h)</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for activity in activities %}
+                            <tr>
+                                <td>{{ activity.name }}</td>
+                                <td class="activity-type">{{ activity.type }}</td>
+                                <td class="activity-distance">{{ "%.2f"|format(activity.distance) }}</td>
+                                <td class="activity-time">{{ activity.moving_time }}</td>
+                                <td class="activity-speed">{{ "%.2f"|format(activity.average_speed) }}</td>
+                                <td class="activity-date">{{ activity.start_date }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No activities found.</p>
+            {% endif %}
+            <a href="{{ url_for('upload_activities') }}" class="back-button">Back to Upload</a>
+        </div>
+    </div>
+
+    <!-- JavaScript for Interactivity -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const mobileNav = document.getElementById('mobile-nav');
+            const navMenu = document.getElementById('nav-menu');
+            const logo = document.getElementById('logo');
+
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                mobileNav.classList.toggle('active');
+                const isExpanded = hamburger.classList.contains('active');
+                hamburger.setAttribute('aria-expanded', isExpanded);
+                mobileNav.style.display = isExpanded ? 'flex' : 'none';
+            };
+
+            hamburger.addEventListener('click', toggleMenu);
+            logo.addEventListener('click', toggleMenu);
+
+            // Initialize mobile nav display
+            mobileNav.style.display = 'none';
+
+            // Optional: Add sorting functionality if needed
+
+        });
+    </script>
+</body>
+</html>

@@ -5,7 +5,7 @@ import os
 STRAVA_CLIENT_ID = os.environ.get('STRAVA_CLIENT_ID')
 STRAVA_CLIENT_SECRET = os.environ.get('STRAVA_CLIENT_SECRET')
 STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.com/strava/callback'
-
+REDIRECT_URI = os.environ.get('BASE_URL')
 # Database Models
 class User(db.Model):
     __tablename__ = 'user'  # Explicitly set table name to avoid confusion

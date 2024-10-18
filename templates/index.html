@@ -68,6 +68,21 @@
             cursor: pointer;
             gap: 5px;
         }
+        .powered-by-strava-logo {
+    height: 30px; /* Adjust the size as needed */
+    width: auto;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+    .footer p {
+        font-size: 0.85em;
+    }
+
+    .powered-by-strava-logo {
+        height: 25px;
+    }
+}
 
         .hamburger div {
             width: 25px;
@@ -373,6 +388,37 @@
                 font-size: 1em;
             }
         }
+        /* Strava Connect Button Styles */
+        .strava-connect-btn {
+            display: inline-flex;
+            align-items: center;
+            background-color: #fc4c02;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .strava-connect-btn:hover {
+            background-color: #e03e00;
+        }
+
+        .strava-connect-btn i {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        /* Responsive Adjustments if Needed */
+        @media (max-width: 768px) {
+            .strava-connect-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -405,18 +451,21 @@
         <!-- Introduction Section -->
         <div class="introduction-section">
             <h2>Welcome to League of Strava</h2>
-            <p>Earn experience and begin your journey towards <p><strong> Master Prestige 100 </strong> </p>
+            <p>Earn experience and begin your journey towards <strong>Master Prestige 100</strong></p>
             <p>See how you rank with respect to your friends and the global community.</p>
-            <p>Bulk Export your Strava <a href="https://www.youtube.com/watch?v=IbWMFikIGLo">(see how)</a> and start your journey uploading the <strong> activities.csv </strong> file </p>
+            <p>Bulk Export your Strava <a href="https://www.youtube.com/watch?v=IbWMFikIGLo">(see how)</a> and start your journey uploading the <strong>activities.csv</strong> file</p>
         </div>
+
+
 
         <!-- Forms Section: Search and Upload -->
         <div class="forms-section">
 
-
-            <!-- Upload Form -->
+            <!-- Existing Upload Form -->
             <div class="form-container">
-                <h3>Upload Your activities.csv file obtained during export</h3>
+              <!-- Connect with Strava Button -->
+
+                <h3>Upload Your activities.csv File Obtained During Export</h3>
                 {% if error %}
                     <div class="alert alert-danger" role="alert">
                         {{ error }}
@@ -436,13 +485,31 @@
                         <label for="file" class="form-label">Upload CSV File:</label>
                         <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
                     </div>
-                    <button type="submit" class="btn">Upload Activities</button>
+                    <button type="submit" class="strava-connect-btn">Upload Activities</button>
+                    <h4> Or, if you prefer, automatically fetch them </h4>
+                    <div class="mb-3">
+                      <h3>Directly link your Strava</h3>
+                        <br>
+                        <a href="{{ url_for('strava_auth') }}" class="strava-connect-btn">
+                            <i class="fab fa-strava"></i> Connect with Strava
+                        </a>
+                      </div>
                 </form>
             </div>
+
+
+
         </div>
+
+                    <footer class="footer">
+                        <div class="container">
+                            <a href="https://www.strava.com/" target="_blank" rel="noopener">
+                                <img src="{{ url_for('static', filename='powered-by-strava.png') }}" alt="Powered by Strava" class="powered-by-strava-logo">
+                            </a>
+                        </div>
+                    </footer>
     </div>
 
-    <!-- JavaScript for Interactivity -->
     <!-- JavaScript for Interactivity -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {

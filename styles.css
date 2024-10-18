@@ -36,6 +36,37 @@
       overflow: hidden;
   }
 
+  /* Footer Styles */
+.footer {
+    background-color: #fff;
+    padding: 20px 0;
+    border-top: 1px solid #ddd;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.footer p {
+    margin: 0 0 10px 0;
+    color: #555;
+    font-size: 0.95em;
+}
+
+.powered-by-strava-logo {
+    height: 30px; /* Adjust the size as needed */
+    width: auto;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+    .footer p {
+        font-size: 0.85em;
+    }
+
+    .powered-by-strava-logo {
+        height: 25px;
+    }
+}
+
   .leaderboard-table th, .leaderboard-table td {
       border: 1px solid #dee2e6;
       padding: 15px;

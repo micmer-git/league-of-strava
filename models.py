@@ -84,6 +84,12 @@ class Activity(db.Model):
     # New Field to Store Additional Data
     additional_data = db.Column(db.JSON, nullable=True)
 
+
+# Flask configuration
+class Config:
+    SQLALCHEMY_DATABASE_URI = dj_database_url.config(default=os.getenv('DATABASE_URL', 'sqlite:///default.db'))
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SECRET_KEY = os.getenv('SECRET_KEY', 'your_secret_key')
 # Remove db.create_all() to prevent conflicts with migrations
 # with app.app_context():
 #     db.create_all()

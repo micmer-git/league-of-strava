@@ -8,7 +8,7 @@ STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.co
 REDIRECT_URI = os.environ.get('BASE_URL')
 # Database Models
 class User(db.Model):
-    __tablename__ = 'user'  # Explicitly set table name to avoid confusion
+    __tablename__ = 'users'  # Explicitly set table name to avoid confusion
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     strava_link = db.Column(db.String(200), unique=True, nullable=False)
@@ -41,7 +41,7 @@ class User(db.Model):
     activities = db.relationship('Activity', backref='user', lazy=True)
 
 class Activity(db.Model):
-    __tablename__ = 'activity'  # Explicitly set table name
+    __tablename__ = 'activities'  # Explicitly set table name
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.String(100), nullable=False)
     name = db.Column(db.String(200), nullable=False)
@@ -56,7 +56,7 @@ class Activity(db.Model):
     coins_pizza = db.Column(db.Float, nullable=False)
     coins_heartbeat = db.Column(db.Integer, nullable=False)
     link = db.Column(db.String(200), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # New Field to Store Additional Data
     additional_data = db.Column(db.JSON, nullable=True)

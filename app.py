@@ -460,17 +460,6 @@ def calculate_rank(total_hours):
     progress_percent = (points_into_current_rank / points_between_ranks) * 100 if points_between_ranks > 0 else 100
     return current_rank, next_rank, progress_percent
 
-def get_user_rank(total_hours):
-    """Determine user's rank and progress."""
-    current_rank, next_rank, progress_percent = calculate_rank(total_hours)
-    return {
-        'current_rank': current_rank,
-        'next_rank': next_rank,
-        'progress_percent': round(progress_percent, 1),
-        'current_points': round(total_hours, 1),
-        'next_rank_minPoints': next_rank['minPoints']
-    }
-
 
 def calculate_achievements(df):
     """
@@ -813,68 +802,6 @@ def calculate_achievements(df):
     achievements = convert_to_native(achievements)
     return achievements
 
-
-def calculate_coins(df):
-    """Calculate coins based on activities."""
-    coins = {
-        'everest': float(round(df['Elevation_Gain'].sum() / 8848, 2)),  # 1 Everest = 8848m
-        'pizza': float(round(df['Calories'].sum() / 1000, 2)),         # 1 Pizza = 1000 kcal
-        'heartbeat': int(df['Average_Heart_Rate'].sum() / 1000000)     # Adjust as needed
-    }
-    coins = convert_to_native(coins)
-    return coins
-
-def calculate_stats(df):
-    """Calculate user statistics, including average temperature, total likes, and most common hour."""
-    stats = {
-        'hours': float(round(df['Moving_Time'].sum() / 3600, 1)),        # Convert to hours
-        'distance': float(round(df['Distance_km'].sum(), 1)),           # Already in km
-        'elevation': float(round(df['Elevation_Gain'].sum(), 1)),       # in meters
-        'calories': float(round(df['Calories'].sum(), 1)),              # in kcal
-    }
-
-    # Compute Average Temperature
-    if 'Average_Temperature' in df.columns:
-        stats['average_temperature'] = float(round(df['Average_Temperature'].mean(), 1))
-    else:
-        stats['average_temperature'] = 0.0
-        logging.warning("'Average_Temperature' column not found in DataFrame.")
-
-    # Compute Total Likes
-    if 'Likes' in df.columns:
-        # Replace commas with dots and convert to numeric if necessary
-        df['Likes'] = pd.to_numeric(df['Likes'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-        stats['total_likes'] = int(df['Likes'].sum())
-    else:
-        stats['total_likes'] = 0
-        logging.warning("'Likes' column not found in DataFrame. Setting 'total_likes' to 0.")
-
-    # Compute Most Common Hour
-    if 'Activity_Date' in df.columns:
-        # Ensure 'Activity_Date' is datetime
-        df['Activity_Date'] = pd.to_datetime(df['Activity_Date'], errors='coerce')
-        df = df.dropna(subset=['Activity_Date'])  # Drop rows where date parsing failed
-        if not df.empty:
-            stats['most_common_hour'] = int(df['Activity_Date'].dt.hour.mode()[0])
-        else:
-            stats['most_common_hour'] = None
-            logging.warning("No valid 'Activity_Date' entries found for computing 'most_common_hour'.")
-    else:
-        stats['most_common_hour'] = None
-        logging.warning("'Activity_Date' column not found in DataFrame. Cannot compute 'most_common_hour'.")
-
-    # Optional: Compute Sums of Other Relevant Metrics
-    # Example: Total Steps, Total Jump Count, etc.
-    sum_metrics = ['Total_Steps', 'Jump_Count']  # Add other metrics as needed
-    for metric in sum_metrics:
-        if metric in df.columns:
-            stats[f'total_{metric.lower()}'] = int(df[metric].sum())
-        else:
-            stats[f'total_{metric.lower()}'] = 0
-            logging.warning(f"'{metric}' column not found in DataFrame. Setting 'total_{metric.lower()}' to 0.")
-
-    stats = convert_to_native(stats)
-    return stats
 
 def calculate_rank_info(total_hours):
     """Determine user's rank and progress."""

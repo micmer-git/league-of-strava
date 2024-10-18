@@ -25,9 +25,10 @@ def get_engine():
 
 
 def get_engine_url():
-    return current_app.config.get('SQLALCHEMY_DATABASE_URI')
-
-
+    url = current_app.config.get('SQLALCHEMY_DATABASE_URI')
+    print("Retrieved SQLALCHEMY_DATABASE_URI in env.py:", url, type(url))
+    return url
+    
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel

@@ -22,6 +22,10 @@ app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 # Database configuration
 DATABASE_URL = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+
+print("SQLALCHEMY_DATABASE_URI:", app.config.get('SQLALCHEMY_DATABASE_URI'))
+
 if DATABASE_URL:
     # Directly assign the DATABASE_URL string
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
@@ -39,13 +43,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['INITIALIZATION_DONE'] = False
 
-
-
-
-
-# After setting the configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-print("SQLALCHEMY_DATABASE_URI:", app.config.get('SQLALCHEMY_DATABASE_URI'))
 
 # Import models after initializing db to avoid circular imports
 from models import User, Activity

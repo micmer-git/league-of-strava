@@ -16,40 +16,34 @@ from models import *
 import numpy as np
 from urllib.parse import urlencode
 
-# Initialize Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
+
+# Configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key')
+
 # Database configuration
 DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL:
-    # Check if it's a Heroku PostgreSQL URL and update it if necessary
+    # Adjust database URL if needed (e.g., for Heroku)
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
-    if os.environ.get('FLASK_ENV') == 'production':
-        raise ValueError("No DATABASE_URL set for Flask application in production environment.")
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # For local development
+    # Local development database
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Configuration for file uploads
+# Initialize extensions
+db.init_app(app)
+migrate.init_app(app, db)
+
 # Configuration for file uploads
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'csv'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['INITIALIZATION_DONE'] = False
-
-
-
-# Initialize extensions with the app
-# Initialize extensions with the app
-db.init_app(app)
-migrate.init_app(app, db)
-# Import models after initializing db to avoid circular imports
-with app.app_context():
-    db.create_all()
 
 
 

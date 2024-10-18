@@ -1,10 +1,7 @@
 import os
 import logging
-import numpy as np
-from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, g
 from werkzeug.utils import secure_filename
-from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 import dj_database_url
 import json
@@ -12,12 +9,37 @@ import re
 from urllib.parse import urlparse
 import glob
 import csv
-from flask_migrate import Migrate
-from datetime import timedelta
+from datetime import datetime, timedelta
 from config import *
-from models import *
+from extensions import db, migrate  # Import from extensions
+import numpy as np
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
+# Database configuration
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
+else:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise ValueError("No DATABASE_URL set for Flask application in production environment.")
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # For local development
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Configuration for file uploads
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'csv'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['INITIALIZATION_DONE'] = False
+
+# Initialize extensions with the app
+db.init_app(app)
+migrate.init_app(app, db)
+
+# Import models after initializing db to avoid circular imports
+from models import User, Activity
 @app.before_request
 def initialize_app():
     if not app.config['INITIALIZATION_DONE']:

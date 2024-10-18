@@ -1,38 +1,14 @@
-from flask_sqlalchemy import SQLAlchemy
+from extensions import db  # Import db from extensions
 import os
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-import dj_database_url
-# Strava API Credentials
+
+# Strava API Credentials (if needed in models, else consider moving to config)
 STRAVA_CLIENT_ID = os.environ.get('STRAVA_CLIENT_ID')
 STRAVA_CLIENT_SECRET = os.environ.get('STRAVA_CLIENT_SECRET')
 STRAVA_REDIRECT_URI = os.environ.get('BASE_URL')  # e.g., 'https://yourdomain.com/strava/callback'
 
-# Initialize Flask app
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
-# Database configuration
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = dj_database_url.parse(DATABASE_URL)
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Fallback to SQLite for local development
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Configuration for file uploads
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'csv'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['INITIALIZATION_DONE'] = False
-
-
-# Initialize SQLAlchemy and Flask-Migrate
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 # Database Models
 class User(db.Model):
+    __tablename__ = 'user'  # Explicitly set table name to avoid confusion
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     strava_link = db.Column(db.String(200), unique=True, nullable=False)
@@ -65,6 +41,7 @@ class User(db.Model):
     activities = db.relationship('Activity', backref='user', lazy=True)
 
 class Activity(db.Model):
+    __tablename__ = 'activity'  # Explicitly set table name
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.String(100), nullable=False)
     name = db.Column(db.String(200), nullable=False)
@@ -83,13 +60,3 @@ class Activity(db.Model):
 
     # New Field to Store Additional Data
     additional_data = db.Column(db.JSON, nullable=True)
-
-
-# Flask configuration
-class Config:
-    SQLALCHEMY_DATABASE_URI = dj_database_url.config(default=os.getenv('DATABASE_URL', 'sqlite:///default.db'))
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SECRET_KEY = os.getenv('SECRET_KEY', 'your_secret_key')
-# Remove db.create_all() to prevent conflicts with migrations
-# with app.app_context():
-#     db.create_all()

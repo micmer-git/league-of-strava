@@ -15,9 +15,10 @@ from config import *
 from models import *
 import numpy as np
 from urllib.parse import urlencode
+from dotenv import load_dotenv
 
 app = Flask(__name__)
-
+load_dotenv()  # Load environment variables from .env file
 # Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key')
 

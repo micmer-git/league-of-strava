@@ -15,18 +15,21 @@ from config import *
 from models import *
 import numpy as np
 from urllib.parse import urlencode
-from dotenv import load_dotenv
 
 app = Flask(__name__)
-load_dotenv()  # Load environment variables from .env file
 # Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key')
+app.config['STRAVA_CLIENT_ID'] = os.environ.get('STRAVA_CLIENT_ID', 'default_secret_key')
+app.config['STRAVA_CLIENT_SECRET'] = os.environ.get('STRAVA_CLIENT_SECRET', 'default_secret_key')
+app.config['REDIRECT_URI'] = os.environ.get('REDIRECT_URI', 'default_secret_key')
 
 # Database configuration
-# DATABASE_URL = os.getenv('DATABASE_URL')
-STRAVA_CLIENT_ID = os.getenv('STRAVA_CLIENT_ID')
-STRAVA_CLIENT_SECRET = os.getenv('STRAVA_CLIENT_SECRET')
-REDIRECT_URI = os.getenv('REDIRECT_URI')
+DATABASE_URL = os.getenv('DATABASE_URL')
+STRAVA_CLIENT_ID = os.environ.get('STRAVA_CLIENT_ID')
+STRAVA_CLIENT_SECRET = os.environ.get('STRAVA_CLIENT_SECRET')
+REDIRECT_URI = os.environ.get('REDIRECT_URI')
+
+
 if DATABASE_URL:
     # Adjust database URL if needed (e.g., for Heroku)
     if DATABASE_URL.startswith("postgres://"):

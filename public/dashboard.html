@@ -1,87 +1,704 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Your Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Link to your CSS file -->
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <title>League of Strava - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        /* Existing and Additional CSS Styles */
+
+        /* Basic Reset */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        /* Header Styles */
+        header {
+            background-color: #ff6600; /* Brighter orange for better contrast */
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header .logo img {
+            height: 50px;
+            width: auto;
+        }
+
+        /* Navigation Styles */
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #e0e0e0;
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .hamburger div {
+            width: 25px;
+            height: 3px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            flex-direction: column;
+            position: absolute;
+            top: 70px;
+            left: 0;
+            right: 0;
+            background-color: #ff6600;
+            padding: 15px 20px;
+            gap: 15px;
+            animation: slideDown 0.3s ease forwards;
+        }
+
+        .mobile-nav a {
+            color: #fff;
+            font-size: 1.1em;
+            padding: 10px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Toggle Animation for Hamburger */
+        .hamburger.active div:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active div:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active div:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Dashboard Container */
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        /* Introduction Section */
+        .introduction-section {
+            background-color: #fff;
+            padding: 40px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .introduction-section h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #ff6600;
+        }
+
+        .introduction-section p {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .introduction-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        .introduction-section ul li {
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .introduction-section ul li::before {
+            content: "✔️";
+            margin-right: 10px;
+            color: green;
+        }
+
+        /* Forms Section */
+        .forms-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        .form-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+
+        .form-container:hover {
+            transform: translateY(-5px);
+        }
+
+        .form-container h3 {
+            margin-bottom: 20px;
+            color: #ff6600;
+            text-align: center;
+        }
+
+        /* Form Elements */
+        .form-container label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-container input[type="text"],
+        .form-container input[type="url"],
+        .form-container input[type="file"] {
+            width: 100%;
+            padding: 10px 15px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-container input[type="text"]:focus,
+        .form-container input[type="url"]:focus,
+        .form-container input[type="file"]:focus {
+            border-color: #ff6600;
+            outline: none;
+        }
+
+        .form-container .form-text {
+            font-size: 0.9em;
+            color: #777;
+        }
+
+        .form-container .btn {
+            width: 100%;
+            padding: 10px 0;
+            font-size: 1em;
+            background-color: #ff6600;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .form-container .btn:hover {
+            background-color: #e03e00;
+        }
+
+        /* Alerts */
+        .alert {
+            margin-top: 20px;
+            border-radius: 6px;
+            padding: 15px;
+            font-size: 0.95em;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Slide Down Animation */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .introduction-section h2 {
+                font-size: 2em;
+            }
+
+            .form-container {
+                padding: 25px;
+            }
+
+            .form-container h3 {
+                font-size: 1.8em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .forms-section {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .form-container {
+                padding: 20px;
+            }
+
+            .form-container h3 {
+                font-size: 1.6em;
+            }
+
+            nav {
+                position: absolute;
+                top: 60px;
+                left: 0;
+                width: 100%;
+                background-color: #ff6600;
+                flex-direction: column;
+                align-items: center;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-in-out;
+            }
+
+            nav.active {
+                max-height: 300px; /* Adjust as needed */
+            }
+
+            nav a {
+                padding: 10px 0;
+                width: 100%;
+                text-align: center;
+                border-top: 1px solid #fff;
+            }
+
+            .mobile-nav {
+                display: none; /* Removed duplicate mobile nav */
+            }
+
+            .hamburger {
+                display: flex;
+            }
+
+            nav {
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+                background-color: #ff6600;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-in-out;
+            }
+
+            nav.active {
+                max-height: 300px; /* Adjust as needed */
+            }
+
+            nav a {
+                padding: 10px 0;
+                width: 100%;
+                text-align: center;
+                border-top: 1px solid rgba(255, 255, 255, 0.3);
+            }
+        }
+
+        @media (max-width: 576px) {
+            .introduction-section h2 {
+                font-size: 1.8em;
+            }
+
+            .form-container {
+                padding: 15px;
+            }
+
+            .form-container h3 {
+                font-size: 1.4em;
+            }
+
+            .form-container input[type="text"],
+            .form-container input[type="url"],
+            .form-container input[type="file"] {
+                font-size: 0.95em;
+                padding: 8px 12px;
+            }
+
+            .form-container .btn {
+                font-size: 0.95em;
+                padding: 8px 0;
+            }
+
+            nav a {
+                font-size: 1em;
+            }
+        }
+
+        /* Strava Connect Button Styles */
+        .strava-connect-btn {
+            display: inline-flex;
+            align-items: center;
+            background-color: #fc4c02;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .strava-connect-btn:hover {
+            background-color: #e03e00;
+        }
+
+        .strava-connect-btn i {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        /* Responsive Adjustments if Needed */
+        @media (max-width: 768px) {
+            .strava-connect-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* --------- New Styles for Dashboard Sections --------- */
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #ff6600;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #ff6600;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .tab.active {
+            background-color: #ff6600;
+            color: #fff;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .tab-content {
+            display: none;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Wallet Table Styles */
+        .wallet-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .wallet-table th, .wallet-table td {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .wallet-table th {
+            background-color: #f4f6f8;
+            cursor: pointer;
+        }
+
+        /* Timeframe Buttons */
+        .timeframe-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .timeframe-buttons button {
+            padding: 8px 16px;
+            border: none;
+            background-color: #ff6600;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .timeframe-buttons button.active {
+            background-color: #e03e00;
+        }
+
+        .timeframe-buttons button:hover {
+            background-color: #e03e00;
+        }
+
+        /* Achievements Cards */
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .achievement-card {
+            background-color: #f4f6f8;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .achievement-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .achievement-card .emoji {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .achievement-card .name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .achievement-card .description {
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .achievement-card .count {
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        /* Races Section */
+        .races-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .race-item {
+            background-color: #f4f6f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .race-item .race-name {
+            font-weight: 600;
+            color: #ff6600;
+        }
+
+        .race-item .race-status {
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab {
+                text-align: center;
+            }
+
+            .achievements-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div id="dashboard-container">
-    <!-- Loading Indicator -->
-    <div id="loading">Loading your dashboard...</div>
+    <header>
+        <div class="logo" id="logo">
+            <a href="/">
+                <img src="/league-of-strava.png" alt="League of Strava Logo">
+            </a>
+        </div>
+        <nav id="nav-menu">
+            <a href="/about">About</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+        </nav>
+        <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </header>
 
-    <!-- Rank Section -->
-    <div class="rank-section" style="display: none;">
-      <div class="rank-title">Current Rank: <span id="current-rank"></span></div>
-      <div class="rank-emoji" id="rank-emoji">🥉</div>
-      <div class="progress-container" id="progress-container">
-        <div class="progress-labels">
-          <span id="current-rank-label"></span>
-          <span id="next-rank-label"></span>
-        </div>
-        <div class="progress-bar" id="progress-bar"></div>
-        <div class="tooltip" id="rank-tooltip">
-          <h3>Rank Progression</h3>
-          <ul id="rank-list"></ul>
-        </div>
-      </div>
-      <div class="rank-details">
-        <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
-      </div>
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="/about">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
     </div>
 
-    <!-- Lifetime Stats -->
-    <div class="lifetime-stats" style="display: none;">
-      <div class="stat-item">
-        <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
-        <div class="value" id="elevation-value"></div>
-        <div class="week-gain bold-green" id="elevation-week-gain"></div>
-      </div>
-      <div class="stat-item">
-        <div class="icon pizza-icon" title="Pizza: 1000kcal per pizza">🍕</div>
-        <div class="value" id="calories-value"></div>
-        <div class="week-gain bold-green" id="calories-week-gain"></div>
-      </div>
-      <div class="stat-item">
-        <div class="icon distance-icon" title="Distance: 100km per icon">🚴‍♂️</div>
-        <div class="value" id="distance-value"></div>
-        <div class="week-gain bold-green" id="distance-week-gain"></div>
-      </div>
+    <div class="container">
+        <!-- Dashboard Tabs -->
+        <div class="tabs">
+            <div class="tab active" data-tab="wallet">Wallet</div>
+            <div class="tab" data-tab="achievements">Achievements</div>
+            <div class="tab" data-tab="races">Races</div>
+            <!-- Optional: Add Rank Tab -->
+            <div class="tab" data-tab="rank">Rank</div>
+        </div>
+
+        <!-- Rank Section (Optional) -->
+        <div class="tab-content" id="rank">
+            <h2>Your Rank</h2>
+            <div id="rank-emoji" style="font-size: 3em;"></div>
+            <div id="current-rank" style="font-size: 1.5em; margin-top: 10px;"></div>
+            <div style="background-color: #ddd; border-radius: 5px; overflow: hidden; margin-top: 20px;">
+                <div id="progress-bar" style="width: 0%; height: 20px; background-color: #4caf50;"></div>
+            </div>
+            <div style="margin-top: 10px;">
+                <span id="current-rank-label"></span> - <span id="next-rank-label"></span>
+            </div>
+            <div style="margin-top: 5px;">
+                Points: <span id="current-points"></span> / <span id="next-rank-points"></span>
+            </div>
+            <!-- Optional: Rank List Tooltip -->
+            <ul id="rank-list" style="margin-top: 20px; list-style: none; padding: 0;"></ul>
+        </div>
+
+        <!-- Wallet Section -->
+        <div class="tab-content active" id="wallet">
+            <h2>Wallet</h2>
+            <div class="timeframe-buttons">
+                <button class="active" data-timeframe="7">Last 7 Days</button>
+                <button data-timeframe="14">Last 14 Days</button>
+                <button data-timeframe="30">Last 30 Days</button>
+                <button data-timeframe="ytd">Year to Date</button>
+                <button data-timeframe="365">Last 365 Days</button>
+            </div>
+            <table class="wallet-table">
+                <thead>
+                    <tr>
+                        <th data-sort="category">Category</th>
+                        <th data-sort="total">Total</th>
+                        <th data-sort="weekly">Weekly Gain</th>
+                    </tr>
+                </thead>
+                <tbody id="wallet-body">
+                    <!-- Dynamic Content -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Achievements Section -->
+        <div class="tab-content" id="achievements">
+            <h2>Achievements</h2>
+            <div class="achievements-grid" id="achievements-grid">
+                <!-- Dynamic Achievements -->
+            </div>
+        </div>
+
+        <!-- Races Section -->
+        <div class="tab-content" id="races">
+            <h2>Races</h2>
+            <ul class="races-list" id="races-list">
+                <!-- Dynamic Races -->
+            </ul>
+        </div>
     </div>
 
-    <!-- YTD Stats -->
-    <div class="weekly-stats" style="display: none;">
-      <h2>Weekly Stats</h2>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h3>Total Hours</h3>
-          <p id="weekly-hours">-- hrs</p>
+    <footer class="footer">
+        <div class="container">
+            <a href="https://www.strava.com/" target="_blank" rel="noopener">
+                <img src="/powered-by-strava.png" alt="Powered by Strava" class="powered-by-strava-logo">
+            </a>
         </div>
-        <div class="stat-card">
-          <h3>Total Distance</h3>
-          <p id="weekly-distance">-- km</p>
-        </div>
-        <div class="stat-card">
-          <h3>Total Elevation Gain</h3>
-          <p id="weekly-elevation">-- m</p>
-        </div>
-        <div class="stat-card">
-          <h3>Total Calories Burned</h3>
-          <p id="weekly-calories">-- kcal</p>
-        </div>
-      </div>
-    </div>
+    </footer>
 
-    <button id="load-more-button" style="display: none;">Load More</button>
+    <!-- Include the script.js -->
+    <script src="script.js"></script>
 
-    <div id="activities-container">
-      <!-- Activities will be appended here -->
-    </div>
-    <!-- Load More Button -->
-  </div>
+    <!-- JavaScript for Header Interactivity -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const mobileNav = document.getElementById('mobile-nav');
+            const navMenu = document.getElementById('nav-menu');
+            const logo = document.getElementById('logo');
 
-  <script src="dashboard.js"></script>
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                mobileNav.classList.toggle('active');
+                const isExpanded = hamburger.classList.contains('active');
+                hamburger.setAttribute('aria-expanded', isExpanded);
+                mobileNav.style.display = isExpanded ? 'flex' : 'none';
+            };
+
+            hamburger.addEventListener('click', toggleMenu);
+            logo.addEventListener('click', toggleMenu);
+
+            // Initialize mobile nav display
+            mobileNav.style.display = 'none';
+        });
+    </script>
 </body>
 </html>

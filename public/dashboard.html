@@ -73,10 +73,119 @@
             margin: 5px 0;
             color: #555;
         }
+
+        /* Existing styles from your provided code */
+        /* ... include the styles you had in your original dashboard.html ... */
+
+        /* Basic Reset */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        /* Header Styles */
+        header {
+            background-color: #ff6600; /* Brighter orange for better contrast */
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header .logo img {
+            height: 50px;
+            width: auto;
+        }
+
+        /* Navigation Styles */
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #e0e0e0;
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .powered-by-strava-logo {
+            height: 30px;
+            width: auto;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 576px) {
+            .footer p {
+                font-size: 0.85em;
+            }
+
+            .powered-by-strava-logo {
+                height: 25px;
+            }
+        }
+
+        .hamburger div {
+            width: 25px;
+            height: 3px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        /* ... include the rest of your styles ... */
+
     </style>
 </head>
 <body>
-    <!-- ... existing header and navigation ... -->
+  <header>
+      <div class="logo" id="logo">
+          <a href="/">
+              <img src="/static/league-of-strava.png" alt="League of Strava Logo">
+          </a>
+      </div>
+      <nav id="nav-menu">
+          <a href="/about">About</a>
+          <a href="/leaderboard">Leaderboard</a>
+          <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+      </nav>
+      <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false">
+          <div></div>
+          <div></div>
+          <div></div>
+      </div>
+  </header>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="/about">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+    </div>
 
     <div class="container">
         <!-- Wallet Section -->
@@ -123,39 +232,20 @@
             <!-- Implement Races section if needed -->
         </div>
 
-    <footer class="footer">
-        <div class="container">
-            <a href="https://www.strava.com/" target="_blank" rel="noopener">
-                <img src="/powered-by-strava.png" alt="Powered by Strava" class="powered-by-strava-logo">
-            </a>
-        </div>
-    </footer>
+        <!-- ... existing footer ... -->
+        <footer class="footer">
+            <div class="container">
+                <a href="https://www.strava.com/" target="_blank" rel="noopener">
+                    <img src="/static/powered-by-strava.png" alt="Powered by Strava" class="powered-by-strava-logo">
+                </a>
+            </div>
+        </footer>
+    </div>
 
-    <!-- Include the script.js -->
-    <script src="script.js"></script>
-
-    <!-- JavaScript for Header Interactivity -->
+    <!-- JavaScript for Interactivity -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const hamburger = document.getElementById('hamburger');
-            const mobileNav = document.getElementById('mobile-nav');
-            const navMenu = document.getElementById('nav-menu');
-            const logo = document.getElementById('logo');
-
-            const toggleMenu = () => {
-                hamburger.classList.toggle('active');
-                mobileNav.classList.toggle('active');
-                const isExpanded = hamburger.classList.contains('active');
-                hamburger.setAttribute('aria-expanded', isExpanded);
-                mobileNav.style.display = isExpanded ? 'flex' : 'none';
-            };
-
-            hamburger.addEventListener('click', toggleMenu);
-            logo.addEventListener('click', toggleMenu);
-
-            // Initialize mobile nav display
-            mobileNav.style.display = 'none';
-        });
+        // Include your existing JavaScript code here or in script.js
+        // If you have separate JavaScript files, make sure they are linked correctly
     </script>
 </body>
 </html>

@@ -1,243 +1,190 @@
-// public/script.js
+// script.js
 
 document.addEventListener('DOMContentLoaded', function() {
-    // --------- Tab Switching ---------
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tab-content');
+  const timeFrameButtons = document.querySelectorAll('.timeframe-button');
+  let allActivities = [];
+  let athleteProfile = {};
 
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Remove active class from all tabs and contents
-            tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(tc => tc.classList.remove('active'));
-
-            // Add active class to clicked tab and corresponding content
-            tab.classList.add('active');
-            document.getElementById(tab.dataset.tab).classList.add('active');
-        });
+  // Fetch Strava data
+  fetch('/api/strava-data')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to fetch Strava data');
+      }
+      return response.json();
+    })
+    .then(data => {
+      athleteProfile = data.athlete;
+      allActivities = data.activities;
+      displayData(data);
+    })
+    .catch(error => {
+      console.error('Error:', error);
     });
 
-    // --------- Timeframe Buttons ---------
-    const timeframeButtons = document.querySelectorAll('.timeframe-buttons button');
-    timeframeButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            // Remove active class from all buttons
-            timeframeButtons.forEach(btn => btn.classList.remove('active'));
-            // Add active class to clicked button
-            button.classList.add('active');
-            // Fetch and display data based on timeframe
-            const timeframe = button.dataset.timeframe;
-            updateWalletTable(timeframe);
-        });
+  // Function to display data
+  function displayData(data) {
+    // You can use athleteProfile and allActivities here
+    // Process data and update the DOM
+    // Implement Wallet, Achievements, and Races sections
+
+    // For example, initialize with last 7 days
+    updateWallet('7');
+    updateAchievements();
+    updateRaces();
+  }
+
+  // Event listeners for time frame buttons
+  timeFrameButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const timeframe = this.dataset.timeframe;
+      updateWallet(timeframe);
+
+      // Update active button styling
+      timeFrameButtons.forEach(btn => btn.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // Function to update Wallet section
+  function updateWallet(timeframe) {
+    const filteredActivities = filterActivitiesByTimeframe(allActivities, timeframe);
+    const stats = calculateStats(filteredActivities);
+    displayWalletStats(stats);
+  }
+
+  // Function to filter activities by timeframe
+  function filterActivitiesByTimeframe(activities, timeframe) {
+    const now = new Date();
+    let fromDate;
+    switch(timeframe) {
+      case '7':
+        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        break;
+      case '14':
+        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
+        break;
+      case '30':
+        fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+        break;
+      case 'YTD':
+        fromDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      case '365':
+        fromDate = new Date(now.getFullYear() -1, now.getMonth(), now.getDate());
+        break;
+      default:
+        fromDate = new Date(0); // All time
+    }
+
+    return activities.filter(activity => {
+      const activityDate = new Date(activity.start_date);
+      return activityDate >= fromDate && activityDate <= now;
+    });
+  }
+
+  // Function to calculate stats
+  function calculateStats(activities) {
+    let stats = {
+      distance: 0,
+      elevation_gain: 0,
+      moving_time: 0,
+      calories: 0,
+      // Add more stats as needed
+    };
+
+    activities.forEach(activity => {
+      stats.distance += activity.distance; // in meters
+      stats.elevation_gain += activity.total_elevation_gain; // in meters
+      stats.moving_time += activity.moving_time; // in seconds
+      stats.calories += activity.kilojoules || 0; // in kilojoules
     });
 
-    // --------- Initial Data Load ---------
-    updateWalletTable('7'); // Default to last 7 days
-    displayAchievements();
-    displayRaces();
-    displayRank();
+    // Convert units if needed
+    stats.distance = stats.distance / 1000; // convert to km
+    stats.moving_time = stats.moving_time / 3600; // convert to hours
 
-    // --------- Fetch and Display Wallet Data ---------
-    function updateWalletTable(timeframe) {
-        fetch(`/api/wallet?timeframe=${timeframe}`)
-            .then(response => response.json())
-            .then(data => {
-                populateWalletTable(data);
-            })
-            .catch(error => console.error('Error fetching wallet data:', error));
-    }
+    return stats;
+  }
 
-    function populateWalletTable(data) {
-        const walletBody = document.getElementById('wallet-body');
-        walletBody.innerHTML = ''; // Clear existing data
+  // Function to display Wallet stats
+  function displayWalletStats(stats) {
+    // Update the DOM to display stats
+    // For example:
+    document.getElementById('wallet-distance').textContent = stats.distance.toFixed(0) + ' km';
+    document.getElementById('wallet-elevation').textContent = stats.elevation_gain.toFixed(0) + ' m';
+    document.getElementById('wallet-time').textContent = stats.moving_time.toFixed(1) + ' hrs';
+    document.getElementById('wallet-calories').textContent = stats.calories.toFixed(0) + ' kJ';
+  }
 
-        for (const key in data) {
-            if (data.hasOwnProperty(key)) {
-                const item = data[key];
-                const row = document.createElement('tr');
+  // Function to update Achievements
+  function updateAchievements() {
+    // Calculate achievements based on allActivities
+    const achievements = [];
 
-                const categoryCell = document.createElement('td');
-                categoryCell.textContent = `${item.category} ${item.badge}`;
-                row.appendChild(categoryCell);
+    // Climbing King
+    const totalElevationGain = allActivities.reduce((sum, activity) => sum + activity.total_elevation_gain, 0);
+    const climbingKing = {
+      name: 'Climbing King',
+      emoji: '🧗‍♂️',
+      description: 'Total Elevation Gain over 1000m',
+      count: Math.floor(totalElevationGain / 1000),
+    };
+    achievements.push(climbingKing);
 
-                const totalCell = document.createElement('td');
-                totalCell.textContent = Math.round(item.total);
-                row.appendChild(totalCell);
+    // Longest Streak
+    const dates = allActivities.map(activity => new Date(activity.start_date).toDateString());
+    const uniqueDates = [...new Set(dates)].map(dateStr => new Date(dateStr));
+    uniqueDates.sort((a, b) => a - b);
 
-                const weeklyGainCell = document.createElement('td');
-                weeklyGainCell.textContent = '+' + Math.round(item.weekly_gain);
-                row.appendChild(weeklyGainCell);
+    let max_streak = 1;
+    let current_streak = 1;
 
-                walletBody.appendChild(row);
-            }
+    for (let i = 1; i < uniqueDates.length; i++) {
+      const diff = (uniqueDates[i] - uniqueDates[i -1]) / (1000 * 60 * 60 *24);
+      if (diff === 1) {
+        current_streak +=1;
+        if (current_streak > max_streak) {
+          max_streak = current_streak;
         }
+      } else {
+        current_streak =1;
+      }
     }
 
-    // --------- Fetch and Display Achievements ---------
-    function displayAchievements() {
-        const achievementsGrid = document.getElementById('achievements-grid');
+    const streakAchievement = {
+      name: 'Longest Streak',
+      emoji: '🔥',
+      description: 'Longest consecutive days with activities',
+      count: max_streak,
+    };
+    achievements.push(streakAchievement);
 
-        fetch('/api/achievements')
-            .then(response => response.json())
-            .then(data => {
-                const achievements = data.achievements;
-                achievementsGrid.innerHTML = ''; // Clear existing data
+    // Display Achievements
+    displayAchievements(achievements);
+  }
 
-                achievements.forEach(achievement => {
-                    const card = document.createElement('div');
-                    card.classList.add('achievement-card');
+  // Function to display Achievements
+  function displayAchievements(achievements) {
+    const achievementsContainer = document.getElementById('achievements-container');
+    achievementsContainer.innerHTML = '';
+    achievements.forEach(achievement => {
+      const achievementElement = document.createElement('div');
+      achievementElement.className = 'achievement';
+      achievementElement.innerHTML = `
+        <div class="achievement-emoji">${achievement.emoji}</div>
+        <div class="achievement-info">
+          <h3>${achievement.name}</h3>
+          <p>${achievement.description}</p>
+          <p>Count: ${achievement.count}</p>
+        </div>
+      `;
+      achievementsContainer.appendChild(achievementElement);
+    });
+  }
 
-                    const emoji = document.createElement('div');
-                    emoji.classList.add('emoji');
-                    emoji.textContent = achievement.emoji;
-                    card.appendChild(emoji);
-
-                    const name = document.createElement('div');
-                    name.classList.add('name');
-                    name.textContent = achievement.name;
-                    card.appendChild(name);
-
-                    const description = document.createElement('div');
-                    description.classList.add('description');
-                    description.textContent = achievement.description;
-                    card.appendChild(description);
-
-                    const count = document.createElement('div');
-                    count.classList.add('count');
-                    count.textContent = achievement.count;
-                    card.appendChild(count);
-
-                    achievementsGrid.appendChild(card);
-                });
-            })
-            .catch(error => console.error('Error fetching achievements:', error));
-    }
-
-    // --------- Fetch and Display Races ---------
-    function displayRaces() {
-        const racesList = document.getElementById('races-list');
-
-        fetch('/api/races')
-            .then(response => response.json())
-            .then(data => {
-                const races = data.races;
-                racesList.innerHTML = ''; // Clear existing data
-
-                races.forEach(race => {
-                    const raceItem = document.createElement('li');
-                    raceItem.classList.add('race-item');
-
-                    const raceName = document.createElement('span');
-                    raceName.classList.add('race-name');
-                    raceName.textContent = race.name;
-                    raceItem.appendChild(raceName);
-
-                    const raceStatus = document.createElement('span');
-                    raceStatus.classList.add('race-status');
-                    raceStatus.textContent = race.status;
-                    raceItem.appendChild(raceStatus);
-
-                    racesList.appendChild(raceItem);
-                });
-            })
-            .catch(error => console.error('Error fetching races:', error));
-    }
-
-    // --------- Fetch and Display Rank ---------
-    function displayRank() {
-        fetch('/api/strava-data') // Assuming totalPoints is derived from strava-data
-            .then(response => response.json())
-            .then(data => {
-                const totalPoints = Math.round(data.totals.hours); // Example: Using total hours as points
-
-                const rankInfo = calculateRank(totalPoints);
-
-                // Update Rank Section
-                const currentRankElem = document.getElementById('current-rank');
-                const rankEmojiElem = document.getElementById('rank-emoji');
-                const progressBarElem = document.getElementById('progress-bar');
-                const currentRankLabel = document.getElementById('current-rank-label');
-                const nextRankLabel = document.getElementById('next-rank-label');
-                const currentPointsElem = document.getElementById('current-points');
-                const nextRankPointsElem = document.getElementById('next-rank-points');
-
-                if (currentRankElem && rankEmojiElem && progressBarElem && currentRankLabel && nextRankLabel && currentPointsElem && nextRankPointsElem) {
-                    currentRankElem.textContent = rankInfo.currentRank.name;
-                    rankEmojiElem.textContent = rankInfo.currentRank.emoji;
-                    progressBarElem.style.width = `${rankInfo.progressPercent}%`;
-                    currentRankLabel.textContent = rankInfo.currentRank.name;
-                    nextRankLabel.textContent = rankInfo.nextRank.name;
-                    currentPointsElem.textContent = rankInfo.pointsIntoCurrentRank;
-                    nextRankPointsElem.textContent = rankInfo.nextRank.minPoints;
-                }
-
-                // Optionally, populate a rank tooltip or list
-                const rankListElement = document.getElementById('rank-list');
-                if (rankListElement) {
-                    rankListElement.innerHTML = '';
-                    rankConfig.forEach(rank => {
-                        const li = document.createElement('li');
-                        li.textContent = `${rank.name} (${rank.minPoints} pts)`;
-                        rankListElement.appendChild(li);
-                    });
-                }
-            })
-            .catch(error => console.error('Error fetching rank data:', error));
-    }
-
-    // --------- Rank Configuration ---------
-    const rankConfig = [
-        { name: 'Bronze 3', emoji: '🥉', minPoints: 0 },
-        { name: 'Bronze 2', emoji: '🥉', minPoints: 50 },
-        { name: 'Bronze 1', emoji: '🥉', minPoints: 100 },
-        { name: 'Silver 3', emoji: '🥈', minPoints: 150 },
-        { name: 'Silver 2', emoji: '🥈', minPoints: 200 },
-        { name: 'Silver 1', emoji: '🥈', minPoints: 250 },
-        { name: 'Gold 3', emoji: '🥇', minPoints: 300 },
-        { name: 'Gold 2', emoji: '🥇', minPoints: 350 },
-        { name: 'Gold 1', emoji: '🥇', minPoints: 400 },
-        { name: 'Platinum 3', emoji: '🏆', minPoints: 450 },
-        { name: 'Platinum 2', emoji: '🏆', minPoints: 500 },
-        { name: 'Platinum 1', emoji: '🏆', minPoints: 550 },
-        { name: 'Diamond 3', emoji: '💎', minPoints: 600 },
-        { name: 'Diamond 2', emoji: '💎', minPoints: 650 },
-        { name: 'Diamond 1', emoji: '💎', minPoints: 700 },
-        { name: 'Master 3', emoji: '🔥', minPoints: 750 },
-        { name: 'Master 2', emoji: '🔥', minPoints: 800 },
-        { name: 'Master 1', emoji: '🔥', minPoints: 850 },
-        { name: 'Grandmaster 3', emoji: '🚀', minPoints: 900 },
-        { name: 'Grandmaster 2', emoji: '🚀', minPoints: 950 },
-        { name: 'Grandmaster 1', emoji: '🚀', minPoints: 1000 },
-        { name: 'Challenger', emoji: '🌟', minPoints: 1050 },
-    ];
-
-    function calculateRank(totalPoints) {
-        let currentRank = rankConfig[0];
-        let nextRank = rankConfig[1];
-
-        for (let i = 0; i < rankConfig.length; i++) {
-            if (totalPoints >= rankConfig[i].minPoints) {
-                currentRank = rankConfig[i];
-                nextRank = rankConfig[i + 1] || rankConfig[i]; // If at top rank
-            } else {
-                break;
-            }
-        }
-
-        // Calculate progress percentage
-        const pointsIntoCurrentRank = totalPoints - currentRank.minPoints;
-        const pointsBetweenRanks = nextRank.minPoints - currentRank.minPoints;
-        const progressPercent = pointsBetweenRanks === 0 ? 100 : (pointsIntoCurrentRank / pointsBetweenRanks) * 100;
-
-        return {
-            currentRank,
-            nextRank,
-            progressPercent: Math.min(progressPercent, 100), // Ensure it doesn't exceed 100%
-            pointsIntoCurrentRank: Math.round(pointsIntoCurrentRank),
-            pointsBetweenRanks: Math.round(pointsBetweenRanks),
-        };
-    }
-
-    // --------- Races Display Functionality (Optional) ---------
-    // If races have more dynamic data or interactions, implement here
+  // Function to update Races
+  function updateRaces() {
+    // Implement Races section if needed
+  }
 });

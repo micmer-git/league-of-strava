@@ -187,7 +187,7 @@ function getLifetimeStats(totals, weeklyTotals) {
 }
 
 // Define the segment ID you want to track
-const segmentId = 'YOUR_SEGMENT_ID'; // Replace with the actual segment ID
+const segmentId = 3285640055144843184; // Replace with the actual segment ID
 
 // Function to fetch segment efforts for the user
 async function fetchSegmentEfforts(segmentId) {

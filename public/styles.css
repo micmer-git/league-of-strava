@@ -262,3 +262,48 @@ a:hover {
     margin: 10px 0;
   }
 }
+
+/* Custom styles for coins and achievements */
+.coin-slider {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+.coin-category, .coin-medal {
+  flex: 1 1 200px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.coin-category h5, .coin-medal h5 {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+.achievement-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 5px;
+}
+.achievement-item i {
+  margin-right: 8px;
+}
+.medal-section {
+  margin-top: 20px;
+}
+.timeframe-buttons .btn {
+  margin-right: 10px;
+  margin-bottom: 10px;
+}
+.active-timeframe {
+  background-color: #007bff;
+  color: white;
+}
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .coin-category, .coin-medal {
+    flex: 1 1 100%;
+  }
+}

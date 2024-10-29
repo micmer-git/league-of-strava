@@ -11,36 +11,49 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* Custom styles for slider */
+    /* Custom styles for coins and achievements */
     .coin-slider {
       display: flex;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
+      flex-wrap: wrap;
+      gap: 15px;
     }
-    .coin-card {
-      flex: 0 0 auto;
-      width: 200px;
-      margin-right: 15px;
+    .coin-category, .coin-medal {
+      flex: 1 1 200px;
       padding: 15px;
       background-color: #f8f9fa;
       border-radius: 8px;
       text-align: center;
-      scroll-snap-align: start;
-    }
-    .achievement-card, .activity-card {
-      background-color: #ffffff;
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 15px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .personal-records .record-item {
-      margin-bottom: 15px;
+    .coin-category h5, .coin-medal h5 {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .achievement-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 5px;
+    }
+    .achievement-item i {
+      margin-right: 8px;
+    }
+    .medal-section {
+      margin-top: 20px;
     }
     .timeframe-buttons .btn {
       margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    .active-timeframe {
+      background-color: #007bff;
+      color: white;
+    }
+    /* Responsive adjustments */
+    @media (max-width: 576px) {
+      .coin-category, .coin-medal {
+        flex: 1 1 100%;
+      }
     }
   </style>
 </head>
@@ -70,14 +83,25 @@
     <!-- Coins Section -->
     <div class="coins-section mt-4" style="display: none;">
       <h2>Coins</h2>
+      <!-- Timeframe Buttons -->
       <div class="timeframe-buttons mb-3">
-        <button class="btn btn-outline-primary timeframe-btn" data-days="7">7 Days</button>
-        <button class="btn btn-outline-primary timeframe-btn" data-days="14">14 Days</button>
-        <button class="btn btn-outline-primary timeframe-btn" data-days="30">30 Days</button>
-        <button class="btn btn-outline-primary timeframe-btn" data-days="365">365 Days</button>
+        <button class="btn btn-outline-primary timeframe-btn active-timeframe" data-timeframe="all_time">All Time</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="7_D">7 Days</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="14_D">14 Days</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="30_D">30 Days</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="YTD">Year-To-Date</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="365_D">365 Days</button>
       </div>
+      <!-- Categories and Medals Display -->
       <div id="coins-container" class="coin-slider">
-        <!-- Coins will be dynamically inserted here -->
+        <!-- Categories will be dynamically inserted here -->
+      </div>
+      <!-- Medals Section -->
+      <div class="medal-section">
+        <h4>Medals</h4>
+        <div id="medals-container" class="coin-slider">
+          <!-- Medals will be dynamically inserted here -->
+        </div>
       </div>
     </div>
 

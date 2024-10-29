@@ -88,107 +88,12 @@ function computeCoins(durationInSeconds) {
   return Math.floor(hours); // 1 coin per hour
 }
 
-// Function to calculate coins for a specific timeframe
-function calculateCoinsForTimeframe(activities, days) {
-  const now = new Date();
-  const pastDate = new Date(now);
-  pastDate.setDate(now.getDate() - days);
-
-  const filteredActivities = activities.filter((activity) => {
-    const activityDate = new Date(activity.start_date);
-    return activityDate >= pastDate && activityDate <= now;
-  });
-
-  const totalCoins = filteredActivities.reduce(
-    (sum, activity) => sum + computeCoins(activity.moving_time),
-    0
-  );
-
-  return totalCoins;
+// Function to calculate coins and achievements for a specific timeframe
+function calculateCoinsAndAchievements(achievementsData, timeframeKey) {
+  return achievementsData[timeframeKey] || {};
 }
 
-// Function to calculate achievements
-function calculateAchievements(activities) {
-  const achievements = {
-    marathon: 0,
-    halfMarathon: 0,
-    tenK: 0,
-    centuryRide: 0,
-    climber: 0,
-    consistent: 0,
-    // Add more achievements as needed
-  };
-
-  let elevationTotal = 0;
-  const activityDates = activities.map((activity) =>
-    new Date(activity.start_date).setHours(0, 0, 0, 0)
-  );
-  const uniqueDates = [...new Set(activityDates)].sort((a, b) => a - b);
-
-  // Check for consistent days
-  let maxConsecutive = 1;
-  let currentConsecutive = 1;
-
-  for (let i = 1; i < uniqueDates.length; i++) {
-    if (uniqueDates[i] === uniqueDates[i - 1] + 86400000) {
-      currentConsecutive += 1;
-      if (currentConsecutive > maxConsecutive) {
-        maxConsecutive = currentConsecutive;
-      }
-    } else {
-      currentConsecutive = 1;
-    }
-  }
-
-  if (maxConsecutive >= 7) achievements.consistent = 1;
-
-  activities.forEach((activity) => {
-    if (activity.distance >= 42195) {
-      achievements.marathon += 1;
-    }
-    if (activity.distance >= 21097.5) {
-      achievements.halfMarathon += 1;
-    }
-    if (activity.distance >= 10000 && activity.distance < 21097.5) {
-      achievements.tenK += 1;
-    }
-    if (activity.distance >= 100000) {
-      achievements.centuryRide += 1;
-    }
-    elevationTotal += activity.total_elevation_gain;
-    // Additional conditions for other achievements
-  });
-
-  if (elevationTotal >= 10000) {
-    achievements.climber = Math.floor(elevationTotal / 10000);
-  }
-
-  return achievements;
-}
-
-// Function to get lifetime stats icons and counts
-function getLifetimeStats(totals, weeklyTotals) {
-  const stats = {};
-
-  // Distance
-  const totalDistanceIcons = Math.floor(totals.distance / 100000); // 100km per icon
-  const weeklyDistanceIcons = Math.floor(weeklyTotals.distance / 100000);
-  stats.distance = { icons: totalDistanceIcons, weekGain: weeklyDistanceIcons };
-
-  // Elevation
-  const totalElevationGems = Math.floor(totals.elevation / 1000); // 1000m per gem
-  const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 1000);
-  stats.elevation = { icons: totalElevationGems, weekGain: weeklyElevationGems };
-
-  // Calories
-  const totalPizzas = Math.floor(totals.calories / 1000); // 1000kcal per pizza
-  const weeklyPizzas = Math.floor(weeklyTotals.calories / 1000);
-  stats.calories = { icons: totalPizzas, weekGain: weeklyPizzas };
-
-  return stats;
-}
-
-// Function to process and display data
+// Function to display data
 async function displayData(data) {
   // Total points
   const totalPoints = data.totals.hours;
@@ -207,16 +112,13 @@ async function displayData(data) {
   document.getElementById('current-points').textContent = totalPoints.toFixed(1);
   document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
 
-  // Calculate and display coins for default timeframe (7 days)
-  const defaultDays = 7;
-  const coins = calculateCoinsForTimeframe(data.activities, defaultDays);
-  displayCoins(defaultDays, coins);
+  // Calculate and display coins and achievements for default timeframe (all_time)
+  const defaultTimeframe = 'all_time';
+  const coinsAndAchievements = calculateCoinsAndAchievements(data.achievements, defaultTimeframe);
+  displayCoins(defaultTimeframe, coinsAndAchievements.categories, coinsAndAchievements.Medals);
 
-  // Calculate achievements
-  const achievements = calculateAchievements(data.activities);
-
-  // Display achievements
-  displayAchievements(achievements);
+  // Calculate achievements (if separate from coins)
+  // Assuming achievements are part of coins in this context
 
   // Weekly Totals
   const currentWeekActivities = data.activities.filter((activity) => {
@@ -263,29 +165,114 @@ async function displayData(data) {
   initializeActivitiesDisplay(data.activities);
 
   // Setup timeframe buttons
-  setupTimeframeButtons(data.activities);
+  setupTimeframeButtons(data.achievements, data.activities);
 }
 
-// Function to display coins based on selected timeframe
-function displayCoins(days, coins) {
+// Function to display coins and achievements per category
+function displayCoins(timeframeKey, categories, medals) {
   const coinsContainer = document.getElementById('coins-container');
-  coinsContainer.innerHTML = ''; // Clear existing coins
+  const medalsContainer = document.getElementById('medals-container');
 
-  const coinCard = document.createElement('div');
-  coinCard.className = 'coin-card';
+  // Clear existing content
+  coinsContainer.innerHTML = '';
+  medalsContainer.innerHTML = '';
 
-  const timeframe = document.createElement('h5');
-  timeframe.textContent = `${days} Days`;
+  // Display Categories
+  categories.forEach(category => {
+    const categoryDiv = document.createElement('div');
+    categoryDiv.className = 'coin-category';
 
-  const coinCount = document.createElement('p');
-  coinCount.innerHTML = `${coins} <i class="fas fa-coins"></i>`;
+    const categoryTitle = document.createElement('h5');
+    categoryTitle.textContent = category.name;
+    categoryDiv.appendChild(categoryTitle);
 
-  coinCard.appendChild(timeframe);
-  coinCard.appendChild(coinCount);
-  coinsContainer.appendChild(coinCard);
+    const categoryIntro = document.createElement('p');
+    categoryIntro.textContent = category.intro;
+    categoryDiv.appendChild(categoryIntro);
+
+    // List Achievements
+    category.achievements.forEach(achievement => {
+      const achievementDiv = document.createElement('div');
+      achievementDiv.className = 'achievement-item';
+
+      const achievementIcon = document.createElement('i');
+      achievementIcon.className = 'fas fa-star'; // Using Font Awesome stars; customize as needed
+      achievementIcon.style.color = '#ffc107'; // Gold color
+      achievementDiv.appendChild(achievementIcon);
+
+      const achievementText = document.createElement('span');
+      achievementText.textContent = `${achievement.name}: ${achievement.count}`;
+      achievementDiv.appendChild(achievementText);
+
+      categoryDiv.appendChild(achievementDiv);
+    });
+
+    coinsContainer.appendChild(categoryDiv);
+  });
+
+  // Display Medals
+  medals.forEach(medal => {
+    const medalDiv = document.createElement('div');
+    medalDiv.className = 'coin-medal';
+
+    const medalTitle = document.createElement('h5');
+    medalTitle.textContent = medal.name;
+    medalDiv.appendChild(medalTitle);
+
+    const medalIcon = document.createElement('p');
+    medalIcon.innerHTML = `${medal.emoji} ${medal.description}`;
+    medalDiv.appendChild(medalIcon);
+
+    medalsContainer.appendChild(medalDiv);
+  });
 }
 
-// Function to display achievements
+// Function to setup timeframe buttons
+function setupTimeframeButtons(achievementsData, allActivities) {
+  const buttons = document.querySelectorAll('.timeframe-btn');
+  buttons.forEach(button => {
+    button.addEventListener('click', () => {
+      // Remove active class from all buttons
+      buttons.forEach(btn => btn.classList.remove('active-timeframe'));
+      // Add active class to the clicked button
+      button.classList.add('active-timeframe');
+
+      const timeframeKey = button.getAttribute('data-timeframe');
+      const coinsAndAchievements = calculateCoinsAndAchievements(achievementsData, timeframeKey);
+      displayCoins(timeframeKey, coinsAndAchievements.categories, coinsAndAchievements.Medals);
+    });
+  });
+
+  // Set default active button
+  const defaultButton = document.querySelector('.timeframe-btn[data-timeframe="all_time"]');
+  if (defaultButton) {
+    defaultButton.classList.add('active-timeframe');
+  }
+}
+
+// Function to get lifetime stats icons and counts
+function getLifetimeStats(totals, weeklyTotals) {
+  const stats = {};
+
+  // Distance
+  const totalDistanceIcons = Math.floor(totals.distance / 100000); // 100km per icon
+  const weeklyDistanceIcons = Math.floor(weeklyTotals.distance / 100000);
+  stats.distance = { icons: totalDistanceIcons, weekGain: weeklyDistanceIcons };
+
+  // Elevation
+  const totalElevationGems = Math.floor(totals.elevation / 1000); // 1000m per gem
+  const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 1000);
+  stats.elevation = { icons: totalElevationGems, weekGain: weeklyElevationGems };
+
+  // Calories
+  const totalPizzas = Math.floor(totals.calories / 1000); // 1000kcal per pizza
+  const weeklyPizzas = Math.floor(weeklyTotals.calories / 1000);
+  stats.calories = { icons: totalPizzas, weekGain: weeklyPizzas };
+
+  return stats;
+}
+
+// Function to display achievements (if separate)
 function displayAchievements(achievements) {
   const achievementContainer = document.getElementById('achievements-container');
   achievementContainer.innerHTML = ''; // Clear existing achievements
@@ -334,11 +321,6 @@ function formatAchievementName(achievement) {
     default:
       return achievement.charAt(0).toUpperCase() + achievement.slice(1);
   }
-}
-
-// Helper function to capitalize first letter
-function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 // Toggle Achievements Visibility
@@ -431,25 +413,25 @@ function initializeActivitiesDisplay(activities) {
 }
 
 // Function to setup timeframe buttons for coins
-function setupTimeframeButtons(activities) {
+function setupTimeframeButtons(achievementsData, allActivities) {
   const buttons = document.querySelectorAll('.timeframe-btn');
   buttons.forEach(button => {
     button.addEventListener('click', () => {
       // Remove active class from all buttons
-      buttons.forEach(btn => btn.classList.remove('active'));
+      buttons.forEach(btn => btn.classList.remove('active-timeframe'));
       // Add active class to the clicked button
-      button.classList.add('active');
+      button.classList.add('active-timeframe');
 
-      const days = parseInt(button.getAttribute('data-days'), 10);
-      const coins = calculateCoinsForTimeframe(activities, days);
-      displayCoins(days, coins);
+      const timeframeKey = button.getAttribute('data-timeframe');
+      const coinsAndAchievements = calculateCoinsAndAchievements(achievementsData, timeframeKey);
+      displayCoins(timeframeKey, coinsAndAchievements.categories, coinsAndAchievements.Medals);
     });
   });
 
   // Set default active button
-  const defaultButton = document.querySelector('.timeframe-btn[data-days="7"]');
+  const defaultButton = document.querySelector('.timeframe-btn[data-timeframe="all_time"]');
   if (defaultButton) {
-    defaultButton.classList.add('active');
+    defaultButton.classList.add('active-timeframe');
   }
 }
 
@@ -473,10 +455,13 @@ function updateStatsWithNewActivities(newActivities, allActivities) {
   document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
 
   // Recalculate achievements
-  const achievements = calculateAchievements(allActivities);
-  displayAchievements(achievements);
+  // Assuming achievements are part of coins; adjust if separate
+  // Optionally, you can refetch or recompute achievements here based on allActivities
 
-  // Optionally, you can update other stats like lifetime and weekly stats here
+  // Recalculate achievements based on allActivities and update display
+  // This requires that achievementsData is accessible; consider storing it globally if needed
+  // For simplicity, let's assume we have to refetch or recalculate it
+  // Here, we won't implement it as it depends on backend implementation
 }
 
 // Function to display personal records

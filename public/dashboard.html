@@ -5,12 +5,15 @@
   <meta charset="UTF-8">
   <title>Your Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Link to your CSS file -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="dashboard-container">
+    <!-- Loading Indicator -->
     <div id="loading">Loading your dashboard...</div>
 
+    <!-- Rank Section -->
     <div class="rank-section" style="display: none;">
       <div class="rank-title">Current Rank: <span id="current-rank"></span></div>
       <div class="rank-emoji" id="rank-emoji">🥉</div>
@@ -30,20 +33,24 @@
       </div>
     </div>
 
+    <!-- Coins Section -->
     <div class="coins-section" style="display: none;">
       <h2>Coins</h2>
       <div id="coins-container"></div>
     </div>
 
+    <!-- Achievements Section -->
     <div class="achievements-section" style="display: none;">
       <h2>Achievements</h2>
       <div id="achievements-container"></div>
     </div>
 
+    <!-- Toggle for Achievements -->
     <div class="toggle-container">
       <button id="toggle-achievements" class="toggle-button">Show Achievements</button>
     </div>
 
+    <!-- Lifetime Stats -->
     <div class="lifetime-stats" style="display: none;">
       <div class="stat-item">
         <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
@@ -62,6 +69,7 @@
       </div>
     </div>
 
+    <!-- Weekly Stats -->
     <div class="weekly-stats" style="display: none;">
       <h2>Weekly Stats</h2>
       <div class="stats-grid">
@@ -84,8 +92,10 @@
       </div>
     </div>
 
+    <!-- Load More Button -->
     <button id="load-more-button" style="display: none;">Load More</button>
 
+    <!-- Activities Container -->
     <div id="activities-container">
       <!-- Activities will be appended here -->
     </div>

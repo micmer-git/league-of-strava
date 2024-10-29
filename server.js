@@ -1,9 +1,7 @@
-// server.js
-
 require('dotenv').config(); // Load environment variables
 
 const express = require('express');
-const axios = require('axios');
+const axios = require('axios'); // Consistent use of axios
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
@@ -132,7 +130,6 @@ app.get('/api/strava-data', async (req, res) => {
       return allActivities;
     };
 
-
     const allActivities = await fetchAllActivities();
     console.log(`Total activities fetched: ${allActivities.length}`);
 
@@ -171,38 +168,59 @@ function calculateTotals(activities) {
   return totals;
 }
 
-
-
-const express = require('express');
-const fetch = require('node-fetch');
-const app = express();
-
-// Your existing code...
-
 // Endpoint to fetch segment efforts
 app.get('/api/strava-segment-efforts', async (req, res) => {
   const { segment_id } = req.query;
-  const accessToken = req.session.access_token; // Ensure you have the access token
+  const accessToken = req.cookies.strava_token; // Use cookies to retrieve access token
+
+  if (!accessToken) {
+    console.warn('No access token found in cookies');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!segment_id) {
+    console.warn('No segment ID provided');
+    return res.status(400).json({ error: 'Segment ID is required' });
+  }
 
   try {
-    const response = await fetch(`https://www.strava.com/api/v3/segment_efforts?segment_id=${segment_id}&per_page=200`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
+    const per_page = 200;
+    let page = 1;
+    let allSegmentEfforts = [];
+    let fetchedAll = false;
 
-    if (!response.ok) {
-      throw new Error(`Strava API error: ${response.statusText}`);
+    while (!fetchedAll) {
+      console.log(`Fetching segment efforts - Page: ${page}, Per Page: ${per_page}`);
+      const response = await axios.get('https://www.strava.com/api/v3/segment_efforts', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        params: {
+          segment_id: segment_id,
+          per_page: per_page,
+          page: page
+        }
+      });
+
+      const segmentEfforts = response.data;
+
+      console.log(`Fetched ${segmentEfforts.length} segment efforts from page ${page}`);
+      allSegmentEfforts = allSegmentEfforts.concat(segmentEfforts);
+
+      if (segmentEfforts.length < per_page) {
+        fetchedAll = true;
+      } else {
+        page++;
+      }
     }
 
-    const segmentEfforts = await response.json();
-    res.json(segmentEfforts);
+    console.log(`Total segment efforts fetched: ${allSegmentEfforts.length}`);
+    res.json(allSegmentEfforts);
   } catch (error) {
-    console.error('Error fetching segment efforts from Strava API:', error);
+    console.error('Error fetching segment efforts from Strava API:', error.response ? error.response.data : error.message);
     res.status(500).json({ error: 'Failed to fetch segment efforts' });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

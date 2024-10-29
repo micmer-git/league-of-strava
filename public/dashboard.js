@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       'weekly-stats',
       'coins-section',
       'achievements-section',
+      'personal-records',
+      'races-section'
     ].forEach((className) => {
       const element = document.querySelector(`.${className}`);
       if (element) {
@@ -86,36 +88,31 @@ function computeCoins(durationInSeconds) {
   return Math.floor(hours); // 1 coin per hour
 }
 
-// Function to calculate coins for different timeframes
-function calculateCoins(activities) {
-  const timeframes = [7, 14, 30, 365];
-  const coins = {};
-
+// Function to calculate coins for a specific timeframe
+function calculateCoinsForTimeframe(activities, days) {
   const now = new Date();
+  const pastDate = new Date(now);
+  pastDate.setDate(now.getDate() - days);
 
-  timeframes.forEach((days) => {
-    const pastDate = new Date(now);
-    pastDate.setDate(now.getDate() - days);
-
-    const filteredActivities = activities.filter((activity) => {
-      const activityDate = new Date(activity.start_date);
-      return activityDate >= pastDate && activityDate <= now;
-    });
-
-    const totalCoins = filteredActivities.reduce(
-      (sum, activity) => sum + computeCoins(activity.moving_time),
-      0
-    );
-    coins[days] = totalCoins;
+  const filteredActivities = activities.filter((activity) => {
+    const activityDate = new Date(activity.start_date);
+    return activityDate >= pastDate && activityDate <= now;
   });
 
-  return coins;
+  const totalCoins = filteredActivities.reduce(
+    (sum, activity) => sum + computeCoins(activity.moving_time),
+    0
+  );
+
+  return totalCoins;
 }
 
 // Function to calculate achievements
 function calculateAchievements(activities) {
   const achievements = {
     marathon: 0,
+    halfMarathon: 0,
+    tenK: 0,
     centuryRide: 0,
     climber: 0,
     consistent: 0,
@@ -148,6 +145,12 @@ function calculateAchievements(activities) {
   activities.forEach((activity) => {
     if (activity.distance >= 42195) {
       achievements.marathon += 1;
+    }
+    if (activity.distance >= 21097.5) {
+      achievements.halfMarathon += 1;
+    }
+    if (activity.distance >= 10000 && activity.distance < 21097.5) {
+      achievements.tenK += 1;
     }
     if (activity.distance >= 100000) {
       achievements.centuryRide += 1;
@@ -196,20 +199,18 @@ async function displayData(data) {
   // Update Rank Section
   document.getElementById('current-rank').textContent = rankInfo.currentRank.name;
   document.getElementById('rank-emoji').textContent = rankInfo.currentRank.emoji;
-  const progressBarInner = document.querySelector('.progress-bar-inner');
-  if (progressBarInner) {
-    progressBarInner.style.width = `${rankInfo.progressPercent}%`;
-  }
+  const progressBar = document.getElementById('progress-bar');
+  progressBar.style.width = `${rankInfo.progressPercent}%`;
+  progressBar.setAttribute('aria-valuenow', rankInfo.progressPercent);
   document.getElementById('current-rank-label').textContent = rankInfo.currentRank.name;
   document.getElementById('next-rank-label').textContent = rankInfo.nextRank.name;
   document.getElementById('current-points').textContent = totalPoints.toFixed(1);
   document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
 
-  // Calculate coins
-  const coins = calculateCoins(data.activities);
-
-  // Display coins
-  displayCoins(coins);
+  // Calculate and display coins for default timeframe (7 days)
+  const defaultDays = 7;
+  const coins = calculateCoinsForTimeframe(data.activities, defaultDays);
+  displayCoins(defaultDays, coins);
 
   // Calculate achievements
   const achievements = calculateAchievements(data.activities);
@@ -240,13 +241,13 @@ async function displayData(data) {
   const lifetimeStats = getLifetimeStats(data.totals, weeklyTotals);
 
   // Update Lifetime Stats Section
-  document.getElementById('distance-value').textContent = `${lifetimeStats.distance.icons} 🚴‍♂️`;
+  document.getElementById('distance-value').innerHTML = `${lifetimeStats.distance.icons} 🚴‍♂️`;
   document.getElementById('distance-week-gain').textContent = `+${lifetimeStats.distance.weekGain} this week`;
 
-  document.getElementById('elevation-value').textContent = `${lifetimeStats.elevation.icons} 🏔️`;
+  document.getElementById('elevation-value').innerHTML = `${lifetimeStats.elevation.icons} 🏔️`;
   document.getElementById('elevation-week-gain').textContent = `+${lifetimeStats.elevation.weekGain} this week`;
 
-  document.getElementById('calories-value').textContent = `${lifetimeStats.calories.icons} 🍕`;
+  document.getElementById('calories-value').innerHTML = `${lifetimeStats.calories.icons} 🍕`;
   document.getElementById('calories-week-gain').textContent = `+${lifetimeStats.calories.weekGain} this week`;
 
   // Update Weekly Stats
@@ -255,64 +256,55 @@ async function displayData(data) {
   document.getElementById('weekly-elevation').textContent = `${weeklyTotals.elevation.toFixed(0)} m`;
   document.getElementById('weekly-calories').textContent = `${weeklyTotals.calories.toFixed(0)} kcal`;
 
+  // Display personal records
+  displayPersonalRecords(data.activities);
 
   // Display activities
   initializeActivitiesDisplay(data.activities);
+
+  // Setup timeframe buttons
+  setupTimeframeButtons(data.activities);
 }
 
-// Function to display coins
-function displayCoins(coins) {
-  const coinContainer = document.createElement('div');
-  coinContainer.className = 'coin-container';
+// Function to display coins based on selected timeframe
+function displayCoins(days, coins) {
+  const coinsContainer = document.getElementById('coins-container');
+  coinsContainer.innerHTML = ''; // Clear existing coins
 
-  for (const [days, amount] of Object.entries(coins)) {
-    const coinCard = document.createElement('div');
-    coinCard.className = 'coin-card';
+  const coinCard = document.createElement('div');
+  coinCard.className = 'coin-card';
 
-    const timeframe = document.createElement('h4');
-    timeframe.textContent = `${days} Days`;
+  const timeframe = document.createElement('h5');
+  timeframe.textContent = `${days} Days`;
 
-    const coinCount = document.createElement('p');
-    coinCount.textContent = `${amount} 🪙`;
+  const coinCount = document.createElement('p');
+  coinCount.innerHTML = `${coins} <i class="fas fa-coins"></i>`;
 
-    coinCard.appendChild(timeframe);
-    coinCard.appendChild(coinCount);
-    coinContainer.appendChild(coinCard);
-  }
-
-  const existingCoinsSection = document.querySelector('.coins-section');
-  if (existingCoinsSection) {
-    existingCoinsSection.querySelector('#coins-container').innerHTML = '';
-    existingCoinsSection.querySelector('#coins-container').appendChild(coinContainer);
-  }
+  coinCard.appendChild(timeframe);
+  coinCard.appendChild(coinCount);
+  coinsContainer.appendChild(coinCard);
 }
 
 // Function to display achievements
 function displayAchievements(achievements) {
-  const achievementContainer = document.createElement('div');
-  achievementContainer.className = 'achievement-container';
+  const achievementContainer = document.getElementById('achievements-container');
+  achievementContainer.innerHTML = ''; // Clear existing achievements
 
   for (const [achievement, count] of Object.entries(achievements)) {
     if (count > 0) {
       const achievementCard = document.createElement('div');
-      achievementCard.className = 'achievement-card';
+      achievementCard.className = 'col-md-4 achievement-card';
 
       const achievementEmoji = document.createElement('span');
-      achievementEmoji.textContent = getAchievementEmoji(achievement);
+      achievementEmoji.innerHTML = getAchievementEmoji(achievement);
 
       const achievementName = document.createElement('span');
-      achievementName.textContent = `${capitalizeFirstLetter(achievement)}: ${count}`;
+      achievementName.innerHTML = ` ${formatAchievementName(achievement)}: ${count}`;
 
       achievementCard.appendChild(achievementEmoji);
       achievementCard.appendChild(achievementName);
       achievementContainer.appendChild(achievementCard);
     }
-  }
-
-  const existingAchievementsSection = document.querySelector('.achievements-section');
-  if (existingAchievementsSection) {
-    existingAchievementsSection.querySelector('#achievements-container').innerHTML = '';
-    existingAchievementsSection.querySelector('#achievements-container').appendChild(achievementContainer);
   }
 }
 
@@ -320,12 +312,28 @@ function displayAchievements(achievements) {
 function getAchievementEmoji(achievement) {
   const emojiMap = {
     marathon: '🏃‍♂️',
+    halfMarathon: '🏃‍♂️',
+    tenK: '🏃‍♂️',
     centuryRide: '🚴‍♂️',
     climber: '🏔️',
     consistent: '📅',
     // Add more mappings as needed
   };
   return emojiMap[achievement] || '🏅';
+}
+
+// Helper function to format achievement names
+function formatAchievementName(achievement) {
+  switch (achievement) {
+    case 'halfMarathon':
+      return 'Half Marathon';
+    case 'tenK':
+      return '10K Run';
+    case 'consistent':
+      return 'Consistent Runner';
+    default:
+      return achievement.charAt(0).toUpperCase() + achievement.slice(1);
+  }
 }
 
 // Helper function to capitalize first letter
@@ -345,7 +353,7 @@ document.getElementById('toggle-achievements').addEventListener('click', functio
   }
 });
 
-// Function to initialize activities display with pagination
+// Function to initialize activities display with pagination and recompute stats
 function initializeActivitiesDisplay(activities) {
   let currentActivityPage = 1;
   const activitiesPerPage = 20;
@@ -356,17 +364,38 @@ function initializeActivitiesDisplay(activities) {
     const activitiesContainer = document.getElementById('activities-container');
     activitiesToDisplay.forEach((activity) => {
       const activityCard = document.createElement('div');
-      activityCard.className = 'activity-card';
+      activityCard.className = 'activity-card col-md-6';
+
+      // Determine activity type for specific labels
+      let activityTypeLabel = '';
+      if (activity.distance >= 42195) {
+        activityTypeLabel = 'Marathon';
+      } else if (activity.distance >= 21097.5) {
+        activityTypeLabel = 'Half Marathon';
+      } else if (activity.distance >= 10000) {
+        activityTypeLabel = '10K Run';
+      }
+
+      // Determine coin type based on activity
+      let coinType = '';
+      if (activityTypeLabel === 'Marathon' || activityTypeLabel === 'Half Marathon' || activityTypeLabel === '10K Run') {
+        coinType = '🏅'; // Example: Medal for running
+      } else if (activity.type === 'Ride') {
+        coinType = '🚴‍♂️'; // Bike for rides
+      } else {
+        coinType = '🏃‍♂️'; // Runner for others
+      }
 
       // Create activity link
       const activityLink = `https://www.strava.com/activities/${activity.id}`;
 
       activityCard.innerHTML = `
-        <h3><a href="${activityLink}" target="_blank">${activity.name}</a></h3>
-        <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
-        <p>Distance: ${(activity.distance / 1000).toFixed(2)} km</p>
-        <p>Duration: ${(activity.moving_time / 60).toFixed(1)} mins</p>
-        <p>Elevation Gain: ${activity.total_elevation_gain.toFixed(0)} m</p>
+        <h5><a href="${activityLink}" target="_blank">${activity.name} ${coinType}</a></h5>
+        <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
+        <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
+        <p><strong>Duration:</strong> ${(activity.moving_time / 60).toFixed(1)} mins</p>
+        <p><strong>Elevation Gain:</strong> ${activity.total_elevation_gain.toFixed(0)} m</p>
+        ${activityTypeLabel ? `<p><strong>Type:</strong> ${activityTypeLabel}</p>` : ''}
       `;
 
       activitiesContainer.appendChild(activityCard);
@@ -386,6 +415,8 @@ function initializeActivitiesDisplay(activities) {
 
     if (nextActivities.length > 0) {
       displayActivities(nextActivities);
+      // Recompute and update stats with the newly loaded activities
+      updateStatsWithNewActivities(nextActivities, activities);
     }
 
     if (end >= activities.length) {
@@ -397,4 +428,115 @@ function initializeActivitiesDisplay(activities) {
   if (activities.length > activitiesPerPage) {
     loadMoreButton.style.display = 'block';
   }
+}
+
+// Function to setup timeframe buttons for coins
+function setupTimeframeButtons(activities) {
+  const buttons = document.querySelectorAll('.timeframe-btn');
+  buttons.forEach(button => {
+    button.addEventListener('click', () => {
+      // Remove active class from all buttons
+      buttons.forEach(btn => btn.classList.remove('active'));
+      // Add active class to the clicked button
+      button.classList.add('active');
+
+      const days = parseInt(button.getAttribute('data-days'), 10);
+      const coins = calculateCoinsForTimeframe(activities, days);
+      displayCoins(days, coins);
+    });
+  });
+
+  // Set default active button
+  const defaultButton = document.querySelector('.timeframe-btn[data-days="7"]');
+  if (defaultButton) {
+    defaultButton.classList.add('active');
+  }
+}
+
+// Function to update stats when new activities are loaded
+function updateStatsWithNewActivities(newActivities, allActivities) {
+  // Recompute total points
+  const totalPoints = allActivities.reduce((sum, activity) => sum + computeCoins(activity.moving_time), 0);
+
+  // Recalculate rank
+  const rankInfo = calculateRank(totalPoints);
+
+  // Update Rank Section
+  document.getElementById('current-rank').textContent = rankInfo.currentRank.name;
+  document.getElementById('rank-emoji').textContent = rankInfo.currentRank.emoji;
+  const progressBar = document.getElementById('progress-bar');
+  progressBar.style.width = `${rankInfo.progressPercent}%`;
+  progressBar.setAttribute('aria-valuenow', rankInfo.progressPercent);
+  document.getElementById('current-rank-label').textContent = rankInfo.currentRank.name;
+  document.getElementById('next-rank-label').textContent = rankInfo.nextRank.name;
+  document.getElementById('current-points').textContent = totalPoints.toFixed(1);
+  document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
+
+  // Recalculate achievements
+  const achievements = calculateAchievements(allActivities);
+  displayAchievements(achievements);
+
+  // Optionally, you can update other stats like lifetime and weekly stats here
+}
+
+// Function to display personal records
+function displayPersonalRecords(activities) {
+  const records = {
+    maxElevation: 0,
+    maxDistance: 0,
+    maxSpeed: 0,
+    fastestMarathon: Infinity,
+    fastestHalfMarathon: Infinity,
+    fastest10k: Infinity,
+  };
+
+  activities.forEach(activity => {
+    // Max Elevation
+    if (activity.total_elevation_gain > records.maxElevation) {
+      records.maxElevation = activity.total_elevation_gain;
+    }
+
+    // Max Distance
+    if (activity.distance > records.maxDistance) {
+      records.maxDistance = activity.distance;
+    }
+
+    // Max Speed
+    const speed = (activity.distance / 1000) / (activity.moving_time / 3600); // km/h
+    if (speed > records.maxSpeed) {
+      records.maxSpeed = speed;
+    }
+
+    // Fastest Marathon
+    if (activity.distance >= 42195 && activity.moving_time < records.fastestMarathon) {
+      records.fastestMarathon = activity.moving_time;
+    }
+
+    // Fastest Half Marathon
+    if (activity.distance >= 21097.5 && activity.distance < 42195 && activity.moving_time < records.fastestHalfMarathon) {
+      records.fastestHalfMarathon = activity.moving_time;
+    }
+
+    // Fastest 10K Run
+    if (activity.distance >= 10000 && activity.distance < 21097.5 && activity.moving_time < records.fastest10k) {
+      records.fastest10k = activity.moving_time;
+    }
+  });
+
+  // Update Personal Records Section
+  document.getElementById('max-elevation').textContent = `${records.maxElevation} m`;
+  document.getElementById('max-distance').textContent = `${(records.maxDistance / 1000).toFixed(2)} km`;
+  document.getElementById('max-speed').textContent = `${records.maxSpeed.toFixed(2)} km/h`;
+
+  document.getElementById('fastest-marathon').textContent = records.fastestMarathon === Infinity ? '--:--:--' : formatTime(records.fastestMarathon);
+  document.getElementById('fastest-half-marathon').textContent = records.fastestHalfMarathon === Infinity ? '--:--:--' : formatTime(records.fastestHalfMarathon);
+  document.getElementById('fastest-10k').textContent = records.fastest10k === Infinity ? '--:--:--' : formatTime(records.fastest10k);
+}
+
+// Helper function to format time in seconds to HH:MM:SS
+function formatTime(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }

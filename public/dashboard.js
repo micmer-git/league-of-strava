@@ -3,11 +3,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const response = await fetch('/api/strava-data');
     const stravaData = await response.json();
 
-    displayData(stravaData);
+    await displayData(stravaData);
     document.getElementById('loading').style.display = 'none';
 
     // Display sections
-    ['rank-section', 'lifetime-stats', 'weekly-stats', 'coins-section', 'achievements-section'].forEach(className => {
+    [
+      'rank-section',
+      'lifetime-stats',
+      'weekly-stats',
+      'coins-section',
+      'achievements-section',
+      'segment-time-section',
+    ].forEach((className) => {
       const element = document.querySelector(`.${className}`);
       if (element) {
         element.style.display = className === 'lifetime-stats' ? 'flex' : 'block';
@@ -19,7 +26,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Rank System Configuration remains the same
+// Rank System Configuration
+const rankConfig = [
+  { name: 'Bronze 3', emoji: '🥉', minPoints: 0 },
+  { name: 'Bronze 2', emoji: '🥉', minPoints: 50 },
+  { name: 'Bronze 1', emoji: '🥉', minPoints: 100 },
+  { name: 'Silver 3', emoji: '🥈', minPoints: 150 },
+  { name: 'Silver 2', emoji: '🥈', minPoints: 200 },
+  { name: 'Silver 1', emoji: '🥈', minPoints: 250 },
+  { name: 'Gold 3', emoji: '🥇', minPoints: 300 },
+  { name: 'Gold 2', emoji: '🥇', minPoints: 350 },
+  { name: 'Gold 1', emoji: '🥇', minPoints: 400 },
+  { name: 'Platinum 3', emoji: '🏆', minPoints: 450 },
+  { name: 'Platinum 2', emoji: '🏆', minPoints: 500 },
+  { name: 'Platinum 1', emoji: '🏆', minPoints: 550 },
+  { name: 'Diamond 3', emoji: '💎', minPoints: 600 },
+  { name: 'Diamond 2', emoji: '💎', minPoints: 650 },
+  { name: 'Diamond 1', emoji: '💎', minPoints: 700 },
+  { name: 'Master 3', emoji: '🔥', minPoints: 750 },
+  { name: 'Master 2', emoji: '🔥', minPoints: 800 },
+  { name: 'Master 1', emoji: '🔥', minPoints: 850 },
+  { name: 'Grandmaster 3', emoji: '🚀', minPoints: 900 },
+  { name: 'Grandmaster 2', emoji: '🚀', minPoints: 950 },
+  { name: 'Grandmaster 1', emoji: '🚀', minPoints: 1000 },
+  { name: 'Challenger', emoji: '🌟', minPoints: 1050 },
+];
 
 // Function to calculate the user's rank based on total points
 function calculateRank(totalPoints) {
@@ -29,7 +60,7 @@ function calculateRank(totalPoints) {
   for (let i = 0; i < rankConfig.length; i++) {
     if (totalPoints >= rankConfig[i].minPoints) {
       currentRank = rankConfig[i];
-      nextRank = rankConfig[i + 1] || rankConfig[i];
+      nextRank = rankConfig[i + 1] || rankConfig[i]; // If at top rank
     } else {
       break;
     }
@@ -38,7 +69,8 @@ function calculateRank(totalPoints) {
   // Calculate progress percentage
   const pointsIntoCurrentRank = totalPoints - currentRank.minPoints;
   const pointsBetweenRanks = nextRank.minPoints - currentRank.minPoints;
-  const progressPercent = pointsBetweenRanks === 0 ? 100 : (pointsIntoCurrentRank / pointsBetweenRanks) * 100;
+  const progressPercent =
+    pointsBetweenRanks === 0 ? 100 : (pointsIntoCurrentRank / pointsBetweenRanks) * 100;
 
   return {
     currentRank,
@@ -62,16 +94,19 @@ function calculateCoins(activities) {
 
   const now = new Date();
 
-  timeframes.forEach(days => {
+  timeframes.forEach((days) => {
     const pastDate = new Date(now);
     pastDate.setDate(now.getDate() - days);
 
-    const filteredActivities = activities.filter(activity => {
+    const filteredActivities = activities.filter((activity) => {
       const activityDate = new Date(activity.start_date);
       return activityDate >= pastDate && activityDate <= now;
     });
 
-    const totalCoins = filteredActivities.reduce((sum, activity) => sum + computeCoins(activity.moving_time), 0);
+    const totalCoins = filteredActivities.reduce(
+      (sum, activity) => sum + computeCoins(activity.moving_time),
+      0
+    );
     coins[days] = totalCoins;
   });
 
@@ -89,7 +124,9 @@ function calculateAchievements(activities) {
   };
 
   let elevationTotal = 0;
-  const activityDates = activities.map(activity => new Date(activity.start_date).setHours(0, 0, 0, 0));
+  const activityDates = activities.map((activity) =>
+    new Date(activity.start_date).setHours(0, 0, 0, 0)
+  );
   const uniqueDates = [...new Set(activityDates)].sort((a, b) => a - b);
 
   // Check for consistent days
@@ -109,7 +146,7 @@ function calculateAchievements(activities) {
 
   if (maxConsecutive >= 7) achievements.consistent = 1;
 
-  activities.forEach(activity => {
+  activities.forEach((activity) => {
     if (activity.distance >= 42195) {
       achievements.marathon += 1;
     }
@@ -149,8 +186,38 @@ function getLifetimeStats(totals, weeklyTotals) {
   return stats;
 }
 
+// Define the segment ID you want to track
+const segmentId = 'YOUR_SEGMENT_ID'; // Replace with the actual segment ID
+
+// Function to fetch segment efforts for the user
+async function fetchSegmentEfforts(segmentId) {
+  try {
+    const response = await fetch(`/api/strava-segment-efforts?segment_id=${segmentId}`);
+    const segmentEfforts = await response.json();
+    return segmentEfforts;
+  } catch (error) {
+    console.error('Error fetching segment efforts:', error);
+    return [];
+  }
+}
+
+// Function to calculate total time spent on the segment
+function calculateTotalSegmentTime(segmentEfforts) {
+  const totalTime = segmentEfforts.reduce((sum, effort) => sum + effort.moving_time, 0);
+  return totalTime;
+}
+
+// Function to display segment time in the dashboard
+function displaySegmentTime(totalTime) {
+  const segmentTimeElement = document.getElementById('segment-time');
+  if (segmentTimeElement) {
+    const totalTimeMinutes = (totalTime / 60).toFixed(1);
+    segmentTimeElement.textContent = `${totalTimeMinutes} mins`;
+  }
+}
+
 // Function to process and display data
-function displayData(data) {
+async function displayData(data) {
   // Total points
   const totalPoints = data.totals.hours;
 
@@ -182,7 +249,7 @@ function displayData(data) {
   displayAchievements(achievements);
 
   // Weekly Totals
-  const currentWeekActivities = data.activities.filter(activity => {
+  const currentWeekActivities = data.activities.filter((activity) => {
     const activityDate = new Date(activity.start_date);
     const today = new Date();
     const pastDate = new Date(today);
@@ -194,7 +261,10 @@ function displayData(data) {
     hours: currentWeekActivities.reduce((sum, activity) => sum + activity.moving_time, 0) / 3600,
     distance: currentWeekActivities.reduce((sum, activity) => sum + activity.distance, 0),
     elevation: currentWeekActivities.reduce((sum, activity) => sum + activity.total_elevation_gain, 0),
-    calories: currentWeekActivities.reduce((sum, activity) => sum + (activity.kilojoules || 0) * 0.239006, 0),
+    calories: currentWeekActivities.reduce(
+      (sum, activity) => sum + (activity.kilojoules || 0) * 0.239006,
+      0
+    ),
   };
 
   // Get Lifetime Stats
@@ -215,6 +285,17 @@ function displayData(data) {
   document.getElementById('weekly-distance').textContent = `${(weeklyTotals.distance / 1000).toFixed(1)} km`;
   document.getElementById('weekly-elevation').textContent = `${weeklyTotals.elevation.toFixed(0)} m`;
   document.getElementById('weekly-calories').textContent = `${weeklyTotals.calories.toFixed(0)} kcal`;
+
+  // Fetch and display segment time
+  const segmentEfforts = await fetchSegmentEfforts(segmentId);
+  const totalSegmentTime = calculateTotalSegmentTime(segmentEfforts);
+  displaySegmentTime(totalSegmentTime);
+
+  // Show segment time section
+  const segmentTimeSection = document.querySelector('.segment-time-section');
+  if (segmentTimeSection) {
+    segmentTimeSection.style.display = 'block';
+  }
 
   // Display activities
   initializeActivitiesDisplay(data.activities);
@@ -296,7 +377,7 @@ function capitalizeFirstLetter(string) {
 // Toggle Achievements Visibility
 let achievementsVisible = false;
 
-document.getElementById('toggle-achievements').addEventListener('click', function() {
+document.getElementById('toggle-achievements').addEventListener('click', function () {
   const achievementsSection = document.querySelector('.achievements-section');
   if (achievementsSection) {
     achievementsVisible = !achievementsVisible;
@@ -314,7 +395,7 @@ function initializeActivitiesDisplay(activities) {
 
   function displayActivities(activitiesToDisplay) {
     const activitiesContainer = document.getElementById('activities-container');
-    activitiesToDisplay.forEach(activity => {
+    activitiesToDisplay.forEach((activity) => {
       const activityCard = document.createElement('div');
       activityCard.className = 'activity-card';
 

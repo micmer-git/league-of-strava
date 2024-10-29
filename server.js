@@ -171,6 +171,39 @@ function calculateTotals(activities) {
   return totals;
 }
 
+
+
+const express = require('express');
+const fetch = require('node-fetch');
+const app = express();
+
+// Your existing code...
+
+// Endpoint to fetch segment efforts
+app.get('/api/strava-segment-efforts', async (req, res) => {
+  const { segment_id } = req.query;
+  const accessToken = req.session.access_token; // Ensure you have the access token
+
+  try {
+    const response = await fetch(`https://www.strava.com/api/v3/segment_efforts?segment_id=${segment_id}&per_page=200`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Strava API error: ${response.statusText}`);
+    }
+
+    const segmentEfforts = await response.json();
+    res.json(segmentEfforts);
+  } catch (error) {
+    console.error('Error fetching segment efforts from Strava API:', error);
+    res.status(500).json({ error: 'Failed to fetch segment efforts' });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

@@ -1,31 +1,30 @@
-<!-- public/dashboard.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Your Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Link to your CSS file -->
+  <!-- Link to Bootstrap CSS for modern styling -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <!-- Optional: Link to your custom CSS file -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="dashboard-container">
+  <div id="dashboard-container" class="container-fluid">
     <!-- Loading Indicator -->
-    <div id="loading">Loading your dashboard...</div>
+    <div id="loading" class="text-center my-4">Loading your dashboard...</div>
 
     <!-- Rank Section -->
     <div class="rank-section" style="display: none;">
-      <div class="rank-title">Current Rank: <span id="current-rank"></span></div>
-      <div class="rank-emoji" id="rank-emoji">🥉</div>
-      <div class="progress-container" id="progress-container">
-        <div class="progress-labels">
+      <div class="rank-title h4">Current Rank: <span id="current-rank"></span></div>
+      <div class="rank-emoji display-1" id="rank-emoji">🥉</div>
+      <div class="progress-container position-relative my-3" id="progress-container">
+        <div class="d-flex justify-content-between">
           <span id="current-rank-label"></span>
           <span id="next-rank-label"></span>
         </div>
-        <div class="progress-bar" id="progress-bar"></div>
-        <div class="tooltip" id="rank-tooltip" style="display: none;">
-          <h3>Rank Progression</h3>
-          <ul id="rank-list"></ul>
+        <div class="progress">
+          <div class="progress-bar" id="progress-bar" role="progressbar"></div>
         </div>
       </div>
       <div class="rank-details">
@@ -34,72 +33,103 @@
     </div>
 
     <!-- Coins Section -->
-    <div class="coins-section" style="display: none;">
+    <div class="coins-section mt-4" style="display: none;">
       <h2>Coins</h2>
-      <div id="coins-container"></div>
+      <div id="coins-container" class="row"></div>
     </div>
 
     <!-- Achievements Section -->
-    <div class="achievements-section" style="display: none;">
+    <div class="achievements-section mt-4" style="display: none;">
       <h2>Achievements</h2>
-      <div id="achievements-container"></div>
+      <div id="achievements-container" class="row"></div>
     </div>
 
     <!-- Toggle for Achievements -->
-    <div class="toggle-container">
-      <button id="toggle-achievements" class="toggle-button">Show Achievements</button>
+    <div class="toggle-container mt-2">
+      <button id="toggle-achievements" class="btn btn-primary">Show Achievements</button>
     </div>
 
     <!-- Lifetime Stats -->
-    <div class="lifetime-stats" style="display: none;">
-      <div class="stat-item">
+    <div class="lifetime-stats row mt-4" style="display: none;">
+      <div class="stat-item col-4 text-center">
         <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
         <div class="value" id="elevation-value"></div>
-        <div class="week-gain bold-green" id="elevation-week-gain"></div>
+        <div class="week-gain text-success" id="elevation-week-gain"></div>
       </div>
-      <div class="stat-item">
+      <div class="stat-item col-4 text-center">
         <div class="icon pizza-icon" title="Pizza: 1000kcal per pizza">🍕</div>
         <div class="value" id="calories-value"></div>
-        <div class="week-gain bold-green" id="calories-week-gain"></div>
+        <div class="week-gain text-success" id="calories-week-gain"></div>
       </div>
-      <div class="stat-item">
+      <div class="stat-item col-4 text-center">
         <div class="icon distance-icon" title="Distance: 100km per icon">🚴‍♂️</div>
         <div class="value" id="distance-value"></div>
-        <div class="week-gain bold-green" id="distance-week-gain"></div>
+        <div class="week-gain text-success" id="distance-week-gain"></div>
       </div>
     </div>
 
     <!-- Weekly Stats -->
-    <div class="weekly-stats" style="display: none;">
+    <div class="weekly-stats mt-4" style="display: none;">
       <h2>Weekly Stats</h2>
-      <div class="stats-grid">
-        <div class="stat-card">
+      <div class="row">
+        <div class="stat-card col-6 col-md-3 text-center">
           <h3>Total Hours</h3>
           <p id="weekly-hours">-- hrs</p>
         </div>
-        <div class="stat-card">
+        <div class="stat-card col-6 col-md-3 text-center">
           <h3>Total Distance</h3>
           <p id="weekly-distance">-- km</p>
         </div>
-        <div class="stat-card">
+        <div class="stat-card col-6 col-md-3 text-center">
           <h3>Total Elevation Gain</h3>
           <p id="weekly-elevation">-- m</p>
         </div>
-        <div class="stat-card">
+        <div class="stat-card col-6 col-md-3 text-center">
           <h3>Total Calories Burned</h3>
           <p id="weekly-calories">-- kcal</p>
         </div>
       </div>
     </div>
 
+    <!-- Personal Records Section -->
+    <div class="max-stats mt-4" style="display: none;">
+      <h2>Personal Records</h2>
+      <div class="row">
+        <div class="stat-card col-6 col-md-4 text-center">
+          <h3>Max Elevation Gain</h3>
+          <p id="max-elevation">-- m</p>
+        </div>
+        <div class="stat-card col-6 col-md-4 text-center">
+          <h3>Max Distance</h3>
+          <p id="max-distance">-- km</p>
+        </div>
+        <div class="stat-card col-6 col-md-4 text-center">
+          <h3>Max Speed</h3>
+          <p id="max-speed">-- km/h</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Races Section -->
+    <div class="races-section mt-4" style="display: none;">
+      <h2>Upcoming Races</h2>
+      <div id="races-container" class="row"></div>
+    </div>
+
     <!-- Load More Button -->
-    <button id="load-more-button" style="display: none;">Load More</button>
+    <button id="load-more-button" class="btn btn-secondary my-4" style="display: none;">Load More</button>
 
     <!-- Activities Container -->
-    <div id="activities-container">
+    <div id="activities-container" class="row">
       <!-- Activities will be appended here -->
     </div>
   </div>
+
+  <!-- Include Bootstrap JS and dependencies -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Note: For Bootstrap's JavaScript features, you should include Popper.js and Bootstrap JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 
   <script src="dashboard.js"></script>
 </body>

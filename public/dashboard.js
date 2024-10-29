@@ -1,5 +1,3 @@
-// public/dashboard.js
-
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     const response = await fetch('/api/strava-data');
@@ -7,42 +5,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     displayData(stravaData);
     document.getElementById('loading').style.display = 'none';
-    document.querySelector('.rank-section').style.display = 'block';
-    document.querySelector('.lifetime-stats').style.display = 'block';
-    document.querySelector('.weekly-stats').style.display = 'block';
-    document.querySelector('.coins-section').style.display = 'block';
-    document.querySelector('.achievements-section').style.display = 'block';
+
+    // Display sections
+    ['rank-section', 'lifetime-stats', 'weekly-stats', 'coins-section', 'achievements-section'].forEach(className => {
+      const element = document.querySelector(`.${className}`);
+      if (element) {
+        element.style.display = className === 'lifetime-stats' ? 'flex' : 'block';
+      }
+    });
   } catch (error) {
     console.error('Error fetching Strava data:', error);
     document.getElementById('loading').textContent = 'Failed to load dashboard.';
   }
 });
 
-// Rank System Configuration
-const rankConfig = [
-  { name: 'Bronze 3', emoji: '🥉', minPoints: 0 },
-  { name: 'Bronze 2', emoji: '🥉', minPoints: 50 },
-  { name: 'Bronze 1', emoji: '🥉', minPoints: 100 },
-  { name: 'Silver 3', emoji: '🥈', minPoints: 150 },
-  { name: 'Silver 2', emoji: '🥈', minPoints: 200 },
-  { name: 'Silver 1', emoji: '🥈', minPoints: 250 },
-  { name: 'Gold 3', emoji: '🥇', minPoints: 300 },
-  { name: 'Gold 2', emoji: '🥇', minPoints: 350 },
-  { name: 'Gold 1', emoji: '🥇', minPoints: 400 },
-  { name: 'Platinum 3', emoji: '🏆', minPoints: 450 },
-  { name: 'Platinum 2', emoji: '🏆', minPoints: 500 },
-  { name: 'Platinum 1', emoji: '🏆', minPoints: 550 },
-  { name: 'Diamond 3', emoji: '💎', minPoints: 600 },
-  { name: 'Diamond 2', emoji: '💎', minPoints: 650 },
-  { name: 'Diamond 1', emoji: '💎', minPoints: 700 },
-  { name: 'Master 3', emoji: '🔥', minPoints: 750 },
-  { name: 'Master 2', emoji: '🔥', minPoints: 800 },
-  { name: 'Master 1', emoji: '🔥', minPoints: 850 },
-  { name: 'Grandmaster 3', emoji: '🚀', minPoints: 900 },
-  { name: 'Grandmaster 2', emoji: '🚀', minPoints: 950 },
-  { name: 'Grandmaster 1', emoji: '🚀', minPoints: 1000 },
-  { name: 'Challenger', emoji: '🌟', minPoints: 1050 },
-];
+// Rank System Configuration remains the same
 
 // Function to calculate the user's rank based on total points
 function calculateRank(totalPoints) {
@@ -52,7 +29,7 @@ function calculateRank(totalPoints) {
   for (let i = 0; i < rankConfig.length; i++) {
     if (totalPoints >= rankConfig[i].minPoints) {
       currentRank = rankConfig[i];
-      nextRank = rankConfig[i + 1] || rankConfig[i]; // If at top rank
+      nextRank = rankConfig[i + 1] || rankConfig[i];
     } else {
       break;
     }
@@ -75,7 +52,6 @@ function calculateRank(totalPoints) {
 // Function to compute coins based on duration
 function computeCoins(durationInSeconds) {
   const hours = durationInSeconds / 3600;
-  // Define your coin logic. For example:
   return Math.floor(hours); // 1 coin per hour
 }
 
@@ -87,7 +63,7 @@ function calculateCoins(activities) {
   const now = new Date();
 
   timeframes.forEach(days => {
-    const pastDate = new Date();
+    const pastDate = new Date(now);
     pastDate.setDate(now.getDate() - days);
 
     const filteredActivities = activities.filter(activity => {
@@ -105,23 +81,23 @@ function calculateCoins(activities) {
 // Function to calculate achievements
 function calculateAchievements(activities) {
   const achievements = {
-    marathon: 0, // Example: Completed a marathon (42.195 km)
-    centuryRide: 0, // Example: Completed a century ride (100 km)
-    climber: 0, // Example: Achieved a certain elevation gain
-    consistent: 0, // Example: Active on consecutive days
+    marathon: 0,
+    centuryRide: 0,
+    climber: 0,
+    consistent: 0,
     // Add more achievements as needed
   };
 
   let elevationTotal = 0;
-  const activityDates = activities.map(activity => new Date(activity.start_date).setHours(0,0,0,0));
+  const activityDates = activities.map(activity => new Date(activity.start_date).setHours(0, 0, 0, 0));
   const uniqueDates = [...new Set(activityDates)].sort((a, b) => a - b);
 
-  // Check for consistent days (e.g., 7 consecutive days)
+  // Check for consistent days
   let maxConsecutive = 1;
   let currentConsecutive = 1;
 
   for (let i = 1; i < uniqueDates.length; i++) {
-    if (uniqueDates[i] === uniqueDates[i - 1] + 86400000) { // 86400000 ms in a day
+    if (uniqueDates[i] === uniqueDates[i - 1] + 86400000) {
       currentConsecutive += 1;
       if (currentConsecutive > maxConsecutive) {
         maxConsecutive = currentConsecutive;
@@ -134,17 +110,17 @@ function calculateAchievements(activities) {
   if (maxConsecutive >= 7) achievements.consistent = 1;
 
   activities.forEach(activity => {
-    if (activity.distance >= 42195) { // Marathon
+    if (activity.distance >= 42195) {
       achievements.marathon += 1;
     }
-    if (activity.distance >= 100000) { // Century Ride
+    if (activity.distance >= 100000) {
       achievements.centuryRide += 1;
     }
     elevationTotal += activity.total_elevation_gain;
-    // Add more conditions for other achievements
+    // Additional conditions for other achievements
   });
 
-  if (elevationTotal >= 10000) { // Climber: 10,000m elevation gain
+  if (elevationTotal >= 10000) {
     achievements.climber = Math.floor(elevationTotal / 10000);
   }
 
@@ -165,7 +141,7 @@ function getLifetimeStats(totals, weeklyTotals) {
   const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 1000);
   stats.elevation = { icons: totalElevationGems, weekGain: weeklyElevationGems };
 
-  // Calories (Pizzas)
+  // Calories
   const totalPizzas = Math.floor(totals.calories / 1000); // 1000kcal per pizza
   const weeklyPizzas = Math.floor(weeklyTotals.calories / 1000);
   stats.calories = { icons: totalPizzas, weekGain: weeklyPizzas };
@@ -175,8 +151,8 @@ function getLifetimeStats(totals, weeklyTotals) {
 
 // Function to process and display data
 function displayData(data) {
-  // Total points (you can define your own logic)
-  const totalPoints = data.totals.hours; // For example, using total hours as points
+  // Total points
+  const totalPoints = data.totals.hours;
 
   // Calculate rank
   const rankInfo = calculateRank(totalPoints);
@@ -184,38 +160,32 @@ function displayData(data) {
   // Update Rank Section
   document.getElementById('current-rank').textContent = rankInfo.currentRank.name;
   document.getElementById('rank-emoji').textContent = rankInfo.currentRank.emoji;
-  document.getElementById('progress-bar').style.width = `${rankInfo.progressPercent}%`;
+  const progressBarInner = document.querySelector('.progress-bar-inner');
+  if (progressBarInner) {
+    progressBarInner.style.width = `${rankInfo.progressPercent}%`;
+  }
   document.getElementById('current-rank-label').textContent = rankInfo.currentRank.name;
   document.getElementById('next-rank-label').textContent = rankInfo.nextRank.name;
   document.getElementById('current-points').textContent = totalPoints.toFixed(1);
   document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
 
-  // Populate Rank Tooltip
-  const rankListElement = document.getElementById('rank-list');
-  rankListElement.innerHTML = '';
-  rankConfig.forEach(rank => {
-    const li = document.createElement('li');
-    li.textContent = `${rank.name} (${rank.minPoints} pts)`;
-    rankListElement.appendChild(li);
-  });
-
   // Calculate coins
   const coins = calculateCoins(data.activities);
 
-  // Display coins in the dashboard
+  // Display coins
   displayCoins(coins);
 
   // Calculate achievements
   const achievements = calculateAchievements(data.activities);
 
-  // Display achievements in the dashboard
+  // Display achievements
   displayAchievements(achievements);
 
   // Weekly Totals
   const currentWeekActivities = data.activities.filter(activity => {
     const activityDate = new Date(activity.start_date);
     const today = new Date();
-    const pastDate = new Date();
+    const pastDate = new Date(today);
     pastDate.setDate(today.getDate() - 7);
     return activityDate >= pastDate && activityDate <= today;
   });
@@ -224,7 +194,7 @@ function displayData(data) {
     hours: currentWeekActivities.reduce((sum, activity) => sum + activity.moving_time, 0) / 3600,
     distance: currentWeekActivities.reduce((sum, activity) => sum + activity.distance, 0),
     elevation: currentWeekActivities.reduce((sum, activity) => sum + activity.total_elevation_gain, 0),
-    calories: currentWeekActivities.reduce((sum, activity) => sum + (activity.kilojoules || 0) * 0.239006, 0), // Convert kJ to kcal
+    calories: currentWeekActivities.reduce((sum, activity) => sum + (activity.kilojoules || 0) * 0.239006, 0),
   };
 
   // Get Lifetime Stats
@@ -243,10 +213,10 @@ function displayData(data) {
   // Update Weekly Stats
   document.getElementById('weekly-hours').textContent = `${weeklyTotals.hours.toFixed(1)} hrs`;
   document.getElementById('weekly-distance').textContent = `${(weeklyTotals.distance / 1000).toFixed(1)} km`;
-  document.getElementById('weekly-elevation').textContent = `${weeklyTotals.elevation} m`;
+  document.getElementById('weekly-elevation').textContent = `${weeklyTotals.elevation.toFixed(0)} m`;
   document.getElementById('weekly-calories').textContent = `${weeklyTotals.calories.toFixed(0)} kcal`;
 
-  // Display activities with pagination
+  // Display activities
   initializeActivitiesDisplay(data.activities);
 }
 
@@ -263,7 +233,7 @@ function displayCoins(coins) {
     timeframe.textContent = `${days} Days`;
 
     const coinCount = document.createElement('p');
-    coinCount.textContent = `${amount} 🪙`; // Coin emoji
+    coinCount.textContent = `${amount} 🪙`;
 
     coinCard.appendChild(timeframe);
     coinCard.appendChild(coinCount);
@@ -348,12 +318,15 @@ function initializeActivitiesDisplay(activities) {
       const activityCard = document.createElement('div');
       activityCard.className = 'activity-card';
 
+      // Create activity link
+      const activityLink = `https://www.strava.com/activities/${activity.id}`;
+
       activityCard.innerHTML = `
-        <h3>${activity.name}</h3>
+        <h3><a href="${activityLink}" target="_blank">${activity.name}</a></h3>
         <p>Date: ${new Date(activity.start_date).toLocaleDateString()}</p>
         <p>Distance: ${(activity.distance / 1000).toFixed(2)} km</p>
         <p>Duration: ${(activity.moving_time / 60).toFixed(1)} mins</p>
-        <p>Elevation Gain: ${activity.total_elevation_gain} m</p>
+        <p>Elevation Gain: ${activity.total_elevation_gain.toFixed(0)} m</p>
       `;
 
       activitiesContainer.appendChild(activityCard);

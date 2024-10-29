@@ -1,4 +1,7 @@
-require('dotenv').config();
+// server.js
+
+require('dotenv').config(); // Load environment variables
+
 const express = require('express');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
@@ -23,7 +26,7 @@ app.get('/auth/strava', (req, res) => {
   console.log('Redirecting to Strava for authentication');
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID,
-    redirect_uri: `${process.env.BASE_URL}/auth/strava/callback`, // Update this line
+    redirect_uri: `${process.env.BASE_URL}/auth/strava/callback`,
     response_type: 'code',
     approval_prompt: 'auto',
     scope: 'read,activity:read_all',
@@ -60,8 +63,9 @@ app.get('/auth/strava/callback', async (req, res) => {
     console.log(`Access Token: ${accessToken}`);
     console.log(`Refresh Token: ${refreshToken}`);
 
-    res.cookie('strava_token', accessToken, { httpOnly: true, secure: false });
-    res.cookie('strava_refresh_token', refreshToken, { httpOnly: true, secure: false });
+    // Set cookies with secure flag in production
+    res.cookie('strava_token', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+    res.cookie('strava_refresh_token', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
     console.log('Access token and refresh token stored in cookies');
 
@@ -78,13 +82,10 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// API endpoint to fetch Strava data
-// Replace existing activities fetching in /api/strava-data route
-
+// API endpoint to fetch all Strava activities
 app.get('/api/strava-data', async (req, res) => {
-  console.log('Received request for Strava data');
+  console.log('Received request for all Strava data');
   const accessToken = req.cookies.strava_token;
-  const { page = 1, per_page = 200 } = req.query; // Default to page 1, 200 per page
 
   if (!accessToken) {
     console.warn('No access token found in cookies');
@@ -99,27 +100,45 @@ app.get('/api/strava-data', async (req, res) => {
     });
     console.log('Fetched athlete profile');
 
-    // Fetch activities based on pagination
-    console.log(`Fetching activities from Strava - Page: ${page}, Per Page: ${per_page}`);
-    const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: { per_page: per_page, page: page },
-    });
-    const fetchedActivities = activitiesResponse.data;
-    console.log(`Fetched ${fetchedActivities.length} activities from page ${page}`);
+    // Function to fetch all activities recursively
+    const fetchAllActivities = async () => {
+      let page = 1;
+      const per_page = 200;
+      let allActivities = [];
+      let fetchMore = true;
 
-    // Calculate totals for the fetched activities
-    const totals = calculateTotals(fetchedActivities);
-    console.log('Calculated totals for fetched activities:', totals);
+      while (fetchMore) {
+        console.log(`Fetching activities - Page: ${page}, Per Page: ${per_page}`);
+        const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { per_page, page },
+        });
 
-    // Determine if more activities are available
-    const hasMore = fetchedActivities.length === parseInt(per_page, 10);
+        const activities = activitiesResponse.data;
+        console.log(`Fetched ${activities.length} activities from page ${page}`);
+        allActivities = allActivities.concat(activities);
+
+        if (activities.length < per_page) {
+          fetchMore = false;
+        } else {
+          page += 1;
+        }
+      }
+
+      return allActivities;
+    };
+
+    const allActivities = await fetchAllActivities();
+    console.log(`Total activities fetched: ${allActivities.length}`);
+
+    // Calculate totals
+    const totals = calculateTotals(allActivities);
 
     res.json({
       athlete: athleteResponse.data,
-      activities: fetchedActivities,
+      activities: allActivities,
       totals: totals,
-      hasMore: hasMore,
+      hasMore: false, // Since we've fetched all
     });
   } catch (error) {
     console.error('Error fetching Strava data:', error.response ? error.response.data : error.message);

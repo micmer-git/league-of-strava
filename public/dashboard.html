@@ -1,3 +1,4 @@
+<!-- public/dashboard.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,7 +23,7 @@
           <span id="next-rank-label"></span>
         </div>
         <div class="progress-bar" id="progress-bar"></div>
-        <div class="tooltip" id="rank-tooltip">
+        <div class="tooltip" id="rank-tooltip" style="display: none;">
           <h3>Rank Progression</h3>
           <ul id="rank-list"></ul>
         </div>
@@ -30,6 +31,23 @@
       <div class="rank-details">
         <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
       </div>
+    </div>
+
+    <!-- Coins Section -->
+    <div class="coins-section" style="display: none;">
+      <h2>Coins</h2>
+      <div id="coins-container"></div>
+    </div>
+
+    <!-- Achievements Section -->
+    <div class="achievements-section" style="display: none;">
+      <h2>Achievements</h2>
+      <div id="achievements-container"></div>
+    </div>
+
+    <!-- Toggle for Achievements -->
+    <div class="toggle-container">
+      <button id="toggle-achievements" class="toggle-button">Show Achievements</button>
     </div>
 
     <!-- Lifetime Stats -->
@@ -51,7 +69,7 @@
       </div>
     </div>
 
-    <!-- YTD Stats -->
+    <!-- Weekly Stats -->
     <div class="weekly-stats" style="display: none;">
       <h2>Weekly Stats</h2>
       <div class="stats-grid">
@@ -74,12 +92,13 @@
       </div>
     </div>
 
+    <!-- Load More Button -->
     <button id="load-more-button" style="display: none;">Load More</button>
 
+    <!-- Activities Container -->
     <div id="activities-container">
       <!-- Activities will be appended here -->
     </div>
-    <!-- Load More Button -->
   </div>
 
   <script src="dashboard.js"></script>

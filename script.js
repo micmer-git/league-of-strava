@@ -1,33 +1,5 @@
 
-  // Simulated Strava API JSON response
-  const stravaData = {
-    athlete: {
-      id: 12345,
-      username: 'johndoe',
-      firstname: 'John',
-      lastname: 'Doe',
-      profile: 'https://via.placeholder.com/100',
-    },
-    activities: [
-      // Activities for the week (sample data)
-      { name: 'Morning Run', start_date: '2023-10-02', duration: 3600, distance: 10000, total_elevation_gain: 100, calories: 600 },
-      { name: 'Evening Ride', start_date: '2023-10-03', duration: 5400, distance: 20000, total_elevation_gain: 200, calories: 800 },
-      { name: 'Swim Session', start_date: '2023-10-04', duration: 1800, distance: 1000, total_elevation_gain: 0, calories: 300 },
-      { name: 'Hiking', start_date: '2023-10-05', duration: 7200, distance: 15000, total_elevation_gain: 500, calories: 900 },
-      { name: 'Yoga', start_date: '2023-10-06', duration: 3600, distance: 0, total_elevation_gain: 0, calories: 200 },
-      { name: 'Cycling', start_date: '2023-10-07', duration: 5400, distance: 25000, total_elevation_gain: 300, calories: 700 },
-      { name: 'Rest Day', start_date: '2023-10-08', duration: 0, distance: 0, total_elevation_gain: 0, calories: 0 },
-    ],
-    totals: {
-      hours: 120, // Total hours of all time
-      elevation: 50000, // Total elevation gain of all time
-      calories: 70000, // Total calories burned of all time
-      distance: 1000000, // Total distance in meters
-      activities: 250, // Total number of activities
-    },
-  };
-
-  // Rank System Configuration
+    // Rank System Configuration
   const rankConfig = [
     { name: 'Bronze 3', emoji: '🥉', minPoints: 0 },
     { name: 'Bronze 2', emoji: '🥉', minPoints: 50 },

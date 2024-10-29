@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       'weekly-stats',
       'coins-section',
       'achievements-section',
-      'segment-time-section',
     ].forEach((className) => {
       const element = document.querySelector(`.${className}`);
       if (element) {
@@ -186,36 +185,6 @@ function getLifetimeStats(totals, weeklyTotals) {
   return stats;
 }
 
-// Define the segment ID you want to track
-const segmentId = 3285640055144843184; // Replace with the actual segment ID
-
-// Function to fetch segment efforts for the user
-async function fetchSegmentEfforts(segmentId) {
-  try {
-    const response = await fetch(`/api/strava-segment-efforts?segment_id=${segmentId}`);
-    const segmentEfforts = await response.json();
-    return segmentEfforts;
-  } catch (error) {
-    console.error('Error fetching segment efforts:', error);
-    return [];
-  }
-}
-
-// Function to calculate total time spent on the segment
-function calculateTotalSegmentTime(segmentEfforts) {
-  const totalTime = segmentEfforts.reduce((sum, effort) => sum + effort.moving_time, 0);
-  return totalTime;
-}
-
-// Function to display segment time in the dashboard
-function displaySegmentTime(totalTime) {
-  const segmentTimeElement = document.getElementById('segment-time');
-  if (segmentTimeElement) {
-    const totalTimeMinutes = (totalTime / 60).toFixed(1);
-    segmentTimeElement.textContent = `${totalTimeMinutes} mins`;
-  }
-}
-
 // Function to process and display data
 async function displayData(data) {
   // Total points
@@ -286,16 +255,6 @@ async function displayData(data) {
   document.getElementById('weekly-elevation').textContent = `${weeklyTotals.elevation.toFixed(0)} m`;
   document.getElementById('weekly-calories').textContent = `${weeklyTotals.calories.toFixed(0)} kcal`;
 
-  // Fetch and display segment time
-  const segmentEfforts = await fetchSegmentEfforts(segmentId);
-  const totalSegmentTime = calculateTotalSegmentTime(segmentEfforts);
-  displaySegmentTime(totalSegmentTime);
-
-  // Show segment time section
-  const segmentTimeSection = document.querySelector('.segment-time-section');
-  if (segmentTimeSection) {
-    segmentTimeSection.style.display = 'block';
-  }
 
   // Display activities
   initializeActivitiesDisplay(data.activities);

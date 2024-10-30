@@ -439,9 +439,19 @@ async function displayData(data) {
 
   // Update User Info
   const athlete = data.athlete; //
-  //document.getElementById('user-name').textContent = `${athlete.firstname} ${athlete.lastname}`;
-  //document.getElementById('profile-pic').src = athlete.profile_medium || '/images/default-profile.png';
+  document.getElementById('user-name').textContent = `${athlete.firstname} ${athlete.lastname}`;
+  document.getElementById('profile-pic').src = athlete.profile_medium || '/images/default-profile.png';
 
+  // Format the created_at date to a readable format
+  const createdAt = new Date(athlete.created_at);
+  const formattedCreatedAt = createdAt.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  // Update the created-time element
+  document.getElementById('created-time').textContent = `Account Created: ${formattedCreatedAt}`;
 
 
   // Update Rank Section

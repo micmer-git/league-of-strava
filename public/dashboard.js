@@ -387,9 +387,6 @@ function initializeActivitiesDisplay(activities) {
       `;
       activitiesContainer.appendChild(activityCard);
     });
-
-    // Update ranking based on cumulative activities
-    updateRanking(activities);
   }
 
   // Initial load
@@ -405,6 +402,8 @@ function initializeActivitiesDisplay(activities) {
 
     if (nextActivities.length > 0) {
       displayActivities(nextActivities);
+      // Recompute and update stats with the newly loaded activities
+      updateStatsWithNewActivities(nextActivities, activities);
     }
 
     if (end >= activities.length) {
@@ -416,22 +415,6 @@ function initializeActivitiesDisplay(activities) {
   if (activities.length > activitiesPerPage) {
     loadMoreButton.style.display = 'block';
   }
-}
-
-// Function to update ranking based on cumulative activities
-function updateRanking(activities) {
-  const totalPoints = activities.reduce((sum, activity) => sum + computeCoins(activity.moving_time), 0);
-  const rankInfo = calculateRank(totalPoints);
-
-  document.getElementById('current-rank').textContent = rankInfo.currentRank.name;
-  document.getElementById('rank-emoji').textContent = rankInfo.currentRank.emoji;
-  const progressBar = document.getElementById('progress-bar');
-  progressBar.style.width = `${rankInfo.progressPercent}%`;
-  progressBar.setAttribute('aria-valuenow', rankInfo.progressPercent);
-  document.getElementById('current-rank-label').textContent = rankInfo.currentRank.name;
-  document.getElementById('next-rank-label').textContent = rankInfo.nextRank.name;
-  document.getElementById('current-points').textContent = totalPoints.toFixed(1);
-  document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
 }
 
 // Function to setup timeframe buttons for coins

@@ -11,120 +11,50 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* Custom styles for the updated dashboard */
-    .header-section {
+    /* Custom styles for coins and achievements */
+    .coin-slider {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 20px;
       flex-wrap: wrap;
+      gap: 15px;
     }
-
-    .user-info {
-      flex: 1;
-      min-width: 250px;
-    }
-
-    .user-info h2 {
-      margin-bottom: 10px;
-    }
-
-    .rank-info {
-      display: flex;
-      align-items: center;
-    }
-
-    .rank-info .rank-emoji {
-      font-size: 2rem;
-      margin-right: 10px;
-    }
-
-    .profile-section {
-      flex: 1;
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      min-width: 250px;
-      margin-top: 20px;
-    }
-
-    .profile-section img {
-      border-radius: 50%;
-      width: 100px;
-      height: 100px;
-      margin-right: 20px;
-    }
-
-    .coins-container {
-      display: flex;
-      align-items: center;
-    }
-
-    .coin {
-      display: flex;
-      align-items: center;
-      margin-right: 15px;
-    }
-
-    .coin i {
-      font-size: 1.5rem;
-      margin-right: 5px;
-    }
-
-    .progress-container {
-      width: 100%;
-      margin-top: 20px;
-    }
-
-    /* Coins Grid */
-    .coins-section {
-      margin-top: 40px;
-    }
-
-    .coin-category {
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
+    .coin-category, .coin-medal {
+      flex: 1 1 200px;
       padding: 15px;
-      text-align: center;
       background-color: #f8f9fa;
+      border-radius: 8px;
+      text-align: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-
-    .coin-category h5 {
-      margin-bottom: 15px;
+    .coin-category h5, .coin-medal h5 {
+      margin-bottom: 10px;
       font-weight: bold;
     }
-
-    .coin-item {
+    .achievement-item {
       display: flex;
       align-items: center;
       justify-content: center;
+      margin-bottom: 5px;
+    }
+    .achievement-item i {
+      margin-right: 8px;
+    }
+    .medal-section {
+      margin-top: 20px;
+    }
+    .timeframe-buttons .btn {
+      margin-right: 10px;
       margin-bottom: 10px;
     }
-
-    .coin-item i {
-      margin-right: 8px;
-      font-size: 1.2rem;
+    .active-timeframe {
+      background-color: #007bff;
+      color: white;
     }
-
-    /* Responsive Adjustments */
-    @media (max-width: 768px) {
-      .header-section {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .profile-section {
-        justify-content: center;
-      }
-
-      .coins-container {
-        justify-content: center;
-        margin-top: 10px;
+    /* Responsive adjustments */
+    @media (max-width: 576px) {
+      .coin-category, .coin-medal {
+        flex: 1 1 100%;
       }
     }
-
-    /* Additional styles as needed */
   </style>
 </head>
 <body>
@@ -132,187 +62,76 @@
     <!-- Loading Indicator -->
     <div id="loading" class="text-center my-4">Loading your dashboard...</div>
 
-    <!-- Header Section -->
-    <div class="header-section" style="display: none;">
-      <!-- Left Side: User Info -->
-      <div class="user-info">
-        <h2 id="user-name">John Doe</h2>
-        <div class="rank-info">
-          <span class="rank-emoji" id="rank-emoji">🥉</span>
-          <span id="current-rank">Bronze 3</span>
-        </div>
-      </div>
-
-      <!-- Right Side: Profile, Coins -->
-      <div class="profile-section">
-        <img src="" alt="Profile Picture" id="profile-pic">
-        <div class="coins-container">
-          <div class="coin">
-            <i class="fas fa-mountain"></i>
-            <span id="coin-everest">0</span>
-          </div>
-          <div class="coin">
-            <i class="fas fa-heartbeat"></i>
-            <span id="coin-heartbeat">0</span>
-          </div>
-          <div class="coin">
-            <i class="fas fa-pizza-slice"></i>
-            <span id="coin-pizza">0</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Progress Bar -->
-      <div class="progress-container">
+    <!-- Rank Section -->
+    <div class="rank-section" style="display: none;">
+      <div class="rank-title h4">Current Rank: <span id="current-rank"></span></div>
+      <div class="rank-emoji display-1" id="rank-emoji">🥉</div>
+      <div class="progress-container position-relative my-3">
         <div class="d-flex justify-content-between">
-          <span id="current-rank-label">Bronze 3</span>
-          <span id="next-rank-label">Bronze 2</span>
+          <span id="current-rank-label"></span>
+          <span id="next-rank-label"></span>
         </div>
         <div class="progress">
-          <div class="progress-bar" id="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-        </div>
-        <div class="rank-details mt-2">
-          <span>Points: <strong id="current-points">0</strong> / <strong id="next-rank-points">50</strong> hrs for next rank</span>
+          <div class="progress-bar" id="progress-bar" role="progressbar" style="width: 0%;"></div>
         </div>
       </div>
-    </div>
-
-    <!-- Load More Button -->
-    <div class="text-center my-4" style="display: none;">
-      <button id="load-more-button" class="btn btn-secondary">Load More Activities</button>
+      <div class="rank-details">
+        <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
+      </div>
     </div>
 
     <!-- Coins Section -->
-    <div class="coins-section" style="display: none;">
+    <div class="coins-section mt-4" style="display: none;">
       <h2>Coins</h2>
-      <div class="row">
-        <!-- Ride Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Ride</h5>
-            <div class="coin-item">
-              <i>💲</i> 100km
-            </div>
-            <div class="coin-item">
-              <i>💰</i> 300km/week
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 200km
-            </div>
-            <div class="coin-item">
-              <i>💎</i> 600km/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> 300km
-            </div>
-          </div>
-        </div>
-        <!-- Run Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Run</h5>
-            <div class="coin-item">
-              <i>💲</i> 10k
-            </div>
-            <div class="coin-item">
-              <i>💰</i> 42km/week
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 21km
-            </div>
-            <div class="coin-item">
-              <i>💎</i> 80km/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> 42km
-            </div>
-          </div>
-        </div>
-        <!-- Consistency Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Consistency</h5>
-            <div class="coin-item">
-              <i>💲</i> Logged every day of a week
-            </div>
-            <div class="coin-item">
-              <i>💰</i> Every day of a 14-day period
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> Every day of a month
-            </div>
-            <div class="coin-item">
-              <i>💎</i> Every day of 180 days
-            </div>
-            <div class="coin-item">
-              <i>👑</i> Every day of 365 days
-            </div>
-          </div>
-        </div>
-        <!-- Elevation Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Elevation</h5>
-            <div class="coin-item">
-              <i>💲</i> 1000m
-            </div>
-            <div class="coin-item">
-              <i>💰</i> Half Everest elevation/week
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 2000m
-            </div>
-            <div class="coin-item">
-              <i>💎</i> Everest/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> Everest elevation
-            </div>
-          </div>
-        </div>
-        <!-- Kcal Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Kcal</h5>
-            <div class="coin-item">
-              <i>💲</i> 1000kcal
-            </div>
-            <div class="coin-item">
-              <i>💰</i> 2000kcal
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 4000kcal
-            </div>
-            <div class="coin-item">
-              <i>💎</i> 10000kcal/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> 20000kcal/week
-            </div>
-          </div>
+      <!-- Timeframe Buttons -->
+      <div class="timeframe-buttons mb-3">
+        <button class="btn btn-outline-primary timeframe-btn active-timeframe" data-timeframe="all_time">All Time</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="7_D">7 Days</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="14_D">14 Days</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="30_D">30 Days</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="YTD">Year-To-Date</button>
+        <button class="btn btn-outline-primary timeframe-btn" data-timeframe="365_D">365 Days</button>
+      </div>
+      <!-- Categories and Medals Display -->
+      <div id="coins-container" class="coin-slider">
+        <!-- Categories will be dynamically inserted here -->
+      </div>
+      <!-- Medals Section -->
+      <div class="medal-section">
+        <h4>Medals</h4>
+        <div id="medals-container" class="coin-slider">
+          <!-- Medals will be dynamically inserted here -->
         </div>
       </div>
     </div>
 
-    <!-- Achievements Section (Optional, can be re-added as needed) -->
-    <!-- ... -->
+    <!-- Achievements Section -->
+    <div class="achievements-section mt-4" style="display: none;">
+      <h2>Achievements</h2>
+      <div id="achievements-container" class="row"></div>
+    </div>
+
+    <!-- Toggle for Achievements -->
+    <div class="toggle-container mt-2">
+      <button id="toggle-achievements" class="btn btn-primary">Show Achievements</button>
+    </div>
 
     <!-- Lifetime Stats -->
     <div class="lifetime-stats row mt-4" style="display: none;">
       <div class="stat-item col-4 text-center">
         <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
-        <div class="value" id="elevation-value">0</div>
-        <div class="week-gain text-success" id="elevation-week-gain">+0 this week</div>
+        <div class="value" id="elevation-value"></div>
+        <div class="week-gain text-success" id="elevation-week-gain"></div>
       </div>
       <div class="stat-item col-4 text-center">
         <div class="icon pizza-icon" title="Pizza: 1000kcal per pizza">🍕</div>
-        <div class="value" id="calories-value">0</div>
-        <div class="week-gain text-success" id="calories-week-gain">+0 this week</div>
+        <div class="value" id="calories-value"></div>
+        <div class="week-gain text-success" id="calories-week-gain"></div>
       </div>
       <div class="stat-item col-4 text-center">
         <div class="icon distance-icon" title="Distance: 100km per icon">🚴‍♂️</div>
-        <div class="value" id="distance-value">0</div>
-        <div class="week-gain text-success" id="distance-week-gain">+0 this week</div>
+        <div class="value" id="distance-value"></div>
+        <div class="week-gain text-success" id="distance-week-gain"></div>
       </div>
     </div>
 
@@ -376,8 +195,11 @@
       <div id="races-container" class="row"></div>
     </div>
 
+    <!-- Load More Button -->
+    <button id="load-more-button" class="btn btn-secondary my-4" style="display: none;">Load More</button>
+
     <!-- Activities Container -->
-    <div id="activities-container" class="row mt-4" style="display: none;">
+    <div id="activities-container" class="row">
       <!-- Activities will be appended here -->
     </div>
   </div>

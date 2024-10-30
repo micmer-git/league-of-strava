@@ -101,7 +101,7 @@ app.get('/api/strava-data', async (req, res) => {
     // Function to fetch up to 400 activities
     const fetchAllActivities = async () => {
       const per_page = 200;
-      const maxActivities = 400;
+      const maxActivities = 2000;
       const maxPages = Math.ceil(maxActivities / per_page);
       let allActivities = [];
 

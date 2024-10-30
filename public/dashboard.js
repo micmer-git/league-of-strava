@@ -200,45 +200,46 @@ function processStravaData(stravaData) {
     // You can add more timeframes if needed
   };
 
+  // Ensure that 'activities' is defined
+  if (!stravaData.activities || !Array.isArray(stravaData.activities)) {
+    console.error('Activities data is missing or invalid.');
+    return { totals, achievements, activities: [] };
+  }
+
   // Compute totals from activities
-  stravaData.Activities.forEach(activity => {
+  stravaData.activities.forEach(activity => {
     totals.hours += activity.moving_time / 3600;
     totals.distance += activity.distance;
     totals.elevation += activity.total_elevation_gain;
-    totals.calories += (activity.kilojoules || 0) * 0.239006; // Convert kJ to kcal if applicable
+    totals.calories += activity.kilojoules || 0; // Use kilojoules as per Strava's data
   });
 
   // Example: Compute achievements based on totals
-  // You can customize this based on your criteria
   achievements.all_time.categories = [
     {
       name: 'Running',
       intro: 'Achievements related to running activities.',
       achievements: [
-        { name: 'Total Runs', count: stravaData.Activities.filter(a => a.type === 'Run').length },
-        { name: 'Total Distance Run', count: (stravaData.Activities.filter(a => a.type === 'Run').reduce((sum, a) => sum + a.distance, 0) / 1000).toFixed(2) + ' km' },
-        // Add more running-related achievements
+        { name: 'Total Runs', count: stravaData.activities.filter(a => a.type === 'Run').length },
+        { name: 'Total Distance Run', count: (stravaData.activities.filter(a => a.type === 'Run').reduce((sum, a) => sum + a.distance, 0) / 1000).toFixed(2) + ' km' },
       ],
     },
     {
       name: 'Cycling',
       intro: 'Achievements related to cycling activities.',
       achievements: [
-        { name: 'Total Rides', count: stravaData.Activities.filter(a => a.type === 'Ride').length },
-        { name: 'Total Distance Cycled', count: (stravaData.Activities.filter(a => a.type === 'Ride').reduce((sum, a) => sum + a.distance, 0) / 1000).toFixed(2) + ' km' },
-        // Add more cycling-related achievements
+        { name: 'Total Rides', count: stravaData.activities.filter(a => a.type === 'Ride').length },
+        { name: 'Total Distance Cycled', count: (stravaData.activities.filter(a => a.type === 'Ride').reduce((sum, a) => sum + a.distance, 0) / 1000).toFixed(2) + ' km' },
       ],
     },
-    // Add more categories as needed
   ];
 
   achievements.all_time.Medals = [
     { name: 'Marathoner', emoji: '🏅', description: 'Completed a marathon.' },
     { name: 'Century Rider', emoji: '🚴‍♂️', description: 'Cycled 100 km in total.' },
-    // Add more medals as needed
   ];
 
-  return { totals, achievements, activities: stravaData.Activities };
+  return { totals, achievements, activities: stravaData.activities };
 }
 
 // Function to display coins and achievements per category
@@ -699,6 +700,33 @@ function displayPersonalRecords(activities) {
   document.getElementById('fastest-half-marathon').textContent = records.fastestHalfMarathon === Infinity ? '--:--:--' : formatTime(records.fastestHalfMarathon);
   document.getElementById('fastest-10k').textContent = records.fastest10k === Infinity ? '--:--:--' : formatTime(records.fastest10k);
 }
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const response = await fetch('/api/strava-data');
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const stravaData = await response.json();
+
+    console.log('Fetched Strava Data:', stravaData); // Add this line to inspect data
+
+    // Compute totals and achievements if not provided by the API
+    const processedData = processStravaData(stravaData);
+
+    await displayData(processedData);
+    document.getElementById('loading').style.display = 'none';
+
+    // Display sections
+    // ...
+
+  } catch (error) {
+    console.error('Error fetching Strava data:', error);
+    document.getElementById('loading').textContent = 'Failed to load dashboard.';
+  }
+});
+
+
 
 // Helper function to format time in seconds to HH:MM:SS
 function formatTime(seconds) {

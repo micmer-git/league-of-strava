@@ -98,16 +98,16 @@ app.get('/api/strava-data', async (req, res) => {
     });
     console.log('Fetched athlete profile');
 
-    // Function to fetch up to 400 activities
+    // Function to fetch all activities without a cap
     const fetchAllActivities = async () => {
       const per_page = 200;
-      const maxActivities = 400;
-      const maxPages = Math.ceil(maxActivities / per_page);
       let allActivities = [];
+      let page = 1;
+      let activitiesResponse;
 
-      for (let page = 1; page <= maxPages; page++) {
+      do {
         console.log(`Fetching activities - Page: ${page}, Per Page: ${per_page}`);
-        const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
+        activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
           headers: { Authorization: `Bearer ${accessToken}` },
           params: { per_page, page },
         });
@@ -115,12 +115,11 @@ app.get('/api/strava-data', async (req, res) => {
         const activities = activitiesResponse.data;
         console.log(`Fetched ${activities.length} activities from page ${page}`);
         allActivities = allActivities.concat(activities);
+        page++;
+      } while (activitiesResponse.data.length === per_page); // Continue until no more activities
 
-        // If we received fewer activities than per_page, no more pages are available
-        if (activities.length < per_page) {
-          break;
-        }
-      }
+      return allActivities;
+    };
 
       // Trim the array to the maximum number of activities (400)
       if (allActivities.length > maxActivities) {

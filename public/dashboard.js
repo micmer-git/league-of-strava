@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    // Fetch Strava data from the server
     const response = await fetch('/api/strava-data');
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -9,7 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     console.log('Fetched Strava Data:', stravaData); // For debugging
 
-    // Process the fetched data to compute totals and achievements
+    // Process the fetched data
     const processedData = processStravaData(stravaData);
 
     // Initialize the dashboard with processed data
@@ -29,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       'activities-container',
       'load-more-button'
     ].forEach((id) => {
-      const element = document.getElementById(id);
+      const element = document.querySelector(`#${id}`) || document.querySelector(`.${id}`);
       if (element) {
         element.style.display = id === 'header-section' ? 'flex' : 'block';
       }
@@ -43,9 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// ==================== Rank System Configuration ====================
-
-// Define the ranking tiers
+// Rank System Configuration
 const rankConfig = [
   { name: 'Bronze 3', emoji: '🥉', minPoints: 0 },
   { name: 'Bronze 2', emoji: '🥉', minPoints: 50 },
@@ -99,7 +96,11 @@ function calculateRank(totalPoints) {
   };
 }
 
-// ==================== Data Processing Functions ====================
+// Function to compute coins based on duration (you can customize this logic)
+function computeCoins(durationInSeconds) {
+  const hours = durationInSeconds / 3600;
+  return Math.floor(hours); // 1 coin per hour
+}
 
 // Function to process Strava data and compute 'totals' and 'achievements'
 function processStravaData(stravaData) {
@@ -108,7 +109,7 @@ function processStravaData(stravaData) {
     hours: 0,
     distance: 0, // in meters
     elevation: 0, // in meters
-    calories: 0, // in kcal
+    calories: 0, // in kilojoules or as per Strava's data
     activities: stravaData.activities.length,
   };
 
@@ -117,10 +118,10 @@ function processStravaData(stravaData) {
     totals.hours += activity.moving_time / 3600;
     totals.distance += activity.distance;
     totals.elevation += activity.total_elevation_gain;
-    totals.calories += activity.calories || 0; // Ensure calories are present
+    totals.calories += activity.kilojoules || 0; // Use kilojoules as per Strava's data
   });
 
-  // Initialize achievements
+  // Example: Compute achievements based on activities
   const achievements = {
     all_time: {
       categories: [
@@ -209,7 +210,6 @@ function processStravaData(stravaData) {
           handleKcalAchievements(achievement, stravaData.activities);
           break;
         default:
-          achievement.progress = 0;
           break;
       }
     });
@@ -218,9 +218,7 @@ function processStravaData(stravaData) {
   return { totals, achievements, activities: stravaData.activities };
 }
 
-// ==================== Achievement Handlers ====================
-
-// Function to calculate progress for Ride achievements
+// Functions to handle each category's achievements
 function handleRideAchievements(achievement, activities) {
   const rideActivities = activities.filter(a => a.type === 'Ride');
   const totalDistance = rideActivities.reduce((sum, a) => sum + a.distance, 0) / 1000; // in km
@@ -247,12 +245,10 @@ function handleRideAchievements(achievement, activities) {
       achievement.progress = Math.min(totalDistance / 300, 1) * 100;
       break;
     default:
-      achievement.progress = 0;
       break;
   }
 }
 
-// Function to calculate progress for Run achievements
 function handleRunAchievements(achievement, activities) {
   const runActivities = activities.filter(a => a.type === 'Run');
   const totalDistance = runActivities.reduce((sum, a) => sum + a.distance, 0) / 1000; // in km
@@ -279,43 +275,35 @@ function handleRunAchievements(achievement, activities) {
       achievement.progress = Math.min(totalDistance / 42, 1) * 100;
       break;
     default:
-      achievement.progress = 0;
       break;
   }
 }
 
-// Function to calculate progress for Consistency achievements
 function handleConsistencyAchievements(achievement, activities) {
-  let requiredDays = 0;
-
+  const today = new Date();
+  let count = 0;
   switch (achievement.name) {
     case 'Logged every day of a week':
-      requiredDays = 7;
+      count = countConsecutiveDays(activities, 7);
       break;
     case 'Every day of a 14-day period':
-      requiredDays = 14;
+      count = countConsecutiveDays(activities, 14);
       break;
     case 'Every day of a month':
-      requiredDays = 30;
+      count = countConsecutiveDays(activities, 30);
       break;
     case 'Every day of 180 days':
-      requiredDays = 180;
+      count = countConsecutiveDays(activities, 180);
       break;
     case 'Every day of 365 days':
-      requiredDays = 365;
+      count = countConsecutiveDays(activities, 365);
       break;
     default:
-      requiredDays = 0;
       break;
   }
-
-  const streak = countConsecutiveDays(activities, requiredDays);
-
-  // Progress is binary: 100% if achieved, else 0%
-  achievement.progress = streak >= requiredDays ? 100 : 0;
+  achievement.progress = Math.min(count / 1, 1) * 100; // Binary progress
 }
 
-// Function to calculate progress for Elevation achievements
 function handleElevationAchievements(achievement, activities) {
   const totalElevation = activities.reduce((sum, a) => sum + a.total_elevation_gain, 0); // in meters
   const oneWeekAgo = new Date();
@@ -342,12 +330,10 @@ function handleElevationAchievements(achievement, activities) {
       achievement.progress = Math.min(totalElevation / 8848, 1) * 100;
       break;
     default:
-      achievement.progress = 0;
       break;
   }
 }
 
-// Function to calculate progress for Kcal achievements
 function handleKcalAchievements(achievement, activities) {
   const totalKcal = activities.reduce((sum, a) => sum + a.calories, 0); // in kcal
   const oneWeekAgo = new Date();
@@ -373,13 +359,12 @@ function handleKcalAchievements(achievement, activities) {
       achievement.progress = Math.min(weeklyKcal / 20000, 1) * 100;
       break;
     default:
-      achievement.progress = 0;
       break;
   }
 }
 
 // Helper function to count consecutive days with activities
-function countConsecutiveDays(activities, requiredDays) {
+function countConsecutiveDays(activities, days) {
   const activityDates = activities.map(a => new Date(a.start_date).toDateString());
   const uniqueDates = Array.from(new Set(activityDates)).sort((a, b) => new Date(a) - new Date(b));
 
@@ -402,43 +387,19 @@ function countConsecutiveDays(activities, requiredDays) {
     }
   }
 
-  return Math.min(maxStreak, requiredDays);
+  return Math.min(maxStreak, days);
 }
 
-// ==================== Coins Calculation Functions ====================
-
-// Function to calculate Everest Coins (1 coin per 1000m elevation gain)
-function calculateEverestCoins(activities) {
-  const totalElevation = activities.reduce((sum, a) => sum + a.total_elevation_gain, 0);
-  return Math.floor(totalElevation / 1000);
-}
-
-// Function to calculate Heartbeat Coins (1 coin per average heartbeat over activities)
-function calculateHeartbeatCoins(activities) {
-  const totalHeartrate = activities.reduce((sum, a) => sum + (a.average_heartrate || 0), 0);
-  const averageHeartrate = activities.length > 0 ? totalHeartrate / activities.length : 0;
-  return Math.floor(averageHeartrate / 10); // Example: 1 coin per 10 bpm
-}
-
-// Function to calculate Pizza Coins (1 pizza per 1000 kcal burned)
-function calculatePizzaCoins(activities) {
-  const totalCalories = activities.reduce((sum, a) => sum + a.calories, 0);
-  return Math.floor(totalCalories / 1000);
-}
-
-// ==================== Display Functions ====================
-
-// Function to display data on the dashboard
+// Function to display data
 async function displayData(data) {
-  // Total points (using total hours as points)
+  // Total points
   const totalPoints = data.totals.hours;
 
   // Calculate rank
   const rankInfo = calculateRank(totalPoints);
-  console.log('Data received:', data);
 
   // Update User Info
-  const athlete = data; // Directly assign data to athlete
+  const athlete = data.athlete;
   document.getElementById('user-name').textContent = `${athlete.firstname} ${athlete.lastname}`;
   document.getElementById('profile-pic').src = athlete.profile_medium || 'default-profile.png';
 
@@ -453,12 +414,13 @@ async function displayData(data) {
   document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
 
   // Update Coins (Everest, Heartbeat, Pizza)
+  // You can define how these coins are calculated. Here's a placeholder example:
   document.getElementById('coin-everest').textContent = calculateEverestCoins(data.activities);
   document.getElementById('coin-heartbeat').textContent = calculateHeartbeatCoins(data.activities);
   document.getElementById('coin-pizza').textContent = calculatePizzaCoins(data.activities);
 
   // Update Lifetime Stats
-  document.getElementById('distance-value').textContent = `${(data.totals.distance / 1000).toFixed(1)} km 🚴‍♂️`;
+  document.getElementById('distance-value').textContent = `${data.totals.distance / 1000} km 🚴‍♂️`;
   document.getElementById('distance-week-gain').textContent = `+${(data.totals.distance / 1000).toFixed(1)} km this week`;
 
   document.getElementById('elevation-value').textContent = `${data.totals.elevation} m 🏔️`;
@@ -476,20 +438,38 @@ async function displayData(data) {
   // Display Personal Records
   displayPersonalRecords(data.activities);
 
-  // Display Activities (initial load: first 20 activities)
-  displayActivities(data.activities.slice(0, 20)); // Adjust as needed
+  // Display Activities
+  displayActivities(data.activities.slice(0, 20)); // Initial load: first 20 activities
 
   // Initialize Coins Section
-  if (data.achievements && data.achievements.all_time) {
-    updateCoinsSection(data.achievements.all_time);
-  } else {
-    console.warn('No achievements data available.');
-  }
+  displayCoinsSection(data.achievements.all_time.categories);
 }
 
-// Function to display activities on the dashboard
+// Placeholder functions for coins calculation
+function calculateEverestCoins(activities) {
+  // Example: 1 coin per 1000m elevation gain
+  const totalElevation = activities.reduce((sum, a) => sum + a.total_elevation_gain, 0);
+  return Math.floor(totalElevation / 1000);
+}
+
+function calculateHeartbeatCoins(activities) {
+  // Example: 1 coin per average heartbeat over activities
+  const totalHeartrate = activities.reduce((sum, a) => sum + (a.average_heartrate || 0), 0);
+  const averageHeartrate = activities.length > 0 ? totalHeartrate / activities.length : 0;
+  return Math.floor(averageHeartrate / 10); // Example: 1 coin per 10 bpm
+}
+
+function calculatePizzaCoins(activities) {
+  // Example: 1 pizza per 1000 kcal burned
+  const totalCalories = activities.reduce((sum, a) => sum + (a.calories || 0), 0);
+  return Math.floor(totalCalories / 1000);
+}
+
+// Function to display activities
 function displayActivities(activities) {
   const activitiesContainer = document.getElementById('activities-container');
+  activitiesContainer.innerHTML = ''; // Clear existing activities
+
   activities.forEach(activity => {
     const activityCard = document.createElement('div');
     activityCard.className = 'activity-card col-md-6 mb-4';
@@ -605,8 +585,8 @@ function displayCoinsSection(categories) {
     category.achievements.forEach(achievement => {
       // Generate a unique identifier based on category and achievement name
       const categoryId = category.name.toLowerCase().replace(/\s+/g, '-'); // e.g., 'Ride' -> 'ride'
-      const achievementId = achievement.name.toLowerCase().replace(/[^a-z0-9]/g, '-'); // e.g., '300km/week' -> '300km-week'
-      const elementId = `${categoryId}-${achievementId}`; // e.g., 'ride-300km-week'
+      const achievementId = achievement.name.toLowerCase().replace(/[^a-z0-9]/g, '-'); // e.g., '100km' -> '100km', '42km/week' -> '42km-week'
+      const elementId = `${categoryId}-${achievementId}`; // e.g., 'ride-100km'
 
       // Select the corresponding coin-item element
       const coinElement = document.getElementById(elementId);
@@ -628,22 +608,12 @@ function displayCoinsSection(categories) {
             progressSpan.style.color = 'red';
           }
         }
-
-        // Optionally, add tooltips or additional info
-        // e.g., coinElement.title = `Progress: ${achievement.progress.toFixed(2)}%`;
       } else {
         console.warn(`No element found with ID: ${elementId}`);
       }
     });
   });
 }
-
-// Function to update coins section
-function updateCoinsSection(achievements) {
-  displayCoinsSection(achievements.categories);
-}
-
-// ==================== Load More Functionality ====================
 
 // Function to initialize Load More functionality
 function initializeLoadMore(allActivities) {
@@ -698,7 +668,7 @@ function updateDashboardStats(displayedActivities) {
   document.getElementById('coin-pizza').textContent = calculatePizzaCoins(displayedActivities);
 
   // Update Lifetime Stats
-  document.getElementById('distance-value').textContent = `${(totals.distance / 1000).toFixed(1)} km 🚴‍♂️`;
+  document.getElementById('distance-value').textContent = `${totals.distance / 1000} km 🚴‍♂️`;
   document.getElementById('distance-week-gain').textContent = `+${(totals.distance / 1000).toFixed(1)} km this week`;
 
   document.getElementById('elevation-value').textContent = `${totals.elevation} m 🏔️`;
@@ -715,39 +685,92 @@ function updateDashboardStats(displayedActivities) {
 
   // Update Personal Records
   displayPersonalRecords(displayedActivities);
-
-  // Recalculate and update achievements
-  const processedData = processStravaData({ activities: displayedActivities });
-  if (processedData.achievements && processedData.achievements.all_time) {
-    updateCoinsSection(processedData.achievements.all_time);
-  } else {
-    console.warn('No achievements data available.');
-  }
 }
 
-// ==================== Helper Functions ====================
+// Function to display coins and achievements per category (optional enhancement)
+function displayCoinsSection(categories) {
+  // This function can be enhanced to dynamically update the coins grid based on achievements
+  // For simplicity, it's left empty here
+}
 
-// Function to format time in seconds to HH:MM:SS
+// Placeholder functions for coins calculation
+function calculateEverestCoins(activities) {
+  // Example: 1 coin per 1000m elevation gain
+  const totalElevation = activities.reduce((sum, a) => sum + a.total_elevation_gain, 0);
+  return Math.floor(totalElevation / 1000);
+}
+
+function calculateHeartbeatCoins(activities) {
+  // Example: 1 coin per average heartbeat over activities
+  const totalHeartrate = activities.reduce((sum, a) => sum + (a.average_heartrate || 0), 0);
+  const averageHeartrate = activities.length > 0 ? totalHeartrate / activities.length : 0;
+  return Math.floor(averageHeartrate / 10); // Example: 1 coin per 10 bpm
+}
+
+function calculatePizzaCoins(activities) {
+  // Example: 1 pizza per 1000 kcal burned
+  const totalCalories = activities.reduce((sum, a) => sum + (a.calories || 0), 0);
+  return Math.floor(totalCalories / 1000);
+}
+
+// Function to display personal records
+function displayPersonalRecords(activities) {
+  const records = {
+    maxElevation: 0,
+    maxDistance: 0,
+    maxSpeed: 0,
+    fastestMarathon: Infinity,
+    fastestHalfMarathon: Infinity,
+    fastest10k: Infinity,
+  };
+
+  activities.forEach(activity => {
+    // Max Elevation
+    if (activity.total_elevation_gain > records.maxElevation) {
+      records.maxElevation = activity.total_elevation_gain;
+    }
+
+    // Max Distance
+    if (activity.distance > records.maxDistance) {
+      records.maxDistance = activity.distance;
+    }
+
+    // Max Speed
+    const speed = (activity.distance / 1000) / (activity.moving_time / 3600); // km/h
+    if (speed > records.maxSpeed) {
+      records.maxSpeed = speed;
+    }
+
+    // Fastest Marathon
+    if (activity.distance >= 42195 && activity.moving_time < records.fastestMarathon) {
+      records.fastestMarathon = activity.moving_time;
+    }
+
+    // Fastest Half Marathon
+    if (activity.distance >= 21097.5 && activity.distance < 42195 && activity.moving_time < records.fastestHalfMarathon) {
+      records.fastestHalfMarathon = activity.moving_time;
+    }
+
+    // Fastest 10K Run
+    if (activity.distance >= 10000 && activity.distance < 21097.5 && activity.moving_time < records.fastest10k) {
+      records.fastest10k = activity.moving_time;
+    }
+  });
+
+  // Update Personal Records Section
+  document.getElementById('max-elevation').textContent = `${records.maxElevation} m`;
+  document.getElementById('max-distance').textContent = `${(records.maxDistance / 1000).toFixed(2)} km`;
+  document.getElementById('max-speed').textContent = `${records.maxSpeed.toFixed(2)} km/h`;
+
+  document.getElementById('fastest-marathon').textContent = records.fastestMarathon === Infinity ? '--:--:--' : formatTime(records.fastestMarathon);
+  document.getElementById('fastest-half-marathon').textContent = records.fastestHalfMarathon === Infinity ? '--:--:--' : formatTime(records.fastestHalfMarathon);
+  document.getElementById('fastest-10k').textContent = records.fastest10k === Infinity ? '--:--:--' : formatTime(records.fastest10k);
+}
+
+// Helper function to format time in seconds to HH:MM:SS
 function formatTime(seconds) {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
   return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
-
-// ==================== Achievements Display Functions ====================
-
-// Function to update the coins section based on achievements
-function updateCoinsSection(achievements) {
-  displayCoinsSection(achievements.categories);
-}
-
-// ==================== Additional Enhancements (Optional) ====================
-
-// You can add tooltips, notifications, or progress bars within the coin items for better UX.
-// For example, using Bootstrap tooltips:
-
-// Initialize Bootstrap tooltips after the DOM is fully loaded
-$(function () {
-  $('[data-toggle="tooltip"]').tooltip();
-});

@@ -530,6 +530,18 @@ function formatTime(seconds) {
 
 // Function to calculate coins based on activities
 function calculateCoins(activities) {
+  // Check if activities is an array
+  if (!Array.isArray(activities)) {
+    console.error("Expected activities to be an array, but got:", activities);
+    return {
+      ride100km: 0,
+      run10k: 0,
+      consistency7days: 0,
+      elevation1000m: 0,
+      kcal1000: 0,
+    };
+  }
+
   const coins = {
     ride100km: 0,
     run10k: 0,

@@ -267,22 +267,28 @@ async function displayData(data) {
 }
 
 // Function to display coins based on selected timeframe
-function displayCoins(days, coins) {
-  const coinsContainer = document.getElementById('coins-container');
-  coinsContainer.innerHTML = ''; // Clear existing coins
+function displayCoins(days, activities) {
+  const coins = calculateCoins(activities);
+  
+  // Display ride coins with emojis
+  const rideEmojis = [];
+  if (coins.ride100km > 0) rideEmojis.push('💲');
+  if (coins.ride40km > 0) rideEmojis.push('💵');
+  if (coins.ride21km > 0) rideEmojis.push('💰');
+  if (coins.ride42km > 0) rideEmojis.push('💎');
+  if (coins.ride100km + coins.ride40km + coins.ride21km + coins.ride42km > 0) {
+    document.getElementById('ride-100km').textContent = rideEmojis.join(' ');
+  } else {
+    document.getElementById('ride-100km').textContent = 'No rides yet';
+  }
 
-  const coinCard = document.createElement('div');
-  coinCard.className = 'coin-card';
+  // Display run coins
+  document.getElementById('run-10k').textContent = coins.run10k;
 
-  const timeframe = document.createElement('h5');
-  timeframe.textContent = `${days} Days`;
-
-  const coinCount = document.createElement('p');
-  coinCount.innerHTML = `${coins} <i class="fas fa-coins"></i>`;
-
-  coinCard.appendChild(timeframe);
-  coinCard.appendChild(coinCount);
-  coinsContainer.appendChild(coinCard);
+  // Display other coins
+  document.getElementById('consistency-7days').textContent = coins.consistency7days;
+  document.getElementById('elevation-1000m').textContent = coins.elevation1000m;
+  document.getElementById('kcal-1000').textContent = coins.kcal1000;
 }
 
 // Function to display achievements
@@ -555,11 +561,24 @@ function calculateCoins(activities) {
 
   // Check for ride 100km
   activities.forEach(activity => {
-    if (activity.type === 'ride' && activity.distance >= 100000) {
-      coins.ride100km += 1;
+    if (activity.type === 'ride') {
+      if (activity.distance >= 100000) {
+        coins.ride100km += 1;
+      }
+      if (activity.distance >= 40000) {
+        coins.ride40km += 1; // New criteria for 40km
+      }
+      if (activity.distance >= 21097.5) {
+        coins.ride21km += 1; // New criteria for 21km
+      }
+      if (activity.distance >= 42000) {
+        coins.ride42km += 1; // New criteria for 42km
+      }
     }
-    if (activity.type === 'run' && activity.distance >= 10000) {
-      coins.run10k += 1;
+    if (activity.type === 'run') {
+      if (activity.distance >= 10000) {
+        coins.run10k += 1;
+      }
     }
     if (activity.elevation_gain >= 1000) {
       coins.elevation1000m += 1;
@@ -576,15 +595,4 @@ function calculateCoins(activities) {
   }
 
   return coins;
-}
-
-// Function to display coins
-function displayCoins(days, activities) {
-  const coins = calculateCoins(activities);
-  
-  document.getElementById('ride-100km').textContent = coins.ride100km;
-  document.getElementById('run-10k').textContent = coins.run10k;
-  document.getElementById('consistency-7days').textContent = coins.consistency7days;
-  document.getElementById('elevation-1000m').textContent = coins.elevation1000m;
-  document.getElementById('kcal-1000').textContent = coins.kcal1000;
 }

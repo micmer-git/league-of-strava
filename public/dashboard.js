@@ -353,13 +353,11 @@ document.getElementById('toggle-achievements').addEventListener('click', functio
   }
 });
 
-// Function to initialize activities display with pagination and recompute stats
 function initializeActivitiesDisplay(activities) {
   let currentActivityPage = 1;
   const activitiesPerPage = 20;
 
   const loadMoreButton = document.getElementById('load-more-button');
-
   function displayActivities(activitiesToDisplay) {
     const activitiesContainer = document.getElementById('activities-container');
     activitiesToDisplay.forEach((activity) => {
@@ -376,28 +374,17 @@ function initializeActivitiesDisplay(activities) {
         activityTypeLabel = '10K Run';
       }
 
-      // Determine coin type based on activity
-      let coinType = '';
-      if (activityTypeLabel === 'Marathon' || activityTypeLabel === 'Half Marathon' || activityTypeLabel === '10K Run') {
-        coinType = '🏅'; // Example: Medal for running
-      } else if (activity.type === 'Ride') {
-        coinType = '🚴‍♂️'; // Bike for rides
-      } else {
-        coinType = '🏃‍♂️'; // Runner for others
-      }
-
       // Create activity link
       const activityLink = `https://www.strava.com/activities/${activity.id}`;
 
       activityCard.innerHTML = `
-        <h5><a href="${activityLink}" target="_blank">${activity.name} ${coinType}</a></h5>
+        <h5><a href="${activityLink}" target="_blank">${activity.name}</a></h5>
         <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
         <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
         <p><strong>Duration:</strong> ${(activity.moving_time / 60).toFixed(1)} mins</p>
         <p><strong>Elevation Gain:</strong> ${activity.total_elevation_gain.toFixed(0)} m</p>
         ${activityTypeLabel ? `<p><strong>Type:</strong> ${activityTypeLabel}</p>` : ''}
       `;
-
       activitiesContainer.appendChild(activityCard);
     });
   }

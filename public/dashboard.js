@@ -209,8 +209,6 @@ async function displayData(data) {
 
   // Calculate and display coins for default timeframe (7 days)
   const defaultDays = 7;
-  const coins = calculateCoinsForTimeframe(data.activities, defaultDays);
-  displayCoins(defaultDays, coins);
 
   // Calculate achievements
   const achievements = calculateAchievements(data.activities);
@@ -264,31 +262,6 @@ async function displayData(data) {
 
   // Setup timeframe buttons
   setupTimeframeButtons(data.activities);
-}
-
-// Function to display coins based on selected timeframe
-function displayCoins(days, activities) {
-  const coins = calculateCoins(activities);
-  
-  // Display ride coins with emojis
-  const rideEmojis = [];
-  if (coins.ride100km > 0) rideEmojis.push('💲');
-  if (coins.ride40km > 0) rideEmojis.push('💵');
-  if (coins.ride21km > 0) rideEmojis.push('💰');
-  if (coins.ride42km > 0) rideEmojis.push('💎');
-  if (coins.ride100km + coins.ride40km + coins.ride21km + coins.ride42km > 0) {
-    document.getElementById('ride-100km').textContent = rideEmojis.join(' ');
-  } else {
-    document.getElementById('ride-100km').textContent = 'No rides yet';
-  }
-
-  // Display run coins
-  document.getElementById('run-10k').textContent = coins.run10k;
-
-  // Display other coins
-  document.getElementById('consistency-7days').textContent = coins.consistency7days;
-  document.getElementById('elevation-1000m').textContent = coins.elevation1000m;
-  document.getElementById('kcal-1000').textContent = coins.kcal1000;
 }
 
 // Function to display achievements
@@ -435,7 +408,6 @@ function setupTimeframeButtons(activities) {
 
       const days = parseInt(button.getAttribute('data-days'), 10);
       const coins = calculateCoinsForTimeframe(activities, days);
-      displayCoins(days, coins);
     });
   });
 

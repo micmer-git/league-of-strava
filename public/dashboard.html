@@ -67,6 +67,11 @@
       </div>
     </div>
 
+    <!-- Load More Button -->
+    <button id="load-more-button" class="btn btn-secondary my-4" style="display: none;">Load More</button>
+
+
+
     <!-- Coins Section -->
     <div class="coins-section mt-4" style="display: none;">
       <h2>Coins</h2>
@@ -77,7 +82,26 @@
         <button class="btn btn-outline-primary timeframe-btn" data-days="365">365 Days</button>
       </div>
       <div id="coins-container" class="coin-slider">
-        <!-- Coins will be dynamically inserted here -->
+        <div class="coin-card">
+          <h5>Ride 100km 💲</h5>
+          <p id="ride-100km">0</p>
+        </div>
+        <div class="coin-card">
+          <h5>Run 10k 💰</h5>
+          <p id="run-10k">0</p>
+        </div>
+        <div class="coin-card">
+          <h5>Consistency (7 days) 🪙</h5>
+          <p id="consistency-7days">0</p>
+        </div>
+        <div class="coin-card">
+          <h5>Elevation 1000m 💎</h5>
+          <p id="elevation-1000m">0</p>
+        </div>
+        <div class="coin-card">
+          <h5>Kcal 1000kcal 👑</h5>
+          <p id="kcal-1000">0</p>
+        </div>
       </div>
     </div>
 
@@ -171,8 +195,6 @@
       <div id="races-container" class="row"></div>
     </div>
 
-    <!-- Load More Button -->
-    <button id="load-more-button" class="btn btn-secondary my-4" style="display: none;">Load More</button>
 
     <!-- Activities Container -->
     <div id="activities-container" class="row">

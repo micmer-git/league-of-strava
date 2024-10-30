@@ -527,3 +527,52 @@ function formatTime(seconds) {
   const secs = Math.floor(seconds % 60);
   return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
+
+// Function to calculate coins based on activities
+function calculateCoins(activities) {
+  const coins = {
+    ride100km: 0,
+    run10k: 0,
+    consistency7days: 0,
+    elevation1000m: 0,
+    kcal1000: 0,
+  };
+
+  const activityDates = activities.map(activity => new Date(activity.start_date).setHours(0, 0, 0));
+  const uniqueDates = [...new Set(activityDates)];
+
+  // Check for ride 100km
+  activities.forEach(activity => {
+    if (activity.type === 'ride' && activity.distance >= 100000) {
+      coins.ride100km += 1;
+    }
+    if (activity.type === 'run' && activity.distance >= 10000) {
+      coins.run10k += 1;
+    }
+    if (activity.elevation_gain >= 1000) {
+      coins.elevation1000m += 1;
+    }
+    if (activity.kilojoules >= 1000) {
+      coins.kcal1000 += 1;
+    }
+  });
+
+  // Check for consistency
+  const daysLogged = uniqueDates.length;
+  if (daysLogged >= 7) {
+    coins.consistency7days += 1;
+  }
+
+  return coins;
+}
+
+// Function to display coins
+function displayCoins(days, activities) {
+  const coins = calculateCoins(activities);
+  
+  document.getElementById('ride-100km').textContent = coins.ride100km;
+  document.getElementById('run-10k').textContent = coins.run10k;
+  document.getElementById('consistency-7days').textContent = coins.consistency7days;
+  document.getElementById('elevation-1000m').textContent = coins.elevation1000m;
+  document.getElementById('kcal-1000').textContent = coins.kcal1000;
+}

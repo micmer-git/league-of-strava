@@ -6,27 +6,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const stravaData = await response.json();
 
-    // Compute totals and achievements if not provided by the API
+    console.log('Fetched Strava Data:', stravaData); // For debugging
+
+    // Process the fetched data
     const processedData = processStravaData(stravaData);
 
+    // Initialize the dashboard with processed data
     await displayData(processedData);
+
+    // Hide loading indicator
     document.getElementById('loading').style.display = 'none';
 
-    // Display sections
+    // Show main dashboard sections
     [
-      'rank-section',
+      'header-section',
+      'coins-section',
       'lifetime-stats',
       'weekly-stats',
-      'coins-section',
-      'achievements-section',
       'personal-records',
-      'races-section'
-    ].forEach((className) => {
-      const element = document.querySelector(`.${className}`);
+      'races-section',
+      'activities-container',
+      'load-more-button'
+    ].forEach((id) => {
+      const element = document.querySelector(`#${id}`) || document.querySelector(`.${id}`);
       if (element) {
-        element.style.display = className === 'lifetime-stats' ? 'flex' : 'block';
+        element.style.display = id === 'header-section' ? 'flex' : 'block';
       }
     });
+
+    // Initialize Load More functionality
+    initializeLoadMore(processedData.activities);
   } catch (error) {
     console.error('Error fetching Strava data:', error);
     document.getElementById('loading').textContent = 'Failed to load dashboard.';
@@ -76,8 +85,7 @@ function calculateRank(totalPoints) {
   // Calculate progress percentage
   const pointsIntoCurrentRank = totalPoints - currentRank.minPoints;
   const pointsBetweenRanks = nextRank.minPoints - currentRank.minPoints;
-  const progressPercent =
-    pointsBetweenRanks === 0 ? 100 : (pointsIntoCurrentRank / pointsBetweenRanks) * 100;
+  const progressPercent = pointsBetweenRanks === 0 ? 100 : (pointsIntoCurrentRank / pointsBetweenRanks) * 100;
 
   return {
     currentRank,
@@ -88,97 +96,10 @@ function calculateRank(totalPoints) {
   };
 }
 
-// Function to compute coins based on duration
+// Function to compute coins based on duration (you can customize this logic)
 function computeCoins(durationInSeconds) {
   const hours = durationInSeconds / 3600;
   return Math.floor(hours); // 1 coin per hour
-}
-
-// Function to calculate coins and achievements for a specific timeframe
-function calculateCoinsAndAchievements(achievementsData, timeframeKey) {
-  if (!achievementsData || !achievementsData[timeframeKey]) {
-    console.warn(`No achievements data available for timeframe: ${timeframeKey}`);
-    return { categories: [], Medals: [] };
-  }
-  return achievementsData[timeframeKey];
-}
-
-// Function to display data
-async function displayData(data) {
-  // Ensure that 'totals' and 'achievements' exist
-  if (!data.totals || typeof data.totals.hours !== 'number') {
-    console.error('Totals data is missing or invalid.');
-    return;
-  }
-
-  // Total points
-  const totalPoints = data.totals.hours;
-
-  // Calculate rank
-  const rankInfo = calculateRank(totalPoints);
-
-  // Update Rank Section
-  document.getElementById('current-rank').textContent = rankInfo.currentRank.name;
-  document.getElementById('rank-emoji').textContent = rankInfo.currentRank.emoji;
-  const progressBar = document.getElementById('progress-bar');
-  progressBar.style.width = `${rankInfo.progressPercent}%`;
-  progressBar.setAttribute('aria-valuenow', rankInfo.progressPercent);
-  document.getElementById('current-rank-label').textContent = rankInfo.currentRank.name;
-  document.getElementById('next-rank-label').textContent = rankInfo.nextRank.name;
-  document.getElementById('current-points').textContent = totalPoints.toFixed(1);
-  document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
-
-  // Calculate and display coins and achievements for default timeframe (all_time)
-  const defaultTimeframe = 'all_time';
-  const coinsAndAchievements = calculateCoinsAndAchievements(data.achievements, defaultTimeframe);
-  displayCoins(defaultTimeframe, coinsAndAchievements.categories, coinsAndAchievements.Medals);
-
-  // Weekly Totals
-  const currentWeekActivities = data.activities.filter((activity) => {
-    const activityDate = new Date(activity.start_date);
-    const today = new Date();
-    const pastDate = new Date(today);
-    pastDate.setDate(today.getDate() - 7);
-    return activityDate >= pastDate && activityDate <= today;
-  });
-
-  const weeklyTotals = {
-    hours: currentWeekActivities.reduce((sum, activity) => sum + activity.moving_time, 0) / 3600,
-    distance: currentWeekActivities.reduce((sum, activity) => sum + activity.distance, 0),
-    elevation: currentWeekActivities.reduce((sum, activity) => sum + activity.total_elevation_gain, 0),
-    calories: currentWeekActivities.reduce(
-      (sum, activity) => sum + (activity.kilojoules || 0) * 0.239006,
-      0
-    ),
-  };
-
-  // Get Lifetime Stats
-  const lifetimeStats = getLifetimeStats(data.totals, weeklyTotals);
-
-  // Update Lifetime Stats Section
-  document.getElementById('distance-value').innerHTML = `${lifetimeStats.distance.icons} 🚴‍♂️`;
-  document.getElementById('distance-week-gain').textContent = `+${lifetimeStats.distance.weekGain} this week`;
-
-  document.getElementById('elevation-value').innerHTML = `${lifetimeStats.elevation.icons} 🏔️`;
-  document.getElementById('elevation-week-gain').textContent = `+${lifetimeStats.elevation.weekGain} this week`;
-
-  document.getElementById('calories-value').innerHTML = `${lifetimeStats.calories.icons} 🍕`;
-  document.getElementById('calories-week-gain').textContent = `+${lifetimeStats.calories.weekGain} this week`;
-
-  // Update Weekly Stats
-  document.getElementById('weekly-hours').textContent = `${weeklyTotals.hours.toFixed(1)} hrs`;
-  document.getElementById('weekly-distance').textContent = `${(weeklyTotals.distance / 1000).toFixed(1)} km`;
-  document.getElementById('weekly-elevation').textContent = `${weeklyTotals.elevation.toFixed(0)} m`;
-  document.getElementById('weekly-calories').textContent = `${weeklyTotals.calories.toFixed(0)} kcal`;
-
-  // Display personal records
-  displayPersonalRecords(data.activities);
-
-  // Display activities
-  initializeActivitiesDisplay(data.activities);
-
-  // Setup timeframe buttons
-  setupTimeframeButtons(data.achievements, data.activities);
 }
 
 // Function to process Strava data and compute 'totals' and 'achievements'
@@ -186,25 +107,11 @@ function processStravaData(stravaData) {
   // Initialize totals
   const totals = {
     hours: 0,
-    distance: 0,
-    elevation: 0,
-    calories: 0,
+    distance: 0, // in meters
+    elevation: 0, // in meters
+    calories: 0, // in kilojoules or as per Strava's data
+    activities: stravaData.activities.length,
   };
-
-  // Initialize achievements
-  const achievements = {
-    all_time: {
-      categories: [],
-      Medals: [],
-    },
-    // You can add more timeframes if needed
-  };
-
-  // Ensure that 'activities' is defined
-  if (!stravaData.activities || !Array.isArray(stravaData.activities)) {
-    console.error('Activities data is missing or invalid.');
-    return { totals, achievements, activities: [] };
-  }
 
   // Compute totals from activities
   stravaData.activities.forEach(activity => {
@@ -214,302 +121,400 @@ function processStravaData(stravaData) {
     totals.calories += activity.kilojoules || 0; // Use kilojoules as per Strava's data
   });
 
-  // Example: Compute achievements based on totals
-  achievements.all_time.categories = [
-    {
-      name: 'Running',
-      intro: 'Achievements related to running activities.',
-      achievements: [
-        { name: 'Total Runs', count: stravaData.activities.filter(a => a.type === 'Run').length },
-        { name: 'Total Distance Run', count: (stravaData.activities.filter(a => a.type === 'Run').reduce((sum, a) => sum + a.distance, 0) / 1000).toFixed(2) + ' km' },
+  // Example: Compute achievements based on activities
+  const achievements = {
+    all_time: {
+      categories: [
+        {
+          name: 'Ride',
+          intro: 'Achievements related to cycling activities.',
+          achievements: [
+            { name: '100km', progress: 0 },
+            { name: '300km/week', progress: 0 },
+            { name: '200km', progress: 0 },
+            { name: '600km/week', progress: 0 },
+            { name: '300km', progress: 0 },
+          ],
+        },
+        {
+          name: 'Run',
+          intro: 'Achievements related to running activities.',
+          achievements: [
+            { name: '10k', progress: 0 },
+            { name: '42km/week', progress: 0 },
+            { name: '21km', progress: 0 },
+            { name: '80km/week', progress: 0 },
+            { name: '42km', progress: 0 },
+          ],
+        },
+        {
+          name: 'Consistency',
+          intro: 'Achievements based on consistency.',
+          achievements: [
+            { name: 'Logged every day of a week', progress: 0 },
+            { name: 'Every day of a 14-day period', progress: 0 },
+            { name: 'Every day of a month', progress: 0 },
+            { name: 'Every day of 180 days', progress: 0 },
+            { name: 'Every day of 365 days', progress: 0 },
+          ],
+        },
+        {
+          name: 'Elevation',
+          intro: 'Achievements related to elevation gain.',
+          achievements: [
+            { name: '1000m', progress: 0 },
+            { name: 'Half Everest elevation/week', progress: 0 },
+            { name: '2000m', progress: 0 },
+            { name: 'Everest/week', progress: 0 },
+            { name: 'Everest elevation', progress: 0 },
+          ],
+        },
+        {
+          name: 'Kcal',
+          intro: 'Achievements based on calories burned.',
+          achievements: [
+            { name: '1000kcal', progress: 0 },
+            { name: '2000kcal', progress: 0 },
+            { name: '4000kcal', progress: 0 },
+            { name: '10000kcal/week', progress: 0 },
+            { name: '20000kcal/week', progress: 0 },
+          ],
+        },
+      ],
+      Medals: [
+        { name: 'Marathoner', emoji: '🏅', description: 'Completed a marathon.' },
+        { name: 'Century Rider', emoji: '🚴‍♂️', description: 'Cycled 100 km in total.' },
+        // Add more medals as needed
       ],
     },
-    {
-      name: 'Cycling',
-      intro: 'Achievements related to cycling activities.',
-      achievements: [
-        { name: 'Total Rides', count: stravaData.activities.filter(a => a.type === 'Ride').length },
-        { name: 'Total Distance Cycled', count: (stravaData.activities.filter(a => a.type === 'Ride').reduce((sum, a) => sum + a.distance, 0) / 1000).toFixed(2) + ' km' },
-      ],
-    },
-  ];
+    // Add more timeframes if needed
+  };
 
-  achievements.all_time.Medals = [
-    { name: 'Marathoner', emoji: '🏅', description: 'Completed a marathon.' },
-    { name: 'Century Rider', emoji: '🚴‍♂️', description: 'Cycled 100 km in total.' },
-  ];
+  // Calculate achievements based on activities
+  achievements.all_time.categories.forEach(category => {
+    category.achievements.forEach(achievement => {
+      switch (category.name) {
+        case 'Ride':
+          handleRideAchievements(achievement, stravaData.activities);
+          break;
+        case 'Run':
+          handleRunAchievements(achievement, stravaData.activities);
+          break;
+        case 'Consistency':
+          handleConsistencyAchievements(achievement, stravaData.activities);
+          break;
+        case 'Elevation':
+          handleElevationAchievements(achievement, stravaData.activities);
+          break;
+        case 'Kcal':
+          handleKcalAchievements(achievement, stravaData.activities);
+          break;
+        default:
+          break;
+      }
+    });
+  });
 
   return { totals, achievements, activities: stravaData.activities };
 }
 
-// Function to display coins and achievements per category
-function displayCoins(timeframeKey, categories, medals) {
-  const coinsContainer = document.getElementById('coins-container');
-  const medalsContainer = document.getElementById('medals-container');
+// Functions to handle each category's achievements
+function handleRideAchievements(achievement, activities) {
+  const rideActivities = activities.filter(a => a.type === 'Ride');
+  const totalDistance = rideActivities.reduce((sum, a) => sum + a.distance, 0) / 1000; // in km
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const weeklyDistance = rideActivities
+    .filter(a => new Date(a.start_date) >= oneWeekAgo)
+    .reduce((sum, a) => sum + a.distance, 0) / 1000; // in km
 
-  // Clear existing content
-  coinsContainer.innerHTML = '';
-  medalsContainer.innerHTML = '';
-
-  // Display Categories
-  categories.forEach(category => {
-    const categoryDiv = document.createElement('div');
-    categoryDiv.className = 'coin-category';
-
-    const categoryTitle = document.createElement('h5');
-    categoryTitle.textContent = category.name;
-    categoryDiv.appendChild(categoryTitle);
-
-    const categoryIntro = document.createElement('p');
-    categoryIntro.textContent = category.intro;
-    categoryDiv.appendChild(categoryIntro);
-
-    // List Achievements
-    category.achievements.forEach(achievement => {
-      const achievementDiv = document.createElement('div');
-      achievementDiv.className = 'achievement-item';
-
-      const achievementIcon = document.createElement('i');
-      achievementIcon.className = 'fas fa-star'; // Using Font Awesome stars; customize as needed
-      achievementIcon.style.color = '#ffc107'; // Gold color
-      achievementDiv.appendChild(achievementIcon);
-
-      const achievementText = document.createElement('span');
-      achievementText.textContent = `${achievement.name}: ${achievement.count}`;
-      achievementDiv.appendChild(achievementText);
-
-      categoryDiv.appendChild(achievementDiv);
-    });
-
-    coinsContainer.appendChild(categoryDiv);
-  });
-
-  // Display Medals
-  medals.forEach(medal => {
-    const medalDiv = document.createElement('div');
-    medalDiv.className = 'coin-medal';
-
-    const medalTitle = document.createElement('h5');
-    medalTitle.textContent = medal.name;
-    medalDiv.appendChild(medalTitle);
-
-    const medalIcon = document.createElement('p');
-    medalIcon.innerHTML = `${medal.emoji} ${medal.description}`;
-    medalDiv.appendChild(medalIcon);
-
-    medalsContainer.appendChild(medalDiv);
-  });
-}
-
-// Function to setup timeframe buttons
-function setupTimeframeButtons(achievementsData, allActivities) {
-  const buttons = document.querySelectorAll('.timeframe-btn');
-  buttons.forEach(button => {
-    button.addEventListener('click', () => {
-      // Remove active class from all buttons
-      buttons.forEach(btn => btn.classList.remove('active-timeframe'));
-      // Add active class to the clicked button
-      button.classList.add('active-timeframe');
-
-      const timeframeKey = button.getAttribute('data-timeframe');
-      const coinsAndAchievements = calculateCoinsAndAchievements(achievementsData, timeframeKey);
-      displayCoins(timeframeKey, coinsAndAchievements.categories, coinsAndAchievements.Medals);
-    });
-  });
-
-  // Set default active button
-  const defaultButton = document.querySelector('.timeframe-btn[data-timeframe="all_time"]');
-  if (defaultButton) {
-    defaultButton.classList.add('active-timeframe');
-  }
-}
-
-// Function to get lifetime stats icons and counts
-function getLifetimeStats(totals, weeklyTotals) {
-  const stats = {};
-
-  // Distance
-  const totalDistanceIcons = Math.floor(totals.distance / 100000); // 100km per icon
-  const weeklyDistanceIcons = Math.floor(weeklyTotals.distance / 100000);
-  stats.distance = { icons: totalDistanceIcons, weekGain: weeklyDistanceIcons };
-
-  // Elevation
-  const totalElevationGems = Math.floor(totals.elevation / 1000); // 1000m per gem
-  const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 1000);
-  stats.elevation = { icons: totalElevationGems, weekGain: weeklyElevationGems };
-
-  // Calories
-  const totalPizzas = Math.floor(totals.calories / 1000); // 1000kcal per pizza
-  const weeklyPizzas = Math.floor(weeklyTotals.calories / 1000);
-  stats.calories = { icons: totalPizzas, weekGain: weeklyPizzas };
-
-  return stats;
-}
-
-// Function to display achievements (if separate)
-function displayAchievements(achievements) {
-  const achievementContainer = document.getElementById('achievements-container');
-  achievementContainer.innerHTML = ''; // Clear existing achievements
-
-  for (const [achievement, count] of Object.entries(achievements)) {
-    if (count > 0) {
-      const achievementCard = document.createElement('div');
-      achievementCard.className = 'col-md-4 achievement-card';
-
-      const achievementEmoji = document.createElement('span');
-      achievementEmoji.innerHTML = getAchievementEmoji(achievement);
-
-      const achievementName = document.createElement('span');
-      achievementName.innerHTML = ` ${formatAchievementName(achievement)}: ${count}`;
-
-      achievementCard.appendChild(achievementEmoji);
-      achievementCard.appendChild(achievementName);
-      achievementContainer.appendChild(achievementCard);
-    }
-  }
-}
-
-// Helper function to get emoji based on achievement
-function getAchievementEmoji(achievement) {
-  const emojiMap = {
-    marathon: '🏃‍♂️',
-    halfMarathon: '🏃‍♂️',
-    tenK: '🏃‍♂️',
-    centuryRide: '🚴‍♂️',
-    climber: '🏔️',
-    consistent: '📅',
-    // Add more mappings as needed
-  };
-  return emojiMap[achievement] || '🏅';
-}
-
-// Helper function to format achievement names
-function formatAchievementName(achievement) {
-  switch (achievement) {
-    case 'halfMarathon':
-      return 'Half Marathon';
-    case 'tenK':
-      return '10K Run';
-    case 'consistent':
-      return 'Consistent Runner';
+  switch (achievement.name) {
+    case '100km':
+      achievement.progress = Math.min(totalDistance / 100, 1) * 100;
+      break;
+    case '300km/week':
+      achievement.progress = Math.min(weeklyDistance / 300, 1) * 100;
+      break;
+    case '200km':
+      achievement.progress = Math.min(totalDistance / 200, 1) * 100;
+      break;
+    case '600km/week':
+      achievement.progress = Math.min(weeklyDistance / 600, 1) * 100;
+      break;
+    case '300km':
+      achievement.progress = Math.min(totalDistance / 300, 1) * 100;
+      break;
     default:
-      return achievement.charAt(0).toUpperCase() + achievement.slice(1);
+      break;
   }
 }
 
-// Toggle Achievements Visibility
-let achievementsVisible = false;
+function handleRunAchievements(achievement, activities) {
+  const runActivities = activities.filter(a => a.type === 'Run');
+  const totalDistance = runActivities.reduce((sum, a) => sum + a.distance, 0) / 1000; // in km
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const weeklyDistance = runActivities
+    .filter(a => new Date(a.start_date) >= oneWeekAgo)
+    .reduce((sum, a) => sum + a.distance, 0) / 1000; // in km
 
-document.getElementById('toggle-achievements').addEventListener('click', function () {
-  const achievementsSection = document.querySelector('.achievements-section');
-  if (achievementsSection) {
-    achievementsVisible = !achievementsVisible;
-    achievementsSection.style.display = achievementsVisible ? 'block' : 'none';
-    this.textContent = achievementsVisible ? 'Hide Achievements' : 'Show Achievements';
-  }
-});
-
-// Function to initialize activities display with pagination and recompute stats
-function initializeActivitiesDisplay(activities) {
-  let currentActivityPage = 1;
-  const activitiesPerPage = 20;
-
-  const loadMoreButton = document.getElementById('load-more-button');
-
-  function displayActivities(activitiesToDisplay) {
-    const activitiesContainer = document.getElementById('activities-container');
-    activitiesToDisplay.forEach((activity) => {
-      const activityCard = document.createElement('div');
-      activityCard.className = 'activity-card col-md-6';
-
-      // Determine activity type for specific labels
-      let activityTypeLabel = '';
-      if (activity.distance >= 42195) {
-        activityTypeLabel = 'Marathon';
-      } else if (activity.distance >= 21097.5) {
-        activityTypeLabel = 'Half Marathon';
-      } else if (activity.distance >= 10000) {
-        activityTypeLabel = '10K Run';
-      }
-
-      // Determine coin type based on activity
-      let coinType = '';
-      if (activityTypeLabel === 'Marathon' || activityTypeLabel === 'Half Marathon' || activityTypeLabel === '10K Run') {
-        coinType = '🏅'; // Example: Medal for running
-      } else if (activity.type === 'Ride') {
-        coinType = '🚴‍♂️'; // Bike for rides
-      } else {
-        coinType = '🏃‍♂️'; // Runner for others
-      }
-
-      // Create activity link
-      const activityLink = `https://www.strava.com/activities/${activity.id}`;
-
-      activityCard.innerHTML = `
-        <h5><a href="${activityLink}" target="_blank">${activity.name} ${coinType}</a></h5>
-        <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
-        <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
-        <p><strong>Duration:</strong> ${(activity.moving_time / 60).toFixed(1)} mins</p>
-        <p><strong>Elevation Gain:</strong> ${activity.total_elevation_gain.toFixed(0)} m</p>
-        ${activityTypeLabel ? `<p><strong>Type:</strong> ${activityTypeLabel}</p>` : ''}
-      `;
-
-      activitiesContainer.appendChild(activityCard);
-    });
-  }
-
-  // Initial load
-  const initialActivities = activities.slice(0, activitiesPerPage);
-  displayActivities(initialActivities);
-
-  // Load more on button click
-  loadMoreButton.addEventListener('click', () => {
-    currentActivityPage += 1;
-    const start = (currentActivityPage - 1) * activitiesPerPage;
-    const end = currentActivityPage * activitiesPerPage;
-    const nextActivities = activities.slice(start, end);
-
-    if (nextActivities.length > 0) {
-      displayActivities(nextActivities);
-      // Recompute and update stats with the newly loaded activities
-      updateStatsWithNewActivities(nextActivities, activities);
-    }
-
-    if (end >= activities.length) {
-      loadMoreButton.style.display = 'none';
-    }
-  });
-
-  // Show load more button if more activities are available
-  if (activities.length > activitiesPerPage) {
-    loadMoreButton.style.display = 'block';
+  switch (achievement.name) {
+    case '10k':
+      achievement.progress = Math.min(totalDistance / 10, 1) * 100;
+      break;
+    case '42km/week':
+      achievement.progress = Math.min(weeklyDistance / 42, 1) * 100;
+      break;
+    case '21km':
+      achievement.progress = Math.min(totalDistance / 21, 1) * 100;
+      break;
+    case '80km/week':
+      achievement.progress = Math.min(weeklyDistance / 80, 1) * 100;
+      break;
+    case '42km':
+      achievement.progress = Math.min(totalDistance / 42, 1) * 100;
+      break;
+    default:
+      break;
   }
 }
 
-// Function to update stats when new activities are loaded
-function updateStatsWithNewActivities(newActivities, allActivities) {
-  // Recompute total points
-  const totalPoints = allActivities.reduce((sum, activity) => sum + computeCoins(activity.moving_time), 0);
+function handleConsistencyAchievements(achievement, activities) {
+  const today = new Date();
+  let count = 0;
+  switch (achievement.name) {
+    case 'Logged every day of a week':
+      count = countConsecutiveDays(activities, 7);
+      break;
+    case 'Every day of a 14-day period':
+      count = countConsecutiveDays(activities, 14);
+      break;
+    case 'Every day of a month':
+      count = countConsecutiveDays(activities, 30);
+      break;
+    case 'Every day of 180 days':
+      count = countConsecutiveDays(activities, 180);
+      break;
+    case 'Every day of 365 days':
+      count = countConsecutiveDays(activities, 365);
+      break;
+    default:
+      break;
+  }
+  achievement.progress = Math.min(count / 1, 1) * 100; // Binary progress
+}
 
-  // Recalculate rank
+function handleElevationAchievements(achievement, activities) {
+  const totalElevation = activities.reduce((sum, a) => sum + a.total_elevation_gain, 0); // in meters
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const weeklyElevation = activities
+    .filter(a => new Date(a.start_date) >= oneWeekAgo)
+    .reduce((sum, a) => sum + a.total_elevation_gain, 0); // in meters
+
+  switch (achievement.name) {
+    case '1000m':
+      achievement.progress = Math.min(totalElevation / 1000, 1) * 100;
+      break;
+    case 'Half Everest elevation/week':
+      const halfEverest = 8848 / 2; // Everest height in meters
+      achievement.progress = Math.min(weeklyElevation / halfEverest, 1) * 100;
+      break;
+    case '2000m':
+      achievement.progress = Math.min(totalElevation / 2000, 1) * 100;
+      break;
+    case 'Everest/week':
+      achievement.progress = Math.min(weeklyElevation / 8848, 1) * 100;
+      break;
+    case 'Everest elevation':
+      achievement.progress = Math.min(totalElevation / 8848, 1) * 100;
+      break;
+    default:
+      break;
+  }
+}
+
+function handleKcalAchievements(achievement, activities) {
+  const totalKcal = activities.reduce((sum, a) => sum + a.calories, 0); // in kcal
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const weeklyKcal = activities
+    .filter(a => new Date(a.start_date) >= oneWeekAgo)
+    .reduce((sum, a) => sum + a.calories, 0); // in kcal
+
+  switch (achievement.name) {
+    case '1000kcal':
+      achievement.progress = Math.min(totalKcal / 1000, 1) * 100;
+      break;
+    case '2000kcal':
+      achievement.progress = Math.min(totalKcal / 2000, 1) * 100;
+      break;
+    case '4000kcal':
+      achievement.progress = Math.min(totalKcal / 4000, 1) * 100;
+      break;
+    case '10000kcal/week':
+      achievement.progress = Math.min(weeklyKcal / 10000, 1) * 100;
+      break;
+    case '20000kcal/week':
+      achievement.progress = Math.min(weeklyKcal / 20000, 1) * 100;
+      break;
+    default:
+      break;
+  }
+}
+
+// Helper function to count consecutive days with activities
+function countConsecutiveDays(activities, days) {
+  const activityDates = activities.map(a => new Date(a.start_date).toDateString());
+  const uniqueDates = Array.from(new Set(activityDates)).sort((a, b) => new Date(a) - new Date(b));
+
+  let maxStreak = 0;
+  let currentStreak = 1;
+
+  for (let i = 1; i < uniqueDates.length; i++) {
+    const current = new Date(uniqueDates[i]);
+    const previous = new Date(uniqueDates[i - 1]);
+    const diffTime = current - previous;
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+    if (diffDays === 1) {
+      currentStreak += 1;
+      if (currentStreak > maxStreak) {
+        maxStreak = currentStreak;
+      }
+    } else {
+      currentStreak = 1;
+    }
+  }
+
+  return Math.min(maxStreak, days);
+}
+
+// Function to display data
+async function displayData(data) {
+  // Total points
+  const totalPoints = data.totals.hours;
+
+  // Calculate rank
   const rankInfo = calculateRank(totalPoints);
+
+  // Update User Info
+  const athlete = data.athlete;
+  document.getElementById('user-name').textContent = `${athlete.firstname} ${athlete.lastname}`;
+  document.getElementById('profile-pic').src = athlete.profile_medium || 'default-profile.png';
 
   // Update Rank Section
   document.getElementById('current-rank').textContent = rankInfo.currentRank.name;
   document.getElementById('rank-emoji').textContent = rankInfo.currentRank.emoji;
-  const progressBar = document.getElementById('progress-bar');
-  progressBar.style.width = `${rankInfo.progressPercent}%`;
-  progressBar.setAttribute('aria-valuenow', rankInfo.progressPercent);
+  document.getElementById('progress-bar').style.width = `${rankInfo.progressPercent.toFixed(2)}%`;
+  document.getElementById('progress-bar').setAttribute('aria-valuenow', rankInfo.progressPercent.toFixed(2));
   document.getElementById('current-rank-label').textContent = rankInfo.currentRank.name;
   document.getElementById('next-rank-label').textContent = rankInfo.nextRank.name;
   document.getElementById('current-points').textContent = totalPoints.toFixed(1);
   document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
 
-  // Recalculate achievements
-  // This requires that achievementsData is accessible; consider storing it globally if needed
-  // For simplicity, we'll assume achievements are part of 'all_time'
-  const achievementsData = allActivities; // Placeholder; adjust based on actual achievements structure
-  // Implement achievement recalculations as needed
+  // Update Coins (Everest, Heartbeat, Pizza)
+  // You can define how these coins are calculated. Here's a placeholder example:
+  document.getElementById('coin-everest').textContent = calculateEverestCoins(data.activities);
+  document.getElementById('coin-heartbeat').textContent = calculateHeartbeatCoins(data.activities);
+  document.getElementById('coin-pizza').textContent = calculatePizzaCoins(data.activities);
+
+  // Update Lifetime Stats
+  document.getElementById('distance-value').textContent = `${data.totals.distance / 1000} km 🚴‍♂️`;
+  document.getElementById('distance-week-gain').textContent = `+${(data.totals.distance / 1000).toFixed(1)} km this week`;
+
+  document.getElementById('elevation-value').textContent = `${data.totals.elevation} m 🏔️`;
+  document.getElementById('elevation-week-gain').textContent = `+${data.totals.elevation} m this week`;
+
+  document.getElementById('calories-value').textContent = `${data.totals.calories} kcal 🍕`;
+  document.getElementById('calories-week-gain').textContent = `+${data.totals.calories} kcal this week`;
+
+  // Update Weekly Stats
+  document.getElementById('weekly-hours').textContent = `${data.totals.hours.toFixed(1)} hrs`;
+  document.getElementById('weekly-distance').textContent = `${(data.totals.distance / 1000).toFixed(1)} km`;
+  document.getElementById('weekly-elevation').textContent = `${data.totals.elevation} m`;
+  document.getElementById('weekly-calories').textContent = `${data.totals.calories} kcal`;
+
+  // Display Personal Records
+  displayPersonalRecords(data.activities);
+
+  // Display Activities
+  displayActivities(data.activities.slice(0, 20)); // Initial load: first 20 activities
+
+  // Initialize Coins Section
+  displayCoinsSection(data.achievements.all_time.categories);
+}
+
+// Placeholder functions for coins calculation
+function calculateEverestCoins(activities) {
+  // Example: 1 coin per 1000m elevation gain
+  const totalElevation = activities.reduce((sum, a) => sum + a.total_elevation_gain, 0);
+  return Math.floor(totalElevation / 1000);
+}
+
+function calculateHeartbeatCoins(activities) {
+  // Example: 1 coin per average heartbeat over activities
+  const totalHeartrate = activities.reduce((sum, a) => sum + (a.average_heartrate || 0), 0);
+  const averageHeartrate = activities.length > 0 ? totalHeartrate / activities.length : 0;
+  return Math.floor(averageHeartrate / 10); // Example: 1 coin per 10 bpm
+}
+
+function calculatePizzaCoins(activities) {
+  // Example: 1 pizza per 1000 kcal burned
+  const totalCalories = activities.reduce((sum, a) => sum + (a.calories || 0), 0);
+  return Math.floor(totalCalories / 1000);
+}
+
+// Function to display activities
+function displayActivities(activities) {
+  const activitiesContainer = document.getElementById('activities-container');
+  activitiesContainer.innerHTML = ''; // Clear existing activities
+
+  activities.forEach(activity => {
+    const activityCard = document.createElement('div');
+    activityCard.className = 'activity-card col-md-6 mb-4';
+
+    // Determine activity type for specific labels
+    let activityTypeLabel = '';
+    if (activity.distance >= 42195) {
+      activityTypeLabel = 'Marathon';
+    } else if (activity.distance >= 21097.5) {
+      activityTypeLabel = 'Half Marathon';
+    } else if (activity.distance >= 10000) {
+      activityTypeLabel = '10K Run';
+    }
+
+    // Determine coin type based on activity
+    let coinType = '';
+    if (activityTypeLabel === 'Marathon' || activityTypeLabel === 'Half Marathon' || activityTypeLabel === '10K Run') {
+      coinType = '🏅'; // Example: Medal for running
+    } else if (activity.type === 'Ride') {
+      coinType = '🚴‍♂️'; // Bike for rides
+    } else {
+      coinType = '🏃‍♂️'; // Runner for others
+    }
+
+    // Create activity link
+    const activityLink = `https://www.strava.com/activities/${activity.id}`;
+
+    activityCard.innerHTML = `
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title"><a href="${activityLink}" target="_blank">${activity.name} ${coinType}</a></h5>
+          <p class="card-text"><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
+          <p class="card-text"><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
+          <p class="card-text"><strong>Duration:</strong> ${(activity.moving_time / 60).toFixed(1)} mins</p>
+          <p class="card-text"><strong>Elevation Gain:</strong> ${activity.total_elevation_gain} m</p>
+          ${activityTypeLabel ? `<p class="card-text"><strong>Type:</strong> ${activityTypeLabel}</p>` : ''}
+        </div>
+      </div>
+    `;
+
+    activitiesContainer.appendChild(activityCard);
+  });
+
+  // Show activities container
+  activitiesContainer.style.display = 'flex';
 }
 
 // Function to display personal records
@@ -574,271 +579,138 @@ function formatTime(seconds) {
   return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Function to get lifetime stats icons and counts
-function getLifetimeStats(totals, weeklyTotals) {
-  const stats = {};
-
-  // Distance
-  const totalDistanceIcons = Math.floor(totals.distance / 100000); // 100km per icon
-  const weeklyDistanceIcons = Math.floor(weeklyTotals.distance / 100000);
-  stats.distance = { icons: totalDistanceIcons, weekGain: weeklyDistanceIcons };
-
-  // Elevation
-  const totalElevationGems = Math.floor(totals.elevation / 1000); // 1000m per gem
-  const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 1000);
-  stats.elevation = { icons: totalElevationGems, weekGain: weeklyElevationGems };
-
-  // Calories
-  const totalPizzas = Math.floor(totals.calories / 1000); // 1000kcal per pizza
-  const weeklyPizzas = Math.floor(weeklyTotals.calories / 1000);
-  stats.calories = { icons: totalPizzas, weekGain: weeklyPizzas };
-
-  return stats;
-}
-
-// Function to display achievements (if separate)
-function displayAchievements(achievements) {
-  const achievementContainer = document.getElementById('achievements-container');
-  achievementContainer.innerHTML = ''; // Clear existing achievements
-
-  for (const [achievement, count] of Object.entries(achievements)) {
-    if (count > 0) {
-      const achievementCard = document.createElement('div');
-      achievementCard.className = 'col-md-4 achievement-card';
-
-      const achievementEmoji = document.createElement('span');
-      achievementEmoji.innerHTML = getAchievementEmoji(achievement);
-
-      const achievementName = document.createElement('span');
-      achievementName.innerHTML = ` ${formatAchievementName(achievement)}: ${count}`;
-
-      achievementCard.appendChild(achievementEmoji);
-      achievementCard.appendChild(achievementName);
-      achievementContainer.appendChild(achievementCard);
-    }
-  }
-}
-
-// Helper function to get emoji based on achievement
-function getAchievementEmoji(achievement) {
-  const emojiMap = {
-    marathon: '🏃‍♂️',
-    halfMarathon: '🏃‍♂️',
-    tenK: '🏃‍♂️',
-    centuryRide: '🚴‍♂️',
-    climber: '🏔️',
-    consistent: '📅',
-    // Add more mappings as needed
-  };
-  return emojiMap[achievement] || '🏅';
-}
-
-// Helper function to format achievement names
-function formatAchievementName(achievement) {
-  switch (achievement) {
-    case 'halfMarathon':
-      return 'Half Marathon';
-    case 'tenK':
-      return '10K Run';
-    case 'consistent':
-      return 'Consistent Runner';
-    default:
-      return achievement.charAt(0).toUpperCase() + achievement.slice(1);
-  }
-}
-
-// Function to display personal records
-function displayPersonalRecords(activities) {
-  const records = {
-    maxElevation: 0,
-    maxDistance: 0,
-    maxSpeed: 0,
-    fastestMarathon: Infinity,
-    fastestHalfMarathon: Infinity,
-    fastest10k: Infinity,
-  };
-
-  activities.forEach(activity => {
-    // Max Elevation
-    if (activity.total_elevation_gain > records.maxElevation) {
-      records.maxElevation = activity.total_elevation_gain;
-    }
-
-    // Max Distance
-    if (activity.distance > records.maxDistance) {
-      records.maxDistance = activity.distance;
-    }
-
-    // Max Speed
-    const speed = (activity.distance / 1000) / (activity.moving_time / 3600); // km/h
-    if (speed > records.maxSpeed) {
-      records.maxSpeed = speed;
-    }
-
-    // Fastest Marathon
-    if (activity.distance >= 42195 && activity.moving_time < records.fastestMarathon) {
-      records.fastestMarathon = activity.moving_time;
-    }
-
-    // Fastest Half Marathon
-    if (activity.distance >= 21097.5 && activity.distance < 42195 && activity.moving_time < records.fastestHalfMarathon) {
-      records.fastestHalfMarathon = activity.moving_time;
-    }
-
-    // Fastest 10K Run
-    if (activity.distance >= 10000 && activity.distance < 21097.5 && activity.moving_time < records.fastest10k) {
-      records.fastest10k = activity.moving_time;
-    }
-  });
-
-  // Update Personal Records Section
-  document.getElementById('max-elevation').textContent = `${records.maxElevation} m`;
-  document.getElementById('max-distance').textContent = `${(records.maxDistance / 1000).toFixed(2)} km`;
-  document.getElementById('max-speed').textContent = `${records.maxSpeed.toFixed(2)} km/h`;
-
-  document.getElementById('fastest-marathon').textContent = records.fastestMarathon === Infinity ? '--:--:--' : formatTime(records.fastestMarathon);
-  document.getElementById('fastest-half-marathon').textContent = records.fastestHalfMarathon === Infinity ? '--:--:--' : formatTime(records.fastestHalfMarathon);
-  document.getElementById('fastest-10k').textContent = records.fastest10k === Infinity ? '--:--:--' : formatTime(records.fastest10k);
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    const response = await fetch('/api/strava-data');
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    const stravaData = await response.json();
-
-    console.log('Fetched Strava Data:', stravaData); // Add this line to inspect data
-
-    // Compute totals and achievements if not provided by the API
-    const processedData = processStravaData(stravaData);
-
-    await displayData(processedData);
-    document.getElementById('loading').style.display = 'none';
-
-    // Display sections
-    // ...
-
-  } catch (error) {
-    console.error('Error fetching Strava data:', error);
-    document.getElementById('loading').textContent = 'Failed to load dashboard.';
-  }
-});
-
-
-
-// Helper function to format time in seconds to HH:MM:SS
-function formatTime(seconds) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-}
-
-// Function to display achievements (if separate)
-function displayAchievements(achievements) {
-  const achievementContainer = document.getElementById('achievements-container');
-  achievementContainer.innerHTML = ''; // Clear existing achievements
-
-  for (const [achievement, count] of Object.entries(achievements)) {
-    if (count > 0) {
-      const achievementCard = document.createElement('div');
-      achievementCard.className = 'col-md-4 achievement-card';
-
-      const achievementEmoji = document.createElement('span');
-      achievementEmoji.innerHTML = getAchievementEmoji(achievement);
-
-      const achievementName = document.createElement('span');
-      achievementName.innerHTML = ` ${formatAchievementName(achievement)}: ${count}`;
-
-      achievementCard.appendChild(achievementEmoji);
-      achievementCard.appendChild(achievementName);
-      achievementContainer.appendChild(achievementCard);
-    }
-  }
-}
-
-// Function to display coins and achievements per category
-function displayCoins(timeframeKey, categories, medals) {
-  const coinsContainer = document.getElementById('coins-container');
-  const medalsContainer = document.getElementById('medals-container');
-
-  // Clear existing content
-  coinsContainer.innerHTML = '';
-  medalsContainer.innerHTML = '';
-
-  // Display Categories
+// Function to display the coins section
+function displayCoinsSection(categories) {
   categories.forEach(category => {
-    const categoryDiv = document.createElement('div');
-    categoryDiv.className = 'coin-category';
-
-    const categoryTitle = document.createElement('h5');
-    categoryTitle.textContent = category.name;
-    categoryDiv.appendChild(categoryTitle);
-
-    const categoryIntro = document.createElement('p');
-    categoryIntro.textContent = category.intro;
-    categoryDiv.appendChild(categoryIntro);
-
-    // List Achievements
     category.achievements.forEach(achievement => {
-      const achievementDiv = document.createElement('div');
-      achievementDiv.className = 'achievement-item';
+      // Generate a unique identifier based on category and achievement name
+      const categoryId = category.name.toLowerCase().replace(/\s+/g, '-'); // e.g., 'Ride' -> 'ride'
+      const achievementId = achievement.name.toLowerCase().replace(/[^a-z0-9]/g, '-'); // e.g., '100km' -> '100km', '42km/week' -> '42km-week'
+      const elementId = `${categoryId}-${achievementId}`; // e.g., 'ride-100km'
 
-      const achievementIcon = document.createElement('i');
-      achievementIcon.className = 'fas fa-star'; // Using Font Awesome stars; customize as needed
-      achievementIcon.style.color = '#ffc107'; // Gold color
-      achievementDiv.appendChild(achievementIcon);
+      // Select the corresponding coin-item element
+      const coinElement = document.getElementById(elementId);
 
-      const achievementText = document.createElement('span');
-      achievementText.textContent = `${achievement.name}: ${achievement.count}`;
-      achievementDiv.appendChild(achievementText);
+      if (coinElement) {
+        // Select the progress span within the coin-item
+        const progressSpan = coinElement.querySelector('.progress');
 
-      categoryDiv.appendChild(achievementDiv);
+        if (progressSpan) {
+          // Update the progress percentage
+          progressSpan.textContent = `${achievement.progress.toFixed(2)}%`;
+
+          // Optionally, change the color based on progress
+          if (achievement.progress >= 100) {
+            progressSpan.style.color = 'green';
+          } else if (achievement.progress >= 75) {
+            progressSpan.style.color = 'orange';
+          } else {
+            progressSpan.style.color = 'red';
+          }
+        }
+      } else {
+        console.warn(`No element found with ID: ${elementId}`);
+      }
     });
-
-    coinsContainer.appendChild(categoryDiv);
-  });
-
-  // Display Medals
-  medals.forEach(medal => {
-    const medalDiv = document.createElement('div');
-    medalDiv.className = 'coin-medal';
-
-    const medalTitle = document.createElement('h5');
-    medalTitle.textContent = medal.name;
-    medalDiv.appendChild(medalTitle);
-
-    const medalIcon = document.createElement('p');
-    medalIcon.innerHTML = `${medal.emoji} ${medal.description}`;
-    medalDiv.appendChild(medalIcon);
-
-    medalsContainer.appendChild(medalDiv);
   });
 }
 
-// Function to setup timeframe buttons
-function setupTimeframeButtons(achievementsData, allActivities) {
-  const buttons = document.querySelectorAll('.timeframe-btn');
-  buttons.forEach(button => {
-    button.addEventListener('click', () => {
-      // Remove active class from all buttons
-      buttons.forEach(btn => btn.classList.remove('active-timeframe'));
-      // Add active class to the clicked button
-      button.classList.add('active-timeframe');
+// Function to initialize Load More functionality
+function initializeLoadMore(allActivities) {
+  let currentPage = 1;
+  const activitiesPerPage = 20;
+  const loadMoreButton = document.getElementById('load-more-button');
 
-      const timeframeKey = button.getAttribute('data-timeframe');
-      const coinsAndAchievements = calculateCoinsAndAchievements(achievementsData, timeframeKey);
-      displayCoins(timeframeKey, coinsAndAchievements.categories, coinsAndAchievements.Medals);
-    });
+  loadMoreButton.addEventListener('click', () => {
+    currentPage += 1;
+    const start = (currentPage - 1) * activitiesPerPage;
+    const end = currentPage * activitiesPerPage;
+    const nextActivities = allActivities.slice(start, end);
+
+    if (nextActivities.length > 0) {
+      displayActivities(nextActivities);
+      updateDashboardStats(allActivities.slice(0, end));
+    }
+
+    if (end >= allActivities.length) {
+      loadMoreButton.style.display = 'none';
+    }
   });
+}
 
-  // Set default active button
-  const defaultButton = document.querySelector('.timeframe-btn[data-timeframe="all_time"]');
-  if (defaultButton) {
-    defaultButton.classList.add('active-timeframe');
-  }
+// Function to update dashboard stats based on displayed activities
+function updateDashboardStats(displayedActivities) {
+  // Recompute totals
+  const totals = {
+    hours: displayedActivities.reduce((sum, a) => sum + a.moving_time, 0) / 3600,
+    distance: displayedActivities.reduce((sum, a) => sum + a.distance, 0),
+    elevation: displayedActivities.reduce((sum, a) => sum + a.total_elevation_gain, 0),
+    calories: displayedActivities.reduce((sum, a) => sum + a.calories, 0),
+    activities: displayedActivities.length,
+  };
+
+  // Recalculate rank
+  const rankInfo = calculateRank(totals.hours);
+
+  // Update Rank Section
+  document.getElementById('current-rank').textContent = rankInfo.currentRank.name;
+  document.getElementById('rank-emoji').textContent = rankInfo.currentRank.emoji;
+  document.getElementById('progress-bar').style.width = `${rankInfo.progressPercent.toFixed(2)}%`;
+  document.getElementById('progress-bar').setAttribute('aria-valuenow', rankInfo.progressPercent.toFixed(2));
+  document.getElementById('current-rank-label').textContent = rankInfo.currentRank.name;
+  document.getElementById('next-rank-label').textContent = rankInfo.nextRank.name;
+  document.getElementById('current-points').textContent = totals.hours.toFixed(1);
+  document.getElementById('next-rank-points').textContent = rankInfo.nextRank.minPoints;
+
+  // Update Coins (Everest, Heartbeat, Pizza)
+  document.getElementById('coin-everest').textContent = calculateEverestCoins(displayedActivities);
+  document.getElementById('coin-heartbeat').textContent = calculateHeartbeatCoins(displayedActivities);
+  document.getElementById('coin-pizza').textContent = calculatePizzaCoins(displayedActivities);
+
+  // Update Lifetime Stats
+  document.getElementById('distance-value').textContent = `${totals.distance / 1000} km 🚴‍♂️`;
+  document.getElementById('distance-week-gain').textContent = `+${(totals.distance / 1000).toFixed(1)} km this week`;
+
+  document.getElementById('elevation-value').textContent = `${totals.elevation} m 🏔️`;
+  document.getElementById('elevation-week-gain').textContent = `+${totals.elevation} m this week`;
+
+  document.getElementById('calories-value').textContent = `${totals.calories} kcal 🍕`;
+  document.getElementById('calories-week-gain').textContent = `+${totals.calories} kcal this week`;
+
+  // Update Weekly Stats
+  document.getElementById('weekly-hours').textContent = `${totals.hours.toFixed(1)} hrs`;
+  document.getElementById('weekly-distance').textContent = `${(totals.distance / 1000).toFixed(1)} km`;
+  document.getElementById('weekly-elevation').textContent = `${totals.elevation} m`;
+  document.getElementById('weekly-calories').textContent = `${totals.calories} kcal`;
+
+  // Update Personal Records
+  displayPersonalRecords(displayedActivities);
+}
+
+// Function to display coins and achievements per category (optional enhancement)
+function displayCoinsSection(categories) {
+  // This function can be enhanced to dynamically update the coins grid based on achievements
+  // For simplicity, it's left empty here
+}
+
+// Placeholder functions for coins calculation
+function calculateEverestCoins(activities) {
+  // Example: 1 coin per 1000m elevation gain
+  const totalElevation = activities.reduce((sum, a) => sum + a.total_elevation_gain, 0);
+  return Math.floor(totalElevation / 1000);
+}
+
+function calculateHeartbeatCoins(activities) {
+  // Example: 1 coin per average heartbeat over activities
+  const totalHeartrate = activities.reduce((sum, a) => sum + (a.average_heartrate || 0), 0);
+  const averageHeartrate = activities.length > 0 ? totalHeartrate / activities.length : 0;
+  return Math.floor(averageHeartrate / 10); // Example: 1 coin per 10 bpm
+}
+
+function calculatePizzaCoins(activities) {
+  // Example: 1 pizza per 1000 kcal burned
+  const totalCalories = activities.reduce((sum, a) => sum + (a.calories || 0), 0);
+  return Math.floor(totalCalories / 1000);
 }
 
 // Function to display personal records
@@ -895,7 +767,7 @@ function displayPersonalRecords(activities) {
   document.getElementById('fastest-10k').textContent = records.fastest10k === Infinity ? '--:--:--' : formatTime(records.fastest10k);
 }
 
-// Function to format time in seconds to HH:MM:SS
+// Helper function to format time in seconds to HH:MM:SS
 function formatTime(seconds) {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);

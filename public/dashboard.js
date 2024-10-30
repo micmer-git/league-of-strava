@@ -434,14 +434,15 @@ async function displayData(data) {
   // Total points (using total hours as points)
   const totalPoints = data.totals.hours;
 
-  // Update the user name
-  const userNameElement = document.getElementById("user-name");
-  userNameElement.textContent = `${fetchedData.athlete.firstname} ${fetchedData.athlete.lastname}`;
+  // Calculate rank
+  const rankInfo = calculateRank(totalPoints);
 
-  // Update the created time
-  const createdTimeElement = document.getElementById("created-time");
-  const createdDate = new Date(fetchedData.athlete.created_at);
-  createdTimeElement.textContent = `Created: ${createdDate.toLocaleDateString()} ${createdDate.toLocaleTimeString()}`;
+  // Update User Info
+  const athlete = data.athlete; //
+  //document.getElementById('user-name').textContent = `${athlete.firstname} ${athlete.lastname}`;
+  //document.getElementById('profile-pic').src = athlete.profile_medium || '/images/default-profile.png';
+
+
 
   // Update Rank Section
   document.getElementById('current-rank').textContent = rankInfo.currentRank.name;

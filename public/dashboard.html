@@ -133,15 +133,15 @@
     <div id="loading" class="text-center my-4">Loading your dashboard...</div>
 
     <!-- Header Section -->
-    <div class="header-section" style="display: none;">
-      <!-- Left Side: User Info -->
+    <!-- Header Section -->
+    <div class="header-section" id="header-section">
       <div class="user-info">
-        <h2 id="user-name">John Doe</h2>
-        <div class="rank-info">
-          <span class="rank-emoji" id="rank-emoji">🥉</span>
-          <span id="current-rank">Bronze 3</span>
-        </div>
+        <h2 id="user-name">User Name</h2>
+        <p id="created-time">Created: --</p> <!-- New element for created time -->
       </div>
+      <!-- Profile and other sections -->
+    </div>
+
 
       <!-- Right Side: Profile, Coins -->
       <div class="profile-section">
@@ -183,116 +183,146 @@
     </div>
 
     <!-- Coins Section -->
-    <div class="coins-section" style="display: none;">
-      <h2>Coins</h2>
-      <div class="row">
-        <!-- Ride Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Ride</h5>
-            <div class="coin-item">
-              <i>💲</i> 100km
-            </div>
-            <div class="coin-item">
-              <i>💰</i> 300km/week
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 200km
-            </div>
-            <div class="coin-item">
-              <i>💎</i> 600km/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> 300km
-            </div>
-          </div>
+<div class="coins-section" style="display: none;">
+  <h2>Coins</h2>
+  <div class="row">
+    <!-- Ride Category -->
+    <div class="col-md-4">
+      <div class="coin-category">
+        <h5>Ride</h5>
+        <div class="coin-item" id="ride-100km">
+          <i>💲</i> 100km
+          <span class="progress">0%</span>
         </div>
-        <!-- Run Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Run</h5>
-            <div class="coin-item">
-              <i>💲</i> 10k
-            </div>
-            <div class="coin-item">
-              <i>💰</i> 42km/week
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 21km
-            </div>
-            <div class="coin-item">
-              <i>💎</i> 80km/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> 42km
-            </div>
-          </div>
+        <div class="coin-item" id="ride-300km-week">
+          <i>💰</i> 300km/week
+          <span class="progress">0%</span>
         </div>
-        <!-- Consistency Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Consistency</h5>
-            <div class="coin-item">
-              <i>💲</i> Logged every day of a week
-            </div>
-            <div class="coin-item">
-              <i>💰</i> Every day of a 14-day period
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> Every day of a month
-            </div>
-            <div class="coin-item">
-              <i>💎</i> Every day of 180 days
-            </div>
-            <div class="coin-item">
-              <i>👑</i> Every day of 365 days
-            </div>
-          </div>
+        <div class="coin-item" id="ride-200km">
+          <i>🪙</i> 200km
+          <span class="progress">0%</span>
         </div>
-        <!-- Elevation Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Elevation</h5>
-            <div class="coin-item">
-              <i>💲</i> 1000m
-            </div>
-            <div class="coin-item">
-              <i>💰</i> Half Everest elevation/week
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 2000m
-            </div>
-            <div class="coin-item">
-              <i>💎</i> Everest/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> Everest elevation
-            </div>
-          </div>
+        <div class="coin-item" id="ride-600km-week">
+          <i>💎</i> 600km/week
+          <span class="progress">0%</span>
         </div>
-        <!-- Kcal Category -->
-        <div class="col-md-4">
-          <div class="coin-category">
-            <h5>Kcal</h5>
-            <div class="coin-item">
-              <i>💲</i> 1000kcal
-            </div>
-            <div class="coin-item">
-              <i>💰</i> 2000kcal
-            </div>
-            <div class="coin-item">
-              <i>🪙</i> 4000kcal
-            </div>
-            <div class="coin-item">
-              <i>💎</i> 10000kcal/week
-            </div>
-            <div class="coin-item">
-              <i>👑</i> 20000kcal/week
-            </div>
-          </div>
+        <div class="coin-item" id="ride-300km">
+          <i>👑</i> 300km
+          <span class="progress">0%</span>
         </div>
       </div>
     </div>
+
+    <!-- Run Category -->
+    <div class="col-md-4">
+      <div class="coin-category">
+        <h5>Run</h5>
+        <div class="coin-item" id="run-10k">
+          <i>💲</i> 10k
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="run-42km-week">
+          <i>💰</i> 42km/week
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="run-21km">
+          <i>🪙</i> 21km
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="run-80km-week">
+          <i>💎</i> 80km/week
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="run-42km">
+          <i>👑</i> 42km
+          <span class="progress">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Consistency Category -->
+    <div class="col-md-4">
+      <div class="coin-category">
+        <h5>Consistency</h5>
+        <div class="coin-item" id="consistency-logged-every-day-of-a-week">
+          <i>💲</i> Logged every day of a week
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="consistency-every-day-of-a-14-day-period">
+          <i>💰</i> Every day of a 14-day period
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="consistency-every-day-of-a-month">
+          <i>🪙</i> Every day of a month
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="consistency-every-day-of-180-days">
+          <i>💎</i> Every day of 180 days
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="consistency-every-day-of-365-days">
+          <i>👑</i> Every day of 365 days
+          <span class="progress">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Elevation Category -->
+    <div class="col-md-4">
+      <div class="coin-category">
+        <h5>Elevation</h5>
+        <div class="coin-item" id="elevation-1000m">
+          <i>💲</i> 1000m
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="elevation-half-everest-elevation-week">
+          <i>💰</i> Half Everest elevation/week
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="elevation-2000m">
+          <i>🪙</i> 2000m
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="elevation-everest-week">
+          <i>💎</i> Everest/week
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="elevation-everest-elevation">
+          <i>👑</i> Everest elevation
+          <span class="progress">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kcal Category -->
+    <div class="col-md-4">
+      <div class="coin-category">
+        <h5>Kcal</h5>
+        <div class="coin-item" id="kcal-1000kcal">
+          <i>💲</i> 1000kcal
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="kcal-2000kcal">
+          <i>💰</i> 2000kcal
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="kcal-4000kcal">
+          <i>🪙</i> 4000kcal
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="kcal-10000kcal-week">
+          <i>💎</i> 10000kcal/week
+          <span class="progress">0%</span>
+        </div>
+        <div class="coin-item" id="kcal-20000kcal-week">
+          <i>👑</i> 20000kcal/week
+          <span class="progress">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
     <!-- Achievements Section (Optional, can be re-added as needed) -->
     <!-- ... -->

@@ -429,18 +429,30 @@ function calculatePizzaCoins(activities) {
 // ==================== Display Functions ====================
 
 // Function to display data on the dashboard
+// Function to display data on the dashboard
 async function displayData(data) {
   // Total points (using total hours as points)
   const totalPoints = data.totals.hours;
 
   // Calculate rank
   const rankInfo = calculateRank(totalPoints);
-  console.log('Data received:', data);
 
   // Update User Info
-  const athlete = data; // Directly assign data to athlete
+  const athlete = data.athlete; //
   document.getElementById('user-name').textContent = `${athlete.firstname} ${athlete.lastname}`;
-  document.getElementById('profile-pic').src = athlete.profile_medium || 'default-profile.png';
+  document.getElementById('profile-pic').src = athlete.profile_medium || '/images/default-profile.png';
+
+  // Format the created_at date to a readable format
+  const createdAt = new Date(athlete.created_at);
+  const formattedCreatedAt = createdAt.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  // Update the created-time element
+  document.getElementById('created-time').textContent = `Account Created: ${formattedCreatedAt}`;
+
 
   // Update Rank Section
   document.getElementById('current-rank').textContent = rankInfo.currentRank.name;

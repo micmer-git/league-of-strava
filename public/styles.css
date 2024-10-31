@@ -240,6 +240,21 @@ a:hover {
   cursor: pointer;
 }
 
+
+/* Adjust lifetime-stats layout */
+.lifetime-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+/* New styles for first activity date */
+.first-activity-date {
+  margin-top: 15px;
+  font-size: 1rem;
+  color: #6c757d;
+}
+
 #load-more-button:hover {
   background-color: #27ae60;
 }

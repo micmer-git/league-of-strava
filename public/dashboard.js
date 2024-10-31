@@ -362,7 +362,6 @@ function initializeActivitiesDisplay(activities) {
         <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
         <p><strong>Duration:</strong> ${(activity.moving_time / 60).toFixed(1)} mins</p>
         <p><strong>Elevation Gain:</strong> ${activity.total_elevation_gain.toFixed(0)} m</p>
-        ${activityTypeLabel ? `<p><strong>Type:</strong> ${activityTypeLabel}</p>` : ''}
       `;
       activitiesContainer.appendChild(activityCard);
     });
@@ -395,6 +394,29 @@ function initializeActivitiesDisplay(activities) {
     loadMoreButton.style.display = 'block';
   }
 }
+
+// Function to display first activity date
+function displayFirstActivityDate(activities) {
+  if (activities.length > 0) {
+    const firstActivityDate = activities.reduce((earliest, activity) => {
+      const activityDate = new Date(activity.start_date);
+      return activityDate < earliest ? activityDate : earliest;
+    }, new Date(activities[0].start_date));
+
+    document.getElementById('first-activity-date').textContent = firstActivityDate.toLocaleDateString();
+  } else {
+    document.getElementById('first-activity-date').textContent = 'No activities found';
+  }
+}
+
+// Call this function within displayData
+async function displayData(data) {
+  // ... existing code ...
+
+  // Display the first activity date
+  displayFirstActivityDate(data.activities);
+}
+
 
 // Function to setup timeframe buttons for coins
 function setupTimeframeButtons(activities) {

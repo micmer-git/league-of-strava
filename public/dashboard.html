@@ -49,8 +49,11 @@
     <!-- Loading Indicator -->
     <div id="loading" class="text-center my-4">Loading your dashboard...</div>
 
-    <!-- Rank Section -->
-    <div class="rank-section" style="display: none;">
+    <!-- Top Section: Rank and Lifetime Stats -->
+<div class="row mt-4" id="top-section" style="display: none;">
+  <!-- Rank Section -->
+  <div class="col-md-6">
+    <div class="rank-section">
       <div class="rank-title h4">Current Rank: <span id="current-rank"></span></div>
       <div class="rank-emoji display-1" id="rank-emoji">🥉</div>
       <div class="progress-container position-relative my-3">
@@ -65,11 +68,38 @@
       <div class="rank-details">
         <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
       </div>
+      <!-- First Activity Date -->
+      <div class="first-activity-date">
+        First Activity Date: <span id="first-activity-date">--/--/----</span>
+      </div>
     </div>
+  </div>
 
-    <!-- Load More Button -->
+  <!-- Lifetime Stats -->
+  <div class="col-md-6">
+    <div class="lifetime-stats">
+      <div class="stat-item text-center">
+        <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
+        <div class="value" id="elevation-value">--</div>
+        <div class="week-gain text-success" id="elevation-week-gain">+-- this week</div>
+      </div>
+      <div class="stat-item text-center">
+        <div class="icon pizza-icon" title="Pizza: 1000kcal per pizza">🍕</div>
+        <div class="value" id="calories-value">--</div>
+        <div class="week-gain text-success" id="calories-week-gain">+-- this week</div>
+      </div>
+      <div class="stat-item text-center">
+        <div class="icon distance-icon" title="Distance: 100km per icon">🚴‍♂️</div>
+        <div class="value" id="distance-value">--</div>
+        <div class="week-gain text-success" id="distance-week-gain">+-- this week</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <!-- Load More Button
     <button id="load-more-button" class="btn btn-secondary my-4" style="display: none;">Load More</button>
-
+    -->
 
 
 
@@ -80,24 +110,6 @@
     </div>
 
 
-    <!-- Lifetime Stats -->
-    <div class="lifetime-stats row mt-4" style="display: none;">
-      <div class="stat-item col-4 text-center">
-        <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
-        <div class="value" id="elevation-value"></div>
-        <div class="week-gain text-success" id="elevation-week-gain"></div>
-      </div>
-      <div class="stat-item col-4 text-center">
-        <div class="icon pizza-icon" title="Pizza: 1000kcal per pizza">🍕</div>
-        <div class="value" id="calories-value"></div>
-        <div class="week-gain text-success" id="calories-week-gain"></div>
-      </div>
-      <div class="stat-item col-4 text-center">
-        <div class="icon distance-icon" title="Distance: 100km per icon">🚴‍♂️</div>
-        <div class="value" id="distance-value"></div>
-        <div class="week-gain text-success" id="distance-week-gain"></div>
-      </div>
-    </div>
 
 <!-- Personal Records Section -->
 <div class="personal-records mt-4" style="display: none;">

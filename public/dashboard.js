@@ -357,7 +357,6 @@ function initializeActivitiesDisplay(activities) {
   let currentActivityPage = 1;
   const activitiesPerPage = 20;
 
-  const loadMoreButton = document.getElementById('load-more-button');
   function displayActivities(activitiesToDisplay) {
     const activitiesContainer = document.getElementById('activities-container');
     activitiesToDisplay.forEach((activity) => {
@@ -400,28 +399,7 @@ function initializeActivitiesDisplay(activities) {
   const initialActivities = activities.slice(0, activitiesPerPage);
   displayActivities(initialActivities);
 
-  // Load more on button click
-  loadMoreButton.addEventListener('click', () => {
-    currentActivityPage += 1;
-    const start = (currentActivityPage - 1) * activitiesPerPage;
-    const end = currentActivityPage * activitiesPerPage;
-    const nextActivities = activities.slice(start, end);
 
-    if (nextActivities.length > 0) {
-      displayActivities(nextActivities);
-      // Recompute and update stats with the newly loaded activities
-      updateStatsWithNewActivities(nextActivities, activities);
-    }
-
-    if (end >= activities.length) {
-      loadMoreButton.style.display = 'none';
-    }
-  });
-
-  // Show load more button if more activities are available
-  if (activities.length > activitiesPerPage) {
-    loadMoreButton.style.display = 'block';
-  }
 }
 
 // Function to setup timeframe buttons for coins

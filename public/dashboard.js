@@ -347,6 +347,12 @@ if (toggleAchievementsButton) {
   });
 }
 
+// Helper function to capitalize the first letter of a string
+function capitalizeFirstLetter(string) {
+  if (typeof string !== 'string') return '';
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 function initializeActivitiesDisplay(activities) {
   let currentActivityPage = 1;
   const activitiesPerPage = 20;

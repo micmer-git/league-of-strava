@@ -6,10 +6,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     await displayData(stravaData);
     document.getElementById('loading').style.display = 'none';
 
-    // Display sections
+    // Display top sections
+    const topSection = document.getElementById('top-section');
+    if (topSection) {
+      topSection.style.display = 'flex';
+    }
+
+    // Display other sections
     [
-      'rank-section',
-      'lifetime-stats',
       'weekly-stats',
       'coins-section',
       'achievements-section',
@@ -143,18 +147,27 @@ function calculateAchievements(activities) {
   if (maxConsecutive >= 7) achievements.consistent = 1;
 
   activities.forEach((activity) => {
-    if (activity.distance >= 42195) {
-      achievements.marathon += 1;
+    // Ensure the activity is a run before classifying
+    if (activity.type === 'run') {
+      if (activity.distance >= 42195) {
+        achievements.marathon += 1;
+      }
+      else if (activity.distance >= 21097.5) { // Changed to else if
+        achievements.halfMarathon += 1;
+      }
+      else if (activity.distance >= 10000) { // Changed to else if and removed upper bound
+        achievements.tenK += 1;
+      }
     }
-    if (activity.distance >= 21097.5) {
-      achievements.halfMarathon += 1;
+
+    // Classify rides separately
+    if (activity.type === 'ride') {
+      if (activity.distance >= 100000) {
+        achievements.centuryRide += 1;
+      }
+      // Add more ride-based achievements if needed
     }
-    if (activity.distance >= 10000 && activity.distance < 21097.5) {
-      achievements.tenK += 1;
-    }
-    if (activity.distance >= 100000) {
-      achievements.centuryRide += 1;
-    }
+
     elevationTotal += activity.total_elevation_gain;
     // Additional conditions for other achievements
   });
@@ -262,6 +275,9 @@ async function displayData(data) {
 
   // Setup timeframe buttons
   setupTimeframeButtons(data.activities);
+
+  // Display the first activity date
+  displayFirstActivityDate(data.activities);
 }
 
 // Function to display achievements
@@ -315,22 +331,21 @@ function formatAchievementName(achievement) {
   }
 }
 
-// Helper function to capitalize first letter
-function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
 // Toggle Achievements Visibility
 let achievementsVisible = false;
 
-document.getElementById('toggle-achievements').addEventListener('click', function () {
-  const achievementsSection = document.querySelector('.achievements-section');
-  if (achievementsSection) {
-    achievementsVisible = !achievementsVisible;
-    achievementsSection.style.display = achievementsVisible ? 'block' : 'none';
-    this.textContent = achievementsVisible ? 'Hide Achievements' : 'Show Achievements';
-  }
-});
+// Ensure a button with id 'toggle-achievements' exists in your HTML
+const toggleAchievementsButton = document.getElementById('toggle-achievements');
+if (toggleAchievementsButton) {
+  toggleAchievementsButton.addEventListener('click', function () {
+    const achievementsSection = document.querySelector('.achievements-section');
+    if (achievementsSection) {
+      achievementsVisible = !achievementsVisible;
+      achievementsSection.style.display = achievementsVisible ? 'block' : 'none';
+      this.textContent = achievementsVisible ? 'Hide Achievements' : 'Show Achievements';
+    }
+  });
+}
 
 function initializeActivitiesDisplay(activities) {
   let currentActivityPage = 1;
@@ -344,13 +359,20 @@ function initializeActivitiesDisplay(activities) {
       activityCard.className = 'activity-card col-md-6';
 
       // Determine activity type for specific labels
-      let activityTypeLabel = '';
-      if (activity.distance >= 42195) {
-        activityTypeLabel = 'Marathon';
-      } else if (activity.distance >= 21097.5) {
-        activityTypeLabel = 'Half Marathon';
-      } else if (activity.distance >= 10000) {
-        activityTypeLabel = '10K Run';
+      let activityTypeLabel = capitalizeFirstLetter(activity.type); // e.g., "Run" or "Ride"
+      if (activity.type === 'run') {
+        if (activity.distance >= 42195) {
+          activityTypeLabel = 'Marathon';
+        } else if (activity.distance >= 21097.5) {
+          activityTypeLabel = 'Half Marathon';
+        } else if (activity.distance >= 10000) {
+          activityTypeLabel = '10K Run';
+        }
+      } else if (activity.type === 'ride') {
+        if (activity.distance >= 100000) {
+          activityTypeLabel = 'Century Ride';
+        }
+        // Add more ride-based labels if needed
       }
 
       // Create activity link
@@ -358,6 +380,7 @@ function initializeActivitiesDisplay(activities) {
 
       activityCard.innerHTML = `
         <h5><a href="${activityLink}" target="_blank">${activity.name}</a></h5>
+        <p><strong>Type:</strong> ${activityTypeLabel}</p>
         <p><strong>Date:</strong> ${new Date(activity.start_date).toLocaleDateString()}</p>
         <p><strong>Distance:</strong> ${(activity.distance / 1000).toFixed(2)} km</p>
         <p><strong>Duration:</strong> ${(activity.moving_time / 60).toFixed(1)} mins</p>
@@ -395,29 +418,6 @@ function initializeActivitiesDisplay(activities) {
   }
 }
 
-// Function to display first activity date
-function displayFirstActivityDate(activities) {
-  if (activities.length > 0) {
-    const firstActivityDate = activities.reduce((earliest, activity) => {
-      const activityDate = new Date(activity.start_date);
-      return activityDate < earliest ? activityDate : earliest;
-    }, new Date(activities[0].start_date));
-
-    document.getElementById('first-activity-date').textContent = firstActivityDate.toLocaleDateString();
-  } else {
-    document.getElementById('first-activity-date').textContent = 'No activities found';
-  }
-}
-
-// Call this function within displayData
-async function displayData(data) {
-  // ... existing code ...
-
-  // Display the first activity date
-  displayFirstActivityDate(data.activities);
-}
-
-
 // Function to setup timeframe buttons for coins
 function setupTimeframeButtons(activities) {
   const buttons = document.querySelectorAll('.timeframe-btn');
@@ -430,6 +430,8 @@ function setupTimeframeButtons(activities) {
 
       const days = parseInt(button.getAttribute('data-days'), 10);
       const coins = calculateCoinsForTimeframe(activities, days);
+      // Update coins display accordingly
+      // Implement the display logic as needed
     });
   });
 
@@ -495,17 +497,17 @@ function displayPersonalRecords(activities) {
     }
 
     // Fastest Marathon
-    if (activity.distance >= 42195 && activity.moving_time < records.fastestMarathon) {
+    if (activity.type === 'run' && activity.distance >= 42195 && activity.moving_time < records.fastestMarathon) {
       records.fastestMarathon = activity.moving_time;
     }
 
     // Fastest Half Marathon
-    if (activity.distance >= 21097.5 && activity.distance < 42195 && activity.moving_time < records.fastestHalfMarathon) {
+    if (activity.type === 'run' && activity.distance >= 21097.5 && activity.distance < 42195 && activity.moving_time < records.fastestHalfMarathon) {
       records.fastestHalfMarathon = activity.moving_time;
     }
 
     // Fastest 10K Run
-    if (activity.distance >= 10000 && activity.distance < 21097.5 && activity.moving_time < records.fastest10k) {
+    if (activity.type === 'run' && activity.distance >= 10000 && activity.distance < 21097.5 && activity.moving_time < records.fastest10k) {
       records.fastest10k = activity.moving_time;
     }
   });
@@ -539,6 +541,9 @@ function calculateCoins(activities) {
       consistency7days: 0,
       elevation1000m: 0,
       kcal1000: 0,
+      ride40km: 0,
+      ride21km: 0,
+      ride42km: 0,
     };
   }
 
@@ -548,39 +553,13 @@ function calculateCoins(activities) {
     consistency7days: 0,
     elevation1000m: 0,
     kcal1000: 0,
+    ride40km: 0,
+    ride21km: 0,
+    ride42km: 0,
   };
 
-  const activityDates = activities.map(activity => new Date(activity.start_date).setHours(0, 0, 0));
+  const activityDates = activities.map(activity => new Date(activity.start_date).setHours(0, 0, 0, 0));
   const uniqueDates = [...new Set(activityDates)];
-
-  // Check for ride 100km
-  activities.forEach(activity => {
-    if (activity.type === 'ride') {
-      if (activity.distance >= 100000) {
-        coins.ride100km += 1;
-      }
-      if (activity.distance >= 40000) {
-        coins.ride40km += 1; // New criteria for 40km
-      }
-      if (activity.distance >= 21097.5) {
-        coins.ride21km += 1; // New criteria for 21km
-      }
-      if (activity.distance >= 42000) {
-        coins.ride42km += 1; // New criteria for 42km
-      }
-    }
-    if (activity.type === 'run') {
-      if (activity.distance >= 10000) {
-        coins.run10k += 1;
-      }
-    }
-    if (activity.elevation_gain >= 1000) {
-      coins.elevation1000m += 1;
-    }
-    if (activity.kilojoules >= 1000) {
-      coins.kcal1000 += 1;
-    }
-  });
 
   // Check for consistency
   const daysLogged = uniqueDates.length;
@@ -588,5 +567,47 @@ function calculateCoins(activities) {
     coins.consistency7days += 1;
   }
 
+  activities.forEach(activity => {
+    if (activity.type === 'ride') {
+      if (activity.distance >= 100000) {
+        coins.ride100km += 1;
+      }
+      else if (activity.distance >= 42000) { // Changed to else if
+        coins.ride42km += 1;
+      }
+      else if (activity.distance >= 40000) { // Changed to else if
+        coins.ride40km += 1;
+      }
+      else if (activity.distance >= 21097.5) { // Changed to else if
+        coins.ride21km += 1;
+      }
+    }
+    if (activity.type === 'run') {
+      if (activity.distance >= 10000) {
+        coins.run10k += 1;
+      }
+    }
+    if (activity.total_elevation_gain >= 1000) {
+      coins.elevation1000m += 1;
+    }
+    if (activity.kilojoules >= 1000) {
+      coins.kcal1000 += 1;
+    }
+  });
+
   return coins;
+}
+
+// Function to display first activity date
+function displayFirstActivityDate(activities) {
+  if (activities.length > 0) {
+    const firstActivityDate = activities.reduce((earliest, activity) => {
+      const activityDate = new Date(activity.start_date);
+      return activityDate < earliest ? activityDate : earliest;
+    }, new Date(activities[0].start_date));
+
+    document.getElementById('first-activity-date').textContent = firstActivityDate.toLocaleDateString();
+  } else {
+    document.getElementById('first-activity-date').textContent = 'No activities found';
+  }
 }

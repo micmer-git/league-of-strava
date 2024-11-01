@@ -111,118 +111,196 @@ function calculateCoinsForTimeframe(activities, days) {
   return totalCoins;
 }
 
-// Function to calculate achievements
-// Function to calculate achievements
+// Update the calculateAchievements function
 function calculateAchievements(activities) {
   const achievements = {
+    // Existing run achievements
     marathon: 0,
     halfMarathon: 0,
     tenK: 0,
     centuryRide: 0,
     climber: 0,
-    consistent: 0,
-    // New Run-based Achievements
     run10k: 0,       // 10km Run (💲)
     run21k: 0,       // 21km Run (🏅)
     run42k: 0,       // 42km Run (🌟)
     weekly30k: 0,    // 30km/Week (💰)
     weekly65k: 0,    // 65km/Week (💎)
+
+    // New ride achievements
+    ride100km: 0,    // 100km Ride (🚴)
+    ride165km: 0,    // 165km Ride (🚴‍♂️)
+    ride250km: 0,    // 250km Ride (🚴‍♂️)
+    weekly300km: 0,  // 300km/Week (🚴)
+    weekly600km: 0,  // 600km/Week (🚴‍♂️)
+
+    // Consistency achievements
+    streak7days: 0,  // 7-day streak (📅)
+    streak14days: 0, // 14-day streak (📅📅)
+    streak30days: 0, // 30-day streak (📅📅📅)
+    streak180days: 0,// Half year streak (🏆)
+    streak365days: 0 // Full year streak (👑)
   };
 
-  let totalRunDistance = 0;
-  let totalWeeklyDistance = 0;
-
-  const activityDates = activities.map((activity) =>
+  // Get all activity dates and sort them
+  const activityDates = activities.map(activity =>
     new Date(activity.start_date).setHours(0, 0, 0, 0)
   );
   const uniqueDates = [...new Set(activityDates)].sort((a, b) => a - b);
 
-  // Check for consistent days
-  let maxConsecutive = 1;
-  let currentConsecutive = 1;
+  // Calculate streaks
+  if (uniqueDates.length > 0) {
+    let currentStreak = 1;
+    let maxStreak = 1;
+    let prevDate = uniqueDates[0];
 
-  for (let i = 1; i < uniqueDates.length; i++) {
-    if (uniqueDates[i] === uniqueDates[i - 1] + 86400000) {
-      currentConsecutive += 1;
-      if (currentConsecutive > maxConsecutive) {
-        maxConsecutive = currentConsecutive;
+    for (let i = 1; i < uniqueDates.length; i++) {
+      const dayDiff = (uniqueDates[i] - prevDate) / (24 * 60 * 60 * 1000);
+
+      if (dayDiff === 1) {
+        currentStreak++;
+        maxStreak = Math.max(maxStreak, currentStreak);
+      } else {
+        currentStreak = 1;
       }
-    } else {
-      currentConsecutive = 1;
+      prevDate = uniqueDates[i];
     }
+
+    // Award streak achievements
+    if (maxStreak >= 365) achievements.streak365days = 1;
+    if (maxStreak >= 180) achievements.streak180days = 1;
+    if (maxStreak >= 30) achievements.streak30days = 1;
+    if (maxStreak >= 14) achievements.streak14days = 1;
+    if (maxStreak >= 7) achievements.streak7days = 1;
   }
 
-  if (maxConsecutive >= 7) achievements.consistent = 1;
+  // Process weekly totals for rides
+  const weeklyRideTotals = new Map(); // Key: week start date, Value: total distance
 
-  // Calculate total run distance and weekly distance
-  activities.forEach((activity) => {
-    // Ensure the activity is a run before classifying
+  activities.forEach(activity => {
+    // Existing run achievements processing
     if (activity.type === 'run') {
-      totalRunDistance += activity.distance;
-
       if (activity.distance >= 42195) {
         achievements.marathon += 1;
+        achievements.run42k += 1;
       } else if (activity.distance >= 21097.5) {
         achievements.halfMarathon += 1;
+        achievements.run21k += 1;
       } else if (activity.distance >= 10000) {
         achievements.tenK += 1;
-        achievements.run10k += 1; // New Achievement
-      }
-
-      if (activity.distance >= 21097.5) {
-        achievements.run21k += 1; // New Achievement
-      }
-
-      if (activity.distance >= 42000) {
-        achievements.run42k += 1; // New Achievement
+        achievements.run10k += 1;
       }
     }
 
-    // Classify rides separately
+    // New ride achievements processing
     if (activity.type === 'ride') {
-      if (activity.distance >= 100000) {
-        achievements.centuryRide += 1;
+      // Single ride achievements
+      if (activity.distance >= 250000) {
+        achievements.ride250km += 1;
       }
-      // Add more ride-based achievements if needed
+      if (activity.distance >= 165000) {
+        achievements.ride165km += 1;
+      }
+      if (activity.distance >= 100000) {
+        achievements.ride100km += 1;
+      }
+
+      // Weekly ride totals
+      const activityDate = new Date(activity.start_date);
+      const weekStart = new Date(activityDate.setDate(activityDate.getDate() - activityDate.getDay()));
+      weekStart.setHours(0, 0, 0, 0);
+      const weekKey = weekStart.toISOString();
+
+      const currentWeekTotal = weeklyRideTotals.get(weekKey) || 0;
+      weeklyRideTotals.set(weekKey, currentWeekTotal + activity.distance);
     }
 
-    // Accumulate for weekly achievements
-    const activityDate = new Date(activity.start_date);
-    const weekStart = new Date(activityDate);
-    weekStart.setDate(activityDate.getDate() - activityDate.getDay()); // Start of the week (Sunday)
-    const weekKey = weekStart.toISOString().split('T')[0];
-
-    if (!achievements.weekly) achievements.weekly = {};
-
-    if (!achievements.weekly[weekKey]) achievements.weekly[weekKey] = 0;
-    achievements.weekly[weekKey] += activity.distance / 1000; // Convert to km
+    // Process elevation achievements
+    if (activity.total_elevation_gain >= 10000) {
+      achievements.climber += Math.floor(activity.total_elevation_gain / 10000);
+    }
   });
 
-  // Calculate weekly achievements based on accumulated weekly distances
-  for (const week in achievements.weekly) {
-    const weeklyDistance = achievements.weekly[week];
-    if (weeklyDistance >= 65) {
-      achievements.weekly65k += 1;
-    } else if (weeklyDistance >= 30) {
-      achievements.weekly30k += 1;
+  // Process weekly ride achievements
+  weeklyRideTotals.forEach((totalDistance) => {
+    if (totalDistance >= 600000) { // 600km
+      achievements.weekly600km += 1;
     }
-  }
-
-  // Remove the temporary weekly data
-  delete achievements.weekly;
-
-  // Climber Achievement based on elevation
-  const elevationTotal = activities.reduce(
-    (sum, activity) => sum + activity.total_elevation_gain,
-    0
-  );
-  if (elevationTotal >= 10000) {
-    achievements.climber = Math.floor(elevationTotal / 10000);
-  }
+    if (totalDistance >= 300000) { // 300km
+      achievements.weekly300km += 1;
+    }
+  });
 
   return achievements;
 }
 
+// Update the getAchievementEmoji function
+function getAchievementEmoji(achievement) {
+  const emojiMap = {
+    // Existing achievements
+    marathon: '🏃‍♂️',
+    halfMarathon: '🏃‍♂️',
+    tenK: '🏃‍♂️',
+    centuryRide: '🚴‍♂️',
+    climber: '🏔️',
+
+    // New ride achievements
+    ride100km: '💲',
+    ride165km: '🏅',
+    ride250km: '🌟',
+    weekly300km: '💰',
+    weekly600km: '👑',
+
+    // Streak achievements
+    streak7days: '💲',
+    streak14days: '🏅',
+    streak30days: '🌟',
+    streak180days: '💰',
+    streak365days: '👑'
+  };
+  return emojiMap[achievement] || '🏅';
+}
+
+
+// Update the formatAchievementName function
+function formatAchievementName(achievement) {
+  const nameMap = {
+    halfMarathon: 'Half Marathon',
+    tenK: '10K Run',
+    ride100km: '100km Ride',
+    ride165km: '165km Ride',
+    ride250km: '250km Ride',
+    weekly300km: '300km Week',
+    weekly600km: '600km Week',
+    streak7days: '7-Day Streak',
+    streak14days: '14-Day Streak',
+    streak30days: '30-Day Streak',
+    streak180days: 'Half Year Streak',
+    streak365days: 'Year Streak'
+  };
+  return nameMap[achievement] || achievement.charAt(0).toUpperCase() + achievement.slice(1);
+}
+
+// Add this function before the rankConfig definition
+function getLifetimeStats(totals, weeklyTotals) {
+  const EVEREST_HEIGHT = 8848; // meters
+  const DISTANCE_MILESTONE = 100000; // 100km per icon
+  const CALORIE_MILESTONE = 1000; // 1000kcal per icon
+
+  return {
+    distance: {
+      icons: '🚴‍♂️'.repeat(Math.floor(totals.distance / DISTANCE_MILESTONE)) || '🚴‍♂️',
+      weekGain: `${(totals.distance / 1000).toFixed(1)} km total`
+    },
+    elevation: {
+      icons: '🏔️'.repeat(Math.floor(totals.elevation_gain / EVEREST_HEIGHT)) || '🏔️',
+      weekGain: `${(totals.elevation_gain / EVEREST_HEIGHT).toFixed(2)} × Everest`
+    },
+    calories: {
+      icons: '🍕'.repeat(Math.floor(totals.calories / CALORIE_MILESTONE)) || '🍕',
+      weekGain: `${totals.calories.toFixed(0)} kcal total`
+    }
+  };
+}
 
 // Function to process and display data
 async function displayData(data) {
@@ -414,7 +492,9 @@ function initializeActivitiesDisplay(activities) {
 
       // Highlight top activities
       const highlightClass = isTop ? 'border-success' : '';
-      activityCard.classList.add(highlightClass);
+      if (highlightClass) {
+        activityCard.classList.add(highlightClass);
+      }
 
       activityCard.innerHTML = `
         <h5><a href="${activityLink}" target="_blank">${activity.name}</a></h5>

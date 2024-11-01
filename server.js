@@ -11,14 +11,6 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 
 const PORT = process.env.PORT || 3000;
 
-// Predefined list of segments (Replace with your actual segments)
-const segmentsList = [
-  { name: 'Segment One', id: 1234567 },
-  { name: 'Segment Two', id: 2345678 },
-  { name: 'Segment Three', id: 3456789 },
-  // Add more segments as needed
-];
-
 // Routes
 
 // Serve the landing page
@@ -35,7 +27,7 @@ app.get('/auth/strava', (req, res) => {
     redirect_uri: `${process.env.BASE_URL}/auth/strava/callback`,
     response_type: 'code',
     approval_prompt: 'auto',
-    scope: 'read,activity:read_all', // Corrected scope
+    scope: 'read,activity:read_all',
   });
 
   const authUrl = `https://www.strava.com/oauth/authorize?${params.toString()}`;
@@ -176,97 +168,6 @@ function calculateTotals(activities) {
   return totals;
 }
 
-// ----------------- New Implementation Starts Here -----------------
-
-// Helper function to get the athlete ID from Strava data
-async function getAthleteId(accessToken) {
-  try {
-    const athleteResponse = await axios.get('https://www.strava.com/api/v3/athlete', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    return athleteResponse.data.id;
-  } catch (error) {
-    console.error('Error fetching athlete ID:', error.response ? error.response.data : error.message);
-    return null;
-  }
-}
-
-// Helper function to get the number of times an athlete has completed a segment
-async function getSegmentCompletionCount(segmentId, athleteId, accessToken) {
-  try {
-    let page = 1;
-    const per_page = 200;
-    let totalCompletions = 0;
-    let moreData = true;
-
-    while (moreData) {
-      const effortsResponse = await axios.get(`https://www.strava.com/api/v3/segments/${segmentId}/all_efforts`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: {
-          per_page,
-          page,
-        },
-      });
-
-      const efforts = effortsResponse.data;
-
-      // Filter efforts by athlete ID
-      const athleteEfforts = efforts.filter(effort => effort.athlete && effort.athlete.id === athleteId);
-      totalCompletions += athleteEfforts.length;
-
-      // If fewer than per_page efforts are returned, we've reached the last page
-      if (efforts.length < per_page) {
-        moreData = false;
-      } else {
-        page += 1;
-      }
-    }
-
-    return totalCompletions;
-  } catch (error) {
-    console.error(`Error fetching efforts for segment ${segmentId}:`, error.response ? error.response.data : error.message);
-    return 0; // Return 0 if there's an error
-  }
-}
-
-// New API endpoint to get segment completions
-app.post('/api/segment-completions', async (req, res) => {
-  console.log('Received request for segment completions');
-
-  const accessToken = req.cookies.strava_token;
-
-  if (!accessToken) {
-    console.warn('No access token found in cookies');
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  try {
-    // Get athlete ID
-    const athleteId = await getAthleteId(accessToken);
-    if (!athleteId) {
-      return res.status(500).json({ error: 'Failed to retrieve athlete ID' });
-    }
-
-    // Fetch completion counts for each segment
-    const segmentCompletionsPromises = segmentsList.map(async (segment) => {
-      const completions = await getSegmentCompletionCount(segment.id, athleteId, accessToken);
-      return {
-        name: segment.name,
-        id: segment.id,
-        completions: completions,
-      };
-    });
-
-    const segmentCompletions = await Promise.all(segmentCompletionsPromises);
-
-    res.json({ segmentCompletions });
-  } catch (error) {
-    console.error('Error fetching segment completions:', error.response ? error.response.data : error.message);
-    res.status(500).json({ error: 'Failed to fetch segment completions' });
-  }
-});
-
-// ------------------ New Implementation Ends Here ------------------
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

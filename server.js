@@ -13,9 +13,7 @@ const PORT = process.env.PORT || 3000;
 
 // Predefined list of segments (Replace with your actual segments)
 const segmentsList = [
-  { name: 'Segment One', id: 1234567 },
-  { name: 'Segment Two', id: 2345678 },
-  { name: 'Segment Three', id: 3456789 },
+  { name: 'Selvino', id: 14418673 },
   // Add more segments as needed
 ];
 
@@ -35,7 +33,7 @@ app.get('/auth/strava', (req, res) => {
     redirect_uri: `${process.env.BASE_URL}/auth/strava/callback`,
     response_type: 'code',
     approval_prompt: 'auto',
-    scope: 'read,activity:read_all', // Corrected scope
+    scope: 'read,activity:read_all,segments:read_all',
   });
 
   const authUrl = `https://www.strava.com/oauth/authorize?${params.toString()}`;

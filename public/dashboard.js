@@ -112,6 +112,7 @@ function calculateCoinsForTimeframe(activities, days) {
 }
 
 // Function to calculate achievements
+// Function to calculate achievements
 function calculateAchievements(activities) {
   const achievements = {
     marathon: 0,
@@ -120,10 +121,17 @@ function calculateAchievements(activities) {
     centuryRide: 0,
     climber: 0,
     consistent: 0,
-    // Add more achievements as needed
+    // New Run-based Achievements
+    run10k: 0,       // 10km Run (💲)
+    run21k: 0,       // 21km Run (🏅)
+    run42k: 0,       // 42km Run (🌟)
+    weekly30k: 0,    // 30km/Week (💰)
+    weekly65k: 0,    // 65km/Week (💎)
   };
 
-  let elevationTotal = 0;
+  let totalRunDistance = 0;
+  let totalWeeklyDistance = 0;
+
   const activityDates = activities.map((activity) =>
     new Date(activity.start_date).setHours(0, 0, 0, 0)
   );
@@ -146,17 +154,27 @@ function calculateAchievements(activities) {
 
   if (maxConsecutive >= 7) achievements.consistent = 1;
 
+  // Calculate total run distance and weekly distance
   activities.forEach((activity) => {
     // Ensure the activity is a run before classifying
     if (activity.type === 'run') {
+      totalRunDistance += activity.distance;
+
       if (activity.distance >= 42195) {
         achievements.marathon += 1;
-      }
-      else if (activity.distance >= 21097.5) { // Changed to else if
+      } else if (activity.distance >= 21097.5) {
         achievements.halfMarathon += 1;
-      }
-      else if (activity.distance >= 10000) { // Changed to else if and removed upper bound
+      } else if (activity.distance >= 10000) {
         achievements.tenK += 1;
+        achievements.run10k += 1; // New Achievement
+      }
+
+      if (activity.distance >= 21097.5) {
+        achievements.run21k += 1; // New Achievement
+      }
+
+      if (activity.distance >= 42000) {
+        achievements.run42k += 1; // New Achievement
       }
     }
 
@@ -168,10 +186,36 @@ function calculateAchievements(activities) {
       // Add more ride-based achievements if needed
     }
 
-    elevationTotal += activity.total_elevation_gain;
-    // Additional conditions for other achievements
+    // Accumulate for weekly achievements
+    const activityDate = new Date(activity.start_date);
+    const weekStart = new Date(activityDate);
+    weekStart.setDate(activityDate.getDate() - activityDate.getDay()); // Start of the week (Sunday)
+    const weekKey = weekStart.toISOString().split('T')[0];
+
+    if (!achievements.weekly) achievements.weekly = {};
+
+    if (!achievements.weekly[weekKey]) achievements.weekly[weekKey] = 0;
+    achievements.weekly[weekKey] += activity.distance / 1000; // Convert to km
   });
 
+  // Calculate weekly achievements based on accumulated weekly distances
+  for (const week in achievements.weekly) {
+    const weeklyDistance = achievements.weekly[week];
+    if (weeklyDistance >= 65) {
+      achievements.weekly65k += 1;
+    } else if (weeklyDistance >= 30) {
+      achievements.weekly30k += 1;
+    }
+  }
+
+  // Remove the temporary weekly data
+  delete achievements.weekly;
+
+  // Climber Achievement based on elevation
+  const elevationTotal = activities.reduce(
+    (sum, activity) => sum + activity.total_elevation_gain,
+    0
+  );
   if (elevationTotal >= 10000) {
     achievements.climber = Math.floor(elevationTotal / 10000);
   }
@@ -179,27 +223,6 @@ function calculateAchievements(activities) {
   return achievements;
 }
 
-// Function to get lifetime stats icons and counts
-function getLifetimeStats(totals, weeklyTotals) {
-  const stats = {};
-
-  // Distance
-  const totalDistanceIcons = Math.floor(totals.distance / 100000); // 100km per icon
-  const weeklyDistanceIcons = Math.floor(weeklyTotals.distance / 100000);
-  stats.distance = { icons: totalDistanceIcons, weekGain: weeklyDistanceIcons };
-
-  // Elevation
-  const totalElevationGems = Math.floor(totals.elevation / 1000); // 1000m per gem
-  const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 1000);
-  stats.elevation = { icons: totalElevationGems, weekGain: weeklyElevationGems };
-
-  // Calories
-  const totalPizzas = Math.floor(totals.calories / 1000); // 1000kcal per pizza
-  const weeklyPizzas = Math.floor(weeklyTotals.calories / 1000);
-  stats.calories = { icons: totalPizzas, weekGain: weeklyPizzas };
-
-  return stats;
-}
 
 // Function to process and display data
 async function displayData(data) {
@@ -357,8 +380,14 @@ function initializeActivitiesDisplay(activities) {
   let currentActivityPage = 1;
   const activitiesPerPage = 20;
 
-  function displayActivities(activitiesToDisplay) {
+  // Sort activities by distance in descending order to identify top activities
+  const sortedActivities = [...activities].sort((a, b) => b.distance - a.distance);
+  const topActivities = sortedActivities.slice(0, 5); // Top 5 activities
+
+  function displayActivities(activitiesToDisplay, isTop = false) {
     const activitiesContainer = document.getElementById('activities-container');
+    activitiesContainer.innerHTML = ''; // Clear existing activities
+
     activitiesToDisplay.forEach((activity) => {
       const activityCard = document.createElement('div');
       activityCard.className = 'activity-card col-md-6';
@@ -383,6 +412,10 @@ function initializeActivitiesDisplay(activities) {
       // Create activity link
       const activityLink = `https://www.strava.com/activities/${activity.id}`;
 
+      // Highlight top activities
+      const highlightClass = isTop ? 'border-success' : '';
+      activityCard.classList.add(highlightClass);
+
       activityCard.innerHTML = `
         <h5><a href="${activityLink}" target="_blank">${activity.name}</a></h5>
         <p><strong>Type:</strong> ${activityTypeLabel}</p>
@@ -395,12 +428,19 @@ function initializeActivitiesDisplay(activities) {
     });
   }
 
-  // Initial load
+  // Display Top Activities
+  const topActivitiesContainer = document.createElement('div');
+  topActivitiesContainer.className = 'top-activities-section mb-4';
+  topActivitiesContainer.innerHTML = '<h3>Top Activities</h3>';
+  document.getElementById('dashboard-container').prepend(topActivitiesContainer);
+
+  displayActivities(topActivities, true); // Display top activities with highlighting
+
+  // Initial load for all activities
   const initialActivities = activities.slice(0, activitiesPerPage);
   displayActivities(initialActivities);
-
-
 }
+
 
 // Function to setup timeframe buttons for coins
 function setupTimeframeButtons(activities) {

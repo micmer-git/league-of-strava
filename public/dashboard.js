@@ -266,8 +266,8 @@ function getLifetimeStats(totals, weeklyTotals) {
   stats.distance = { icons: totalDistanceIcons, weekGain: weeklyDistanceIcons };
 
   // Elevation
-  const totalElevationGems = Math.floor(totals.elevation / 1000); // 1000m per gem
-  const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 1000);
+  const totalElevationGems = Math.floor(totals.elevation / 8868); // Everest per gem
+  const weeklyElevationGems = Math.floor(weeklyTotals.elevation / 8868);
   stats.elevation = { icons: totalElevationGems, weekGain: weeklyElevationGems };
 
   // Calories

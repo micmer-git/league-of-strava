@@ -492,7 +492,9 @@ function initializeActivitiesDisplay(activities) {
 
       // Highlight top activities
       const highlightClass = isTop ? 'border-success' : '';
-      activityCard.classList.add(highlightClass);
+      if (highlightClass) {
+        activityCard.classList.add(highlightClass);
+      }
 
       activityCard.innerHTML = `
         <h5><a href="${activityLink}" target="_blank">${activity.name}</a></h5>

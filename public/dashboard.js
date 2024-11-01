@@ -376,6 +376,28 @@ function capitalizeFirstLetter(string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
+// Add this function before the rankConfig definition
+function getLifetimeStats(totals, weeklyTotals) {
+  const EVEREST_HEIGHT = 8848; // meters
+  const DISTANCE_MILESTONE = 100000; // 100km per icon
+  const CALORIE_MILESTONE = 1000; // 1000kcal per icon
+
+  return {
+    distance: {
+      icons: '🚴‍♂️'.repeat(Math.floor(totals.distance / DISTANCE_MILESTONE)) || '🚴‍♂️',
+      weekGain: ${(totals.distance / 1000).toFixed(1)} km total
+    },
+    elevation: {
+      icons: '🏔️'.repeat(Math.floor(totals.elevation_gain / EVEREST_HEIGHT)) || '🏔️',
+      weekGain: ${(totals.elevation_gain / EVEREST_HEIGHT).toFixed(2)} × Everest
+    },
+    calories: {
+      icons: '🍕'.repeat(Math.floor(totals.calories / CALORIE_MILESTONE)) || '🍕',
+      weekGain: ${totals.calories.toFixed(0)} kcal total
+    }
+  };
+}
+
 function initializeActivitiesDisplay(activities) {
   let currentActivityPage = 1;
   const activitiesPerPage = 20;

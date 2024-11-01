@@ -1,196 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Your Enhanced Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Bootstrap CSS for modern styling -->
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <!-- Font Awesome for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="styles.css">
-  <style>
-    /* Custom styles for slider */
-    .coin-slider {
-      display: flex;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-    }
-    .coin-card {
-      flex: 0 0 auto;
-      width: 200px;
-      margin-right: 15px;
-      padding: 15px;
-      background-color: #f8f9fa;
-      border-radius: 8px;
-      text-align: center;
-      scroll-snap-align: start;
-    }
-    .achievement-card, .activity-card {
-      background-color: #ffffff;
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 15px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .personal-records .record-item {
-      margin-bottom: 15px;
-    }
-    .timeframe-buttons .btn {
-      margin-right: 10px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strava Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-  <div id="dashboard-container" class="container-fluid">
-    <!-- Loading Indicator -->
-    <div id="loading" class="text-center my-4">Loading your dashboard...</div>
-
-    <!-- Top Section: Rank and Lifetime Stats -->
-<div class="row mt-4" id="top-section" style="display: none;">
-  <!-- Rank Section -->
-  <div class="col-md-6">
-    <div class="rank-section">
-      <div class="rank-title h4">Current Rank: <span id="current-rank"></span></div>
-      <div class="rank-emoji display-1" id="rank-emoji">🥉</div>
-      <div class="progress-container position-relative my-3">
-        <div class="d-flex justify-content-between">
-          <span id="current-rank-label"></span>
-          <span id="next-rank-label"></span>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Optional: Error Message -->
+        <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4">
+            Failed to load data. Please try again later.
         </div>
-        <div class="progress">
-          <div class="progress-bar" id="progress-bar" role="progressbar" style="width: 0%;"></div>
+
+        <!-- Top Section: User Info and Coins -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- User Profile -->
+            <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+                <div class="flex items-center space-x-4">
+                    <img id="athlete-avatar" src="" alt="Athlete Avatar" class="w-16 h-16 rounded-full">
+                    <div>
+                        <h2 id="athlete-name" class="text-2xl font-bold"></h2>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h3 class="text-lg font-semibold mb-2">Ranking</h3>
+                    <div class="w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700">
+                        <div id="ranking-progress" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between mt-2">
+                        <span id="current-rank" class="text-sm font-medium">Bronze 3</span>
+                        <span id="level-progress" class="text-sm font-medium">Level 0/100</span>
+                    </div>
+                    <!-- Added rank-details element -->
+                    <div id="rank-details" class="text-sm text-gray-500 mt-2"></div>
+                </div>
+            </div>
+
+            <!-- Coins Section -->
+            <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+                <h3 class="text-xl font-bold mb-4">Achievement Coins</h3>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-green-50 p-3 rounded-lg flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm text-green-600">🏔️ Everest Coins</h4>
+                            <span id="everest-coins" class="text-2xl font-bold text-green-800">-</span>
+                            <span id="everest-coins-recent" class="text-xs text-green-600">+0 (7d)</span>
+
+                        </div>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-lg flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm text-blue-600">❤️ Heartbeat Coins</h4>
+                            <span id="heartbeat-coins" class="text-2xl font-bold text-blue-800">-</span>
+                            <span id="heartbeat-coins-recent" class="text-xs text-blue-600">+0 (7d)</span>
+
+                        </div>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded-lg flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm text-red-600">🍕 Pizza Coins</h4>
+                            <span id="pizza-coins" class="text-2xl font-bold text-red-800">-</span>
+                            <span id="pizza-coins-recent" class="text-xs text-red-600">+0 (7d)</span>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      <div class="rank-details">
-        <span>Points: <strong id="current-points"></strong> / <strong id="next-rank-points"></strong> hrs for next rank</span>
-      </div>
-      <!-- First Activity Date -->
-      <div class="first-activity-date">
-        First Activity Date: <span id="first-activity-date">--/--/----</span>
-      </div>
-    </div>
-  </div>
 
-  <!-- Lifetime Stats -->
-  <div class="col-md-6">
-    <div class="lifetime-stats">
-      <div class="stat-item text-center">
-        <div class="icon gem-icon" title="Elevation Gem: 1000m per gem">🏔️</div>
-        <div class="value" id="elevation-value">--</div>
-        <div class="week-gain text-success" id="elevation-week-gain">+-- this week</div>
-      </div>
-      <div class="stat-item text-center">
-        <div class="icon pizza-icon" title="Pizza: 1000kcal per pizza">🍕</div>
-        <div class="value" id="calories-value">--</div>
-        <div class="week-gain text-success" id="calories-week-gain">+-- this week</div>
-      </div>
-      <div class="stat-item text-center">
-        <div class="icon distance-icon" title="Distance: 100km per icon">🚴‍♂️</div>
-        <div class="value" id="distance-value">--</div>
-        <div class="week-gain text-success" id="distance-week-gain">+-- this week</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-    <!-- Load More Button
-    <button id="load-more-button" class="btn btn-secondary my-4" style="display: none;">Load More</button>
-    -->
-
-
-
-    <!-- Achievements Section -->
-    <div class="achievements-section mt-4" style="display: none;">
-      <h2>Achievements</h2>
-      <div id="achievements-container" class="row"></div>
-    </div>
-
-
-    <!-- Top Activities Section -->
-    <div class="top-activities-section mb-4">
-      <!-- Top activities will be prepended here by JavaScript -->
-    </div>
-
-<!-- Personal Records Section -->
-<div class="personal-records mt-4" style="display: none;">
-  <h2>Personal Records</h2>
-  <div class="row">
-    <div class="record-item col-md-4">
-      <h5>Max Elevation Gain</h5>
-      <p id="max-elevation">-- m</p>
-    </div>
-    <div class="record-item col-md-4">
-      <h5>Max Distance</h5>
-      <p id="max-distance">-- km</p>
-    </div>
-    <div class="record-item col-md-4">
-      <h5>Max Speed</h5>
-      <p id="max-speed">-- km/h</p>
-    </div>
-    <div class="record-item col-md-4">
-      <h5>Fastest Marathon</h5>
-      <p id="fastest-marathon">--:--:--</p>
-    </div>
-    <div class="record-item col-md-4">
-      <h5>Fastest Half Marathon</h5>
-      <p id="fastest-half-marathon">--:--:--</p>
-    </div>
-    <div class="record-item col-md-4">
-      <h5>Fastest 10K Run</h5>
-      <p id="fastest-10k">--:--:--</p>
-    </div>
-  </div>
-</div>
-
-    <!-- Weekly Stats -->
-    <div class="weekly-stats mt-4" style="display: none;">
-      <h2>Weekly Stats</h2>
-      <div class="row">
-        <div class="stat-card col-6 col-md-3 text-center">
-          <h3>Total Hours</h3>
-          <p id="weekly-hours">-- hrs</p>
+        <!-- Achievement Wallet -->
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
+            <h3 class="text-xl font-bold mb-4">Achievement Wallet</h3>
+            <div id="achievement-wallet" class="grid grid-cols-3 md:grid-cols-3 gap-4">
+                <!-- Achievements will be dynamically populated -->
+            </div>
         </div>
-        <div class="stat-card col-6 col-md-3 text-center">
-          <h3>Total Distance</h3>
-          <p id="weekly-distance">-- km</p>
+
+        <!-- Best Activities -->
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+            <h3 class="text-xl font-bold mb-4">Top Performances</h3>
+            <div id="best-activities" class="space-y-4">
+                <!-- Best activities will be dynamically populated -->
+            </div>
         </div>
-        <div class="stat-card col-6 col-md-3 text-center">
-          <h3>Total Elevation Gain</h3>
-          <p id="weekly-elevation">-- m</p>
-        </div>
-        <div class="stat-card col-6 col-md-3 text-center">
-          <h3>Total Calories Burned</h3>
-          <p id="weekly-calories">-- kcal</p>
-        </div>
-      </div>
     </div>
 
-
-    <!-- Races Section -->
-    <div class="races-section mt-4" style="display: none;">
-      <h2>Activities</h2>
-      <div id="races-container" class="row"></div>
-    </div>
-
-
-    <!-- Activities Container -->
-    <div id="activities-container" class="row">
-      <!-- Activities will be appended here -->
-    </div>
-  </div>
-
-  <!-- Bootstrap JS and dependencies -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- Popper.js for Bootstrap -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
-  <!-- Bootstrap JS -->
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-  <!-- Custom JS -->
-  <script src="dashboard.js"></script>
+    <script src="/dashboard.js"></script>
 </body>
 </html>

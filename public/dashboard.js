@@ -38,8 +38,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await response.json();
 
         // User Profile
-        document.getElementById('athlete-name').textContent = `${data.athlete.firstname} ${data.athlete.lastname}`;
-        document.getElementById('athlete-avatar').src = data.athlete.profile || '/default-avatar.png';
+        const athleteNameElement = document.getElementById('athlete-name');
+        const athleteAvatarElement = document.getElementById('athlete-avatar');
+
+        if (athleteNameElement && athleteAvatarElement) {
+            athleteNameElement.textContent = `${data.athlete.firstname} ${data.athlete.lastname}`;
+            athleteAvatarElement.src = data.athlete.profile || '/default-avatar.png';
+        }
 
         // Ranking System
         const rankConfig = [
@@ -91,13 +96,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             : 100;
 
         // Update the ranking progress bar
-        document.getElementById('current-rank').textContent = `${currentRank.emoji} ${currentRank.name}`;
+        const currentRankElement = document.getElementById('current-rank');
+        const rankingProgressElement = document.getElementById('ranking-progress');
+        const rankDetailsElement = document.getElementById('rank-details');
+        const levelProgressElement = document.getElementById('level-progress');
 
-        document.getElementById('ranking-progress').style.width = `${Math.min(progressPercentage, 100)}%`;
-        document.getElementById('rank-details').textContent = nextRank
-            ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs | Next: ${nextRank.name}`
-            : `${totalHours.toFixed(1)} hrs | Max Rank Achieved!`;
-        document.getElementById('level-progress').textContent = `Level ${Math.min(Math.floor(totalHours / 20), 100)}/100`;
+        if (currentRankElement) {
+            currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
+        }
+
+        if (rankingProgressElement) {
+            rankingProgressElement.style.width = `${Math.min(progressPercentage, 100)}%`;
+        }
+
+        if (rankDetailsElement) {
+            rankDetailsElement.textContent = nextRank
+                ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs | Next: ${nextRank.name}`
+                : `${totalHours.toFixed(1)} hrs | Max Rank Achieved!`;
+        }
+
+        if (levelProgressElement) {
+            levelProgressElement.textContent = `Level ${Math.min(Math.floor(totalHours / 20), 100)}/100`;
+        }
 
         // Coin Configuration
         const coinConfig = {
@@ -127,6 +147,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     { metric: 'calories', threshold: 7500, emoji: '👑', name: 'Metabolic Master' }
                 ],
                 ultraWeekly: { metric: 'calories', threshold: 12000, emoji: '💎' }
+            },
+            'Segment': { // New category for Segment Completions
+                lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
+                weekly: { metric: 'segmentCompletions', threshold: 5, emoji: '💰' },
+                milestone: [
+                    { metric: 'segmentCompletions', threshold: 10, emoji: '🔰', name: '10 Completions' },
+                    { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions' },
+                    { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions' }
+                ],
+                ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '🏆' } // Optional: Add '🏆' if desired
             }
         };
 
@@ -136,7 +166,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             '💰': 0,
             '🔰': 0,
             '💎': 0,
-            '👑': 0
+            '👑': 0,
+            '🏆': 0 // Include if using for ultraWeekly
         };
 
         // Calculate date range for weekly data
@@ -150,70 +181,93 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return activity.distance ? activity.distance / 1000 : 0; // Convert meters to kilometers
             } else if (metric === 'calories') {
                 return activity.kilojoules ? activity.kilojoules / 4.184 : 0; // Convert kJ to kcal
+            } else if (metric === 'segmentCompletions') {
+                return data.segmentCompletions || 0; // Directly use the segment completions
             }
             return 0;
         };
 
-        // Calculate coins based on activities
+        // Calculate coins based on activities and segments
         Object.entries(coinConfig).forEach(([type, config]) => {
-            const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
+            if (type === 'Segment') {
+                // Handle Segment Completions
+                const completions = data.segmentCompletions || 0;
 
-            // Lifetime Coins
-            if (config.lifetime.metric === 'distance') {
-                const totalDistance = activities.reduce((sum, a) => sum + getMetricValue(a, 'distance'), 0);
-                coins[config.lifetime.emoji] += Math.floor(totalDistance / config.lifetime.threshold);
-            } else if (config.lifetime.metric === 'calories') {
-                const totalCalories = activities.reduce((sum, a) => sum + getMetricValue(a, 'calories'), 0);
-                coins[config.lifetime.emoji] += Math.floor(totalCalories / config.lifetime.threshold);
-            }
+                // Lifetime Coins
+                if (config.lifetime.metric === 'segmentCompletions') {
+                    coins[config.lifetime.emoji] += Math.floor(completions / config.lifetime.threshold);
+                }
 
-            // Weekly Coins
-            const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
-            let weeklyTotal = 0;
-            weeklyActivities.forEach(activity => {
-                weeklyTotal += getMetricValue(activity, config.weekly.metric);
-            });
+                // Weekly Coins
+                if (config.weekly.metric === 'segmentCompletions') {
+                    // Assuming segment completions are cumulative and not time-bound
+                    // If you have weekly segment completions, adjust accordingly
+                    coins[config.weekly.emoji] += Math.floor(completions / config.weekly.threshold);
+                }
 
-            if (weeklyTotal >= config.weekly.threshold) {
-                coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
-            }
-
-            // Milestone Coins
-            config.milestone.forEach(milestone => {
-                let milestoneCount = 0;
-                activities.forEach(activity => {
-                    if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
-                        milestoneCount++;
+                // Milestone Coins
+                config.milestone.forEach(milestone => {
+                    if (completions >= milestone.threshold) {
+                        coins[milestone.emoji]++;
                     }
                 });
-                coins[milestone.emoji] += milestoneCount;
-            });
 
-            // Ultra Weekly Coins
-            let ultraWeeklyTotal = 0;
-            weeklyActivities.forEach(activity => {
-                ultraWeeklyTotal += getMetricValue(activity, config.ultraWeekly.metric);
-            });
+                // Ultra Weekly Coins
+                if (config.ultraWeekly.metric === 'segmentCompletions') {
+                    coins[config.ultraWeekly.emoji] += Math.floor(completions / config.ultraWeekly.threshold);
+                }
 
-            if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
-                coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
+            } else {
+                // Handle Run, Ride, and kcal
+                const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
+
+                // Lifetime Coins
+                if (config.lifetime.metric === 'distance' || config.lifetime.metric === 'calories') {
+                    const totalMetric = activities.reduce((sum, a) => sum + getMetricValue(a, config.lifetime.metric), 0);
+                    coins[config.lifetime.emoji] += Math.floor(totalMetric / config.lifetime.threshold);
+                }
+
+                // Weekly Coins
+                const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
+                const weeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.weekly.metric), 0);
+
+                if (weeklyTotal >= config.weekly.threshold) {
+                    coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
+                }
+
+                // Milestone Coins
+                config.milestone.forEach(milestone => {
+                    let milestoneCount = 0;
+                    activities.forEach(activity => {
+                        if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
+                            milestoneCount++;
+                        }
+                    });
+                    coins[milestone.emoji] += milestoneCount;
+                });
+
+                // Ultra Weekly Coins
+                const ultraWeeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.ultraWeekly.metric), 0);
+                if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
+                    coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
+                }
             }
         });
 
         // Animate Coin Counts
         const animateCount = (elementId, start, end, duration) => {
-            if (!document.getElementById(elementId)) return;
+            const element = document.getElementById(elementId);
+            if (!element) return;
             let current = start;
             const range = end - start;
             if (range === 0) {
-                document.getElementById(elementId).textContent = end;
+                element.textContent = end;
                 return;
             }
             const stepTime = Math.abs(Math.floor(duration / range));
-            const obj = document.getElementById(elementId);
             const timer = setInterval(() => {
                 current += range > 0 ? 1 : -1;
-                obj.textContent = current;
+                element.textContent = current;
                 if (current === end) {
                     clearInterval(timer);
                 }
@@ -227,7 +281,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 '💰': 'coin-money',
                 '🔰': 'coin-bootstrap',
                 '💎': 'coin-diamond',
-                '👑': 'coin-king'
+                '👑': 'coin-king',
+                '🏆': 'coin-trophy' // Ensure you have this ID in your HTML if using '🏆'
             }[emoji];
             if (elementId) {
                 animateCount(elementId, 0, count, 1000);
@@ -256,6 +311,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 { metric: 'calories', threshold: 3000, emoji: '🔰', name: 'Metabolism Boost', description: 'Burn 3000 kcal' },
                 { metric: 'calories', threshold: 12000, emoji: '💎', name: 'Ultra Week', description: 'Burn 12000 kcal in a week' },
                 { metric: 'calories', threshold: 7500, emoji: '👑', name: 'Metabolic Master', description: 'Burn 7500 kcal' }
+            ],
+            'Segment': [ // New category for Segment Completions
+                { metric: 'segmentCompletions', threshold: 10, emoji: '🔰', name: '10 Completions', description: 'Complete the segment 10 times' },
+                { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions', description: 'Complete the segment 20 times' },
+                { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions', description: 'Complete the segment 30 times' }
             ]
         };
 
@@ -273,10 +333,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         // Display the oldest activity date
-        const oldestActivityElement = document.createElement('div');
-        oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
-        oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
-        document.getElementById('rank-details').appendChild(oldestActivityElement);
+        const rankDetailsElementDiv = document.getElementById('rank-details');
+        if (rankDetailsElementDiv) {
+            const oldestActivityElement = document.createElement('div');
+            oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
+            oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
+            rankDetailsElementDiv.appendChild(oldestActivityElement);
+        }
 
         // Configure best activities
         const bestActivities = [
@@ -308,88 +371,112 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Update Achievement Wallet
         const walletContainer = document.getElementById('achievement-wallet');
-        walletContainer.innerHTML = '';
+        if (walletContainer) {
+            walletContainer.innerHTML = '';
 
-        Object.entries(achievementsConfig).forEach(([type, achievements]) => {
-            const typeSection = document.createElement('div');
-            typeSection.className = 'mb-6';
+            Object.entries(achievementsConfig).forEach(([type, achievements]) => {
+                const typeSection = document.createElement('div');
+                typeSection.className = 'mb-6';
 
-            const typeHeader = document.createElement('h3');
-            typeHeader.className = 'text-lg font-bold mb-2';
-            typeHeader.textContent = `${type}`;
-            typeSection.appendChild(typeHeader);
+                const typeHeader = document.createElement('h3');
+                typeHeader.className = 'text-lg font-bold mb-2';
+                typeHeader.textContent = `${type}`;
+                typeSection.appendChild(typeHeader);
 
-            achievements.forEach(achievement => {
-                let earned = 0;
-                if (achievement.metric === 'distance') {
-                    earned = data.activities.filter(a =>
-                        a.type.toUpperCase() === type.toUpperCase() &&
-                        (a.distance / 1000) >= achievement.threshold
-                    ).length;
-                } else if (achievement.metric === 'calories') {
-                    earned = data.activities.filter(a =>
-                        a.type.toUpperCase() === type.toUpperCase() &&
-                        (a.kilojoules / 4.184) >= achievement.threshold
-                    ).length;
-                }
+                achievements.forEach(achievement => {
+                    let earned = 0;
+                    if (achievement.metric === 'distance') {
+                        earned = data.activities.filter(a =>
+                            a.type.toUpperCase() === type.toUpperCase() &&
+                            (a.distance / 1000) >= achievement.threshold
+                        ).length;
+                    } else if (achievement.metric === 'calories') {
+                        earned = data.activities.filter(a =>
+                            a.type.toUpperCase() === type.toUpperCase() &&
+                            (a.kilojoules / 4.184) >= achievement.threshold
+                        ).length;
+                    } else if (achievement.metric === 'segmentCompletions') {
+                        earned = Math.floor(data.segmentCompletions / achievement.threshold);
+                    }
 
-                if (earned > 0) {
-                    const card = document.createElement('div');
-                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-2 flex items-center justify-between cursor-help';
-                    card.title = `${achievement.name}\n${achievement.description}\nEarned: ${earned} times`;
+                    if (earned > 0) {
+                        const card = document.createElement('div');
+                        card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-2 flex items-center justify-between cursor-help';
+                        card.title = `${achievement.name}\n${achievement.description}\nEarned: ${earned} times`;
 
-                    card.innerHTML = `
-                        <div class="flex items-center space-x-4">
-                            <span class="text-2xl">${achievement.emoji}</span>
-                            <div class="font-semibold">${earned}</div>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-600 dark:text-gray-300">${achievement.name}</span>
-                        </div>
-                    `;
+                        card.innerHTML = `
+                            <div class="flex items-center space-x-4">
+                                <span class="text-2xl">${achievement.emoji}</span>
+                                <div class="font-semibold">${earned}</div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-600 dark:text-gray-300">${achievement.name}</span>
+                            </div>
+                        `;
 
-                    typeSection.appendChild(card);
+                        typeSection.appendChild(card);
+                    }
+                });
+
+                if (typeSection.children.length > 1) { // Only add if there are achievements (header counts as 1)
+                    walletContainer.appendChild(typeSection);
                 }
             });
-
-            if (typeSection.children.length > 1) { // Only add if there are achievements (header counts as 1)
-                walletContainer.appendChild(typeSection);
-            }
-        });
+        }
 
         // Best Activities with Hover Info
         const bestActivitiesContainer = document.getElementById('best-activities');
-        bestActivitiesContainer.innerHTML = '';
+        if (bestActivitiesContainer) {
+            bestActivitiesContainer.innerHTML = '';
 
-        bestActivities.forEach(best => {
-            const activity = data.activities.find(a => {
-                switch(best.title) {
-                    case 'Highest Elevation': return a.total_elevation_gain === best.value;
-                    case 'Longest Distance': return (a.distance / 1000) === best.value;
-                    case 'Longest Duration': return (a.moving_time / 3600) === best.value;
-                    case 'Highest Heart Effort': return ((a.average_heartrate || 0) * (a.moving_time / 60)) === best.value;
-                    default: return false;
+            bestActivities.forEach(best => {
+                const activity = data.activities.find(a => {
+                    switch(best.title) {
+                        case 'Highest Elevation': return a.total_elevation_gain === best.value;
+                        case 'Longest Distance': return (a.distance / 1000) === best.value;
+                        case 'Longest Duration': return (a.moving_time / 3600) === best.value;
+                        case 'Highest Heart Effort': return ((a.average_heartrate || 0) * (a.moving_time / 60)) === best.value;
+                        default: return false;
+                    }
+                });
+
+                if (activity) {
+                    const activityId = activity.id || activity.external_id;
+                    const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
+
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center cursor-help';
+                    card.title = `${activity.name}\n${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}`;
+
+                    card.innerHTML = `
+                        <div class="flex items-center space-x-4">
+                            <span class="text-2xl">${best.icon}</span>
+                            <div class="font-semibold">${best.title}</div>
+                        </div>
+                        <a href="${activityUrl}" target="_blank" class="text-blue-500 hover:underline">View</a>
+                    `;
+                    bestActivitiesContainer.appendChild(card);
                 }
             });
+        }
 
-            if (activity) {
-                const activityId = activity.id || activity.external_id;
-                const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
+        // **Segment Completions Display**
+        const segmentCountElement = document.getElementById('segment-count');
+        const segmentNameElement = document.getElementById('segment-name');
+        const segmentEmojiElement = document.getElementById('segment-emoji');
 
-                const card = document.createElement('div');
-                card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center cursor-help';
-                card.title = `${activity.name}\n${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}`;
-
-                card.innerHTML = `
-                    <div class="flex items-center space-x-4">
-                        <span class="text-2xl">${best.icon}</span>
-                        <div class="font-semibold">${best.title}</div>
-                    </div>
-                    <a href="${activityUrl}" target="_blank" class="text-blue-500 hover:underline">View</a>
-                `;
-                bestActivitiesContainer.appendChild(card);
+        if (segmentCountElement && segmentNameElement && segmentEmojiElement) {
+            if (data.segmentCompletions && data.segmentName) {
+                segmentCountElement.textContent = data.segmentCompletions;
+                segmentNameElement.textContent = data.segmentName;
+                segmentEmojiElement.textContent = '📍'; // Use an appropriate emoji, e.g., pushpin
+            } else {
+                // Handle cases where segment data is unavailable
+                segmentCountElement.textContent = 'N/A';
+                segmentNameElement.textContent = 'No segment data available';
+                segmentEmojiElement.textContent = '❓';
             }
-        });
+        }
 
     } catch (error) {
         console.error('Error fetching Strava data:', error);

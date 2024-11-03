@@ -11,6 +11,9 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 
 const PORT = process.env.PORT || 3000;
 
+// Helper function to pause execution (to respect rate limits)
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Routes
 
 // Serve the landing page
@@ -80,7 +83,7 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// API endpoint to fetch all Strava activities
+// API endpoint to fetch all Strava activities and segment completions
 app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   const accessToken = req.cookies.strava_token;
@@ -88,6 +91,14 @@ app.get('/api/strava-data', async (req, res) => {
   if (!accessToken) {
     console.warn('No access token found in cookies');
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const TRACKED_SEGMENT_ID = process.env.TRACKED_SEGMENT_ID;
+  const TRACKED_SEGMENT_NAME = process.env.TRACKED_SEGMENT_NAME;
+
+  if (!TRACKED_SEGMENT_ID || !TRACKED_SEGMENT_NAME) {
+    console.error('Tracked segment ID or name not set in environment variables');
+    return res.status(500).json({ error: 'Server configuration error' });
   }
 
   try {
@@ -101,7 +112,7 @@ app.get('/api/strava-data', async (req, res) => {
     // Function to fetch up to 400 activities
     const fetchAllActivities = async () => {
       const per_page = 200;
-      const maxActivities = 800;
+      const maxActivities = 400; // Adjusted to 400 as per original code
       const maxPages = Math.ceil(maxActivities / per_page);
       let allActivities = [];
 
@@ -120,6 +131,9 @@ app.get('/api/strava-data', async (req, res) => {
         if (activities.length < per_page) {
           break;
         }
+
+        // Pause to respect rate limits (optional but recommended)
+        await sleep(1000); // Sleep for 1 second between requests
       }
 
       // Trim the array to the maximum number of activities (400)
@@ -136,10 +150,38 @@ app.get('/api/strava-data', async (req, res) => {
     // Calculate totals
     const totals = calculateTotals(allActivities);
 
+    // Fetch Segment Data
+    console.log(`Fetching data for segment ID: ${TRACKED_SEGMENT_ID}`);
+    let segmentCompletions = 0;
+
+    try {
+      const segmentResponse = await axios.get(`https://www.strava.com/api/v3/segments/${TRACKED_SEGMENT_ID}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const segmentData = segmentResponse.data;
+      console.log(`Fetched segment data: ${segmentData.name}`);
+
+      // Extract athlete_segment_stats.effort_count if available
+      if (segmentData.athlete_segment_stats && typeof segmentData.athlete_segment_stats.effort_count === 'number') {
+        segmentCompletions = segmentData.athlete_segment_stats.effort_count;
+        console.log(`Segment completions for ${TRACKED_SEGMENT_NAME}: ${segmentCompletions}`);
+      } else {
+        console.warn('No athlete_segment_stats.effort_count available for this segment.');
+      }
+
+    } catch (segmentError) {
+      console.error(`Error fetching segment data for ID ${TRACKED_SEGMENT_ID}:`, segmentError.response ? segmentError.response.data : segmentError.message);
+      // You may choose to set segmentCompletions to 0 or handle it differently
+      segmentCompletions = 0;
+    }
+
     res.json({
       athlete: athleteResponse.data,
       activities: allActivities,
       totals: totals,
+      segmentCompletions: segmentCompletions,
+      segmentName: TRACKED_SEGMENT_NAME,
       hasMore: false, // Since we've fetched all
     });
   } catch (error) {
@@ -167,7 +209,6 @@ function calculateTotals(activities) {
 
   return totals;
 }
-
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

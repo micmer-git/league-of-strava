@@ -19,6 +19,7 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            /* Initial opacity and transition handled by Tailwind */
         }
         #close-spinner {
             position: absolute;
@@ -61,7 +62,7 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
     <!-- Loading Spinner -->
-    <div id="loading-spinner" class="hidden">
+    <div id="loading-spinner" class="hidden opacity-0 transition-opacity duration-500 ease-in-out">
         <div class="relative flex flex-col items-center">
             <button id="close-spinner" aria-label="Close Loading Spinner">×</button>
             <svg class="animate-spin h-16 w-16 text-blue-600 mt-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -101,7 +102,7 @@
             <!-- Coins Section -->
             <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
                 <h3 class="text-xl font-bold mb-4">Your Coins</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-5 md:grid-cols-5 gap-4">
                     <!-- Coins will now use title attributes for hover information -->
                     <div class="bg-green-50 p-3 rounded-lg flex flex-col items-center cursor-help"
                          title="Basic achievement coins&#10;Earned from completing regular activities">
@@ -135,7 +136,7 @@
         <!-- Achievement Wallet -->
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
             <h3 class="text-xl font-bold mb-4">Achievement Wallet</h3>
-            <div id="achievement-wallet" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div id="achievement-wallet" class="grid grid-cols-3 md:grid-cols-3 gap-4">
                 <!-- Achievements will be dynamically populated -->
             </div>
         </div>

@@ -3,12 +3,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     const closeSpinnerButton = document.getElementById('close-spinner');
     const errorMessage = document.getElementById('error-message');
 
-    // Show the loading spinner
-    loadingSpinner.classList.remove('hidden');
+    // Function to fade out the spinner
+    const fadeOutSpinner = () => {
+        loadingSpinner.classList.remove('opacity-100');
+        loadingSpinner.classList.add('opacity-0');
+
+        // After the transition ends, add the 'hidden' class
+        loadingSpinner.addEventListener('transitionend', () => {
+            loadingSpinner.classList.add('hidden');
+        }, { once: true });
+    };
+
+    // Function to show the spinner with fade-in effect
+    const showSpinner = () => {
+        loadingSpinner.classList.remove('hidden');
+        // Trigger reflow to ensure the transition works
+        void loadingSpinner.offsetWidth;
+        loadingSpinner.classList.add('opacity-100');
+    };
+
+    // Show the loading spinner with fade-in effect
+    showSpinner();
 
     // Event listener to close the spinner manually
     closeSpinnerButton.addEventListener('click', () => {
-        loadingSpinner.classList.add('hidden');
+        fadeOutSpinner();
     });
 
     try {
@@ -285,7 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const typeHeader = document.createElement('h3');
             typeHeader.className = 'text-lg font-bold mb-2';
-            typeHeader.textContent = `${type} Achievements`;
+            typeHeader.textContent = `${type}`;
             typeSection.appendChild(typeHeader);
 
             achievements.forEach(achievement => {
@@ -356,7 +375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
   }
 } finally {
-  // Hide the loading spinner
-  loadingSpinner.classList.add('hidden');
+  // Fade out the spinner after all operations are complete
+  fadeOutSpinner();
 }
 });

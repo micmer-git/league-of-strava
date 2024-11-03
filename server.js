@@ -11,6 +11,10 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 
 const PORT = process.env.PORT || 3000;
 
+// *** New: Define Segment Tracking Variables Directly in the Script ***
+const TRACKED_SEGMENT_ID = 14418673; // Replace with your segment ID
+const TRACKED_SEGMENT_NAME = 'Selvino'; // Replace with your segment name
+
 // Helper function to pause execution (to respect rate limits)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -93,14 +97,6 @@ app.get('/api/strava-data', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const TRACKED_SEGMENT_ID = process.env.TRACKED_SEGMENT_ID;
-  const TRACKED_SEGMENT_NAME = process.env.TRACKED_SEGMENT_NAME;
-
-  if (!TRACKED_SEGMENT_ID || !TRACKED_SEGMENT_NAME) {
-    console.error('Tracked segment ID or name not set in environment variables');
-    return res.status(500).json({ error: 'Server configuration error' });
-  }
-
   try {
     // Fetch athlete profile
     console.log('Fetching athlete profile from Strava');
@@ -150,30 +146,31 @@ app.get('/api/strava-data', async (req, res) => {
     // Calculate totals
     const totals = calculateTotals(allActivities);
 
-    // Fetch Segment Data
-    console.log(`Fetching data for segment ID: ${TRACKED_SEGMENT_ID}`);
+    // *** New: Fetch segment details to get athlete-specific stats ***
+    console.log(`Fetching details for segment ID: ${TRACKED_SEGMENT_ID}`);
     let segmentCompletions = 0;
+    let segmentName = TRACKED_SEGMENT_NAME;
 
     try {
       const segmentResponse = await axios.get(`https://www.strava.com/api/v3/segments/${TRACKED_SEGMENT_ID}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      console.log('Fetched segment details');
 
       const segmentData = segmentResponse.data;
-      console.log(`Fetched segment data: ${segmentData.name}`);
 
-      // Extract athlete_segment_stats.effort_count if available
-      if (segmentData.athlete_segment_stats && typeof segmentData.athlete_segment_stats.effort_count === 'number') {
-        segmentCompletions = segmentData.athlete_segment_stats.effort_count;
-        console.log(`Segment completions for ${TRACKED_SEGMENT_NAME}: ${segmentCompletions}`);
+      if (segmentData.athlete_segment_stats) {
+        segmentCompletions = segmentData.athlete_segment_stats.effort_count || 0;
+        console.log(`Total segment completions: ${segmentCompletions}`);
       } else {
-        console.warn('No athlete_segment_stats.effort_count available for this segment.');
+        console.warn('athlete_segment_stats not available for this segment.');
       }
-
     } catch (segmentError) {
-      console.error(`Error fetching segment data for ID ${TRACKED_SEGMENT_ID}:`, segmentError.response ? segmentError.response.data : segmentError.message);
-      // You may choose to set segmentCompletions to 0 or handle it differently
+      console.error(`Error fetching segment ID ${TRACKED_SEGMENT_ID}:`, segmentError.response ? segmentError.response.data : segmentError.message);
+      // Decide whether to fail or continue without segment data
+      // Here, we'll continue and set segmentCompletions to 0
       segmentCompletions = 0;
+      segmentName = 'Unknown Segment';
     }
 
     res.json({
@@ -181,7 +178,7 @@ app.get('/api/strava-data', async (req, res) => {
       activities: allActivities,
       totals: totals,
       segmentCompletions: segmentCompletions,
-      segmentName: TRACKED_SEGMENT_NAME,
+      segmentName: segmentName,
       hasMore: false, // Since we've fetched all
     });
   } catch (error) {

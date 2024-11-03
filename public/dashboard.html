@@ -7,13 +7,73 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #loading-spinner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        #close-spinner {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #4a5568;
+            background: transparent;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        #close-spinner:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        [title] {
+            position: relative;
+        }
+        [title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 8px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: pre-line;
+            z-index: 10;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
-    <div class="container mx-auto px-4 py-8">
-        <!-- Optional: Error Message -->
-        <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4">
-            Failed to load data. Please try again later.
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="hidden">
+        <div class="relative flex flex-col items-center">
+            <button id="close-spinner" aria-label="Close Loading Spinner">×</button>
+            <svg class="animate-spin h-16 w-16 text-blue-600 mt-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
         </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Error Message -->
+        <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
 
         <!-- Top Section: User Info and Coins -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -31,41 +91,42 @@
                         <div id="ranking-progress" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
                     </div>
                     <div class="flex justify-between mt-2">
-                        <span id="current-rank" class="text-sm font-medium">Bronze 3</span>
-                        <span id="level-progress" class="text-sm font-medium">Level 0/100</span>
+                        <span id="current-rank" class="text-sm font-medium"></span>
+                        <span id="level-progress" class="text-sm font-medium"></span>
                     </div>
-                    <!-- Added rank-details element -->
                     <div id="rank-details" class="text-sm text-gray-500 mt-2"></div>
                 </div>
             </div>
 
             <!-- Coins Section -->
             <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
-                <h3 class="text-xl font-bold mb-4">Achievement Coins</h3>
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="bg-green-50 p-3 rounded-lg flex items-center justify-between">
-                        <div>
-                            <h4 class="text-sm text-green-600">🏔️ Everest Coins</h4>
-                            <span id="everest-coins" class="text-2xl font-bold text-green-800">-</span>
-                            <span id="everest-coins-recent" class="text-xs text-green-600">+0 (7d)</span>
-
-                        </div>
+                <h3 class="text-xl font-bold mb-4">Your Coins</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                    <!-- Coins will now use title attributes for hover information -->
+                    <div class="bg-green-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                         title="Basic achievement coins&#10;Earned from completing regular activities">
+                        <span class="text-2xl">💲</span>
+                        <span id="coin-dollar" class="text-2xl font-bold text-green-800">0</span>
                     </div>
-                    <div class="bg-blue-50 p-3 rounded-lg flex items-center justify-between">
-                        <div>
-                            <h4 class="text-sm text-blue-600">❤️ Heartbeat Coins</h4>
-                            <span id="heartbeat-coins" class="text-2xl font-bold text-blue-800">-</span>
-                            <span id="heartbeat-coins-recent" class="text-xs text-blue-600">+0 (7d)</span>
-
-                        </div>
+                    <div class="bg-blue-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                         title="Weekly achievement coins&#10;Earned from completing weekly challenges">
+                        <span class="text-2xl">💰</span>
+                        <span id="coin-money" class="text-2xl font-bold text-blue-800">0</span>
                     </div>
-                    <div class="bg-red-50 p-3 rounded-lg flex items-center justify-between">
-                        <div>
-                            <h4 class="text-sm text-red-600">🍕 Pizza Coins</h4>
-                            <span id="pizza-coins" class="text-2xl font-bold text-red-800">-</span>
-                            <span id="pizza-coins-recent" class="text-xs text-red-600">+0 (7d)</span>
-
-                        </div>
+                    <div class="bg-yellow-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                         title="Milestone achievement coins&#10;Earned from reaching distance milestones">
+                        <span class="text-2xl">🔰</span>
+                        <span id="coin-bootstrap" class="text-2xl font-bold text-yellow-800">0</span>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                         title="Ultra achievement coins&#10;Earned from completing ultra-distance challenges">
+                        <span class="text-2xl">💎</span>
+                        <span id="coin-diamond" class="text-2xl font-bold text-purple-800">0</span>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                         title="Elite achievement coins&#10;Earned from exceptional performances">
+                        <span class="text-2xl">👑</span>
+                        <span id="coin-king" class="text-2xl font-bold text-red-800">0</span>
                     </div>
                 </div>
             </div>
@@ -74,7 +135,7 @@
         <!-- Achievement Wallet -->
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
             <h3 class="text-xl font-bold mb-4">Achievement Wallet</h3>
-            <div id="achievement-wallet" class="grid grid-cols-3 md:grid-cols-3 gap-4">
+            <div id="achievement-wallet" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Achievements will be dynamically populated -->
             </div>
         </div>

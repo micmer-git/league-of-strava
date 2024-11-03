@@ -102,31 +102,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Coin Configuration
         const coinConfig = {
             'Run': {
-                lifetime: { distance: 10, emoji: '💲' },
-                weekly: { distance: 30, emoji: '💰' },
+                lifetime: { metric: 'distance', threshold: 10, emoji: '💲' },
+                weekly: { metric: 'distance', threshold: 30, emoji: '💰' },
                 milestone: [
-                    { distance: 21, emoji: '🔰', name: 'Half Marathon' },
-                    { distance: 42, emoji: '👑', name: 'Full Marathon' }
+                    { metric: 'distance', threshold: 21, emoji: '🔰', name: 'Half Marathon' },
+                    { metric: 'distance', threshold: 42, emoji: '👑', name: 'Full Marathon' }
                 ],
-                ultraWeekly: { distance: 65, emoji: '💎' }
+                ultraWeekly: { metric: 'distance', threshold: 65, emoji: '💎' }
             },
             'Ride': {
-                lifetime: { distance: 100, emoji: '💲' },
-                weekly: { distance: 300, emoji: '💰' },
+                lifetime: { metric: 'distance', threshold: 100, emoji: '💲' },
+                weekly: { metric: 'distance', threshold: 300, emoji: '💰' },
                 milestone: [
-                    { distance: 200, emoji: '🔰', name: 'Double Century' },
-                    { distance: 250, emoji: '👑', name: 'Extreme Endurance' }
+                    { metric: 'distance', threshold: 200, emoji: '🔰', name: 'Double Century' },
+                    { metric: 'distance', threshold: 250, emoji: '👑', name: 'Extreme Endurance' }
                 ],
-                ultraWeekly: { distance: 600, emoji: '💎' }
+                ultraWeekly: { metric: 'distance', threshold: 600, emoji: '💎' }
             },
             'kcal': {
-                lifetime: { calories: 1000, emoji: '💲' },
-                weekly: { calories: 6000, emoji: '💰' },
+                lifetime: { metric: 'calories', threshold: 1000, emoji: '💲' },
+                weekly: { metric: 'calories', threshold: 6000, emoji: '💰' },
                 milestone: [
-                    { calories: 3000, emoji: '🔰', name: 'Metabolism Boost' },
-                    { calories: 7500, emoji: '👑', name: 'Metabolic Master' }
+                    { metric: 'calories', threshold: 3000, emoji: '🔰', name: 'Metabolism Boost' },
+                    { metric: 'calories', threshold: 7500, emoji: '👑', name: 'Metabolic Master' }
                 ],
-                ultraWeekly: { calories: 12000, emoji: '💎' }
+                ultraWeekly: { metric: 'calories', threshold: 12000, emoji: '💎' }
             }
         };
 
@@ -144,56 +144,60 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(today.getDate() - 7);
 
+        // Helper function to get metric value
+        const getMetricValue = (activity, metric) => {
+            if (metric === 'distance') {
+                return activity.distance ? activity.distance / 1000 : 0; // Convert meters to kilometers
+            } else if (metric === 'calories') {
+                return activity.kilojoules ? activity.kilojoules / 4.184 : 0; // Convert kJ to kcal
+            }
+            return 0;
+        };
+
         // Calculate coins based on activities
         Object.entries(coinConfig).forEach(([type, config]) => {
-            const activities = data.activities.filter(a => a.type.toUpperCase() === type);
+            const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
 
             // Lifetime Coins
-            if (config.lifetime.distance) {
-                const totalDistance = activities.reduce((sum, a) => sum + (a.distance / 1000), 0);
-                coins[config.lifetime.emoji] += Math.floor(totalDistance / config.lifetime.distance);
-            }
-            if (config.lifetime.calories) {
-                const totalCalories = activities.reduce((sum, a) => sum + ((a.kilojoules || 0) / 4.184), 0);
-                coins[config.lifetime.emoji] += Math.floor(totalCalories / config.lifetime.calories);
+            if (config.lifetime.metric === 'distance') {
+                const totalDistance = activities.reduce((sum, a) => sum + getMetricValue(a, 'distance'), 0);
+                coins[config.lifetime.emoji] += Math.floor(totalDistance / config.lifetime.threshold);
+            } else if (config.lifetime.metric === 'calories') {
+                const totalCalories = activities.reduce((sum, a) => sum + getMetricValue(a, 'calories'), 0);
+                coins[config.lifetime.emoji] += Math.floor(totalCalories / config.lifetime.threshold);
             }
 
-            // Weekly & Milestone Coins
+            // Weekly Coins
             const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
-            activities.forEach(activity => {
-                const distance = activity.distance / 1000;
-                const calories = (activity.kilojoules || 0) / 4.184;
+            let weeklyTotal = 0;
+            weeklyActivities.forEach(activity => {
+                weeklyTotal += getMetricValue(activity, config.weekly.metric);
+            });
 
-                // Weekly achievements
-                if (new Date(activity.start_date) >= sevenDaysAgo) {
-                    if (config.weekly.distance && distance >= config.weekly.distance) {
-                        coins[config.weekly.emoji]++;
-                    }
-                    if (config.weekly.calories && calories >= config.weekly.calories) {
-                        coins[config.weekly.emoji]++;
-                    }
-                }
+            if (weeklyTotal >= config.weekly.threshold) {
+                coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
+            }
 
-                // Milestone achievements
-                config.milestone.forEach(milestone => {
-                    if (milestone.distance && distance >= milestone.distance) {
-                        coins[milestone.emoji]++;
-                    }
-                    if (milestone.calories && calories >= milestone.calories) {
-                        coins[milestone.emoji]++;
+            // Milestone Coins
+            config.milestone.forEach(milestone => {
+                let milestoneCount = 0;
+                activities.forEach(activity => {
+                    if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
+                        milestoneCount++;
                     }
                 });
-
-                // Ultra achievements
-                if (new Date(activity.start_date) >= sevenDaysAgo) {
-                    if (config.ultraWeekly.distance && distance >= config.ultraWeekly.distance) {
-                        coins[config.ultraWeekly.emoji]++;
-                    }
-                    if (config.ultraWeekly.calories && calories >= config.ultraWeekly.calories) {
-                        coins[config.ultraWeekly.emoji]++;
-                    }
-                }
+                coins[milestone.emoji] += milestoneCount;
             });
+
+            // Ultra Weekly Coins
+            let ultraWeeklyTotal = 0;
+            weeklyActivities.forEach(activity => {
+                ultraWeeklyTotal += getMetricValue(activity, config.ultraWeekly.metric);
+            });
+
+            if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
+                coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
+            }
         });
 
         // Animate Coin Counts
@@ -232,19 +236,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Achievement Configuration
         const achievementsConfig = {
-            'RUN': [
-                { distance: 10, emoji: '💲', name: '10km Run', description: 'Complete a 10km run' },
-                { distance: 30, emoji: '💰', name: '30km Week', description: 'Run 30km in a week' },
-                { distance: 21, emoji: '🔰', name: 'Half Marathon', description: 'Complete a half marathon' },
-                { distance: 65, emoji: '💎', name: 'Ultra Week', description: 'Run 65km in a week' },
-                { distance: 42, emoji: '👑', name: 'Marathon', description: 'Complete a full marathon' }
+            'Run': [
+                { metric: 'distance', threshold: 10, emoji: '💲', name: '10km Run', description: 'Complete a 10km run' },
+                { metric: 'distance', threshold: 30, emoji: '💰', name: '30km Week', description: 'Run 30km in a week' },
+                { metric: 'distance', threshold: 21, emoji: '🔰', name: 'Half Marathon', description: 'Complete a half marathon' },
+                { metric: 'distance', threshold: 65, emoji: '💎', name: 'Ultra Week', description: 'Run 65km in a week' },
+                { metric: 'distance', threshold: 42, emoji: '👑', name: 'Marathon', description: 'Complete a full marathon' }
             ],
-            'RIDE': [
-                { distance: 100, emoji: '💲', name: 'Century', description: 'Complete a 100km ride' },
-                { distance: 300, emoji: '💰', name: '300km Week', description: 'Ride 300km in a week' },
-                { distance: 200, emoji: '🔰', name: 'Double Century', description: 'Complete a 200km ride' },
-                { distance: 600, emoji: '💎', name: 'Ultra Week', description: 'Ride 600km in a week' },
-                { distance: 250, emoji: '👑', name: 'Ultra Distance', description: 'Complete a 250km ride' }
+            'Ride': [
+                { metric: 'distance', threshold: 100, emoji: '💲', name: 'Century', description: 'Complete a 100km ride' },
+                { metric: 'distance', threshold: 300, emoji: '💰', name: '300km Week', description: 'Ride 300km in a week' },
+                { metric: 'distance', threshold: 200, emoji: '🔰', name: 'Double Century', description: 'Complete a 200km ride' },
+                { metric: 'distance', threshold: 600, emoji: '💎', name: 'Ultra Week', description: 'Ride 600km in a week' },
+                { metric: 'distance', threshold: 250, emoji: '👑', name: 'Extreme Endurance', description: 'Complete a 250km ride' }
+            ],
+            'kcal': [
+                { metric: 'calories', threshold: 1000, emoji: '💲', name: '1000 kcal', description: 'Burn 1000 kcal' },
+                { metric: 'calories', threshold: 6000, emoji: '💰', name: '6000 kcal Week', description: 'Burn 6000 kcal in a week' },
+                { metric: 'calories', threshold: 3000, emoji: '🔰', name: 'Metabolism Boost', description: 'Burn 3000 kcal' },
+                { metric: 'calories', threshold: 12000, emoji: '💎', name: 'Ultra Week', description: 'Burn 12000 kcal in a week' },
+                { metric: 'calories', threshold: 7500, emoji: '👑', name: 'Metabolic Master', description: 'Burn 7500 kcal' }
             ]
         };
 
@@ -309,10 +320,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             typeSection.appendChild(typeHeader);
 
             achievements.forEach(achievement => {
-                const earned = data.activities.filter(a =>
-                    a.type.toUpperCase() === type &&
-                    (a.distance / 1000) >= achievement.distance
-                ).length;
+                let earned = 0;
+                if (achievement.metric === 'distance') {
+                    earned = data.activities.filter(a =>
+                        a.type.toUpperCase() === type.toUpperCase() &&
+                        (a.distance / 1000) >= achievement.threshold
+                    ).length;
+                } else if (achievement.metric === 'calories') {
+                    earned = data.activities.filter(a =>
+                        a.type.toUpperCase() === type.toUpperCase() &&
+                        (a.kilojoules / 4.184) >= achievement.threshold
+                    ).length;
+                }
 
                 if (earned > 0) {
                     const card = document.createElement('div');
@@ -323,6 +342,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="flex items-center space-x-4">
                             <span class="text-2xl">${achievement.emoji}</span>
                             <div class="font-semibold">${earned}</div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-600 dark:text-gray-300">${achievement.name}</span>
                         </div>
                     `;
 
@@ -335,48 +357,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-  // Best Activities with Hover Info
-  const bestActivitiesContainer = document.getElementById('best-activities');
-  bestActivitiesContainer.innerHTML = '';
+        // Best Activities with Hover Info
+        const bestActivitiesContainer = document.getElementById('best-activities');
+        bestActivitiesContainer.innerHTML = '';
 
-  bestActivities.forEach(best => {
-      const activity = data.activities.find(a => {
-          switch(best.title) {
-              case 'Highest Elevation': return a.total_elevation_gain === best.value;
-              case 'Longest Distance': return (a.distance / 1000) === best.value;
-              case 'Longest Duration': return (a.moving_time / 3600) === best.value;
-              case 'Highest Heart Effort': return ((a.average_heartrate || 0) * (a.moving_time / 60)) === best.value;
-              default: return false;
-          }
-      });
+        bestActivities.forEach(best => {
+            const activity = data.activities.find(a => {
+                switch(best.title) {
+                    case 'Highest Elevation': return a.total_elevation_gain === best.value;
+                    case 'Longest Distance': return (a.distance / 1000) === best.value;
+                    case 'Longest Duration': return (a.moving_time / 3600) === best.value;
+                    case 'Highest Heart Effort': return ((a.average_heartrate || 0) * (a.moving_time / 60)) === best.value;
+                    default: return false;
+                }
+            });
 
-      if (activity) {
-          const activityId = activity.id || activity.external_id;
-          const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
+            if (activity) {
+                const activityId = activity.id || activity.external_id;
+                const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
 
-          const card = document.createElement('div');
-          card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center cursor-help';
-          card.title = `${activity.name}\n${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}`;
+                const card = document.createElement('div');
+                card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center cursor-help';
+                card.title = `${activity.name}\n${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}`;
 
-          card.innerHTML = `
-              <div class="flex items-center space-x-4">
-                  <span class="text-2xl">${best.icon}</span>
-                  <div class="font-semibold">${best.title}</div>
-              </div>
-              <a href="${activityUrl}" target="_blank" class="text-blue-500 hover:underline">View</a>
-          `;
-          bestActivitiesContainer.appendChild(card);
-      }
-  });
+                card.innerHTML = `
+                    <div class="flex items-center space-x-4">
+                        <span class="text-2xl">${best.icon}</span>
+                        <div class="font-semibold">${best.title}</div>
+                    </div>
+                    <a href="${activityUrl}" target="_blank" class="text-blue-500 hover:underline">View</a>
+                `;
+                bestActivitiesContainer.appendChild(card);
+            }
+        });
 
-} catch (error) {
-  console.error('Error fetching Strava data:', error);
-  if (errorMessage) {
-      errorMessage.classList.remove('hidden');
-      errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
-  }
-} finally {
-  // Fade out the spinner after all operations are complete
-  fadeOutSpinner();
-}
+    } catch (error) {
+        console.error('Error fetching Strava data:', error);
+        if (errorMessage) {
+            errorMessage.classList.remove('hidden');
+            errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
+        }
+    } finally {
+        // Fade out the spinner after all operations are complete
+        fadeOutSpinner();
+    }
 });

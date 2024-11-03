@@ -91,16 +91,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             : 100;
 
         // Update the ranking progress bar
-        document.getElementById('ranking-progress').style.width = `${Math.min(progressPercentage, 100)}%`;
         document.getElementById('current-rank').textContent = `${currentRank.emoji} ${currentRank.name}`;
+
+        document.getElementById('ranking-progress').style.width = `${Math.min(progressPercentage, 100)}%`;
         document.getElementById('rank-details').textContent = nextRank
-            ? `${totalHours.toFixed(1)} hrs | Next: ${nextRank.name} at ${nextRank.minHours} hrs`
+            ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs | Next: ${nextRank.name}`
             : `${totalHours.toFixed(1)} hrs | Max Rank Achieved!`;
         document.getElementById('level-progress').textContent = `Level ${Math.min(Math.floor(totalHours / 20), 100)}/100`;
 
         // Coin Configuration
         const coinConfig = {
-            'RUN': {
+            'Run': {
                 lifetime: { distance: 10, emoji: '💲' },
                 weekly: { distance: 30, emoji: '💰' },
                 milestone: [
@@ -109,7 +110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ],
                 ultraWeekly: { distance: 65, emoji: '💎' }
             },
-            'RIDE': {
+            'Ride': {
                 lifetime: { distance: 100, emoji: '💲' },
                 weekly: { distance: 300, emoji: '💰' },
                 milestone: [
@@ -118,7 +119,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ],
                 ultraWeekly: { distance: 600, emoji: '💎' }
             },
-            'KCAL': {
+            'kcal': {
                 lifetime: { calories: 1000, emoji: '💲' },
                 weekly: { calories: 6000, emoji: '💰' },
                 milestone: [

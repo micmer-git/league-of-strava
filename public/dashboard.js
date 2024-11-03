@@ -1,3 +1,5 @@
+// public/dashboard.js
+
 document.addEventListener('DOMContentLoaded', async () => {
     const loadingSpinner = document.getElementById('loading-spinner');
     const closeSpinnerButton = document.getElementById('close-spinner');
@@ -119,7 +121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             levelProgressElement.textContent = `Level ${Math.min(Math.floor(totalHours / 20), 100)}/100`;
         }
 
-        // Coin Configuration
+        // Coin Configuration (Segment Coin Section Removed)
         const coinConfig = {
             'Run': {
                 lifetime: { metric: 'distance', threshold: 10, emoji: '💲' },
@@ -147,17 +149,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     { metric: 'calories', threshold: 7500, emoji: '👑', name: 'Metabolic Master' }
                 ],
                 ultraWeekly: { metric: 'calories', threshold: 12000, emoji: '💎' }
-            },
-            'Segment': { // New category for Segment Completions
-                lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
-                weekly: { metric: 'segmentCompletions', threshold: 5, emoji: '💰' },
-                milestone: [
-                    { metric: 'segmentCompletions', threshold: 10, emoji: '🔰', name: '10 Completions' },
-                    { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions' },
-                    { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions' }
-                ],
-                ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '🏆' } // Optional: Add '🏆' if desired
             }
+            // Segment Coin Section Removed
         };
 
         // Initialize coin counts
@@ -166,8 +159,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             '💰': 0,
             '🔰': 0,
             '💎': 0,
-            '👑': 0,
-            '🏆': 0 // Include if using for ultraWeekly
+            '👑': 0
+            // '🏆': 0 // Removed since Segment Coin Section is removed
         };
 
         // Calculate date range for weekly data
@@ -181,76 +174,43 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return activity.distance ? activity.distance / 1000 : 0; // Convert meters to kilometers
             } else if (metric === 'calories') {
                 return activity.kilojoules ? activity.kilojoules / 4.184 : 0; // Convert kJ to kcal
-            } else if (metric === 'segmentCompletions') {
-                return data.segmentCompletions || 0; // Directly use the segment completions
             }
             return 0;
         };
 
-        // Calculate coins based on activities and segments
+        // Calculate coins based on activities
         Object.entries(coinConfig).forEach(([type, config]) => {
-            if (type === 'Segment') {
-                // Handle Segment Completions
-                const completions = data.segmentCompletions || 0;
+            const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
 
-                // Lifetime Coins
-                if (config.lifetime.metric === 'segmentCompletions') {
-                    coins[config.lifetime.emoji] += Math.floor(completions / config.lifetime.threshold);
-                }
+            // Lifetime Coins
+            if (config.lifetime.metric === 'distance' || config.lifetime.metric === 'calories') {
+                const totalMetric = activities.reduce((sum, a) => sum + getMetricValue(a, config.lifetime.metric), 0);
+                coins[config.lifetime.emoji] += Math.floor(totalMetric / config.lifetime.threshold);
+            }
 
-                // Weekly Coins
-                if (config.weekly.metric === 'segmentCompletions') {
-                    // Assuming segment completions are cumulative and not time-bound
-                    // If you have weekly segment completions, adjust accordingly
-                    coins[config.weekly.emoji] += Math.floor(completions / config.weekly.threshold);
-                }
+            // Weekly Coins
+            const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
+            const weeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.weekly.metric), 0);
 
-                // Milestone Coins
-                config.milestone.forEach(milestone => {
-                    if (completions >= milestone.threshold) {
-                        coins[milestone.emoji]++;
+            if (weeklyTotal >= config.weekly.threshold) {
+                coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
+            }
+
+            // Milestone Coins
+            config.milestone.forEach(milestone => {
+                let milestoneCount = 0;
+                activities.forEach(activity => {
+                    if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
+                        milestoneCount++;
                     }
                 });
+                coins[milestone.emoji] += milestoneCount;
+            });
 
-                // Ultra Weekly Coins
-                if (config.ultraWeekly.metric === 'segmentCompletions') {
-                    coins[config.ultraWeekly.emoji] += Math.floor(completions / config.ultraWeekly.threshold);
-                }
-
-            } else {
-                // Handle Run, Ride, and kcal
-                const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
-
-                // Lifetime Coins
-                if (config.lifetime.metric === 'distance' || config.lifetime.metric === 'calories') {
-                    const totalMetric = activities.reduce((sum, a) => sum + getMetricValue(a, config.lifetime.metric), 0);
-                    coins[config.lifetime.emoji] += Math.floor(totalMetric / config.lifetime.threshold);
-                }
-
-                // Weekly Coins
-                const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
-                const weeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.weekly.metric), 0);
-
-                if (weeklyTotal >= config.weekly.threshold) {
-                    coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
-                }
-
-                // Milestone Coins
-                config.milestone.forEach(milestone => {
-                    let milestoneCount = 0;
-                    activities.forEach(activity => {
-                        if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
-                            milestoneCount++;
-                        }
-                    });
-                    coins[milestone.emoji] += milestoneCount;
-                });
-
-                // Ultra Weekly Coins
-                const ultraWeeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.ultraWeekly.metric), 0);
-                if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
-                    coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
-                }
+            // Ultra Weekly Coins
+            const ultraWeeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.ultraWeekly.metric), 0);
+            if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
+                coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
             }
         });
 
@@ -281,8 +241,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 '💰': 'coin-money',
                 '🔰': 'coin-bootstrap',
                 '💎': 'coin-diamond',
-                '👑': 'coin-king',
-                '🏆': 'coin-trophy' // Ensure you have this ID in your HTML if using '🏆'
+                '👑': 'coin-king'
+                // '🏆': 'coin-trophy' // Removed since Segment Coin Section is removed
             }[emoji];
             if (elementId) {
                 animateCount(elementId, 0, count, 1000);
@@ -311,12 +271,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 { metric: 'calories', threshold: 3000, emoji: '🔰', name: 'Metabolism Boost', description: 'Burn 3000 kcal' },
                 { metric: 'calories', threshold: 12000, emoji: '💎', name: 'Ultra Week', description: 'Burn 12000 kcal in a week' },
                 { metric: 'calories', threshold: 7500, emoji: '👑', name: 'Metabolic Master', description: 'Burn 7500 kcal' }
-            ],
-            'Segment': [ // New category for Segment Completions
-                { metric: 'segmentCompletions', threshold: 10, emoji: '🔰', name: '10 Completions', description: 'Complete the segment 10 times' },
-                { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions', description: 'Complete the segment 20 times' },
-                { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions', description: 'Complete the segment 30 times' }
             ]
+            // Segment Coin Section Removed
         };
 
         // Calculate the oldest activity date
@@ -336,7 +292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const rankDetailsElementDiv = document.getElementById('rank-details');
         if (rankDetailsElementDiv) {
             const oldestActivityElement = document.createElement('div');
-            oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
+            oldestActivityElement.className = 'text-sm text-gray-600 dark:text-gray-300 mt-2';
             oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
             rankDetailsElementDiv.appendChild(oldestActivityElement);
         }
@@ -395,13 +351,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                             a.type.toUpperCase() === type.toUpperCase() &&
                             (a.kilojoules / 4.184) >= achievement.threshold
                         ).length;
-                    } else if (achievement.metric === 'segmentCompletions') {
-                        earned = Math.floor(data.segmentCompletions / achievement.threshold);
                     }
 
                     if (earned > 0) {
                         const card = document.createElement('div');
-                        card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-2 flex items-center justify-between cursor-help';
+                        card.className = 'bg-gray-200 dark:bg-gray-700 p-4 rounded-lg mb-2 flex items-center justify-between cursor-pointer';
                         card.title = `${achievement.name}\n${achievement.description}\nEarned: ${earned} times`;
 
                         card.innerHTML = `
@@ -410,7 +364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <div class="font-semibold">${earned}</div>
                             </div>
                             <div class="flex items-center space-x-2">
-                                <span class="text-sm text-gray-600 dark:text-gray-300">${achievement.name}</span>
+                                <span class="text-sm text-gray-700 dark:text-gray-300">${achievement.name}</span>
                             </div>
                         `;
 
@@ -445,7 +399,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
 
                     const card = document.createElement('div');
-                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center cursor-help';
+                    card.className = 'bg-gray-200 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center mb-4 cursor-pointer';
                     card.title = `${activity.name}\n${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}`;
 
                     card.innerHTML = `
@@ -460,21 +414,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // **Segment Completions Display**
-        const segmentCountElement = document.getElementById('segment-count');
-        const segmentNameElement = document.getElementById('segment-name');
-        const segmentEmojiElement = document.getElementById('segment-emoji');
+        // **2023 and 2024 Activity Counts Display**
+        const activityCountsElement = document.getElementById('activity-counts');
+        if (activityCountsElement) {
+            // Initialize counts
+            let count2023 = 0;
+            let count2024 = 0;
 
-        if (segmentCountElement && segmentNameElement && segmentEmojiElement) {
-            if (data.segmentCompletions && data.segmentName) {
-                segmentCountElement.textContent = data.segmentCompletions;
-                segmentNameElement.textContent = data.segmentName;
-                segmentEmojiElement.textContent = '📍'; // Use an appropriate emoji, e.g., pushpin
+            data.activities.forEach(activity => {
+                const year = new Date(activity.start_date).getFullYear();
+                if (year === 2023) {
+                    count2023++;
+                } else if (year === 2024) {
+                    count2024++;
+                }
+            });
+
+            // Create display elements
+            const countsHtml = `
+                <h2 class="text-2xl font-semibold mb-4">Activity Counts by Year</h2>
+                <div class="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg flex space-x-4">
+                    <div class="flex flex-col items-center">
+                        <span class="text-3xl">📅</span>
+                        <div class="text-lg">${count2023}</div>
+                        <div class="text-sm text-gray-700 dark:text-gray-300">2023</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-3xl">📆</span>
+                        <div class="text-lg">${count2024}</div>
+                        <div class="text-sm text-gray-700 dark:text-gray-300">2024</div>
+                    </div>
+                </div>
+            `;
+
+            activityCountsElement.innerHTML = countsHtml;
+        }
+
+        // **List of Segments to Screen**
+        const segments = data.segments || []; // Array of { name, completions }
+
+        const segmentsContainer = document.getElementById('segments-list');
+        if (segmentsContainer && Array.isArray(segments)) {
+            if (segments.length > 0) {
+                const segmentsHtml = `
+                    <h2 class="text-2xl font-semibold mb-4">Tracked Segments</h2>
+                    <ul class="bg-gray-200 dark:bg-gray-700 p-4 rounded-lg">
+                        ${segments.map(segment => `
+                            <li class="flex justify-between items-center mb-2">
+                                <span class="text-lg">${segment.name}</span>
+                                <span class="text-lg">${segment.completions} 🏁</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+                segmentsContainer.innerHTML = segmentsHtml;
             } else {
-                // Handle cases where segment data is unavailable
-                segmentCountElement.textContent = 'N/A';
-                segmentNameElement.textContent = 'No segment data available';
-                segmentEmojiElement.textContent = '❓';
+                segmentsContainer.innerHTML = `
+                    <h2 class="text-2xl font-semibold mb-4">Tracked Segments</h2>
+                    <p class="text-sm text-gray-700 dark:text-gray-300">No segment data available.</p>
+                `;
             }
         }
 

@@ -119,6 +119,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             levelProgressElement.textContent = `Level ${Math.min(Math.floor(totalHours / 20), 100)}/100`;
         }
 
+        // **Segment Completions Display (Updated for Multiple Segments)**
+        const segmentContainer = document.querySelector('#segment-completions .grid');
+        if (segmentContainer) {
+            segmentContainer.innerHTML = ''; // Clear existing content
+
+            if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
+                data.segments.forEach(segment => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col items-center space-y-2 cursor-pointer';
+                    card.title = `${segment.name}\nCompletions: ${segment.count}`;
+
+                    card.innerHTML = `
+                        <span class="text-3xl">📍</span>
+                        <div class="text-lg font-semibold">${segment.count}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">${segment.name}</div>
+                    `;
+
+                    // Optional: Add click event to show more details
+                    card.addEventListener('click', () => {
+                        // Implement modal or additional details if desired
+                        alert(`Segment: ${segment.name}\nCompletions: ${segment.count}`);
+                    });
+
+                    segmentContainer.appendChild(card);
+                });
+            } else {
+                segmentContainer.innerHTML = '<div class="text-center text-gray-500">No segment data available.</div>';
+            }
+        }
+
         // Coin Configuration
         const coinConfig = {
             'Run': {
@@ -424,41 +454,44 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // Best Activities with Hover Info
-        const bestActivitiesContainer = document.getElementById('best-activities');
-        if (bestActivitiesContainer) {
-            bestActivitiesContainer.innerHTML = '';
+        // **Best Activities with Clickable Titles (Updated)**
+                const bestActivitiesContainer = document.getElementById('best-activities');
+                if (bestActivitiesContainer) {
+                    bestActivitiesContainer.innerHTML = '';
 
-            bestActivities.forEach(best => {
-                const activity = data.activities.find(a => {
-                    switch(best.title) {
-                        case 'Highest Elevation': return a.total_elevation_gain === best.value;
-                        case 'Longest Distance': return (a.distance / 1000) === best.value;
-                        case 'Longest Duration': return (a.moving_time / 3600) === best.value;
-                        case 'Highest Heart Effort': return ((a.average_heartrate || 0) * (a.moving_time / 60)) === best.value;
-                        default: return false;
-                    }
-                });
+                    bestActivities.forEach(best => {
+                        const activity = data.activities.find(a => {
+                            switch(best.title) {
+                                case 'Highest Elevation': return a.total_elevation_gain === best.value;
+                                case 'Longest Distance': return (a.distance / 1000) === best.value;
+                                case 'Longest Duration': return (a.moving_time / 3600) === best.value;
+                                case 'Highest Heart Effort': return ((a.average_heartrate || 0) * (a.moving_time / 60)) === best.value;
+                                default: return false;
+                            }
+                        });
 
-                if (activity) {
-                    const activityId = activity.id || activity.external_id;
-                    const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
+                        if (activity) {
+                            const activityId = activity.id || activity.external_id;
+                            const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
 
-                    const card = document.createElement('div');
-                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center cursor-help';
-                    card.title = `${activity.name}\n${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}`;
+                            const card = document.createElement('div');
+                            card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center';
 
-                    card.innerHTML = `
-                        <div class="flex items-center space-x-4">
-                            <span class="text-2xl">${best.icon}</span>
-                            <div class="font-semibold">${best.title}</div>
-                        </div>
-                        <a href="${activityUrl}" target="_blank" class="text-blue-500 hover:underline">View</a>
-                    `;
-                    bestActivitiesContainer.appendChild(card);
+                            card.innerHTML = `
+                                <div class="flex items-center space-x-4">
+                                    <span class="text-2xl">${best.icon}</span>
+                                    <a href="${activityUrl}" target="_blank" class="text-lg font-semibold text-blue-500 hover:underline">
+                                        ${best.title}
+                                    </a>
+                                </div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">
+                                    ${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}
+                                </div>
+                            `;
+                            bestActivitiesContainer.appendChild(card);
+                        }
+                    });
                 }
-            });
-        }
 
         // **Segment Completions Display**
         const segmentCountElement = document.getElementById('segment-count');

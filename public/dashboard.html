@@ -50,13 +50,19 @@
             bottom: 100%;
             left: 50%;
             transform: translateX(-50%);
-            padding: 4px 8px;
+            padding: 6px 8px;
             background-color: rgba(0, 0, 0, 0.8);
             color: white;
             border-radius: 4px;
             font-size: 12px;
             white-space: pre-line;
             z-index: 10;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+        [title]:hover::after {
+            opacity: 1;
         }
     </style>
 </head>
@@ -101,32 +107,37 @@
             <!-- Coins Section -->
             <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
                 <h3 class="text-xl font-bold mb-4">Your Coins</h3>
-                <div class="grid grid-cols-5 sm:grid-cols-5 md:grid-cols-5 gap-4">
-                    <!-- Coins will now use title attributes for hover information -->
-                    <div class="bg-green-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-5 gap-4">
+                    <!-- Coins with count below emojis and descriptions on hover -->
+                    <div class="flex flex-col items-center cursor-help"
                          title="Basic achievement coins&#10;Earned from completing regular activities">
-                        <span class="text-2xl">💲</span>
-                        <span id="coin-dollar" class="text-2xl font-bold text-green-800">0</span>
+                        <span class="text-3xl">💲</span>
+                        <span id="coin-dollar" class="mt-1 text-xl font-bold text-green-800">0</span>
                     </div>
-                    <div class="bg-blue-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                    <div class="flex flex-col items-center cursor-help"
                          title="Weekly achievement coins&#10;Earned from completing weekly challenges">
-                        <span class="text-2xl">💰</span>
-                        <span id="coin-money" class="text-2xl font-bold text-blue-800">0</span>
+                        <span class="text-3xl">💰</span>
+                        <span id="coin-money" class="mt-1 text-xl font-bold text-blue-800">0</span>
                     </div>
-                    <div class="bg-yellow-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                    <div class="flex flex-col items-center cursor-help"
                          title="Milestone achievement coins&#10;Earned from reaching distance milestones">
-                        <span class="text-2xl">🔰</span>
-                        <span id="coin-bootstrap" class="text-2xl font-bold text-yellow-800">0</span>
+                        <span class="text-3xl">🔰</span>
+                        <span id="coin-bootstrap" class="mt-1 text-xl font-bold text-yellow-800">0</span>
                     </div>
-                    <div class="bg-purple-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                    <div class="flex flex-col items-center cursor-help"
                          title="Ultra achievement coins&#10;Earned from completing ultra-distance challenges">
-                        <span class="text-2xl">💎</span>
-                        <span id="coin-diamond" class="text-2xl font-bold text-purple-800">0</span>
+                        <span class="text-3xl">💎</span>
+                        <span id="coin-diamond" class="mt-1 text-xl font-bold text-purple-800">0</span>
                     </div>
-                    <div class="bg-red-50 p-3 rounded-lg flex flex-col items-center cursor-help"
+                    <div class="flex flex-col items-center cursor-help"
                          title="Elite achievement coins&#10;Earned from exceptional performances">
-                        <span class="text-2xl">👑</span>
-                        <span id="coin-king" class="text-2xl font-bold text-red-800">0</span>
+                        <span class="text-3xl">👑</span>
+                        <span id="coin-king" class="mt-1 text-xl font-bold text-red-800">0</span>
+                    </div>
+                    <div class="flex flex-col items-center cursor-help"
+                         title="Trophy coins&#10;Earned from outstanding achievements">
+                        <span class="text-3xl">🏆</span>
+                        <span id="coin-trophy" class="mt-1 text-xl font-bold text-yellow-800">0</span>
                     </div>
                 </div>
             </div>
@@ -136,12 +147,8 @@
         <!-- Segment Completions Section -->
         <div id="segment-completions" class="mt-6">
             <h2 class="text-xl font-bold mb-4">Segment Completions</h2>
-            <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex items-center space-x-4">
-                <span class="text-3xl" id="segment-emoji">📍</span>
-                <div>
-                    <div class="text-lg" id="segment-count">0</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-300" id="segment-name">Segment Name</div>
-                </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Multiple segments will be populated here -->
             </div>
         </div>
 

@@ -1,3 +1,5 @@
+// server.js
+
 require('dotenv').config(); // Load environment variables
 
 const express = require('express');
@@ -11,9 +13,13 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 
 const PORT = process.env.PORT || 3000;
 
-// *** New: Define Segment Tracking Variables Directly in the Script ***
-const TRACKED_SEGMENT_ID = 14418673; // Replace with your segment ID
-const TRACKED_SEGMENT_NAME = 'Selvino'; // Replace with your segment name
+// *** Updated: Define Multiple Segment Tracking Variables ***
+const TRACKED_SEGMENTS = [
+  { id: 14418673, name: 'Selvino' }, // Replace with your segment IDs and names
+  { id: 618935, name: 'Passo Giau' },
+  { id: 34534915, name: 'Orezzo' },
+  // Add more segments as needed
+];
 
 // Helper function to pause execution (to respect rate limits)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -105,10 +111,10 @@ app.get('/api/strava-data', async (req, res) => {
     });
     console.log('Fetched athlete profile');
 
-    // Function to fetch up to 400 activities
+    // Function to fetch up to 800 activities (adjust as needed)
     const fetchAllActivities = async () => {
       const per_page = 200;
-      const maxActivities = 400; // Adjusted to 400 as per original code
+      const maxActivities = 800; // Adjusted to 800
       const maxPages = Math.ceil(maxActivities / per_page);
       let allActivities = [];
 
@@ -132,7 +138,7 @@ app.get('/api/strava-data', async (req, res) => {
         await sleep(1000); // Sleep for 1 second between requests
       }
 
-      // Trim the array to the maximum number of activities (400)
+      // Trim the array to the maximum number of activities (800)
       if (allActivities.length > maxActivities) {
         allActivities = allActivities.slice(0, maxActivities);
       }
@@ -146,39 +152,51 @@ app.get('/api/strava-data', async (req, res) => {
     // Calculate totals
     const totals = calculateTotals(allActivities);
 
-    // *** New: Fetch segment details to get athlete-specific stats ***
-    console.log(`Fetching details for segment ID: ${TRACKED_SEGMENT_ID}`);
-    let segmentCompletions = 0;
-    let segmentName = TRACKED_SEGMENT_NAME;
+    // *** Updated: Fetch multiple segment details to get athlete-specific stats ***
+    console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
+    let segments = [];
 
-    try {
-      const segmentResponse = await axios.get(`https://www.strava.com/api/v3/segments/${TRACKED_SEGMENT_ID}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      console.log('Fetched segment details');
+    for (const segment of TRACKED_SEGMENTS) {
+      try {
+        console.log(`Fetching segment ID: ${segment.id}`);
+        const segmentResponse = await axios.get(`https://www.strava.com/api/v3/segments/${segment.id}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        console.log(`Fetched segment details for ${segment.name}`);
 
-      const segmentData = segmentResponse.data;
+        const segmentData = segmentResponse.data;
 
-      if (segmentData.athlete_segment_stats) {
-        segmentCompletions = segmentData.athlete_segment_stats.effort_count || 0;
-        console.log(`Total segment completions: ${segmentCompletions}`);
-      } else {
-        console.warn('athlete_segment_stats not available for this segment.');
+        if (segmentData.athlete_segment_stats) {
+          const count = segmentData.athlete_segment_stats.effort_count || 0;
+          segments.push({
+            name: segment.name,
+            count: count,
+          });
+          console.log(`Segment: ${segment.name}, Completions: ${count}`);
+        } else {
+          console.warn(`athlete_segment_stats not available for segment: ${segment.name}`);
+          segments.push({
+            name: segment.name,
+            count: 0,
+          });
+        }
+
+        // Pause to respect rate limits
+        await sleep(500); // Sleep for 0.5 seconds between requests
+      } catch (segmentError) {
+        console.error(`Error fetching segment ID ${segment.id}:`, segmentError.response ? segmentError.response.data : segmentError.message);
+        segments.push({
+          name: segment.name,
+          count: 0,
+        });
       }
-    } catch (segmentError) {
-      console.error(`Error fetching segment ID ${TRACKED_SEGMENT_ID}:`, segmentError.response ? segmentError.response.data : segmentError.message);
-      // Decide whether to fail or continue without segment data
-      // Here, we'll continue and set segmentCompletions to 0
-      segmentCompletions = 0;
-      segmentName = 'Unknown Segment';
     }
 
     res.json({
       athlete: athleteResponse.data,
       activities: allActivities,
       totals: totals,
-      segmentCompletions: segmentCompletions,
-      segmentName: segmentName,
+      segments: segments, // Array of segments with name and count
       hasMore: false, // Since we've fetched all
     });
   } catch (error) {

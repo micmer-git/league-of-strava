@@ -23,8 +23,8 @@ const jwtClient = new google.auth.JWT(
 const sheets = google.sheets({ version: 'v4', auth: jwtClient });
 
 // ID of your Google Sheets document
-const SPREADSHEET_ID = '1UhcIz60K-P3yfJJOTKdUPXivGNrSp9NTvPxtIQ8bhow'; // Replace with your actual Spreadsheet ID
-
+// const SPREADSHEET_ID = '1UhcIz60K-P3yfJJOTKdUPXivGNrSp9NTvPxtIQ8bhow'; // Replace with your actual Spreadsheet ID
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 /**
  * Get or create a sheet for a user.
  * @param {string} userId - Unique identifier for the user.

@@ -3,13 +3,14 @@
 require('dotenv').config(); // Load environment variables
 
 const express = require('express');
-const axios = require('axios'); // Consistent use of axios
+const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const { appendUserData, getUserData } = require('./services/googleSheets'); // Import the Google Sheets functions
 
 const app = express();
 app.use(cookieParser());
-app.use(express.static('public')); // Serve static files from 'public' directory
+app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 
@@ -103,6 +104,7 @@ app.get('/api/strava-data', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Identify the user uniquely. Here, we'll use the athlete's ID from Strava.
   try {
     // Fetch athlete profile
     console.log('Fetching athlete profile from Strava');
@@ -111,90 +113,77 @@ app.get('/api/strava-data', async (req, res) => {
     });
     console.log('Fetched athlete profile');
 
-    // Function to fetch up to 800 activities (adjust as needed)
-    const fetchAllActivities = async () => {
-      const per_page = 200;
-      const maxActivities = 800; // Adjusted to 800
-      const maxPages = Math.ceil(maxActivities / per_page);
-      let allActivities = [];
+    const userId = athleteResponse.data.id.toString(); // Using Strava athlete ID as the sheet name
 
-      for (let page = 1; page <= maxPages; page++) {
-        console.log(`Fetching activities - Page: ${page}, Per Page: ${per_page}`);
-        const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: { per_page, page },
-        });
+    // Fetch existing data from Google Sheets
+    let existingData = await getUserData(userId);
+    console.log(`Existing data retrieved for user ${userId}: ${existingData.length} rows`);
 
-        const activities = activitiesResponse.data;
-        console.log(`Fetched ${activities.length} activities from page ${page}`);
-        allActivities = allActivities.concat(activities);
-
-        // If we received fewer activities than per_page, no more pages are available
-        if (activities.length < per_page) {
-          break;
-        }
-
-        // Pause to respect rate limits (optional but recommended)
-        await sleep(1000); // Sleep for 1 second between requests
-      }
-
-      // Trim the array to the maximum number of activities (800)
-      if (allActivities.length > maxActivities) {
-        allActivities = allActivities.slice(0, maxActivities);
-      }
-
-      return allActivities;
-    };
-
-    const allActivities = await fetchAllActivities();
+    // Fetch all activities from Strava
+    const allActivities = await fetchAllActivities(accessToken);
     console.log(`Total activities fetched: ${allActivities.length}`);
 
-    // Calculate totals
-    const totals = calculateTotals(allActivities);
+    // Determine new activities by comparing with existing data
+    // Assuming each activity has a unique 'id' field
+    const existingActivityIds = new Set(existingData.slice(1).map(row => row[0])); // Assuming first column is 'id'
+    const newActivities = allActivities.filter(activity => !existingActivityIds.has(activity.id.toString()));
 
-    // *** Updated: Fetch multiple segment details to get athlete-specific stats ***
-    console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
-    let segments = [];
+    console.log(`New activities to append: ${newActivities.length}`);
 
-    for (const segment of TRACKED_SEGMENTS) {
-      try {
-        console.log(`Fetching segment ID: ${segment.id}`);
-        const segmentResponse = await axios.get(`https://www.strava.com/api/v3/segments/${segment.id}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        console.log(`Fetched segment details for ${segment.name}`);
+    // Process new activities and prepare data to append
+    const dataToAppend = newActivities.map(activity => [
+      activity.id,
+      activity.name,
+      activity.type,
+      activity.distance,
+      activity.moving_time,
+      activity.elapsed_time,
+      activity.total_elevation_gain,
+      activity.kilojoules || 0, // Adjust based on your data
+      activity.start_date,
+      // Add other fields as needed
+    ]);
 
-        const segmentData = segmentResponse.data;
-
-        if (segmentData.athlete_segment_stats) {
-          const count = segmentData.athlete_segment_stats.effort_count || 0;
-          segments.push({
-            name: segment.name,
-            count: count,
-          });
-          console.log(`Segment: ${segment.name}, Completions: ${count}`);
-        } else {
-          console.warn(`athlete_segment_stats not available for segment: ${segment.name}`);
-          segments.push({
-            name: segment.name,
-            count: 0,
-          });
-        }
-
-        // Pause to respect rate limits
-        await sleep(500); // Sleep for 0.5 seconds between requests
-      } catch (segmentError) {
-        console.error(`Error fetching segment ID ${segment.id}:`, segmentError.response ? segmentError.response.data : segmentError.message);
-        segments.push({
-          name: segment.name,
-          count: 0,
-        });
+    if (dataToAppend.length > 0) {
+      // Optionally, add headers if the sheet is empty
+      if (existingData.length === 0) {
+        const headers = [
+          'ID',
+          'Name',
+          'Type',
+          'Distance (m)',
+          'Moving Time (s)',
+          'Elapsed Time (s)',
+          'Elevation Gain (m)',
+          'Kilojoules',
+          'Start Date',
+          // Add other headers as needed
+        ];
+        await appendUserData(userId, [headers, ...dataToAppend]);
+        console.log('Headers and new activities appended to Google Sheets');
+      } else {
+        await appendUserData(userId, dataToAppend);
+        console.log('New activities appended to Google Sheets');
       }
+    } else {
+      console.log('No new activities to append');
     }
+
+    // Re-fetch all data including newly appended
+    const updatedData = await getUserData(userId);
+    console.log(`Updated data count for user ${userId}: ${updatedData.length} rows`);
+
+    // Recalculate totals based on updated data
+    const parsedActivities = parseActivities(updatedData); // Implement this function to parse sheet data into activity objects
+    const totals = calculateTotals(parsedActivities);
+
+    // Fetch segment completions as before
+    console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
+    let segments = await fetchSegmentDetails(TRACKED_SEGMENTS, accessToken); // Refactor segment fetching into a separate function
 
     res.json({
       athlete: athleteResponse.data,
-      activities: allActivities,
+      activities: parsedActivities,
       totals: totals,
       segments: segments, // Array of segments with name and count
       hasMore: false, // Since we've fetched all
@@ -204,6 +193,119 @@ app.get('/api/strava-data', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch data' });
   }
 });
+
+// Helper functions
+
+/**
+ * Fetch all activities from Strava with pagination.
+ * @param {string} accessToken
+ * @returns {Promise<Array>}
+ */
+async function fetchAllActivities(accessToken) {
+  const per_page = 200;
+  const maxActivities = 800; // Adjust as needed
+  const maxPages = Math.ceil(maxActivities / per_page);
+  let allActivities = [];
+
+  for (let page = 1; page <= maxPages; page++) {
+    console.log(`Fetching activities - Page: ${page}, Per Page: ${per_page}`);
+    const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      params: { per_page, page },
+    });
+
+    const activities = activitiesResponse.data;
+    console.log(`Fetched ${activities.length} activities from page ${page}`);
+    allActivities = allActivities.concat(activities);
+
+    if (activities.length < per_page) {
+      break;
+    }
+
+    await sleep(1000); // Sleep to respect rate limits
+  }
+
+  if (allActivities.length > maxActivities) {
+    allActivities = allActivities.slice(0, maxActivities);
+  }
+
+  return allActivities;
+}
+
+/**
+ * Parse activities data from Google Sheets into activity objects.
+ * @param {Array<Array<any>>} sheetData
+ * @returns {Array<Object>}
+ */
+function parseActivities(sheetData) {
+  if (sheetData.length < 2) return []; // No data
+
+  const headers = sheetData[0];
+  const activities = sheetData.slice(1).map(row => {
+    const activity = {};
+    headers.forEach((header, index) => {
+      activity[header] = row[index];
+    });
+    // Convert numeric fields
+    activity.id = parseInt(activity.ID, 10);
+    activity.distance = parseFloat(activity['Distance (m)']);
+    activity.moving_time = parseInt(activity['Moving Time (s)'], 10);
+    activity.elapsed_time = parseInt(activity['Elapsed Time (s)'], 10);
+    activity.total_elevation_gain = parseFloat(activity['Elevation Gain (m)']);
+    activity.kilojoules = parseFloat(activity.Kilojoules) || 0;
+    activity.start_date = activity['Start Date'];
+    return activity;
+  });
+
+  return activities;
+}
+
+/**
+ * Fetch segment details for multiple segments.
+ * @param {Array<Object>} segmentsList - List of segments with id and name.
+ * @param {string} accessToken
+ * @returns {Promise<Array<Object>>}
+ */
+async function fetchSegmentDetails(segmentsList, accessToken) {
+  let segments = [];
+
+  for (const segment of segmentsList) {
+    try {
+      console.log(`Fetching segment ID: ${segment.id}`);
+      const segmentResponse = await axios.get(`https://www.strava.com/api/v3/segments/${segment.id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      console.log(`Fetched segment details for ${segment.name}`);
+
+      const segmentData = segmentResponse.data;
+
+      if (segmentData.athlete_segment_stats) {
+        const count = segmentData.athlete_segment_stats.effort_count || 0;
+        segments.push({
+          name: segment.name,
+          count: count,
+        });
+        console.log(`Segment: ${segment.name}, Completions: ${count}`);
+      } else {
+        console.warn(`athlete_segment_stats not available for segment: ${segment.name}`);
+        segments.push({
+          name: segment.name,
+          count: 0,
+        });
+      }
+
+      await sleep(500); // Respect rate limits
+    } catch (segmentError) {
+      console.error(`Error fetching segment ID ${segment.id}:`, segmentError.response ? segmentError.response.data : segmentError.message);
+      segments.push({
+        name: segment.name,
+        count: 0,
+      });
+    }
+  }
+
+  return segments;
+}
 
 // Function to calculate totals from activities
 function calculateTotals(activities) {
@@ -228,3 +330,5 @@ function calculateTotals(activities) {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+module.exports = app; // Ensure to export if using separately

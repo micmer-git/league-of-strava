@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.22",
-    "eslint": "^8.0.0" // Optional: If you plan to use ESLint for linting
+    "eslint": "^8.0.0"
   },
   "repository": {
     "type": "git",

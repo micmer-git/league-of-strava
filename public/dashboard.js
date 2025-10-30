@@ -1433,11 +1433,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (response.ok) {
                 data = await response.json();
             } else {
+                const contentType = response.headers.get('content-type') || '';
                 let errorDetails = null;
-                try {
+
+                if (contentType.includes('application/json')) {
                     errorDetails = await response.json();
-                } catch (parseError) {
-                    console.warn('Failed to parse error response from /api/strava-data:', parseError);
+                } else {
+                    const errorText = await response.text();
+                    errorDetails = errorText ? { error: errorText.trim() } : null;
                 }
 
                 const networkError = new Error(`HTTP error! status: ${response.status}`);
@@ -1500,7 +1503,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (errorMessage) {
                 errorMessage.classList.remove('hidden');
                 if (error.details?.error) {
-                    errorMessage.textContent = error.details.error;
+                    const rawMessage = error.details.error;
+                    const strippedMessage = typeof rawMessage === 'string'
+                        ? rawMessage.replace(/<[^>]*>/g, '').trim()
+                        : '';
+                    if (strippedMessage) {
+                        errorMessage.textContent = strippedMessage.length > 200
+                            ? `${strippedMessage.slice(0, 200)}…`
+                            : strippedMessage;
+                    } else {
+                        errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
+                    }
                 } else {
                     errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
                 }

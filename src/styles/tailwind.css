@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom global styles for dashboard overrides */
+body {
+  font-family: 'Segoe UI', 'Inter', Arial, sans-serif;
+}

@@ -14,6 +14,15 @@ app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 
+const stravaApi = axios.create({
+  baseURL: 'https://www.strava.com/api/v3',
+});
+
+const CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_CACHE_TTL_MS, 10) || 5 * 60 * 1000; // 5 minutes default
+const MAX_ACTIVITY_PAGES = Number.parseInt(process.env.STRAVA_MAX_ACTIVITY_PAGES, 10) || 0; // 0 = unlimited
+
+const userDataCache = new Map();
+
 // *** Updated: Define Multiple Segment Tracking Variables ***
 const TRACKED_SEGMENTS = [
   { id: 14418673, name: 'Selvino' }, // Replace with your segment IDs and names
@@ -98,22 +107,35 @@ app.get('/dashboard', (req, res) => {
 app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   const accessToken = req.cookies.strava_token;
+  const forceRefresh = req.query.refresh === 'true';
 
   if (!accessToken) {
     console.warn('No access token found in cookies');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  let userId;
+
   // Identify the user uniquely. Here, we'll use the athlete's ID from Strava.
   try {
     // Fetch athlete profile
     console.log('Fetching athlete profile from Strava');
-    const athleteResponse = await axios.get('https://www.strava.com/api/v3/athlete', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const athleteResponse = await stravaGet('athlete', accessToken);
     console.log('Fetched athlete profile');
 
-    const userId = athleteResponse.data.id.toString(); // Using Strava athlete ID as the sheet name
+    userId = athleteResponse.data.id.toString(); // Using Strava athlete ID as the sheet name
+
+    const existingCache = userDataCache.get(userId);
+    const now = Date.now();
+
+    if (!forceRefresh && existingCache && now - existingCache.timestamp < CACHE_TTL_MS) {
+      console.log(`Serving cached Strava data for athlete ${userId}`);
+      return res.json({
+        ...existingCache.data,
+        cached: true,
+        stale: false,
+      });
+    }
 
     // Fetch all activities from Strava
     const allActivities = await fetchAllActivities(accessToken);
@@ -126,20 +148,100 @@ app.get('/api/strava-data', async (req, res) => {
     console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
     let segments = await fetchSegmentDetails(TRACKED_SEGMENTS, accessToken); // Refactor segment fetching into a separate function
 
-    res.json({
+    const responsePayload = {
       athlete: athleteResponse.data,
       activities: allActivities,
       totals: totals,
       segments: segments, // Array of segments with name and count
       hasMore: false, // Since we've fetched all
+    };
+
+    userDataCache.set(userId, {
+      timestamp: now,
+      data: responsePayload,
+    });
+
+    res.json({
+      ...responsePayload,
+      cached: false,
+      stale: false,
     });
   } catch (error) {
+    const statusCode = error.statusCode || error.response?.status || 500;
     console.error('Error fetching Strava data:', error.response ? error.response.data : error.message);
+
+    if (userId) {
+      const cachedEntry = userDataCache.get(userId);
+      if ((error.isRateLimit || statusCode === 429 || statusCode === 503) && cachedEntry) {
+        const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
+        const retryAfter = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : Math.ceil(CACHE_TTL_MS / 1000);
+
+        console.log(`Returning cached data for athlete ${userId} after rate limit response.`);
+        return res.status(200).json({
+          ...cachedEntry.data,
+          cached: true,
+          stale: true,
+          retryAfter,
+          message: 'Showing cached data because Strava temporarily rate limited requests. Please try again later.',
+        });
+      }
+    }
+
+    if (error.isRateLimit || statusCode === 429 || statusCode === 503) {
+      const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
+      const retryAfter = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : Math.ceil(CACHE_TTL_MS / 1000);
+
+      return res.status(503).json({
+        error: 'Strava temporarily unavailable due to rate limiting. Please try again later.',
+        retryAfter,
+      });
+    }
+
     res.status(500).json({ error: 'Failed to fetch data' });
   }
 });
 
+
 // Helper functions
+
+async function stravaGet(path, accessToken, params = {}, retries = 2) {
+  let attempt = 0;
+  let delayMs = 1000;
+
+  while (attempt <= retries) {
+    try {
+      return await stravaApi.get(path, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params,
+      });
+    } catch (error) {
+      const status = error.response?.status;
+      const shouldRetry = attempt < retries && (status === 429 || status === 503 || status >= 500);
+
+      if (shouldRetry) {
+        const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
+        const retryDelay = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : delayMs;
+        console.warn(`Strava request to ${path} failed with status ${status}. Retrying in ${retryDelay}ms (attempt ${attempt + 1}/${retries}).`);
+        await sleep(retryDelay);
+        attempt += 1;
+        delayMs *= 2;
+        continue;
+      }
+
+      if (status === 429 || status === 503) {
+        error.isRateLimit = true;
+      }
+
+      error.statusCode = status || error.statusCode || 500;
+      throw error;
+    }
+  }
+
+  const finalError = new Error(`Failed to fetch ${path} from Strava after ${retries + 1} attempts`);
+  finalError.statusCode = 503;
+  finalError.isRateLimit = true;
+  throw finalError;
+}
 
 /**
  * Fetch all activities from Strava with pagination.
@@ -153,10 +255,7 @@ async function fetchAllActivities(accessToken) {
 
   while (true) {
     console.log(`Fetching activities - Page: ${page}, Per Page: ${per_page}`);
-    const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: { per_page, page },
-    });
+    const activitiesResponse = await stravaGet('athlete/activities', accessToken, { per_page, page });
 
     const activities = activitiesResponse.data.map(activity => {
       const estimatedCalories = estimateCalories(activity);
@@ -167,6 +266,11 @@ async function fetchAllActivities(accessToken) {
     allActivities = allActivities.concat(activities);
 
     if (activities.length < per_page) {
+      break;
+    }
+
+    if (MAX_ACTIVITY_PAGES > 0 && page >= MAX_ACTIVITY_PAGES) {
+      console.log(`Reached configured maximum of ${MAX_ACTIVITY_PAGES} pages when fetching activities.`);
       break;
     }
 
@@ -189,9 +293,7 @@ async function fetchSegmentDetails(segmentsList, accessToken) {
   for (const segment of segmentsList) {
     try {
       console.log(`Fetching segment ID: ${segment.id}`);
-      const segmentResponse = await axios.get(`https://www.strava.com/api/v3/segments/${segment.id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const segmentResponse = await stravaGet(`segments/${segment.id}`, accessToken);
       console.log(`Fetched segment details for ${segment.name}`);
 
       const segmentData = segmentResponse.data;
@@ -212,6 +314,12 @@ async function fetchSegmentDetails(segmentsList, accessToken) {
       await sleep(500); // Respect rate limits
     } catch (segmentError) {
       console.error(`Error fetching segment ID ${segment.id}:`, segmentError.response ? segmentError.response.data : segmentError.message);
+
+      if (segmentError.isRateLimit) {
+        segmentError.statusCode = segmentError.statusCode || segmentError.response?.status || 503;
+        throw segmentError;
+      }
+
       segments.push({
         name: segment.name,
         count: 0,
@@ -252,13 +360,10 @@ async function fetchSegmentEfforts(segmentId, accessToken) {
 
   while (true) {
     try {
-      const response = await axios.get('https://www.strava.com/api/v3/segment_efforts', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: {
-          segment_id: segmentId,
-          per_page,
-          page,
-        },
+      const response = await stravaGet('segment_efforts', accessToken, {
+        segment_id: segmentId,
+        per_page,
+        page,
       });
 
       const efforts = Array.isArray(response.data) ? response.data : [];
@@ -280,6 +385,12 @@ async function fetchSegmentEfforts(segmentId, accessToken) {
       await sleep(750);
     } catch (error) {
       console.error(`Error fetching efforts for segment ${segmentId}:`, error.response ? error.response.data : error.message);
+
+      if (error.isRateLimit) {
+        error.statusCode = error.statusCode || error.response?.status || 503;
+        throw error;
+      }
+
       break;
     }
   }

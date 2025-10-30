@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let sortedActivities = [];
 
     let tooltipHideTimeout = null;
+    let spinnerHideTimeout = null;
     const tooltipElement = document.createElement('div');
     tooltipElement.id = 'dashboard-tooltip';
     tooltipElement.className = 'tooltip-bubble hidden';
@@ -53,21 +54,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (loadingSpinner) {
             loadingSpinner.classList.remove('opacity-100');
             loadingSpinner.classList.add('opacity-0');
+            loadingSpinner.classList.add('pointer-events-none');
+            loadingSpinner.setAttribute('aria-hidden', 'true');
 
-            // After the transition ends, add the 'hidden' class
-            loadingSpinner.addEventListener('transitionend', () => {
+            const finalizeHide = () => {
+                if (!loadingSpinner.classList.contains('opacity-0')) {
+                    loadingSpinner.removeEventListener('transitionend', finalizeHide);
+                    return;
+                }
+                if (spinnerHideTimeout) {
+                    clearTimeout(spinnerHideTimeout);
+                    spinnerHideTimeout = null;
+                }
                 loadingSpinner.classList.add('hidden');
-            }, { once: true });
+                loadingSpinner.classList.add('pointer-events-none');
+                loadingSpinner.classList.remove('opacity-100');
+                loadingSpinner.setAttribute('aria-hidden', 'true');
+                loadingSpinner.removeEventListener('transitionend', finalizeHide);
+            };
+
+            loadingSpinner.addEventListener('transitionend', finalizeHide, { once: true });
+
+            // Fallback in case the transition event does not fire
+            if (spinnerHideTimeout) {
+                clearTimeout(spinnerHideTimeout);
+            }
+            spinnerHideTimeout = setTimeout(finalizeHide, 600);
         }
     };
 
     // Function to show the spinner with fade-in effect
     const showSpinner = () => {
         if (loadingSpinner) {
+            if (spinnerHideTimeout) {
+                clearTimeout(spinnerHideTimeout);
+                spinnerHideTimeout = null;
+            }
             loadingSpinner.classList.remove('hidden');
+            loadingSpinner.classList.remove('pointer-events-none');
+            loadingSpinner.classList.remove('opacity-0');
             // Trigger reflow to ensure the transition works
             void loadingSpinner.offsetWidth;
             loadingSpinner.classList.add('opacity-100');
+            loadingSpinner.setAttribute('aria-hidden', 'false');
         }
     };
 
@@ -458,7 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Marathon Finisher',
             emoji: '🏅',
             description: 'Completed a marathon distance activity (42.195 km)',
-            criteria: (activity) => (activity.distance / 1000) >= 42.195
+            criteria: (activity) => activity.type && activity.type.toUpperCase() === 'RUN' && ((activity.distance || 0) / 1000) >= 42.195
         },
         {
             name: 'Ultra Runner',
@@ -1298,23 +1327,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             categories.forEach(category => {
                 if (category.achievements.length > 0) {
                     const categoryDiv = document.createElement('div');
-                    categoryDiv.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4';
+                    categoryDiv.className = 'bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg mb-3 sm:mb-4 space-y-3';
 
                     const categoryHeader = document.createElement('h4');
-                    categoryHeader.className = 'text-lg font-semibold mb-2';
+                    categoryHeader.className = 'text-base sm:text-lg font-semibold';
                     categoryHeader.textContent = category.name;
                     categoryDiv.appendChild(categoryHeader);
 
                     const achievementsRow = document.createElement('div');
-                    achievementsRow.className = 'flex flex-wrap gap-4';
+                    achievementsRow.className = 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-3';
 
                     category.achievements.forEach(ach => {
                         const achButton = document.createElement('button');
                         achButton.type = 'button';
-                        achButton.className = 'tooltip-target flex flex-col items-center justify-center gap-1 px-3 py-2 bg-white/60 dark:bg-gray-800/60 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
+                        achButton.className = 'tooltip-target flex flex-col items-center justify-center gap-1 px-2 py-2 bg-white/70 dark:bg-gray-800/70 rounded-md shadow-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400';
                         achButton.innerHTML = `
-                            <span class="text-2xl">${ach.emoji}</span>
-                            <span class="text-sm font-semibold">${ach.count}</span>
+                            <span class="text-xl sm:text-2xl">${ach.emoji}</span>
+                            <span class="text-xs sm:text-sm font-semibold">${ach.count}</span>
                         `;
                         achButton.setAttribute('aria-label', `${ach.name} earned ${ach.count} times`);
                         attachTooltip(achButton, `${ach.name}\n${ach.description}\nEarned: ${ach.count} times`);
@@ -1339,11 +1368,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalsEarned.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
-                    medalButton.className = 'tooltip-target bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col items-center text-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.className = 'tooltip-target bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg flex flex-col items-center text-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
                     medalButton.innerHTML = `
-                        <span class="text-3xl">${medal.emoji}</span>
-                        <span class="text-sm font-semibold">${medal.name}</span>
-                        <span class="text-xs text-gray-600 dark:text-gray-300">x${medal.count}</span>
+                        <span class="text-2xl sm:text-3xl">${medal.emoji}</span>
+                        <span class="text-xs sm:text-sm font-semibold">${medal.name}</span>
+                        <span class="text-[10px] sm:text-xs text-gray-600 dark:text-gray-300">x${medal.count}</span>
                     `;
                     medalButton.setAttribute('aria-label', `${medal.name} earned ${medal.count} times`);
                     attachTooltip(medalButton, `${medal.name}\n${medal.description}\nEarned: ${medal.count} times`);

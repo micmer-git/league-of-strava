@@ -151,6 +151,23 @@
                         <span id="current-rank" class="text-sm font-medium"></span>
                         <span id="level-progress" class="text-sm font-medium"></span>
                     </div>
+                    <div id="global-coins" class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="flex flex-col items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-3" title="Total kilometers divided by Earth's equator (40,075 km)">
+                            <span class="text-2xl">🌍</span>
+                            <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-300">World Coin</span>
+                            <span id="world-coin-value" class="text-lg font-semibold">0</span>
+                        </div>
+                        <div class="flex flex-col items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-3" title="Total elevation gain divided by Mount Everest (8,848 m)">
+                            <span class="text-2xl">🗻</span>
+                            <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-300">Mountain Coin</span>
+                            <span id="mountain-coin-value" class="text-lg font-semibold">0</span>
+                        </div>
+                        <div class="flex flex-col items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-3" title="Estimated calories burned divided by an 800 kcal pizza">
+                            <span class="text-2xl">🍕</span>
+                            <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-300">Pizza Coin</span>
+                            <span id="pizza-coin-value" class="text-lg font-semibold">0</span>
+                        </div>
+                    </div>
                     <div id="rank-details" class="text-sm text-gray-500 mt-2 space-y-2"></div>
                     <div class="mt-3 flex flex-wrap items-center gap-2" id="profile-actions">
                         <button id="fetch-more-data-btn" type="button"
@@ -197,17 +214,18 @@
                         <span id="coin-trophy" class="text-sm sm:text-base font-bold text-yellow-800">0</span>
                     </button>
                 </div>
-            </div>
-        </div>
-
-        <!-- Date Filtering Section -->
-        <div class="flex justify-end mb-6">
-            <div class="flex space-x-2">
-                <select id="year-select" class="px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
-                <input type="text" id="start-date" placeholder="Start Date" class="px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                <input type="text" id="end-date" placeholder="End Date" class="px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                <button id="filter-button" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filter</button>
-                <button id="reset-button" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Reset</button>
+                <p id="coin-portfolio-value" class="mt-4 text-sm text-gray-600 dark:text-gray-300"></p>
+                <div class="mt-4 space-y-3">
+                    <div class="flex flex-wrap gap-2">
+                        <select id="year-select" class="flex-1 min-w-[140px] px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
+                        <input type="text" id="start-date" placeholder="Start Date" class="flex-1 min-w-[140px] px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <input type="text" id="end-date" placeholder="End Date" class="flex-1 min-w-[140px] px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="filter-button" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filter</button>
+                        <button id="reset-button" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Reset</button>
+                    </div>
+                </div>
             </div>
         </div>
 

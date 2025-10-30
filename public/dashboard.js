@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
     const bestActivitiesContainer = document.getElementById('best-activities');
+    const yearSelect = document.getElementById('year-select');
+    const activitiesContainer = document.getElementById('activities-container');
+    const activitiesEmptyState = document.getElementById('activities-empty');
+    const loadMoreButton = document.getElementById('load-more-btn');
 
     // === Date Pickers ===
     const startDatePicker = flatpickr("#start-date", {
@@ -31,6 +35,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // === Data Storage ===
     let allData = {}; // To store all fetched data
     let filteredData = {}; // To store filtered data based on date
+
+    const ACTIVITIES_PAGE_SIZE = 5;
+    let visibleActivitiesCount = 0;
+    let sortedActivities = [];
+
+    let tooltipHideTimeout = null;
+    const tooltipElement = document.createElement('div');
+    tooltipElement.id = 'dashboard-tooltip';
+    tooltipElement.className = 'tooltip-bubble hidden';
+    document.body.appendChild(tooltipElement);
 
     // === Utility Functions ===
 
@@ -115,6 +129,231 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, stepTime);
     };
 
+    const hideTooltip = () => {
+        if (tooltipHideTimeout) {
+            clearTimeout(tooltipHideTimeout);
+            tooltipHideTimeout = null;
+        }
+        tooltipElement.classList.remove('visible');
+        tooltipElement.classList.add('hidden');
+        tooltipElement.dataset.anchorId = '';
+        tooltipElement.textContent = '';
+    };
+
+    const positionTooltip = (element) => {
+        const rect = element.getBoundingClientRect();
+        const top = window.scrollY + rect.bottom + 12;
+        const center = window.scrollX + rect.left + (rect.width / 2);
+        tooltipElement.style.top = `${top}px`;
+        tooltipElement.style.left = `${center}px`;
+
+        const tooltipRect = tooltipElement.getBoundingClientRect();
+        if (tooltipRect.left < 12) {
+            tooltipElement.style.left = `${center + (12 - tooltipRect.left)}px`;
+        } else if (tooltipRect.right > window.innerWidth - 12) {
+            tooltipElement.style.left = `${center - (tooltipRect.right - (window.innerWidth - 12))}px`;
+        }
+    };
+
+    const showTooltip = (element, text) => {
+        if (!element || !text) return;
+
+        if (!element.dataset.tooltipId) {
+            element.dataset.tooltipId = `tooltip-${Math.random().toString(36).slice(2, 9)}`;
+        }
+
+        tooltipElement.textContent = text;
+        tooltipElement.dataset.anchorId = element.dataset.tooltipId;
+        tooltipElement.classList.remove('hidden');
+        tooltipElement.classList.add('visible');
+        positionTooltip(element);
+
+        if (tooltipHideTimeout) {
+            clearTimeout(tooltipHideTimeout);
+        }
+        tooltipHideTimeout = setTimeout(() => {
+            hideTooltip();
+        }, 2800);
+    };
+
+    const attachTooltip = (element, text) => {
+        if (!element || !text) return;
+        element.dataset.tooltip = text;
+        if (element.dataset.tooltipBound) return;
+
+        const handleShow = () => showTooltip(element, text);
+        const handleHide = () => {
+            if (tooltipElement.dataset.anchorId === element.dataset.tooltipId) {
+                hideTooltip();
+            }
+        };
+
+        element.addEventListener('mouseenter', handleShow);
+        element.addEventListener('mouseleave', handleHide);
+        element.addEventListener('focus', handleShow);
+        element.addEventListener('blur', handleHide);
+        element.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (tooltipElement.dataset.anchorId === element.dataset.tooltipId &&
+                tooltipElement.classList.contains('visible')) {
+                hideTooltip();
+            } else {
+                showTooltip(element, text);
+            }
+        });
+        element.addEventListener('touchstart', (event) => {
+            event.stopPropagation();
+            if (tooltipElement.dataset.anchorId === element.dataset.tooltipId &&
+                tooltipElement.classList.contains('visible')) {
+                hideTooltip();
+            } else {
+                showTooltip(element, text);
+            }
+        }, { passive: true });
+
+        element.dataset.tooltipBound = 'true';
+        element.classList.add('tooltip-target');
+    };
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.tooltip-target')) {
+            hideTooltip();
+        }
+    });
+
+    window.addEventListener('scroll', hideTooltip, { passive: true });
+    window.addEventListener('resize', hideTooltip, { passive: true });
+
+    document.querySelectorAll('.tooltip-target[data-tooltip]').forEach(element => {
+        attachTooltip(element, element.dataset.tooltip);
+    });
+
+    const calculateTotals = (activities = []) => {
+        return activities.reduce((acc, activity) => {
+            acc.hours += ((activity?.moving_time) || 0) / 3600;
+            acc.distance += (activity?.distance) || 0;
+            acc.elevation += (activity?.total_elevation_gain) || 0;
+            acc.calories += (activity?.kilojoules) || 0;
+            return acc;
+        }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
+    };
+
+    const renderActivitiesList = () => {
+        if (!activitiesContainer) {
+            return;
+        }
+
+        activitiesContainer.innerHTML = '';
+
+        if (!sortedActivities.length) {
+            if (activitiesEmptyState) {
+                activitiesEmptyState.classList.remove('hidden');
+            }
+            if (loadMoreButton) {
+                loadMoreButton.classList.add('hidden');
+            }
+            return;
+        }
+
+        if (activitiesEmptyState) {
+            activitiesEmptyState.classList.add('hidden');
+        }
+
+        const activitiesToRender = sortedActivities.slice(0, visibleActivitiesCount);
+
+        activitiesToRender.forEach(activity => {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3';
+
+            const infoWrapper = document.createElement('div');
+            infoWrapper.className = 'flex-1';
+
+            const title = document.createElement('div');
+            title.className = 'text-lg font-semibold';
+            title.textContent = activity.name || activity.type || 'Activity';
+
+            const details = document.createElement('div');
+            details.className = 'text-sm text-gray-600 dark:text-gray-300';
+            const activityDate = new Date(activity.start_date);
+            const formattedDate = Number.isNaN(activityDate.getTime()) ? '' : activityDate.toLocaleDateString();
+            const distanceKm = activity.distance ? (activity.distance / 1000).toFixed(1) : null;
+            const elevationGain = activity.total_elevation_gain ? `${Math.round(activity.total_elevation_gain)} m` : null;
+            const movingHours = ((activity.moving_time || 0) / 3600);
+            const movingTime = movingHours >= 1
+                ? `${movingHours.toFixed(1)} hrs`
+                : `${Math.round((activity.moving_time || 0) / 60)} mins`;
+            const metrics = [
+                formattedDate,
+                distanceKm ? `${distanceKm} km` : null,
+                movingTime,
+                elevationGain
+            ].filter(Boolean).join(' • ');
+            details.textContent = metrics;
+
+            infoWrapper.appendChild(title);
+            infoWrapper.appendChild(details);
+
+            const activityId = activity.id || activity.external_id;
+            const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
+
+            const actionWrapper = document.createElement('div');
+            actionWrapper.className = 'flex-shrink-0';
+
+            const linkButton = document.createElement('a');
+            linkButton.href = activityUrl;
+            linkButton.target = '_blank';
+            linkButton.rel = 'noopener noreferrer';
+            linkButton.className = 'inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400';
+            linkButton.textContent = 'View Activity';
+
+            actionWrapper.appendChild(linkButton);
+
+            card.appendChild(infoWrapper);
+            card.appendChild(actionWrapper);
+
+            activitiesContainer.appendChild(card);
+        });
+
+        if (loadMoreButton) {
+            if (visibleActivitiesCount >= sortedActivities.length) {
+                loadMoreButton.classList.add('hidden');
+            } else {
+                loadMoreButton.classList.remove('hidden');
+            }
+        }
+    };
+
+    const populateYearSelect = (activities = []) => {
+        if (!yearSelect) {
+            return;
+        }
+
+        const uniqueYears = Array.from(new Set(activities
+            .map(activity => {
+                const activityDate = new Date(activity.start_date);
+                return Number.isNaN(activityDate.getTime()) ? null : activityDate.getFullYear();
+            })
+            .filter(year => year !== null)));
+
+        uniqueYears.sort((a, b) => b - a);
+
+        yearSelect.innerHTML = '';
+
+        const allOption = document.createElement('option');
+        allOption.value = 'all';
+        allOption.textContent = 'All Years';
+        yearSelect.appendChild(allOption);
+
+        uniqueYears.forEach(year => {
+            const option = document.createElement('option');
+            option.value = String(year);
+            option.textContent = String(year);
+            yearSelect.appendChild(option);
+        });
+
+        yearSelect.value = 'all';
+    };
+
     // === Medals Configuration ===
     const medalsConfig = [
         // Special Days Medals
@@ -140,7 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Easter Enthusiast',
             emoji: '🐰',
             description: 'Logged an activity on Easter Sunday',
-            dates: [] // Will be set dynamically
+            dynamicDateResolver: (year) => [calculateEasterSunday(year)]
         },
         {
             name: 'Independence Day Icon',
@@ -158,25 +397,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Thanksgiving Titan',
             emoji: '🦃',
             description: 'Logged an activity on Thanksgiving Day',
-            dates: [] // Will be set dynamically
+            dynamicDateResolver: (year) => [getThanksgivingDate(year)]
         },
         {
             name: 'Mother’s Day Master',
             emoji: '💐',
             description: 'Logged an activity on Mother’s Day',
-            dates: [] // Will be set dynamically
+            dynamicDateResolver: (year) => [getMothersDayDate(year)]
         },
         {
             name: 'Father’s Day Fighter',
             emoji: '👨‍👧‍👦',
             description: 'Logged an activity on Father’s Day',
-            dates: [] // Will be set dynamically
+            dynamicDateResolver: (year) => [getFathersDayDate(year)]
         },
         {
             name: 'Labor Day Legend',
             emoji: '👷‍♂️',
             description: 'Logged an activity on Labor Day',
-            dates: [] // Will be set dynamically
+            dynamicDateResolver: (year) => [getLaborDayDate(year)]
         },
         // Additional Medals
         {
@@ -308,8 +547,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // === Initialize Medals Dates ===
-    const currentYear = new Date().getFullYear();
-
     // Function to get Thanksgiving date for a given year (4th Thursday of November)
     const getThanksgivingDate = (year) => {
         const november = new Date(year, 10, 1); // Months are 0-indexed
@@ -378,25 +615,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return '09-05'; // Fallback
     };
 
-    // Set dynamic dates for medals
-    medalsConfig.forEach(medal => {
-        if (medal.name === 'Easter Enthusiast') {
-            medal.dates = [calculateEasterSunday(currentYear)];
-        }
-        if (medal.name === 'Thanksgiving Titan') {
-            medal.dates = [getThanksgivingDate(currentYear)];
-        }
-        if (medal.name === 'Mother’s Day Master') {
-            medal.dates = [getMothersDayDate(currentYear)];
-        }
-        if (medal.name === 'Father’s Day Fighter') {
-            medal.dates = [getFathersDayDate(currentYear)];
-        }
-        if (medal.name === 'Labor Day Legend') {
-            medal.dates = [getLaborDayDate(currentYear)];
-        }
-    });
-
     // === Achievement Categories ===
     const categories = [
         {
@@ -444,7 +662,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             allData = data;
-            filteredData = data; // Initially, no filter applied
+
+            const computedTotals = calculateTotals(allData.activities || []);
+            filteredData = {
+                ...allData,
+                activities: [...(allData.activities || [])],
+                totals: {
+                    ...(allData.totals || {}),
+                    hours: computedTotals.hours,
+                    distance: computedTotals.distance,
+                    elevation: computedTotals.elevation,
+                    calories: computedTotals.calories
+                }
+            };
+
+            populateYearSelect(allData.activities || []);
 
             // Process and Display Data
             try {
@@ -468,67 +700,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    // === Event Listener for Filter Button ===
-    if (filterButton) {
-        filterButton.addEventListener('click', debounce(() => {
-            const startDate = startDatePicker.selectedDates[0];
-            const endDate = endDatePicker.selectedDates[0];
-
-            if (startDate && endDate && startDate > endDate) {
-                alert('Start Date cannot be after End Date.');
-                return;
-            }
-
-            // Filter data based on selected dates
-            filteredData = {
-                ...allData,
-                activities: allData.activities.filter(activity => {
-                    const activityDate = new Date(activity.start_date);
-                    let isValid = true;
-                    if (startDate) {
-                        isValid = isValid && activityDate >= startDate;
-                    }
-                    if (endDate) {
-                        isValid = isValid && activityDate <= endDate;
-                    }
-                    return isValid;
-                })
-            };
-
-            try {
-                processAndDisplayData(filteredData);
-            } catch (processingError) {
-                console.error('Error processing and displaying data:', processingError);
-                if (errorMessage) {
-                    errorMessage.classList.remove('hidden');
-                    errorMessage.textContent = 'An error occurred while processing your data. Please try again later.';
-                }
-            }
-        }, 300));
-    } else {
-        console.warn("'filter-button' element not found in the DOM.");
-    }
-
-    // === Event Listener for Reset Button ===
-    if (resetButton) {
-        resetButton.addEventListener('click', () => {
-            startDatePicker.clear();
-            endDatePicker.clear();
-            filteredData = allData;
-            try {
-                processAndDisplayData(filteredData);
-            } catch (processingError) {
-                console.error('Error processing and displaying data:', processingError);
-                if (errorMessage) {
-                    errorMessage.classList.remove('hidden');
-                    errorMessage.textContent = 'An error occurred while processing your data. Please try again later.';
-                }
-            }
-        });
-    } else {
-        console.warn("'reset-button' element not found in the DOM.");
-    }
-
     // === Function to Process and Display Data ===
     const processAndDisplayData = (data) => {
         // === Reset Existing Displays ===
@@ -536,6 +707,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (medalsSection) medalsSection.innerHTML = '';
         if (segmentContainer) segmentContainer.innerHTML = '';
         if (bestActivitiesContainer) bestActivitiesContainer.innerHTML = '';
+
+        const activities = Array.isArray(data.activities) ? data.activities : [];
+        data.activities = activities;
+        const segments = Array.isArray(data.segments) ? data.segments : [];
+        const hasActivities = activities.length > 0;
+        const totals = calculateTotals(activities);
+        const totalHours = totals.hours;
 
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
@@ -546,7 +724,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // === Ranking System ===
-        const totalHours = data.totals.hours;
         let currentRank = rankConfig[0];
         let nextRank = null;
 
@@ -563,6 +740,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const progressPercentage = nextRank
             ? ((totalHours - currentRank.minHours) / (nextRank.minHours - currentRank.minHours)) * 100
             : 100;
+        const clampedProgress = hasActivities
+            ? Math.max(0, Math.min(progressPercentage, 100))
+            : 0;
 
         // Update the ranking progress bar
         if (currentRankElement) {
@@ -572,38 +752,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (rankingProgressElement) {
-            rankingProgressElement.style.width = `${Math.min(progressPercentage, 100)}%`;
+            rankingProgressElement.style.width = `${clampedProgress}%`;
         } else {
             console.warn("'ranking-progress' element not found in the DOM.");
         }
 
         if (rankDetailsElement) {
-            rankDetailsElement.innerHTML = nextRank
-                ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs | Next: ${nextRank.name}`
-                : `${totalHours.toFixed(1)} hrs | Max Rank Achieved!`;
+            rankDetailsElement.innerHTML = '';
 
-            // Display the oldest activity date
-            const oldestActivityDate = data.activities.reduce((oldest, activity) => {
-                const activityDate = new Date(activity.start_date);
-                return activityDate < oldest ? activityDate : oldest;
-            }, new Date(data.activities[0].start_date));
+            if (hasActivities) {
+                const summary = document.createElement('div');
+                summary.textContent = nextRank
+                    ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs | Next: ${nextRank.name}`
+                    : `${totalHours.toFixed(1)} hrs | Max Rank Achieved!`;
+                rankDetailsElement.appendChild(summary);
 
-            const formattedOldestDate = oldestActivityDate.toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-            });
+                const oldestActivityDate = activities.reduce((oldest, activity) => {
+                    const activityDate = new Date(activity.start_date);
+                    if (!Number.isNaN(activityDate.getTime()) && activityDate < oldest) {
+                        return activityDate;
+                    }
+                    return oldest;
+                }, new Date(activities[0]?.start_date));
 
-            const oldestActivityElement = document.createElement('div');
-            oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
-            oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
-            rankDetailsElement.appendChild(oldestActivityElement);
+                if (!Number.isNaN(oldestActivityDate.getTime())) {
+                    const formattedOldestDate = oldestActivityDate.toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                    });
+
+                    const oldestActivityElement = document.createElement('div');
+                    oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
+                    oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
+                    rankDetailsElement.appendChild(oldestActivityElement);
+                }
+            } else {
+                const noDataElement = document.createElement('div');
+                noDataElement.className = 'text-sm text-gray-500';
+                noDataElement.textContent = 'No activities available for the selected filters.';
+                rankDetailsElement.appendChild(noDataElement);
+            }
         } else {
             console.warn("'rank-details' element not found in the DOM.");
         }
 
         if (levelProgressElement) {
-            levelProgressElement.textContent = `Level ${Math.min(Math.floor(totalHours / 20), 100)}/100`;
+            const level = Math.min(Math.floor(totalHours / 20), 100);
+            levelProgressElement.textContent = `Level ${level}/100`;
         } else {
             console.warn("'level-progress' element not found in the DOM.");
         }
@@ -628,7 +824,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         Object.entries(coinConfig).forEach(([type, config]) => {
             if (type === 'Segment') {
                 // Handle Segment Completions
-                const completions = data.segments ? data.segments.reduce((sum, seg) => sum + seg.count, 0) : 0;
+                const completions = segments.reduce((sum, seg) => sum + (seg.count || 0), 0);
 
                 // Lifetime Coins
                 if (config.lifetime.metric === 'segmentCompletions') {
@@ -985,39 +1181,57 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Medals Calculation ===
         const medalsEarned = [];
+        const activityYears = Array.from(new Set(activities
+            .map(activity => {
+                const date = new Date(activity.start_date);
+                return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+            })
+            .filter(year => year !== null)));
 
         medalsConfig.forEach(medal => {
-            if (medal.dates && medal.dates.length > 0) {
-                // Special Days Medals
-                const count = data.activities.filter(activity => {
+            if ((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver) {
+                const resolvedDates = new Set(medal.dates || []);
+                if (medal.dynamicDateResolver && activityYears.length > 0) {
+                    activityYears.forEach(year => {
+                        (medal.dynamicDateResolver(year) || []).forEach(dateStr => {
+                            if (dateStr) {
+                                resolvedDates.add(dateStr);
+                            }
+                        });
+                    });
+                }
+
+                const count = activities.filter(activity => {
                     const activityDate = new Date(activity.start_date);
-                    const monthDay = activityDate.toISOString().slice(5, 10); // MM-DD
-                    return medal.dates.includes(monthDay);
+                    if (Number.isNaN(activityDate.getTime())) {
+                        return false;
+                    }
+                    const monthDay = activityDate.toISOString().slice(5, 10);
+                    return resolvedDates.has(monthDay);
                 }).length;
+
                 if (count > 0) {
                     medalsEarned.push({
                         name: medal.name,
                         emoji: medal.emoji,
                         description: medal.description,
-                        count: count
+                        count
                     });
                 }
             } else if (medal.criteria) {
-                // Additional Medals based on criteria
-                const count = data.activities.filter(activity => medal.criteria(activity)).length;
+                const count = activities.filter(activity => medal.criteria(activity)).length;
                 if (count > 0) {
                     medalsEarned.push({
                         name: medal.name,
                         emoji: medal.emoji,
                         description: medal.description,
-                        count: count
+                        count
                     });
                 }
             } else {
-                // Special handling for medals like '7-Day Caloric Champion' or 'Cycling Streak'
                 if (medal.name === '7-Day Caloric Champion') {
                     const dailyCalories = {};
-                    data.activities.forEach(activity => {
+                    activities.forEach(activity => {
                         const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
                         dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + (activity.kilojoules / 4.184);
                     });
@@ -1026,16 +1240,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     let streak = 0;
                     let maxStreak = 0;
 
-                    for (let i = 0; i < dates.length; i++) {
-                        if (dailyCalories[dates[i]] >= 1000) {
+                    dates.forEach(date => {
+                        if (dailyCalories[date] >= 1000) {
                             streak++;
-                            if (streak > maxStreak) {
-                                maxStreak = streak;
-                            }
+                            maxStreak = Math.max(maxStreak, streak);
                         } else {
                             streak = 0;
                         }
-                    }
+                    });
 
                     if (maxStreak >= 7) {
                         medalsEarned.push({
@@ -1048,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 if (medal.name === 'Cycling Streak') {
-                    const cyclingActivities = data.activities.filter(a => a.type.toUpperCase() === 'RIDE');
+                    const cyclingActivities = activities.filter(a => a.type && a.type.toUpperCase() === 'RIDE');
                     const uniqueDates = [...new Set(cyclingActivities.map(a => new Date(a.start_date).toISOString().slice(0, 10)))].sort();
                     let streak = 0;
                     let maxStreak = 0;
@@ -1057,21 +1269,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     uniqueDates.forEach(dateStr => {
                         const date = new Date(dateStr);
                         if (previousDate) {
-                            const diffTime = date - previousDate;
-                            const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                            if (diffDays === 1) {
-                                streak++;
-                            } else {
-                                streak = 1;
-                            }
+                            const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
+                            streak = diffDays === 1 ? streak + 1 : 1;
                         } else {
                             streak = 1;
                         }
 
-                        if (streak > maxStreak) {
-                            maxStreak = streak;
-                        }
-
+                        maxStreak = Math.max(maxStreak, streak);
                         previousDate = date;
                     });
 
@@ -1101,19 +1305,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     categoryHeader.textContent = category.name;
                     categoryDiv.appendChild(categoryHeader);
 
+                    const achievementsRow = document.createElement('div');
+                    achievementsRow.className = 'flex flex-wrap gap-4';
+
                     category.achievements.forEach(ach => {
-                        const achDiv = document.createElement('div');
-                        achDiv.className = 'flex items-center justify-between mb-1 cursor-help';
-                        achDiv.title = `${ach.description}\nEarned: ${ach.count} times`;
-
-                        achDiv.innerHTML = `
+                        const achButton = document.createElement('button');
+                        achButton.type = 'button';
+                        achButton.className = 'tooltip-target flex flex-col items-center justify-center gap-1 px-3 py-2 bg-white/60 dark:bg-gray-800/60 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
+                        achButton.innerHTML = `
                             <span class="text-2xl">${ach.emoji}</span>
-                            <span class="font-bold">${ach.count}</span>
+                            <span class="text-sm font-semibold">${ach.count}</span>
                         `;
-
-                        categoryDiv.appendChild(achDiv);
+                        achButton.setAttribute('aria-label', `${ach.name} earned ${ach.count} times`);
+                        attachTooltip(achButton, `${ach.name}\n${ach.description}\nEarned: ${ach.count} times`);
+                        achievementsRow.appendChild(achButton);
                     });
 
+                    categoryDiv.appendChild(achievementsRow);
                     achievementWallet.appendChild(categoryDiv);
                 }
             });
@@ -1123,19 +1331,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Update Medals Section ===
         if (medalsSection) {
-            medalsEarned.forEach(medal => {
-                const medalCard = document.createElement('div');
-                medalCard.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex items-center space-x-4 mb-2 cursor-help';
-                medalCard.title = `${medal.description}\nEarned: ${medal.count} times`;
+            medalsSection.innerHTML = '';
 
-                medalCard.innerHTML = `
-                    <span class="text-3xl">${medal.emoji}</span>
-                    <span class="font-semibold">${medal.name}</span>
-                    <span class="text-sm text-gray-600 dark:text-gray-300">x${medal.count}</span>
-                `;
-
-                medalsSection.appendChild(medalCard);
-            });
+            if (medalsEarned.length === 0) {
+                medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals earned for the selected filters.</p>';
+            } else {
+                medalsEarned.forEach(medal => {
+                    const medalButton = document.createElement('button');
+                    medalButton.type = 'button';
+                    medalButton.className = 'tooltip-target bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col items-center text-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.innerHTML = `
+                        <span class="text-3xl">${medal.emoji}</span>
+                        <span class="text-sm font-semibold">${medal.name}</span>
+                        <span class="text-xs text-gray-600 dark:text-gray-300">x${medal.count}</span>
+                    `;
+                    medalButton.setAttribute('aria-label', `${medal.name} earned ${medal.count} times`);
+                    attachTooltip(medalButton, `${medal.name}\n${medal.description}\nEarned: ${medal.count} times`);
+                    medalsSection.appendChild(medalButton);
+                });
+            }
         } else {
             console.warn("'medals-section' element not found in the DOM.");
         }
@@ -1144,8 +1358,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (segmentContainer) {
             segmentContainer.innerHTML = ''; // Clear existing content
 
-            if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
-                data.segments.forEach(segment => {
+            if (segments.length > 0) {
+                segments.forEach(segment => {
                     const card = document.createElement('div');
                     card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col items-center space-y-2 cursor-pointer';
                     card.title = `${segment.name}\nCompletions: ${segment.count}`;
@@ -1175,72 +1389,251 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (bestActivitiesContainer) {
             bestActivitiesContainer.innerHTML = '';
 
-            const bestActivities = [
-                {
-                    title: 'Highest Elevation',
-                    value: Math.max(...data.activities.map(a => a.total_elevation_gain || 0)),
-                    icon: '🏔️',
-                    unit: 'm'
-                },
-                {
-                    title: 'Longest Distance',
-                    value: Math.max(...data.activities.map(a => a.distance / 1000 || 0)),
-                    icon: '🚲',
-                    unit: 'km'
-                },
-                {
-                    title: 'Longest Duration',
-                    value: Math.max(...data.activities.map(a => a.moving_time / 3600 || 0)),
-                    icon: '⏱️',
-                    unit: 'hrs'
-                },
-                {
-                    title: 'Highest Heart Effort',
-                    value: Math.max(...data.activities.map(a => ((a.average_heartrate || 0) * (a.moving_time / 60)) || 0)),
-                    icon: '❤️',
-                    unit: 'bpm-min'
-                }
-            ];
-
-            bestActivities.forEach(best => {
-                const matchingActivities = data.activities.filter(a => {
-                    switch(best.title) {
-                        case 'Highest Elevation': return a.total_elevation_gain === best.value;
-                        case 'Longest Distance': return (a.distance / 1000) === best.value;
-                        case 'Longest Duration': return (a.moving_time / 3600) === best.value;
-                        case 'Highest Heart Effort': return ((a.average_heartrate || 0) * (a.moving_time / 60)) === best.value;
-                        default: return false;
+            if (!hasActivities) {
+                bestActivitiesContainer.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No top performances available.</p>';
+            } else {
+                const metrics = [
+                    {
+                        title: 'Highest Elevation',
+                        icon: '🏔️',
+                        selector: (activity) => activity.total_elevation_gain || 0,
+                        formatter: (value) => `${Math.round(value)} m`
+                    },
+                    {
+                        title: 'Longest Distance',
+                        icon: '🚲',
+                        selector: (activity) => (activity.distance || 0) / 1000,
+                        formatter: (value) => `${value.toFixed(1)} km`
+                    },
+                    {
+                        title: 'Longest Duration',
+                        icon: '⏱️',
+                        selector: (activity) => (activity.moving_time || 0) / 3600,
+                        formatter: (value) => `${value.toFixed(1)} hrs`
+                    },
+                    {
+                        title: 'Highest Heart Effort',
+                        icon: '❤️',
+                        selector: (activity) => ((activity.average_heartrate || 0) * ((activity.moving_time || 0) / 60)),
+                        formatter: (value) => `${Math.round(value)} bpm·min`
                     }
-                });
+                ];
 
-                // Select the first matching activity or handle multiple matches
-                const activity = matchingActivities.length > 0 ? matchingActivities[0] : null;
+                metrics.forEach(metric => {
+                    let bestActivity = null;
+                    let bestValue = -Infinity;
 
-                if (activity) {
-                    const activityId = activity.id || activity.external_id;
+                    activities.forEach(activity => {
+                        const value = metric.selector(activity);
+                        if (value > bestValue) {
+                            bestValue = value;
+                            bestActivity = activity;
+                        }
+                    });
+
+                    if (!bestActivity || !Number.isFinite(bestValue) || bestValue <= 0) {
+                        return;
+                    }
+
+                    const activityId = bestActivity.id || bestActivity.external_id;
                     const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
 
                     const card = document.createElement('div');
-                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex justify-between items-center mb-2';
+                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3';
 
-                    card.innerHTML = `
-                        <div class="flex items-center space-x-4">
-                            <span class="text-2xl">${best.icon}</span>
-                            <a href="${activityUrl}" target="_blank" class="text-lg font-semibold text-blue-500 hover:underline">
-                                ${best.title}
-                            </a>
-                        </div>
-                        <div class="text-sm text-gray-600 dark:text-gray-300">
-                            ${best.value.toFixed(best.unit === 'km' || best.unit === 'hrs' ? 1 : 0)} ${best.unit}
-                        </div>
-                    `;
+                    const infoWrapper = document.createElement('div');
+                    infoWrapper.className = 'flex items-center gap-3';
+
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'text-3xl';
+                    iconSpan.textContent = metric.icon;
+
+                    const titleWrapper = document.createElement('div');
+                    titleWrapper.className = 'flex flex-col';
+
+                    const titleLabel = document.createElement('span');
+                    titleLabel.className = 'text-lg font-semibold';
+                    titleLabel.textContent = metric.title;
+
+                    const valueLabel = document.createElement('span');
+                    valueLabel.className = 'text-sm text-gray-600 dark:text-gray-300';
+                    valueLabel.textContent = metric.formatter(bestValue);
+
+                    titleWrapper.appendChild(titleLabel);
+                    titleWrapper.appendChild(valueLabel);
+
+                    infoWrapper.appendChild(iconSpan);
+                    infoWrapper.appendChild(titleWrapper);
+
+                    const actionButton = document.createElement('a');
+                    actionButton.href = activityUrl;
+                    actionButton.target = '_blank';
+                    actionButton.rel = 'noopener noreferrer';
+                    actionButton.className = 'inline-flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    actionButton.textContent = 'View Activity';
+
+                    card.appendChild(infoWrapper);
+                    card.appendChild(actionButton);
+
                     bestActivitiesContainer.appendChild(card);
+                });
+
+                if (!bestActivitiesContainer.hasChildNodes()) {
+                    bestActivitiesContainer.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No top performances available.</p>';
                 }
-            });
+            }
         } else {
             console.warn("'best-activities' element not found in the DOM.");
         }
+
+        sortedActivities = activities
+            .slice()
+            .sort((a, b) => {
+                const dateA = new Date(a.start_date);
+                const dateB = new Date(b.start_date);
+                return dateB - dateA;
+            });
+
+        visibleActivitiesCount = sortedActivities.length === 0
+            ? 0
+            : Math.min(sortedActivities.length, ACTIVITIES_PAGE_SIZE);
+        renderActivitiesList();
     };
+
+    const applyFilters = () => {
+        if (!allData.activities) {
+            return;
+        }
+
+        const selectedYear = yearSelect ? yearSelect.value : 'all';
+        const startDateValue = (startDatePicker && startDatePicker.selectedDates.length > 0)
+            ? new Date(startDatePicker.selectedDates[0])
+            : null;
+        const endDateValue = (endDatePicker && endDatePicker.selectedDates.length > 0)
+            ? new Date(endDatePicker.selectedDates[0])
+            : null;
+
+        const startDate = startDateValue ? new Date(startDateValue.setHours(0, 0, 0, 0)) : null;
+        const endDate = endDateValue ? new Date(endDateValue.setHours(23, 59, 59, 999)) : null;
+
+        if (startDate && endDate && startDate > endDate) {
+            alert('Start Date cannot be after End Date.');
+            return;
+        }
+
+        const filteredActivities = allData.activities.filter(activity => {
+            const activityDate = new Date(activity.start_date);
+            if (Number.isNaN(activityDate.getTime())) {
+                return false;
+            }
+            if (selectedYear && selectedYear !== 'all' && activityDate.getFullYear().toString() !== selectedYear) {
+                return false;
+            }
+            if (startDate && activityDate < startDate) {
+                return false;
+            }
+            if (endDate && activityDate > endDate) {
+                return false;
+            }
+            return true;
+        });
+
+        const computedTotals = calculateTotals(filteredActivities);
+
+        filteredData = {
+            ...allData,
+            activities: filteredActivities,
+            totals: {
+                ...(allData.totals || {}),
+                hours: computedTotals.hours,
+                distance: computedTotals.distance,
+                elevation: computedTotals.elevation,
+                calories: computedTotals.calories
+            }
+        };
+
+        try {
+            processAndDisplayData(filteredData);
+            if (errorMessage) {
+                errorMessage.classList.add('hidden');
+                errorMessage.textContent = '';
+            }
+        } catch (processingError) {
+            console.error('Error processing and displaying data:', processingError);
+            if (errorMessage) {
+                errorMessage.classList.remove('hidden');
+                errorMessage.textContent = 'An error occurred while processing your data. Please try again later.';
+            }
+        }
+    };
+
+    if (filterButton) {
+        filterButton.addEventListener('click', () => {
+            applyFilters();
+        });
+    } else {
+        console.warn("'filter-button' element not found in the DOM.");
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            if (startDatePicker) {
+                startDatePicker.clear();
+            }
+            if (endDatePicker) {
+                endDatePicker.clear();
+            }
+            if (yearSelect) {
+                yearSelect.value = 'all';
+            }
+            applyFilters();
+        });
+    } else {
+        console.warn("'reset-button' element not found in the DOM.");
+    }
+
+    if (yearSelect) {
+        yearSelect.addEventListener('change', () => {
+            if (yearSelect.value !== 'all') {
+                const year = parseInt(yearSelect.value, 10);
+                if (!Number.isNaN(year)) {
+                    const startOfYear = new Date(year, 0, 1);
+                    const endOfYear = new Date(year, 11, 31);
+                    if (startDatePicker) {
+                        startDatePicker.setDate(startOfYear, false);
+                    }
+                    if (endDatePicker) {
+                        endDatePicker.setDate(endOfYear, false);
+                    }
+                }
+            } else {
+                if (startDatePicker) {
+                    startDatePicker.clear();
+                }
+                if (endDatePicker) {
+                    endDatePicker.clear();
+                }
+            }
+            applyFilters();
+        });
+    }
+
+    if (startDatePicker) {
+        startDatePicker.config.onChange.push(() => applyFilters());
+    }
+
+    if (endDatePicker) {
+        endDatePicker.config.onChange.push(() => applyFilters());
+    }
+
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', () => {
+            visibleActivitiesCount = Math.min(sortedActivities.length, visibleActivitiesCount + ACTIVITIES_PAGE_SIZE);
+            renderActivitiesList();
+        });
+    } else {
+        console.warn("'load-more-btn' element not found in the DOM.");
+    }
 
     // === Initial Data Fetch ===
     fetchData();

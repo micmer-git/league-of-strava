@@ -5,8 +5,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loadingSpinner = document.getElementById('loading-spinner');
     const closeSpinnerButton = document.getElementById('close-spinner');
     const errorMessage = document.getElementById('error-message');
-    const infoMessage = document.getElementById('info-message');
-    const refreshButton = document.getElementById('refresh-data');
     const filterButton = document.getElementById('filter-button');
     const resetButton = document.getElementById('reset-button');
     const athleteNameElement = document.getElementById('athlete-name');
@@ -23,11 +21,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activitiesContainer = document.getElementById('activities-container');
     const activitiesEmptyState = document.getElementById('activities-empty');
     const loadMoreButton = document.getElementById('load-more-btn');
-    const fetchMoreDataButton = document.getElementById('fetch-more-data-btn');
-    const worldCoinValueElement = document.getElementById('world-coin-value');
-    const mountainCoinValueElement = document.getElementById('mountain-coin-value');
-    const pizzaCoinValueElement = document.getElementById('pizza-coin-value');
-    const coinPortfolioValueElement = document.getElementById('coin-portfolio-value');
 
     // === Date Pickers ===
     const startDatePicker = flatpickr("#start-date", {
@@ -49,229 +42,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let tooltipHideTimeout = null;
     let spinnerHideTimeout = null;
-    let coinYearChart = null;
-    const WORLD_EQUATOR_KM = 40075;
-    const EVEREST_METERS = 8848;
-    const PIZZA_SLICE_KCAL = 800;
-
-    const coinValueFactors = {
-        '💲': 0.25,
-        '💰': 0.5,
-        '🔰': 0.75,
-        '💎': 1.5,
-        '👑': 2.5,
-        '🏆': 3.5,
-    };
-
-    const achievementStackDefinitions = [
-        { key: 'distanceRun', label: 'Run Achievements', color: '#38bdf8' },
-        { key: 'distanceRide', label: 'Ride Achievements', color: '#f472b6' },
-        { key: 'elevation', label: 'Elevation Achievements', color: '#14b8a6' },
-        { key: 'other', label: 'Other Achievements', color: '#eab308' },
-    ];
-
-    const createEmptyAchievementCounts = () => ({
-        distanceRun: 0,
-        distanceRide: 0,
-        elevation: 0,
-        other: 0,
-    });
-
-    const calculatePortfolioValue = (coinCounts = {}) => {
-        return Object.entries(coinCounts).reduce((total, [emoji, count]) => {
-            const factor = coinValueFactors[emoji] || 0;
-            const numericCount = Number.isFinite(count) ? count : 0;
-            return total + factor * numericCount;
-        }, 0);
-    };
-
-    const accumulateByKey = (activities = [], keyResolver, valueResolver) => {
-        return activities.reduce((acc, activity) => {
-            const key = keyResolver(activity);
-            if (!key) {
-                return acc;
-            }
-            acc[key] = (acc[key] || 0) + valueResolver(activity);
-            return acc;
-        }, {});
-    };
-
-    const computeAchievementStacksForActivities = (activities = []) => {
-        const counts = createEmptyAchievementCounts();
-
-        if (!Array.isArray(activities) || activities.length === 0) {
-            return counts;
-        }
-
-        const runActivities = activities.filter(activity => activity?.type && activity.type.toUpperCase() === 'RUN');
-        const rideActivities = activities.filter(activity => activity?.type && activity.type.toUpperCase() === 'RIDE');
-        const allActivities = activities.filter(activity => !!activity);
-
-        const accumulateThresholdHits = (list, thresholds, valueAccessor, targetKey) => {
-            list.forEach(activity => {
-                const value = valueAccessor(activity);
-                thresholds.forEach(threshold => {
-                    if (value >= threshold) {
-                        counts[targetKey] += 1;
-                    }
-                });
-            });
-        };
-
-        accumulateThresholdHits(runActivities, [10, 21, 42], activity => ((activity?.distance) || 0) / 1000, 'distanceRun');
-
-        const runWeeklyTotals = accumulateByKey(runActivities, (activity) => {
-            const date = activity?.start_date || activity?.start_date_local;
-            return date ? getWeekKey(date) : null;
-        }, activity => ((activity?.distance) || 0) / 1000);
-
-        [50, 100].forEach(threshold => {
-            counts.distanceRun += Object.values(runWeeklyTotals).filter(total => total >= threshold).length;
-        });
-
-        accumulateThresholdHits(rideActivities, [100, 150, 200], activity => ((activity?.distance) || 0) / 1000, 'distanceRide');
-
-        const rideWeeklyTotals = accumulateByKey(rideActivities, (activity) => {
-            const date = activity?.start_date || activity?.start_date_local;
-            return date ? getWeekKey(date) : null;
-        }, activity => ((activity?.distance) || 0) / 1000);
-
-        [300, 600].forEach(threshold => {
-            counts.distanceRide += Object.values(rideWeeklyTotals).filter(total => total >= threshold).length;
-        });
-
-        accumulateThresholdHits(allActivities, [1000, 2000, 4424], activity => activity?.total_elevation_gain || 0, 'elevation');
-
-        const elevationWeeklyTotals = accumulateByKey(allActivities, (activity) => {
-            const date = activity?.start_date || activity?.start_date_local;
-            return date ? getWeekKey(date) : null;
-        }, activity => activity?.total_elevation_gain || 0);
-
-        counts.elevation += Object.values(elevationWeeklyTotals).filter(total => total >= 10000).length;
-
-        const elevationMonthlyTotals = accumulateByKey(allActivities, (activity) => {
-            const date = activity?.start_date || activity?.start_date_local;
-            return date ? getMonthKey(date) : null;
-        }, activity => activity?.total_elevation_gain || 0);
-
-        counts.elevation += Object.values(elevationMonthlyTotals).filter(total => total >= 25000).length;
-
-        accumulateThresholdHits(allActivities, [1000, 3000, 5000], activity => getEstimatedCalories(activity), 'other');
-
-        const calorieWeeklyTotals = accumulateByKey(allActivities, (activity) => {
-            const date = activity?.start_date || activity?.start_date_local;
-            return date ? getWeekKey(date) : null;
-        }, activity => getEstimatedCalories(activity));
-
-        [6000, 12000].forEach(threshold => {
-            counts.other += Object.values(calorieWeeklyTotals).filter(total => total >= threshold).length;
-        });
-
-        const dailyCalories = accumulateByKey(allActivities, (activity) => {
-            const date = activity?.start_date || activity?.start_date_local;
-            if (!date) {
-                return null;
-            }
-            const normalized = new Date(date);
-            if (Number.isNaN(normalized.getTime())) {
-                return null;
-            }
-            normalized.setHours(0, 0, 0, 0);
-            return normalized.toISOString().slice(0, 10);
-        }, activity => getEstimatedCalories(activity));
-
-        const sortedDays = Object.keys(dailyCalories).sort();
-        let calorieStreak = 0;
-        let maxCalorieStreak = 0;
-        sortedDays.forEach((day, index) => {
-            if (dailyCalories[day] >= 1000) {
-                if (index === 0) {
-                    calorieStreak = 1;
-                } else {
-                    const prevDate = new Date(sortedDays[index - 1]);
-                    const currentDate = new Date(day);
-                    const diffDays = (currentDate - prevDate) / (1000 * 60 * 60 * 24);
-                    calorieStreak = diffDays === 1 ? calorieStreak + 1 : 1;
-                }
-                maxCalorieStreak = Math.max(maxCalorieStreak, calorieStreak);
-            } else {
-                calorieStreak = 0;
-            }
-        });
-
-        if (maxCalorieStreak >= 7) {
-            counts.other += Math.floor(maxCalorieStreak / 7);
-        }
-
-        const rideDates = rideActivities
-            .map(activity => {
-                const date = activity?.start_date || activity?.start_date_local;
-                if (!date) {
-                    return null;
-                }
-                const normalized = new Date(date);
-                if (Number.isNaN(normalized.getTime())) {
-                    return null;
-                }
-                normalized.setHours(0, 0, 0, 0);
-                return normalized.toISOString().slice(0, 10);
-            })
-            .filter(Boolean)
-            .sort();
-
-        let rideStreak = 0;
-        let maxRideStreak = 0;
-        rideDates.forEach((day, index) => {
-            if (index === 0) {
-                rideStreak = 1;
-            } else {
-                const prevDate = new Date(rideDates[index - 1]);
-                const currentDate = new Date(day);
-                const diffDays = (currentDate - prevDate) / (1000 * 60 * 60 * 24);
-                rideStreak = diffDays === 1 ? rideStreak + 1 : 1;
-            }
-            maxRideStreak = Math.max(maxRideStreak, rideStreak);
-        });
-
-        if (maxRideStreak >= 5) {
-            counts.other += Math.floor(maxRideStreak / 5);
-        }
-
-        return counts;
-    };
-
-    const calculateAchievementsByYear = (activities = []) => {
-        const achievementsByYear = {};
-        const yearSet = new Set();
-
-        activities.forEach(activity => {
-            const date = new Date(activity?.start_date || activity?.start_date_local);
-            if (!Number.isNaN(date.getTime())) {
-                yearSet.add(date.getFullYear());
-            }
-        });
-
-        const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
-
-        sortedYears.forEach(year => {
-            const yearActivities = activities.filter(activity => {
-                const date = new Date(activity?.start_date || activity?.start_date_local);
-                return !Number.isNaN(date.getTime()) && date.getFullYear() === year;
-            });
-
-            achievementsByYear[year] = computeAchievementStacksForActivities(yearActivities);
-        });
-
-        return achievementsByYear;
-    };
-
-    const calculateDollarsByYear = (coinsByYear = {}) => {
-        const dollarsByYear = {};
-        Object.entries(coinsByYear).forEach(([year, coins]) => {
-            dollarsByYear[year] = calculatePortfolioValue(coins);
-        });
-        return dollarsByYear;
-    };
     const tooltipElement = document.createElement('div');
     tooltipElement.id = 'dashboard-tooltip';
     tooltipElement.className = 'tooltip-bubble hidden';
@@ -330,32 +100,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const hideInfoMessage = () => {
-        if (infoMessage) {
-            infoMessage.classList.add('hidden');
-            infoMessage.textContent = '';
-            infoMessage.classList.remove('bg-blue-100', 'text-blue-700', 'bg-yellow-100', 'text-yellow-700');
-        }
-    };
-
-    const showInfoMessage = (text, variant = 'info') => {
-        if (!infoMessage || !text) {
-            return;
-        }
-
-        const colorClasses = ['bg-blue-100', 'text-blue-700', 'bg-yellow-100', 'text-yellow-700'];
-        colorClasses.forEach(cls => infoMessage.classList.remove(cls));
-
-        if (variant === 'warning') {
-            infoMessage.classList.add('bg-yellow-100', 'text-yellow-700');
-        } else {
-            infoMessage.classList.add('bg-blue-100', 'text-blue-700');
-        }
-
-        infoMessage.textContent = text;
-        infoMessage.classList.remove('hidden');
-    };
-
     // Function to calculate Easter Sunday for a given year
     const calculateEasterSunday = (year) => {
         const f = Math.floor;
@@ -380,496 +124,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // Function to get metric value
-    const getEstimatedCalories = (activity) => {
-        if (!activity) {
-            return 0;
-        }
-
-        if (typeof activity.estimated_calories === 'number' && !Number.isNaN(activity.estimated_calories)) {
-            return activity.estimated_calories;
-        }
-
-        const minutes = ((activity?.moving_time) || 0) / 60;
-        const averageHeartRate = activity?.average_heartrate;
-
-        if (minutes > 0 && typeof averageHeartRate === 'number' && !Number.isNaN(averageHeartRate)) {
-            const caloriesPerMinute = Math.max(0, 0.6309 * averageHeartRate - 55);
-            return caloriesPerMinute * minutes;
-        }
-
-        if (typeof activity?.kilojoules === 'number' && !Number.isNaN(activity.kilojoules)) {
-            return activity.kilojoules / 4.184;
-        }
-
-        if (typeof activity?.calories === 'number' && !Number.isNaN(activity.calories)) {
-            return activity.calories;
-        }
-
-        return 0;
-    };
-
     const getMetricValue = (activity, metric) => {
         if (metric === 'distance') {
             return activity.distance ? activity.distance / 1000 : 0; // Convert meters to kilometers
         } else if (metric === 'calories') {
-            return getEstimatedCalories(activity);
+            return activity.kilojoules ? activity.kilojoules / 4.184 : 0; // Convert kJ to kcal
         } else if (metric === 'segmentCompletions') {
             return allData.segments ? allData.segments.reduce((sum, seg) => sum + seg.count, 0) : 0; // Total segment completions
         }
         return 0;
-    };
-
-    const initializeCoinCounts = () => ({
-        '💲': 0,
-        '💰': 0,
-        '🔰': 0,
-        '💎': 0,
-        '👑': 0,
-        '🏆': 0,
-    });
-
-    const filterActivitiesByCoinType = (activities, type) => {
-        if (type === 'kcal') {
-            return activities.filter(activity => getMetricValue(activity, 'calories') > 0);
-        }
-        return activities.filter(activity => activity.type && activity.type.toUpperCase() === type.toUpperCase());
-    };
-
-    const getWeekKey = (date) => {
-        const normalized = new Date(date);
-        normalized.setHours(0, 0, 0, 0);
-        const diff = normalized.getDay();
-        normalized.setDate(normalized.getDate() - diff);
-        return normalized.toISOString().slice(0, 10);
-    };
-
-    const getMonthKey = (date) => {
-        const normalized = new Date(date);
-        if (Number.isNaN(normalized.getTime())) {
-            return null;
-        }
-        return `${normalized.getFullYear()}-${(normalized.getMonth() + 1).toString().padStart(2, '0')}`;
-    };
-
-    const sumMetricForActivities = (activities, metric) => {
-        if (!Array.isArray(activities) || activities.length === 0) {
-            return 0;
-        }
-        return activities.reduce((sum, activity) => sum + getMetricValue(activity, metric), 0);
-    };
-
-    const countMilestoneAchievements = (activities, milestone) => {
-        if (!milestone || !Array.isArray(activities)) {
-            return 0;
-        }
-        return activities.reduce((count, activity) => {
-            return count + (getMetricValue(activity, milestone.metric) >= milestone.threshold ? 1 : 0);
-        }, 0);
-    };
-
-    const countWeeklyThresholds = (activities, metric, threshold) => {
-        if (!Array.isArray(activities) || activities.length === 0 || !threshold) {
-            return 0;
-        }
-        const weeklyTotals = activities.reduce((totals, activity) => {
-            const value = getMetricValue(activity, metric);
-            if (value <= 0) {
-                return totals;
-            }
-            const date = new Date(activity.start_date || activity.start_date_local);
-            if (Number.isNaN(date.getTime())) {
-                return totals;
-            }
-            const key = getWeekKey(date);
-            totals[key] = (totals[key] || 0) + value;
-            return totals;
-        }, {});
-
-        return Object.values(weeklyTotals).reduce((sum, total) => sum + Math.floor(total / threshold), 0);
-    };
-
-    const extractSegmentCompletionYears = (segments = []) => {
-        const yearMap = new Map();
-        segments.forEach(segment => {
-            const completionCount = segment.count || 0;
-            if (!completionCount) {
-                return;
-            }
-
-            const candidateDates = [];
-            const candidateFields = ['last_activity_date', 'updated_at', 'created_at', 'start_date', 'start_date_local'];
-            candidateFields.forEach(field => {
-                if (segment[field]) {
-                    candidateDates.push(segment[field]);
-                }
-            });
-
-            if (Array.isArray(segment.recent_efforts)) {
-                segment.recent_efforts.forEach(effort => {
-                    const effortDate = effort?.start_date || effort?.start_date_local;
-                    if (effortDate) {
-                        candidateDates.push(effortDate);
-                    }
-                });
-            }
-
-            if (Array.isArray(segment.completions)) {
-                segment.completions.forEach(dateStr => candidateDates.push(dateStr));
-            }
-
-            const validDates = candidateDates
-                .map(dateStr => new Date(dateStr))
-                .filter(date => !Number.isNaN(date.getTime()))
-                .sort((a, b) => a - b);
-
-            if (validDates.length === 0) {
-                return;
-            }
-
-            const distribution = new Map();
-            validDates.forEach(date => {
-                const year = date.getFullYear();
-                distribution.set(year, (distribution.get(year) || 0) + 1);
-            });
-
-            let allocated = 0;
-            distribution.forEach((value, year) => {
-                yearMap.set(year, (yearMap.get(year) || 0) + value);
-                allocated += value;
-            });
-
-            if (allocated < completionCount) {
-                const fallbackYear = validDates[validDates.length - 1].getFullYear();
-                yearMap.set(fallbackYear, (yearMap.get(fallbackYear) || 0) + (completionCount - allocated));
-            }
-        });
-        return yearMap;
-    };
-
-    const calculateCoins = (activitiesSubset, segmentsSubset, context = 'overall') => {
-        const coins = initializeCoinCounts();
-        const referenceToday = new Date();
-        const sevenDaysAgo = new Date(referenceToday);
-        sevenDaysAgo.setDate(referenceToday.getDate() - 7);
-
-        Object.entries(coinConfig).forEach(([type, config]) => {
-            if (type === 'Segment') {
-                const completionTotal = Array.isArray(segmentsSubset)
-                    ? segmentsSubset.reduce((sum, seg) => {
-                        if (Array.isArray(seg.completions) && seg.completions.length > 0) {
-                            return sum + seg.completions.length;
-                        }
-                        return sum + (seg.count || 0);
-                    }, 0)
-                    : 0;
-
-                const completionDates = Array.isArray(segmentsSubset)
-                    ? segmentsSubset.flatMap(seg => Array.isArray(seg.completions) ? seg.completions : [])
-                    : [];
-
-                const normalizedCompletionDates = completionDates
-                    .map(dateStr => new Date(dateStr))
-                    .filter(date => !Number.isNaN(date.getTime()));
-
-                if (completionTotal <= 0) {
-                    return;
-                }
-
-                if (config.lifetime?.threshold) {
-                    coins[config.lifetime.emoji] += Math.floor(completionTotal / config.lifetime.threshold);
-                }
-
-                config.milestone?.forEach(milestone => {
-                    if (completionTotal >= milestone.threshold) {
-                        coins[milestone.emoji] += 1;
-                    }
-                });
-
-                let completionsPerWeekCache = null;
-                const getCompletionsPerWeek = () => {
-                    if (completionsPerWeekCache) {
-                        return completionsPerWeekCache;
-                    }
-                    completionsPerWeekCache = normalizedCompletionDates.reduce((acc, date) => {
-                        const key = getWeekKey(date);
-                        acc[key] = (acc[key] || 0) + 1;
-                        return acc;
-                    }, {});
-                    return completionsPerWeekCache;
-                };
-
-                if (config.weekly?.threshold) {
-                    if (context === 'overall') {
-                        const weeklyCount = normalizedCompletionDates.filter(date => date >= sevenDaysAgo && date <= referenceToday).length;
-                        coins[config.weekly.emoji] += Math.floor(weeklyCount / config.weekly.threshold);
-                    } else if (normalizedCompletionDates.length > 0) {
-                        const completionsPerWeek = getCompletionsPerWeek();
-                        coins[config.weekly.emoji] += Object.values(completionsPerWeek).reduce((sum, count) => sum + Math.floor(count / config.weekly.threshold), 0);
-                    } else {
-                        coins[config.weekly.emoji] += Math.floor(completionTotal / config.weekly.threshold);
-                    }
-                }
-                if (config.ultraWeekly?.threshold) {
-                    if (context === 'overall') {
-                        const ultraWeeklyCount = normalizedCompletionDates.filter(date => date >= sevenDaysAgo && date <= referenceToday).length;
-                        coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyCount / config.ultraWeekly.threshold);
-                    } else if (normalizedCompletionDates.length > 0) {
-                        const completionsPerWeek = getCompletionsPerWeek();
-                        coins[config.ultraWeekly.emoji] += Object.values(completionsPerWeek).reduce((sum, count) => sum + Math.floor(count / config.ultraWeekly.threshold), 0);
-                    } else {
-                        coins[config.ultraWeekly.emoji] += Math.floor(completionTotal / config.ultraWeekly.threshold);
-                    }
-                }
-                return;
-            }
-
-            const relevantActivities = filterActivitiesByCoinType(activitiesSubset, type);
-
-            if (relevantActivities.length === 0) {
-                return;
-            }
-
-            if (config.lifetime?.threshold) {
-                const lifetimeTotal = sumMetricForActivities(relevantActivities, config.lifetime.metric);
-                coins[config.lifetime.emoji] += Math.floor(lifetimeTotal / config.lifetime.threshold);
-            }
-
-            if (context === 'overall') {
-                const weeklyActivities = relevantActivities.filter(activity => {
-                    const activityDate = new Date(activity.start_date || activity.start_date_local);
-                    return !Number.isNaN(activityDate.getTime()) && activityDate >= sevenDaysAgo;
-                });
-
-                if (config.weekly?.threshold) {
-                    const weeklyTotal = sumMetricForActivities(weeklyActivities, config.weekly.metric);
-                    coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
-                }
-
-                if (config.ultraWeekly?.threshold) {
-                    const ultraWeeklyTotal = sumMetricForActivities(weeklyActivities, config.ultraWeekly.metric);
-                    coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
-                }
-            } else {
-                if (config.weekly?.threshold) {
-                    coins[config.weekly.emoji] += countWeeklyThresholds(relevantActivities, config.weekly.metric, config.weekly.threshold);
-                }
-                if (config.ultraWeekly?.threshold) {
-                    coins[config.ultraWeekly.emoji] += countWeeklyThresholds(relevantActivities, config.ultraWeekly.metric, config.ultraWeekly.threshold);
-                }
-            }
-
-            config.milestone?.forEach(milestone => {
-                coins[milestone.emoji] += countMilestoneAchievements(relevantActivities, milestone);
-            });
-        });
-
-        return coins;
-    };
-
-    const calculateCoinsByYear = (activities, segments) => {
-        const coinsByYear = {};
-        const yearSet = new Set();
-
-        activities.forEach(activity => {
-            const date = new Date(activity.start_date || activity.start_date_local);
-            if (!Number.isNaN(date.getTime())) {
-                yearSet.add(date.getFullYear());
-            }
-        });
-
-        const segmentYearMap = extractSegmentCompletionYears(segments);
-        segmentYearMap.forEach((_, year) => {
-            yearSet.add(Number(year));
-        });
-
-        const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
-
-        sortedYears.forEach(year => {
-            const yearActivities = activities.filter(activity => {
-                const date = new Date(activity.start_date || activity.start_date_local);
-                return !Number.isNaN(date.getTime()) && date.getFullYear() === year;
-            });
-
-            const segmentEntries = Array.isArray(segments)
-                ? segments.map(segment => {
-                    const completionsForYear = Array.isArray(segment.completions)
-                        ? segment.completions.filter(dateStr => {
-                            const date = new Date(dateStr);
-                            return !Number.isNaN(date.getTime()) && date.getFullYear() === year;
-                        })
-                        : [];
-
-                    const countForYear = completionsForYear.length;
-
-                    if (countForYear > 0) {
-                        return {
-                            ...segment,
-                            completions: completionsForYear,
-                            count: countForYear,
-                        };
-                    }
-
-                    return null;
-                }).filter(Boolean)
-                : [];
-
-            if (segmentEntries.length === 0) {
-                const segmentCountForYear = segmentYearMap.get(year) || 0;
-                if (segmentCountForYear > 0) {
-                    segmentEntries.push({ count: segmentCountForYear, completions: [] });
-                }
-            }
-
-            coinsByYear[year] = calculateCoins(yearActivities, segmentEntries, 'year');
-        });
-
-        return coinsByYear;
-    };
-
-    const updateCoinYearChart = (coinsByYear, achievementsByYear = {}, dollarsByYear = {}) => {
-        const chartCanvas = document.getElementById('coin-year-chart');
-        if (!chartCanvas) {
-            return;
-        }
-
-        const yearSet = new Set([
-            ...Object.keys(coinsByYear || {}),
-            ...Object.keys(achievementsByYear || {}),
-            ...Object.keys(dollarsByYear || {}),
-        ]);
-
-        const years = Array.from(yearSet).sort((a, b) => Number(a) - Number(b));
-
-        if (years.length === 0) {
-            if (coinYearChart) {
-                coinYearChart.destroy();
-                coinYearChart = null;
-            }
-            return;
-        }
-
-        const coinEmojis = ['💲', '💰', '🔰', '💎', '👑', '🏆'];
-        const colors = ['#2563eb', '#059669', '#f59e0b', '#8b5cf6', '#dc2626', '#f97316'];
-
-        const datasets = [
-            ...coinEmojis.map((emoji, index) => ({
-                label: emoji,
-                data: years.map(year => coinsByYear[year]?.[emoji] ?? 0),
-                backgroundColor: colors[index % colors.length],
-                borderRadius: 6,
-                maxBarThickness: 40,
-                stack: 'coins',
-                type: 'bar',
-            })),
-            ...achievementStackDefinitions.map(definition => ({
-                label: definition.label,
-                data: years.map(year => achievementsByYear[year]?.[definition.key] ?? 0),
-                backgroundColor: definition.color,
-                borderRadius: 6,
-                maxBarThickness: 40,
-                stack: 'achievements',
-                type: 'bar',
-            })),
-            {
-                label: 'Dollars (M)',
-                data: years.map(year => dollarsByYear[year] ?? 0),
-                type: 'line',
-                yAxisID: 'y1',
-                borderColor: '#0ea5e9',
-                backgroundColor: 'rgba(14, 165, 233, 0.2)',
-                borderWidth: 2,
-                pointRadius: 3,
-                pointBackgroundColor: '#0ea5e9',
-                tension: 0.3,
-                fill: false,
-                order: 0,
-            },
-        ];
-
-        if (coinYearChart) {
-            coinYearChart.destroy();
-        }
-
-        coinYearChart = new Chart(chartCanvas, {
-            type: 'bar',
-            data: {
-                labels: years,
-                datasets,
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 16,
-                            font: {
-                                family: 'Aptos, "Segoe UI", sans-serif',
-                                size: 12,
-                            },
-                        },
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => {
-                                const datasetLabel = context.dataset.label || '';
-                                if (context.dataset.type === 'line') {
-                                    const value = context.parsed?.y ?? 0;
-                                    return `${datasetLabel}: $${value.toFixed(2)}M`;
-                                }
-                                const value = context.parsed?.y ?? 0;
-                                return `${datasetLabel}: ${value}`;
-                            },
-                        },
-                    },
-                },
-                scales: {
-                    x: {
-                        stacked: true,
-                        grid: {
-                            display: false,
-                        },
-                        ticks: {
-                            font: {
-                                family: 'Aptos, "Segoe UI", sans-serif',
-                            },
-                        },
-                    },
-                    y: {
-                        stacked: true,
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(148, 163, 184, 0.25)',
-                        },
-                        ticks: {
-                            precision: 0,
-                            font: {
-                                family: 'Aptos, "Segoe UI", sans-serif',
-                            },
-                        },
-                    },
-                    y1: {
-                        beginAtZero: true,
-                        position: 'right',
-                        grid: {
-                            drawOnChartArea: false,
-                        },
-                        ticks: {
-                            callback: (value) => `$${Number(value).toFixed(1)}M`,
-                            font: {
-                                family: 'Aptos, "Segoe UI", sans-serif',
-                            },
-                        },
-                    },
-                },
-            },
-        });
     };
 
     // Function to animate coin counts
@@ -999,7 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             acc.hours += ((activity?.moving_time) || 0) / 3600;
             acc.distance += (activity?.distance) || 0;
             acc.elevation += (activity?.total_elevation_gain) || 0;
-            acc.calories += getEstimatedCalories(activity);
+            acc.calories += (activity?.kilojoules) || 0;
             return acc;
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
     };
@@ -1414,40 +677,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // === Fetch and Process Data ===
-    const fetchData = async (options = {}) => {
-        const { refresh = false } = options;
-
+    const fetchData = async () => {
         try {
-            hideInfoMessage();
-            if (errorMessage) {
-                errorMessage.classList.add('hidden');
-                errorMessage.textContent = '';
+            const response = await fetch('/api/strava-data');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            const query = refresh ? '?refresh=true' : '';
-            const response = await fetch(`/api/strava-data${query}`, {
-                headers: refresh ? { 'Cache-Control': 'no-cache' } : undefined,
-            });
-
-            let data;
-            if (response.ok) {
-                data = await response.json();
-            } else {
-                const contentType = response.headers.get('content-type') || '';
-                let errorDetails = null;
-
-                if (contentType.includes('application/json')) {
-                    errorDetails = await response.json();
-                } else {
-                    const errorText = await response.text();
-                    errorDetails = errorText ? { error: errorText.trim() } : null;
-                }
-
-                const networkError = new Error(`HTTP error! status: ${response.status}`);
-                networkError.status = response.status;
-                networkError.details = errorDetails;
-                throw networkError;
-            }
+            const data = await response.json();
 
             // Validate required fields
             if (!data.athlete || !data.activities || !data.totals) {
@@ -1455,23 +691,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             allData = data;
-
-            const shouldShowInfo = Boolean(data.message) || Boolean(data.stale) || (refresh && data.cached);
-            if (shouldShowInfo) {
-                const retryAfterSeconds = Number(data.retryAfter);
-                const retryHint = Number.isFinite(retryAfterSeconds) ? ` Try again in about ${Math.max(1, Math.ceil(retryAfterSeconds / 60))} minute(s).` : '';
-                let infoText;
-
-                if (data.message) {
-                    infoText = `${data.message}${retryHint}`;
-                } else if (data.stale) {
-                    infoText = `Displaying cached Strava data while we wait for rate limits to reset.${retryHint}`;
-                } else {
-                    infoText = 'No new Strava activities detected yet. Showing cached data instead.';
-                }
-
-                showInfoMessage(infoText, data.stale ? 'warning' : 'info');
-            }
 
             const computedTotals = calculateTotals(allData.activities || []);
             filteredData = {
@@ -1502,29 +721,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Error fetching Strava data:', error);
             if (errorMessage) {
                 errorMessage.classList.remove('hidden');
-                if (error.details?.error) {
-                    const rawMessage = error.details.error;
-                    const strippedMessage = typeof rawMessage === 'string'
-                        ? rawMessage.replace(/<[^>]*>/g, '').trim()
-                        : '';
-                    if (strippedMessage) {
-                        errorMessage.textContent = strippedMessage.length > 200
-                            ? `${strippedMessage.slice(0, 200)}…`
-                            : strippedMessage;
-                    } else {
-                        errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
-                    }
-                } else {
-                    errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
-                }
-            }
-
-            const retryAfterSeconds = Number(error.details?.retryAfter);
-            if (Number.isFinite(retryAfterSeconds)) {
-                const retryHint = Math.max(1, Math.ceil(retryAfterSeconds / 60));
-                showInfoMessage(`Strava asked us to slow down. Please retry in about ${retryHint} minute(s).`, 'warning');
-            } else if (error.status === 503) {
-                showInfoMessage('Strava is temporarily unavailable. Please try again later.', 'warning');
+                errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
             }
         } finally {
             // Fade out the spinner after all operations are complete
@@ -1546,25 +743,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasActivities = activities.length > 0;
         const totals = calculateTotals(activities);
         const totalHours = totals.hours;
-
-        const totalDistanceKm = totals.distance / 1000;
-        const totalElevationMeters = totals.elevation;
-        const totalCaloriesKcal = totals.calories;
-
-        if (worldCoinValueElement) {
-            const worldCoins = totalDistanceKm > 0 ? totalDistanceKm / WORLD_EQUATOR_KM : 0;
-            worldCoinValueElement.textContent = worldCoins.toFixed(worldCoins >= 10 ? 1 : 2);
-        }
-
-        if (mountainCoinValueElement) {
-            const mountainCoins = totalElevationMeters > 0 ? totalElevationMeters / EVEREST_METERS : 0;
-            mountainCoinValueElement.textContent = mountainCoins.toFixed(mountainCoins >= 10 ? 1 : 2);
-        }
-
-        if (pizzaCoinValueElement) {
-            const pizzaCoins = totalCaloriesKcal > 0 ? totalCaloriesKcal / PIZZA_SLICE_KCAL : 0;
-            pizzaCoinValueElement.textContent = pizzaCoins.toFixed(pizzaCoins >= 10 ? 1 : 2);
-        }
 
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
@@ -1657,12 +835,80 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Coin Configuration and Calculation ===
         // Initialize coin counts
-        const coins = calculateCoins(activities, segments, 'overall');
+        const coins = {
+            '💲': 0,
+            '💰': 0,
+            '🔰': 0,
+            '💎': 0,
+            '👑': 0,
+            '🏆': 0 // Ensure corresponding HTML elements exist
+        };
 
-        const coinsByYear = calculateCoinsByYear(activities, segments);
-        const achievementsByYear = calculateAchievementsByYear(activities);
-        const dollarsByYear = calculateDollarsByYear(coinsByYear);
-        updateCoinYearChart(coinsByYear, achievementsByYear, dollarsByYear);
+        // Calculate date range for weekly data
+        const today = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+
+        // Calculate coins based on activities and segments
+        Object.entries(coinConfig).forEach(([type, config]) => {
+            if (type === 'Segment') {
+                // Handle Segment Completions
+                const completions = segments.reduce((sum, seg) => sum + (seg.count || 0), 0);
+
+                // Lifetime Coins
+                if (config.lifetime.metric === 'segmentCompletions') {
+                    coins[config.lifetime.emoji] += Math.floor(completions / config.lifetime.threshold);
+                }
+
+                // Weekly Coins
+                // Assuming segment completions are cumulative and not time-bound
+                coins[config.weekly.emoji] += Math.floor(completions / config.weekly.threshold);
+
+                // Milestone Coins
+                config.milestone.forEach(milestone => {
+                    if (completions >= milestone.threshold) {
+                        coins[milestone.emoji]++;
+                    }
+                });
+
+                // Ultra Weekly Coins
+                coins[config.ultraWeekly.emoji] += Math.floor(completions / config.ultraWeekly.threshold);
+            } else {
+                // Handle Run, Ride, and kcal
+                const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
+
+                // Lifetime Coins
+                if (config.lifetime.metric === 'distance' || config.lifetime.metric === 'calories') {
+                    const totalMetric = activities.reduce((sum, a) => sum + getMetricValue(a, config.lifetime.metric), 0);
+                    coins[config.lifetime.emoji] += Math.floor(totalMetric / config.lifetime.threshold);
+                }
+
+                // Weekly Coins
+                const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
+                const weeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.weekly.metric), 0);
+
+                if (weeklyTotal >= config.weekly.threshold) {
+                    coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
+                }
+
+                // Milestone Coins
+                config.milestone.forEach(milestone => {
+                    let milestoneCount = 0;
+                    activities.forEach(activity => {
+                        if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
+                            milestoneCount++;
+                        }
+                    });
+                    coins[milestone.emoji] += milestoneCount;
+                });
+
+                // Ultra Weekly Coins
+                const ultraWeeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.ultraWeekly.metric), 0);
+                if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
+                    coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
+                }
+            }
+        });
 
         // Animate Coin Counts
         Object.entries(coins).forEach(([emoji, count]) => {
@@ -1678,11 +924,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 animateCount(elementId, 0, count, 1000);
             }
         });
-
-        if (coinPortfolioValueElement) {
-            const totalMillions = calculatePortfolioValue(coins);
-            coinPortfolioValueElement.textContent = `Estimated Total Value: $${totalMillions.toFixed(2)}M`;
-        }
 
         // === Achievement Wallet ===
 
@@ -1924,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Per Activity KCal Badges
         kcalBadges['Per Activity'].thresholds.forEach((threshold, idx) => {
             const emoji = kcalBadges['Per Activity'].emojis[idx] || '🏅';
-            const count = data.activities.filter(a => getEstimatedCalories(a) >= threshold).length;
+            const count = data.activities.filter(a => (a.kilojoules / 4.184) >= threshold).length;
             const name = `${threshold} kcal Activity`;
             const description = kcalBadges['Per Activity'].description.replace('{}', threshold);
 
@@ -1947,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             weekStart.setHours(0, 0, 0, 0);
             weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
             const weekKey = weekStart.toISOString().slice(0, 10);
-            weeklyKcal[weekKey] = (weeklyKcal[weekKey] || 0) + getEstimatedCalories(activity);
+            weeklyKcal[weekKey] = (weeklyKcal[weekKey] || 0) + (activity.kilojoules / 4.184);
         });
         kcalBadges['Weekly'].thresholds.forEach((threshold, idx) => {
             const emoji = kcalBadges['Weekly'].emojis[idx] || '🏅';
@@ -2021,7 +1262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const dailyCalories = {};
                     activities.forEach(activity => {
                         const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
-                        dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + getEstimatedCalories(activity);
+                        dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + (activity.kilojoules / 4.184);
                     });
 
                     const dates = Object.keys(dailyCalories).sort();
@@ -2094,7 +1335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     categoryDiv.appendChild(categoryHeader);
 
                     const achievementsRow = document.createElement('div');
-                    achievementsRow.className = 'wallet-grid';
+                    achievementsRow.className = 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-3';
 
                     category.achievements.forEach(ach => {
                         const achButton = document.createElement('button');
@@ -2127,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalsEarned.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
-                    medalButton.className = 'tooltip-target medal-card bg-gray-100 dark:bg-gray-700 p-2 sm:p-3 rounded-lg flex flex-col items-center text-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.className = 'tooltip-target bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg flex flex-col items-center text-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
                     medalButton.innerHTML = `
                         <span class="text-2xl sm:text-3xl">${medal.emoji}</span>
                         <span class="text-xs sm:text-sm font-semibold">${medal.name}</span>
@@ -2150,21 +1391,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 segments.forEach(segment => {
                     const card = document.createElement('div');
                     card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col items-center space-y-2 cursor-pointer';
-                    const totalCount = typeof segment.totalCount === 'number' ? segment.totalCount : segment.count;
-                    card.title = `${segment.name}\nCompletions (filtered): ${segment.count}\nAll-time completions: ${totalCount}`;
+                    card.title = `${segment.name}\nCompletions: ${segment.count}`;
 
                     card.innerHTML = `
                         <span class="text-3xl">📍</span>
                         <div class="text-lg font-semibold">${segment.count}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-300 uppercase tracking-wide">Filtered</div>
-                        <div class="text-sm text-center text-gray-600 dark:text-gray-300">${segment.name}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">All-time: ${totalCount}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">${segment.name}</div>
                     `;
 
                     // Optional: Add click event to show more details
                     card.addEventListener('click', () => {
                         // Implement modal or additional details if desired
-                        alert(`Segment: ${segment.name}\nFiltered completions: ${segment.count}\nAll-time completions: ${totalCount}`);
+                        alert(`Segment: ${segment.name}\nCompletions: ${segment.count}`);
                     });
 
                     segmentContainer.appendChild(card);
@@ -2330,41 +1568,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const computedTotals = calculateTotals(filteredActivities);
-        const hasActiveFilters = (selectedYear && selectedYear !== 'all') || !!startDate || !!endDate;
-
-        const filteredSegments = (allData.segments || []).map(segment => {
-            const completions = Array.isArray(segment.completions) ? segment.completions : [];
-
-            if (!hasActiveFilters || completions.length === 0) {
-                return {
-                    ...segment,
-                    completions: [...completions],
-                };
-            }
-
-            const filteredCompletions = completions.filter(dateStr => {
-                const completionDate = new Date(dateStr);
-                if (Number.isNaN(completionDate.getTime())) {
-                    return false;
-                }
-                if (selectedYear && selectedYear !== 'all' && completionDate.getFullYear().toString() !== selectedYear) {
-                    return false;
-                }
-                if (startDate && completionDate < startDate) {
-                    return false;
-                }
-                if (endDate && completionDate > endDate) {
-                    return false;
-                }
-                return true;
-            });
-
-            return {
-                ...segment,
-                completions: filteredCompletions,
-                count: filteredCompletions.length,
-            };
-        });
 
         filteredData = {
             ...allData,
@@ -2375,8 +1578,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 distance: computedTotals.distance,
                 elevation: computedTotals.elevation,
                 calories: computedTotals.calories
-            },
-            segments: filteredSegments
+            }
         };
 
         try {
@@ -2393,24 +1595,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     };
-
-    if (refreshButton) {
-        refreshButton.addEventListener('click', () => {
-            showSpinner();
-            fetchData({ refresh: true });
-        });
-    } else {
-        console.warn("'refresh-data' element not found in the DOM.");
-    }
-
-    if (fetchMoreDataButton) {
-        fetchMoreDataButton.addEventListener('click', () => {
-            showSpinner();
-            fetchData();
-        });
-    } else {
-        console.warn("'fetch-more-data-btn' element not found in the DOM.");
-    }
 
     if (filterButton) {
         filterButton.addEventListener('click', () => {

@@ -8,14 +8,13 @@
     <title>Strava Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.cdnfonts.com/css/aptos" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Include a date picker library (optional) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <style>
         body {
-            font-family: 'Aptos', 'Segoe UI', Arial, sans-serif;
+            font-family: 'Segoe UI', 'Inter', Arial, sans-serif;
         }
 
         #loading-spinner {
@@ -132,6 +131,13 @@
     <div class="container mx-auto px-4 py-8">
         <!-- Error Message -->
         <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
+        <div id="info-message" class="hidden bg-blue-100 text-blue-700 p-4 rounded mb-4"></div>
+
+        <div class="flex justify-end mb-6">
+            <button id="refresh-data" class="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+                Refresh from Strava
+            </button>
+        </div>
 
         <!-- Top Section: User Info and Coins -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

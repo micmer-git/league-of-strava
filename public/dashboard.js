@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const loadingSpinner = document.getElementById('loading-spinner');
     const closeSpinnerButton = document.getElementById('close-spinner');
     const errorMessage = document.getElementById('error-message');
+    const infoMessage = document.getElementById('info-message');
+    const refreshButton = document.getElementById('refresh-data');
     const filterButton = document.getElementById('filter-button');
     const resetButton = document.getElementById('reset-button');
     const athleteNameElement = document.getElementById('athlete-name');
@@ -326,6 +328,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadingSpinner.classList.add('opacity-100');
             loadingSpinner.setAttribute('aria-hidden', 'false');
         }
+    };
+
+    const hideInfoMessage = () => {
+        if (infoMessage) {
+            infoMessage.classList.add('hidden');
+            infoMessage.textContent = '';
+            infoMessage.classList.remove('bg-blue-100', 'text-blue-700', 'bg-yellow-100', 'text-yellow-700');
+        }
+    };
+
+    const showInfoMessage = (text, variant = 'info') => {
+        if (!infoMessage || !text) {
+            return;
+        }
+
+        const colorClasses = ['bg-blue-100', 'text-blue-700', 'bg-yellow-100', 'text-yellow-700'];
+        colorClasses.forEach(cls => infoMessage.classList.remove(cls));
+
+        if (variant === 'warning') {
+            infoMessage.classList.add('bg-yellow-100', 'text-yellow-700');
+        } else {
+            infoMessage.classList.add('bg-blue-100', 'text-blue-700');
+        }
+
+        infoMessage.textContent = text;
+        infoMessage.classList.remove('hidden');
     };
 
     // Function to calculate Easter Sunday for a given year
@@ -1386,13 +1414,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // === Fetch and Process Data ===
-    const fetchData = async () => {
+    const fetchData = async (options = {}) => {
+        const { refresh = false } = options;
+
         try {
-            const response = await fetch('/api/strava-data');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            hideInfoMessage();
+            if (errorMessage) {
+                errorMessage.classList.add('hidden');
+                errorMessage.textContent = '';
             }
-            const data = await response.json();
+
+            const query = refresh ? '?refresh=true' : '';
+            const response = await fetch(`/api/strava-data${query}`, {
+                headers: refresh ? { 'Cache-Control': 'no-cache' } : undefined,
+            });
+
+            let data;
+            if (response.ok) {
+                data = await response.json();
+            } else {
+                let errorDetails = null;
+                try {
+                    errorDetails = await response.json();
+                } catch (parseError) {
+                    console.warn('Failed to parse error response from /api/strava-data:', parseError);
+                }
+
+                const networkError = new Error(`HTTP error! status: ${response.status}`);
+                networkError.status = response.status;
+                networkError.details = errorDetails;
+                throw networkError;
+            }
 
             // Validate required fields
             if (!data.athlete || !data.activities || !data.totals) {
@@ -1400,6 +1452,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             allData = data;
+
+            const shouldShowInfo = Boolean(data.message) || Boolean(data.stale) || (refresh && data.cached);
+            if (shouldShowInfo) {
+                const retryAfterSeconds = Number(data.retryAfter);
+                const retryHint = Number.isFinite(retryAfterSeconds) ? ` Try again in about ${Math.max(1, Math.ceil(retryAfterSeconds / 60))} minute(s).` : '';
+                let infoText;
+
+                if (data.message) {
+                    infoText = `${data.message}${retryHint}`;
+                } else if (data.stale) {
+                    infoText = `Displaying cached Strava data while we wait for rate limits to reset.${retryHint}`;
+                } else {
+                    infoText = 'No new Strava activities detected yet. Showing cached data instead.';
+                }
+
+                showInfoMessage(infoText, data.stale ? 'warning' : 'info');
+            }
 
             const computedTotals = calculateTotals(allData.activities || []);
             filteredData = {
@@ -1430,7 +1499,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Error fetching Strava data:', error);
             if (errorMessage) {
                 errorMessage.classList.remove('hidden');
-                errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
+                if (error.details?.error) {
+                    errorMessage.textContent = error.details.error;
+                } else {
+                    errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
+                }
+            }
+
+            const retryAfterSeconds = Number(error.details?.retryAfter);
+            if (Number.isFinite(retryAfterSeconds)) {
+                const retryHint = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+                showInfoMessage(`Strava asked us to slow down. Please retry in about ${retryHint} minute(s).`, 'warning');
+            } else if (error.status === 503) {
+                showInfoMessage('Strava is temporarily unavailable. Please try again later.', 'warning');
             }
         } finally {
             // Fade out the spinner after all operations are complete
@@ -2299,6 +2380,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     };
+
+    if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+            showSpinner();
+            fetchData({ refresh: true });
+        });
+    } else {
+        console.warn("'refresh-data' element not found in the DOM.");
+    }
 
     if (fetchMoreDataButton) {
         fetchMoreDataButton.addEventListener('click', () => {

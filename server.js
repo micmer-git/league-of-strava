@@ -148,18 +148,21 @@ app.get('/api/strava-data', async (req, res) => {
  */
 async function fetchAllActivities(accessToken) {
   const per_page = 200;
-  const maxActivities = 800; // Adjust as needed
-  const maxPages = Math.ceil(maxActivities / per_page);
   let allActivities = [];
+  let page = 1;
 
-  for (let page = 1; page <= maxPages; page++) {
+  while (true) {
     console.log(`Fetching activities - Page: ${page}, Per Page: ${per_page}`);
     const activitiesResponse = await axios.get('https://www.strava.com/api/v3/athlete/activities', {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: { per_page, page },
     });
 
-    const activities = activitiesResponse.data;
+    const activities = activitiesResponse.data.map(activity => {
+      const estimatedCalories = estimateCalories(activity);
+      return { ...activity, estimated_calories: estimatedCalories };
+    });
+
     console.log(`Fetched ${activities.length} activities from page ${page}`);
     allActivities = allActivities.concat(activities);
 
@@ -167,11 +170,8 @@ async function fetchAllActivities(accessToken) {
       break;
     }
 
+    page += 1;
     await sleep(1000); // Sleep to respect rate limits
-  }
-
-  if (allActivities.length > maxActivities) {
-    allActivities = allActivities.slice(0, maxActivities);
   }
 
   return allActivities;
@@ -196,20 +196,18 @@ async function fetchSegmentDetails(segmentsList, accessToken) {
 
       const segmentData = segmentResponse.data;
 
-      if (segmentData.athlete_segment_stats) {
-        const count = segmentData.athlete_segment_stats.effort_count || 0;
-        segments.push({
-          name: segment.name,
-          count: count,
-        });
-        console.log(`Segment: ${segment.name}, Completions: ${count}`);
-      } else {
-        console.warn(`athlete_segment_stats not available for segment: ${segment.name}`);
-        segments.push({
-          name: segment.name,
-          count: 0,
-        });
-      }
+      const completionDates = await fetchSegmentEfforts(segment.id, accessToken);
+      const effortCount = completionDates.length;
+      const statsCount = segmentData.athlete_segment_stats?.effort_count || 0;
+      const count = effortCount || statsCount;
+
+      segments.push({
+        name: segment.name,
+        count,
+        totalCount: statsCount,
+        completions: completionDates,
+      });
+      console.log(`Segment: ${segment.name}, Completions: ${count}`);
 
       await sleep(500); // Respect rate limits
     } catch (segmentError) {
@@ -217,11 +215,76 @@ async function fetchSegmentDetails(segmentsList, accessToken) {
       segments.push({
         name: segment.name,
         count: 0,
+        totalCount: 0,
+        completions: [],
       });
     }
   }
 
   return segments;
+}
+
+function estimateCalories(activity) {
+  const movingTimeSeconds = activity?.moving_time || 0;
+  const minutes = movingTimeSeconds / 60;
+  const averageHeartRate = activity?.average_heartrate;
+
+  if (minutes > 0 && typeof averageHeartRate === 'number' && !Number.isNaN(averageHeartRate)) {
+    const caloriesPerMinute = Math.max(0, 0.6309 * averageHeartRate - 55);
+    return caloriesPerMinute * minutes;
+  }
+
+  if (typeof activity?.kilojoules === 'number') {
+    return activity.kilojoules / 4.184;
+  }
+
+  if (typeof activity?.calories === 'number') {
+    return activity.calories;
+  }
+
+  return 0;
+}
+
+async function fetchSegmentEfforts(segmentId, accessToken) {
+  const per_page = 200;
+  let page = 1;
+  const completionDates = [];
+
+  while (true) {
+    try {
+      const response = await axios.get('https://www.strava.com/api/v3/segment_efforts', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: {
+          segment_id: segmentId,
+          per_page,
+          page,
+        },
+      });
+
+      const efforts = Array.isArray(response.data) ? response.data : [];
+      efforts.forEach(effort => {
+        if (effort?.start_date) {
+          completionDates.push(effort.start_date);
+        } else if (effort?.start_date_local) {
+          completionDates.push(effort.start_date_local);
+        }
+      });
+
+      console.log(`Segment ${segmentId}: fetched ${efforts.length} efforts on page ${page}`);
+
+      if (efforts.length < per_page || efforts.length === 0) {
+        break;
+      }
+
+      page += 1;
+      await sleep(750);
+    } catch (error) {
+      console.error(`Error fetching efforts for segment ${segmentId}:`, error.response ? error.response.data : error.message);
+      break;
+    }
+  }
+
+  return completionDates;
 }
 
 // Function to calculate totals from activities
@@ -238,7 +301,7 @@ function calculateTotals(activities) {
     totals.hours += activity.moving_time / 3600;
     totals.distance += activity.distance;
     totals.elevation += activity.total_elevation_gain;
-    totals.calories += activity.kilojoules || 0; // Strava may provide 'kilojoules' instead of 'calories'
+    totals.calories += activity.estimated_calories || 0;
   });
 
   return totals;

@@ -70,6 +70,26 @@
         [title]:hover::after {
             opacity: 1;
         }
+
+        .tooltip-bubble {
+            position: fixed;
+            z-index: 9999;
+            background-color: rgba(15, 23, 42, 0.95);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            max-width: 240px;
+            pointer-events: none;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
+            opacity: 0;
+            transform: translate(-50%, 0);
+            transition: opacity 0.15s ease-in-out;
+        }
+
+        .tooltip-bubble.visible {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
@@ -114,37 +134,37 @@
             <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
                 <h3 class="text-xl font-bold mb-4">Your Coins</h3>
                 <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-4">
-                    <!-- Coins with count below emojis and descriptions on hover -->
-                    <div class="flex flex-col items-center cursor-help"
-                         title="Basic achievement coins&#10;Earned from completing regular activities">
+                    <!-- Coins with count below emojis and descriptions on hover/click -->
+                    <button type="button" class="flex flex-col items-center space-y-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
+                            data-tooltip="Basic achievement coins\nEarned from completing regular activities">
                         <span class="text-3xl">💲</span>
-                        <span id="coin-dollar" class="mt-1 text-xl font-bold text-green-800">0</span>
-                    </div>
-                    <div class="flex flex-col items-center cursor-help"
-                         title="Weekly achievement coins&#10;Earned from completing weekly challenges">
+                        <span id="coin-dollar" class="text-xl font-bold text-green-800">0</span>
+                    </button>
+                    <button type="button" class="flex flex-col items-center space-y-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
+                            data-tooltip="Weekly achievement coins\nEarned from completing weekly challenges">
                         <span class="text-3xl">💰</span>
-                        <span id="coin-money" class="mt-1 text-xl font-bold text-blue-800">0</span>
-                    </div>
-                    <div class="flex flex-col items-center cursor-help"
-                         title="Milestone achievement coins&#10;Earned from reaching distance milestones">
+                        <span id="coin-money" class="text-xl font-bold text-blue-800">0</span>
+                    </button>
+                    <button type="button" class="flex flex-col items-center space-y-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
+                            data-tooltip="Milestone achievement coins\nEarned from reaching distance milestones">
                         <span class="text-3xl">🔰</span>
-                        <span id="coin-bootstrap" class="mt-1 text-xl font-bold text-yellow-800">0</span>
-                    </div>
-                    <div class="flex flex-col items-center cursor-help"
-                         title="Ultra achievement coins&#10;Earned from completing ultra-distance challenges">
+                        <span id="coin-bootstrap" class="text-xl font-bold text-yellow-800">0</span>
+                    </button>
+                    <button type="button" class="flex flex-col items-center space-y-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
+                            data-tooltip="Ultra achievement coins\nEarned from completing ultra-distance challenges">
                         <span class="text-3xl">💎</span>
-                        <span id="coin-diamond" class="mt-1 text-xl font-bold text-purple-800">0</span>
-                    </div>
-                    <div class="flex flex-col items-center cursor-help"
-                         title="Elite achievement coins&#10;Earned from exceptional performances">
+                        <span id="coin-diamond" class="text-xl font-bold text-purple-800">0</span>
+                    </button>
+                    <button type="button" class="flex flex-col items-center space-y-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
+                            data-tooltip="Elite achievement coins\nEarned from exceptional performances">
                         <span class="text-3xl">👑</span>
-                        <span id="coin-king" class="mt-1 text-xl font-bold text-red-800">0</span>
-                    </div>
-                    <div class="flex flex-col items-center cursor-help"
-                         title="Trophy coins&#10;Earned from outstanding achievements">
+                        <span id="coin-king" class="text-xl font-bold text-red-800">0</span>
+                    </button>
+                    <button type="button" class="flex flex-col items-center space-y-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
+                            data-tooltip="Trophy coins\nEarned from outstanding achievements">
                         <span class="text-3xl">🏆</span>
-                        <span id="coin-trophy" class="mt-1 text-xl font-bold text-yellow-800">0</span>
-                    </div>
+                        <span id="coin-trophy" class="text-xl font-bold text-yellow-800">0</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -187,11 +207,18 @@
         <!-- Best Activities -->
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
             <h3 class="text-xl font-bold mb-4">Top Performances</h3>
-            <div id="best-activities" class="space-y-4">
+            <div id="best-activities" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Best activities will be dynamically populated -->
             </div>
         </div>
-        <button id="load-more-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-4 block mx-auto">Load More Activities</button>
+        <div id="activities-section" class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mt-8">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold">Recent Activities</h3>
+                <span id="activities-empty" class="hidden text-sm text-gray-500">No activities match your filters.</span>
+            </div>
+            <div id="activities-container" class="space-y-3"></div>
+            <button id="load-more-btn" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-6 ml-auto hidden">Load More Activities</button>
+        </div>
     </div>
 
     <script src="/dashboard.js"></script>

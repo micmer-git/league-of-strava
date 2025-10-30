@@ -152,6 +152,7 @@
         <!-- Date Filtering Section -->
         <div class="flex justify-end mb-6">
             <div class="flex space-x-2">
+                <select id="year-select" class="px-4 py-2 border rounded"></select>
                 <input type="text" id="start-date" placeholder="Start Date" class="px-4 py-2 border rounded">
                 <input type="text" id="end-date" placeholder="End Date" class="px-4 py-2 border rounded">
                 <button id="filter-button" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filter</button>
@@ -190,6 +191,7 @@
                 <!-- Best activities will be dynamically populated -->
             </div>
         </div>
+        <button id="load-more-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-4 block mx-auto">Load More Activities</button>
     </div>
 
     <script src="/dashboard.js"></script>

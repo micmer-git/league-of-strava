@@ -115,67 +115,12 @@ app.get('/api/strava-data', async (req, res) => {
 
     const userId = athleteResponse.data.id.toString(); // Using Strava athlete ID as the sheet name
 
-    // Fetch existing data from Google Sheets
-    let existingData = await getUserData(userId);
-    console.log(`Existing data retrieved for user ${userId}: ${existingData.length} rows`);
-
     // Fetch all activities from Strava
     const allActivities = await fetchAllActivities(accessToken);
     console.log(`Total activities fetched: ${allActivities.length}`);
 
-    // Determine new activities by comparing with existing data
-    // Assuming each activity has a unique 'id' field
-    const existingActivityIds = new Set(existingData.slice(1).map(row => row[0])); // Assuming first column is 'id'
-    const newActivities = allActivities.filter(activity => !existingActivityIds.has(activity.id.toString()));
-
-    console.log(`New activities to append: ${newActivities.length}`);
-
-    // Process new activities and prepare data to append
-    const dataToAppend = newActivities.map(activity => [
-      activity.id,
-      activity.name,
-      activity.type,
-      activity.distance,
-      activity.moving_time,
-      activity.elapsed_time,
-      activity.total_elevation_gain,
-      activity.kilojoules || 0, // Adjust based on your data
-      activity.start_date,
-      // Add other fields as needed
-    ]);
-
-    if (dataToAppend.length > 0) {
-      // Optionally, add headers if the sheet is empty
-      if (existingData.length === 0) {
-        const headers = [
-          'ID',
-          'Name',
-          'Type',
-          'Distance (m)',
-          'Moving Time (s)',
-          'Elapsed Time (s)',
-          'Elevation Gain (m)',
-          'Kilojoules',
-          'Start Date',
-          // Add other headers as needed
-        ];
-        await appendUserData(userId, [headers, ...dataToAppend]);
-        console.log('Headers and new activities appended to Google Sheets');
-      } else {
-        await appendUserData(userId, dataToAppend);
-        console.log('New activities appended to Google Sheets');
-      }
-    } else {
-      console.log('No new activities to append');
-    }
-
-    // Re-fetch all data including newly appended
-    const updatedData = await getUserData(userId);
-    console.log(`Updated data count for user ${userId}: ${updatedData.length} rows`);
-
-    // Recalculate totals based on updated data
-    const parsedActivities = parseActivities(updatedData); // Implement this function to parse sheet data into activity objects
-    const totals = calculateTotals(parsedActivities);
+    // Recalculate totals based on fetched activities
+    const totals = calculateTotals(allActivities);
 
     // Fetch segment completions as before
     console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
@@ -183,7 +128,7 @@ app.get('/api/strava-data', async (req, res) => {
 
     res.json({
       athlete: athleteResponse.data,
-      activities: parsedActivities,
+      activities: allActivities,
       totals: totals,
       segments: segments, // Array of segments with name and count
       hasMore: false, // Since we've fetched all
@@ -230,34 +175,6 @@ async function fetchAllActivities(accessToken) {
   }
 
   return allActivities;
-}
-
-/**
- * Parse activities data from Google Sheets into activity objects.
- * @param {Array<Array<any>>} sheetData
- * @returns {Array<Object>}
- */
-function parseActivities(sheetData) {
-  if (sheetData.length < 2) return []; // No data
-
-  const headers = sheetData[0];
-  const activities = sheetData.slice(1).map(row => {
-    const activity = {};
-    headers.forEach((header, index) => {
-      activity[header] = row[index];
-    });
-    // Convert numeric fields
-    activity.id = parseInt(activity.ID, 10);
-    activity.distance = parseFloat(activity['Distance (m)']);
-    activity.moving_time = parseInt(activity['Moving Time (s)'], 10);
-    activity.elapsed_time = parseInt(activity['Elapsed Time (s)'], 10);
-    activity.total_elevation_gain = parseFloat(activity['Elevation Gain (m)']);
-    activity.kilojoules = parseFloat(activity.Kilojoules) || 0;
-    activity.start_date = activity['Start Date'];
-    return activity;
-  });
-
-  return activities;
 }
 
 /**

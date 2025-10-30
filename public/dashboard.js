@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activitiesContainer = document.getElementById('activities-container');
     const activitiesEmptyState = document.getElementById('activities-empty');
     const loadMoreButton = document.getElementById('load-more-btn');
+    const fetchMoreDataButton = document.getElementById('fetch-more-data-btn');
 
     // === Date Pickers ===
     const startDatePicker = flatpickr("#start-date", {
@@ -42,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let tooltipHideTimeout = null;
     let spinnerHideTimeout = null;
+    let coinYearChart = null;
     const tooltipElement = document.createElement('div');
     tooltipElement.id = 'dashboard-tooltip';
     tooltipElement.className = 'tooltip-bubble hidden';
@@ -133,6 +135,325 @@ document.addEventListener('DOMContentLoaded', async () => {
             return allData.segments ? allData.segments.reduce((sum, seg) => sum + seg.count, 0) : 0; // Total segment completions
         }
         return 0;
+    };
+
+    const initializeCoinCounts = () => ({
+        '💲': 0,
+        '💰': 0,
+        '🔰': 0,
+        '💎': 0,
+        '👑': 0,
+        '🏆': 0,
+    });
+
+    const filterActivitiesByCoinType = (activities, type) => {
+        if (type === 'kcal') {
+            return activities.filter(activity => getMetricValue(activity, 'calories') > 0);
+        }
+        return activities.filter(activity => activity.type && activity.type.toUpperCase() === type.toUpperCase());
+    };
+
+    const getWeekKey = (date) => {
+        const normalized = new Date(date);
+        normalized.setHours(0, 0, 0, 0);
+        const diff = normalized.getDay();
+        normalized.setDate(normalized.getDate() - diff);
+        return normalized.toISOString().slice(0, 10);
+    };
+
+    const sumMetricForActivities = (activities, metric) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return 0;
+        }
+        return activities.reduce((sum, activity) => sum + getMetricValue(activity, metric), 0);
+    };
+
+    const countMilestoneAchievements = (activities, milestone) => {
+        if (!milestone || !Array.isArray(activities)) {
+            return 0;
+        }
+        return activities.reduce((count, activity) => {
+            return count + (getMetricValue(activity, milestone.metric) >= milestone.threshold ? 1 : 0);
+        }, 0);
+    };
+
+    const countWeeklyThresholds = (activities, metric, threshold) => {
+        if (!Array.isArray(activities) || activities.length === 0 || !threshold) {
+            return 0;
+        }
+        const weeklyTotals = activities.reduce((totals, activity) => {
+            const value = getMetricValue(activity, metric);
+            if (value <= 0) {
+                return totals;
+            }
+            const date = new Date(activity.start_date || activity.start_date_local);
+            if (Number.isNaN(date.getTime())) {
+                return totals;
+            }
+            const key = getWeekKey(date);
+            totals[key] = (totals[key] || 0) + value;
+            return totals;
+        }, {});
+
+        return Object.values(weeklyTotals).reduce((sum, total) => sum + Math.floor(total / threshold), 0);
+    };
+
+    const extractSegmentCompletionYears = (segments = []) => {
+        const yearMap = new Map();
+        segments.forEach(segment => {
+            const completionCount = segment.count || 0;
+            if (!completionCount) {
+                return;
+            }
+
+            const candidateDates = [];
+            const candidateFields = ['last_activity_date', 'updated_at', 'created_at', 'start_date', 'start_date_local'];
+            candidateFields.forEach(field => {
+                if (segment[field]) {
+                    candidateDates.push(segment[field]);
+                }
+            });
+
+            if (Array.isArray(segment.recent_efforts)) {
+                segment.recent_efforts.forEach(effort => {
+                    const effortDate = effort?.start_date || effort?.start_date_local;
+                    if (effortDate) {
+                        candidateDates.push(effortDate);
+                    }
+                });
+            }
+
+            if (Array.isArray(segment.completions)) {
+                segment.completions.forEach(dateStr => candidateDates.push(dateStr));
+            }
+
+            const validDates = candidateDates
+                .map(dateStr => new Date(dateStr))
+                .filter(date => !Number.isNaN(date.getTime()))
+                .sort((a, b) => a - b);
+
+            if (validDates.length === 0) {
+                return;
+            }
+
+            const distribution = new Map();
+            validDates.forEach(date => {
+                const year = date.getFullYear();
+                distribution.set(year, (distribution.get(year) || 0) + 1);
+            });
+
+            let allocated = 0;
+            distribution.forEach((value, year) => {
+                yearMap.set(year, (yearMap.get(year) || 0) + value);
+                allocated += value;
+            });
+
+            if (allocated < completionCount) {
+                const fallbackYear = validDates[validDates.length - 1].getFullYear();
+                yearMap.set(fallbackYear, (yearMap.get(fallbackYear) || 0) + (completionCount - allocated));
+            }
+        });
+        return yearMap;
+    };
+
+    const calculateCoins = (activitiesSubset, segmentsSubset, context = 'overall') => {
+        const coins = initializeCoinCounts();
+        const referenceToday = new Date();
+        const sevenDaysAgo = new Date(referenceToday);
+        sevenDaysAgo.setDate(referenceToday.getDate() - 7);
+
+        Object.entries(coinConfig).forEach(([type, config]) => {
+            if (type === 'Segment') {
+                const completionTotal = Array.isArray(segmentsSubset)
+                    ? segmentsSubset.reduce((sum, seg) => sum + (seg.count || 0), 0)
+                    : 0;
+
+                if (completionTotal <= 0) {
+                    return;
+                }
+
+                if (config.lifetime?.threshold) {
+                    coins[config.lifetime.emoji] += Math.floor(completionTotal / config.lifetime.threshold);
+                }
+
+                config.milestone?.forEach(milestone => {
+                    if (completionTotal >= milestone.threshold) {
+                        coins[milestone.emoji] += 1;
+                    }
+                });
+
+                if (config.weekly?.threshold) {
+                    coins[config.weekly.emoji] += Math.floor(completionTotal / config.weekly.threshold);
+                }
+                if (config.ultraWeekly?.threshold) {
+                    coins[config.ultraWeekly.emoji] += Math.floor(completionTotal / config.ultraWeekly.threshold);
+                }
+                return;
+            }
+
+            const relevantActivities = filterActivitiesByCoinType(activitiesSubset, type);
+
+            if (relevantActivities.length === 0) {
+                return;
+            }
+
+            if (config.lifetime?.threshold) {
+                const lifetimeTotal = sumMetricForActivities(relevantActivities, config.lifetime.metric);
+                coins[config.lifetime.emoji] += Math.floor(lifetimeTotal / config.lifetime.threshold);
+            }
+
+            if (context === 'overall') {
+                const weeklyActivities = relevantActivities.filter(activity => {
+                    const activityDate = new Date(activity.start_date || activity.start_date_local);
+                    return !Number.isNaN(activityDate.getTime()) && activityDate >= sevenDaysAgo;
+                });
+
+                if (config.weekly?.threshold) {
+                    const weeklyTotal = sumMetricForActivities(weeklyActivities, config.weekly.metric);
+                    coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
+                }
+
+                if (config.ultraWeekly?.threshold) {
+                    const ultraWeeklyTotal = sumMetricForActivities(weeklyActivities, config.ultraWeekly.metric);
+                    coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
+                }
+            } else {
+                if (config.weekly?.threshold) {
+                    coins[config.weekly.emoji] += countWeeklyThresholds(relevantActivities, config.weekly.metric, config.weekly.threshold);
+                }
+                if (config.ultraWeekly?.threshold) {
+                    coins[config.ultraWeekly.emoji] += countWeeklyThresholds(relevantActivities, config.ultraWeekly.metric, config.ultraWeekly.threshold);
+                }
+            }
+
+            config.milestone?.forEach(milestone => {
+                coins[milestone.emoji] += countMilestoneAchievements(relevantActivities, milestone);
+            });
+        });
+
+        return coins;
+    };
+
+    const calculateCoinsByYear = (activities, segments) => {
+        const coinsByYear = {};
+        const yearSet = new Set();
+
+        activities.forEach(activity => {
+            const date = new Date(activity.start_date || activity.start_date_local);
+            if (!Number.isNaN(date.getTime())) {
+                yearSet.add(date.getFullYear());
+            }
+        });
+
+        const segmentYearMap = extractSegmentCompletionYears(segments);
+        segmentYearMap.forEach((_, year) => {
+            yearSet.add(Number(year));
+        });
+
+        const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
+
+        sortedYears.forEach(year => {
+            const yearActivities = activities.filter(activity => {
+                const date = new Date(activity.start_date || activity.start_date_local);
+                return !Number.isNaN(date.getTime()) && date.getFullYear() === year;
+            });
+
+            const segmentCountForYear = segmentYearMap.get(year) || 0;
+            const segmentEntries = segmentCountForYear > 0 ? [{ count: segmentCountForYear }] : [];
+
+            coinsByYear[year] = calculateCoins(yearActivities, segmentEntries, 'year');
+        });
+
+        return coinsByYear;
+    };
+
+    const updateCoinYearChart = (coinsByYear) => {
+        const chartCanvas = document.getElementById('coin-year-chart');
+        if (!chartCanvas) {
+            return;
+        }
+
+        const years = Object.keys(coinsByYear).sort((a, b) => Number(a) - Number(b));
+
+        if (years.length === 0) {
+            if (coinYearChart) {
+                coinYearChart.destroy();
+                coinYearChart = null;
+            }
+            return;
+        }
+
+        const coinEmojis = ['💲', '💰', '🔰', '💎', '👑', '🏆'];
+        const colors = ['#2563eb', '#059669', '#f59e0b', '#8b5cf6', '#dc2626', '#f97316'];
+
+        const datasets = coinEmojis.map((emoji, index) => ({
+            label: emoji,
+            data: years.map(year => coinsByYear[year]?.[emoji] ?? 0),
+            backgroundColor: colors[index % colors.length],
+            borderRadius: 6,
+            maxBarThickness: 40,
+        }));
+
+        if (coinYearChart) {
+            coinYearChart.destroy();
+        }
+
+        coinYearChart = new Chart(chartCanvas, {
+            type: 'bar',
+            data: {
+                labels: years,
+                datasets,
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 16,
+                            font: {
+                                family: 'Aptos, "Segoe UI", sans-serif',
+                                size: 12,
+                            },
+                        },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const value = context.parsed?.y ?? 0;
+                                return `${context.dataset.label}: ${value}`;
+                            },
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false,
+                        },
+                        ticks: {
+                            font: {
+                                family: 'Aptos, "Segoe UI", sans-serif',
+                            },
+                        },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.25)',
+                        },
+                        ticks: {
+                            precision: 0,
+                            font: {
+                                family: 'Aptos, "Segoe UI", sans-serif',
+                            },
+                        },
+                    },
+                },
+            },
+        });
     };
 
     // Function to animate coin counts
@@ -835,80 +1156,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Coin Configuration and Calculation ===
         // Initialize coin counts
-        const coins = {
-            '💲': 0,
-            '💰': 0,
-            '🔰': 0,
-            '💎': 0,
-            '👑': 0,
-            '🏆': 0 // Ensure corresponding HTML elements exist
-        };
+        const coins = calculateCoins(activities, segments, 'overall');
 
-        // Calculate date range for weekly data
-        const today = new Date();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(today.getDate() - 7);
-
-        // Calculate coins based on activities and segments
-        Object.entries(coinConfig).forEach(([type, config]) => {
-            if (type === 'Segment') {
-                // Handle Segment Completions
-                const completions = segments.reduce((sum, seg) => sum + (seg.count || 0), 0);
-
-                // Lifetime Coins
-                if (config.lifetime.metric === 'segmentCompletions') {
-                    coins[config.lifetime.emoji] += Math.floor(completions / config.lifetime.threshold);
-                }
-
-                // Weekly Coins
-                // Assuming segment completions are cumulative and not time-bound
-                coins[config.weekly.emoji] += Math.floor(completions / config.weekly.threshold);
-
-                // Milestone Coins
-                config.milestone.forEach(milestone => {
-                    if (completions >= milestone.threshold) {
-                        coins[milestone.emoji]++;
-                    }
-                });
-
-                // Ultra Weekly Coins
-                coins[config.ultraWeekly.emoji] += Math.floor(completions / config.ultraWeekly.threshold);
-            } else {
-                // Handle Run, Ride, and kcal
-                const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
-
-                // Lifetime Coins
-                if (config.lifetime.metric === 'distance' || config.lifetime.metric === 'calories') {
-                    const totalMetric = activities.reduce((sum, a) => sum + getMetricValue(a, config.lifetime.metric), 0);
-                    coins[config.lifetime.emoji] += Math.floor(totalMetric / config.lifetime.threshold);
-                }
-
-                // Weekly Coins
-                const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
-                const weeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.weekly.metric), 0);
-
-                if (weeklyTotal >= config.weekly.threshold) {
-                    coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
-                }
-
-                // Milestone Coins
-                config.milestone.forEach(milestone => {
-                    let milestoneCount = 0;
-                    activities.forEach(activity => {
-                        if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
-                            milestoneCount++;
-                        }
-                    });
-                    coins[milestone.emoji] += milestoneCount;
-                });
-
-                // Ultra Weekly Coins
-                const ultraWeeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.ultraWeekly.metric), 0);
-                if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
-                    coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
-                }
-            }
-        });
+        const coinsByYear = calculateCoinsByYear(activities, segments);
+        updateCoinYearChart(coinsByYear);
 
         // Animate Coin Counts
         Object.entries(coins).forEach(([emoji, count]) => {
@@ -1335,7 +1586,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     categoryDiv.appendChild(categoryHeader);
 
                     const achievementsRow = document.createElement('div');
-                    achievementsRow.className = 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-3';
+                    achievementsRow.className = 'wallet-grid';
 
                     category.achievements.forEach(ach => {
                         const achButton = document.createElement('button');
@@ -1368,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalsEarned.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
-                    medalButton.className = 'tooltip-target bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg flex flex-col items-center text-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.className = 'tooltip-target medal-card bg-gray-100 dark:bg-gray-700 p-2 sm:p-3 rounded-lg flex flex-col items-center text-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
                     medalButton.innerHTML = `
                         <span class="text-2xl sm:text-3xl">${medal.emoji}</span>
                         <span class="text-xs sm:text-sm font-semibold">${medal.name}</span>
@@ -1595,6 +1846,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     };
+
+    if (fetchMoreDataButton) {
+        fetchMoreDataButton.addEventListener('click', () => {
+            showSpinner();
+            fetchData();
+        });
+    } else {
+        console.warn("'fetch-more-data-btn' element not found in the DOM.");
+    }
 
     if (filterButton) {
         filterButton.addEventListener('click', () => {

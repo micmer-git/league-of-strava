@@ -8,11 +8,16 @@
     <title>Strava Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/aptos" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Include a date picker library (optional) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <style>
+        body {
+            font-family: 'Aptos', 'Segoe UI', Arial, sans-serif;
+        }
+
         #loading-spinner {
             position: fixed;
             top: 0;
@@ -90,6 +95,26 @@
         .tooltip-bubble.visible {
             opacity: 1;
         }
+        .wallet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        #achievement-wallet .wallet-grid button {
+            min-height: 72px;
+        }
+
+        #medals-section {
+            position: relative;
+            z-index: 1;
+        }
+
+        #medals-section .medal-card {
+            position: relative;
+            z-index: 2;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
@@ -126,7 +151,13 @@
                         <span id="current-rank" class="text-sm font-medium"></span>
                         <span id="level-progress" class="text-sm font-medium"></span>
                     </div>
-                    <div id="rank-details" class="text-sm text-gray-500 mt-2"></div>
+                    <div id="rank-details" class="text-sm text-gray-500 mt-2 space-y-2"></div>
+                    <div class="mt-3 flex flex-wrap items-center gap-2" id="profile-actions">
+                        <button id="fetch-more-data-btn" type="button"
+                                class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            Fetch More Data
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -172,9 +203,9 @@
         <!-- Date Filtering Section -->
         <div class="flex justify-end mb-6">
             <div class="flex space-x-2">
-                <select id="year-select" class="px-4 py-2 border rounded"></select>
-                <input type="text" id="start-date" placeholder="Start Date" class="px-4 py-2 border rounded">
-                <input type="text" id="end-date" placeholder="End Date" class="px-4 py-2 border rounded">
+                <select id="year-select" class="px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"></select>
+                <input type="text" id="start-date" placeholder="Start Date" class="px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <input type="text" id="end-date" placeholder="End Date" class="px-4 py-2 border rounded bg-white text-gray-900 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
                 <button id="filter-button" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filter</button>
                 <button id="reset-button" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Reset</button>
             </div>
@@ -188,10 +219,20 @@
             </div>
         </div>
 
+        <!-- Coin Trends -->
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold">Coins by Year</h3>
+            </div>
+            <div class="relative w-full overflow-x-auto">
+                <canvas id="coin-year-chart" height="260"></canvas>
+            </div>
+        </div>
+
         <!-- Medals Section -->
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
             <h3 class="text-xl font-bold mb-4">Medals</h3>
-            <div id="medals-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+            <div id="medals-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
                 <!-- Medals will be dynamically populated -->
             </div>
         </div>

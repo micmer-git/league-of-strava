@@ -19,11 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         '💎': '💎 shines whenever you conquer ultra achievements.',
         '👑': '👑 crowns the elite moments you unlocked.'
     };
-    const COIN_CATEGORY_LABELS = {
-        Run: 'Distance Run',
-        Ride: 'Distance Ride',
-        Elevation: 'Elevation Coins'
-    };
+    const COIN_SUMMARY_LABEL = 'Achievement Wallet';
 
     // === DOM Elements ===
     const loadingSpinner = document.getElementById('loading-spinner');
@@ -134,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ?? null;
 
         if (hours > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
-            const calories = (180 / averageHeartRate) * hours;
+            const calories = (190 / averageHeartRate) * hours * 800;
             if (Number.isFinite(calories) && calories > 0) {
                 return calories;
             }
@@ -263,77 +259,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         return null;
     };
 
-    // Function to get metric value
-    const getMetricValue = (activity, metric) => {
-        if (metric === 'distance') {
-            return activity.distance ? activity.distance / 1000 : 0; // Convert meters to kilometers
-        } else if (metric === 'calories') {
-            return calculateActivityCalories(activity);
-        } else if (metric === 'segmentCompletions') {
-            return allData.segments ? allData.segments.reduce((sum, seg) => sum + seg.count, 0) : 0; // Total segment completions
-        } else if (metric === 'elevation') {
-            return activity.total_elevation_gain ? activity.total_elevation_gain : 0;
-        }
-        return 0;
-    };
-
-    const initializeCoinBreakdownState = () => {
-        return Object.keys(COIN_CATEGORY_LABELS).reduce((acc, key) => {
-            acc[key] = COIN_EMOJIS.reduce((emojiAcc, emoji) => {
-                emojiAcc[emoji] = 0;
-                return emojiAcc;
-            }, {});
+    const computeWalletCoinTotals = (achievementCategories = []) => {
+        const totals = COIN_EMOJIS.reduce((acc, emoji) => {
+            acc[emoji] = 0;
             return acc;
         }, {});
+
+        achievementCategories.forEach(category => {
+            if (!category || !Array.isArray(category.achievements)) {
+                return;
+            }
+
+            category.achievements.forEach(achievement => {
+                const emoji = achievement?.emoji;
+                const count = Number.isFinite(achievement?.count) ? achievement.count : 0;
+                if (COIN_EMOJIS.includes(emoji) && count > 0) {
+                    totals[emoji] += count;
+                }
+            });
+        });
+
+        return totals;
     };
 
-    const registerCoinGain = (coins, breakdownState, categoryKey, emoji, amount) => {
-        if (!Number.isFinite(amount) || amount <= 0) {
-            return;
-        }
-        coins[emoji] = (coins[emoji] || 0) + amount;
-        if (categoryKey && breakdownState && breakdownState[categoryKey]) {
-            breakdownState[categoryKey][emoji] = (breakdownState[categoryKey][emoji] || 0) + amount;
-        }
-    };
-
-    const renderCoinBreakdown = (container, breakdownState) => {
+    const renderCoinBreakdown = (container, totals) => {
         if (!container) {
             return;
         }
 
         container.innerHTML = '';
-        Object.entries(COIN_CATEGORY_LABELS).forEach(([categoryKey, labelText]) => {
-            const emojiCounts = breakdownState?.[categoryKey] || {};
-            const wrapper = document.createElement('div');
-            wrapper.className = 'space-y-1';
+        const totalAchievements = Object.values(totals || {}).reduce((sum, value) => sum + value, 0);
 
-            const label = document.createElement('div');
-            label.className = 'text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400';
-            label.textContent = labelText;
-            wrapper.appendChild(label);
+        const summary = document.createElement('p');
+        summary.className = 'text-sm text-gray-600 dark:text-gray-300';
+        summary.textContent = totalAchievements > 0
+            ? `${COIN_SUMMARY_LABEL} contributions minted ${totalAchievements} coins in total.`
+            : 'Collect achievements to mint your first coins.';
+        container.appendChild(summary);
 
-            const row = document.createElement('div');
-            row.className = 'flex items-center gap-3 overflow-x-auto pb-1';
-
+        if (totalAchievements > 0) {
+            const detailRow = document.createElement('div');
+            detailRow.className = 'mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400';
             COIN_EMOJIS.forEach(emoji => {
-                const count = emojiCounts?.[emoji] || 0;
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'tooltip-target inline-flex flex-col items-center justify-center gap-1 rounded-md bg-gray-100 px-2 py-2 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-100';
-                if (count === 0) {
-                    button.classList.add('opacity-50');
-                }
-                button.innerHTML = `<span class="text-lg">${emoji}</span><span>${count}</span>`;
-                button.setAttribute('aria-label', `${labelText} ${emoji} coins earned`);
-                const description = COIN_DESCRIPTIONS[emoji] || 'Coin reward';
-                attachTooltip(button, `${description} Earned ${count}× from ${labelText}.`);
-                row.appendChild(button);
+                const count = totals[emoji] || 0;
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 dark:bg-gray-700';
+                chip.innerHTML = `<span class="text-sm">${emoji}</span><span class="font-semibold">x${count}</span>`;
+                detailRow.appendChild(chip);
             });
-
-            wrapper.appendChild(row);
-            container.appendChild(wrapper);
-        });
+            container.appendChild(detailRow);
+        }
     };
 
     const computePremiumAchievements = (lifetimeActivities = []) => {
@@ -341,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return [];
         }
 
-        let hasMarathon = false;
+        let marathonCount = 0;
         const dayBuckets = new Map();
         const yearlyDistance = {};
         const yearlyHours = {};
@@ -367,7 +342,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             yearlyElevation[year] = (yearlyElevation[year] || 0) + elevationGain;
 
             if (isRun && distanceMeters >= 42195) {
-                hasMarathon = true;
+                marathonCount += 1;
             }
 
             const bucketKey = activityDate.toISOString().slice(0, 10);
@@ -386,65 +361,84 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        let hasHalfIronman = false;
-        let hasFullIronman = false;
+        let halfIronmanCount = 0;
+        let fullIronmanCount = 0;
+        const meetsWithFlex = (value, target) => value >= target * 0.97;
 
         dayBuckets.forEach(bucket => {
-            if (bucket.swim >= 3800 && bucket.ride >= 180000 && bucket.run >= 42195) {
-                hasFullIronman = true;
-                hasHalfIronman = true;
-            } else if (bucket.swim >= 1900 && bucket.ride >= 90000 && bucket.run >= 21100) {
-                hasHalfIronman = true;
+            const meetsHalf =
+                meetsWithFlex(bucket.swim, 1900) &&
+                meetsWithFlex(bucket.ride, 90000) &&
+                meetsWithFlex(bucket.run, 21100);
+            const meetsFull =
+                meetsWithFlex(bucket.swim, 3700) &&
+                meetsWithFlex(bucket.ride, 175000) &&
+                meetsWithFlex(bucket.run, 40000);
+
+            if (meetsFull) {
+                fullIronmanCount += 1;
+                halfIronmanCount += 1;
+            } else if (meetsHalf) {
+                halfIronmanCount += 1;
             }
         });
 
         const achievements = [];
 
-        if (hasMarathon) {
+        if (marathonCount > 0) {
             achievements.push({
                 emoji: '🏃‍♂️',
                 label: 'Marathon Finisher',
-                description: 'Completed a marathon-distance run.'
+                description: 'Completed a marathon-distance run.',
+                count: marathonCount
             });
         }
 
-        if (hasHalfIronman) {
+        if (halfIronmanCount > 0) {
             achievements.push({
                 emoji: '🛟',
                 label: 'Ironman 70.3 Finisher',
-                description: 'Completed swim, ride, and run totals matching a 70.3 race in a single day.'
+                description: 'Completed swim, ride, and run totals matching a 70.3 race in a single day.',
+                count: halfIronmanCount
             });
         }
 
-        if (hasFullIronman) {
+        if (fullIronmanCount > 0) {
             achievements.push({
                 emoji: '🔥',
                 label: 'Ironman Finisher',
-                description: 'Completed full Ironman-equivalent swim, ride, and run totals in a single day.'
+                description: 'Completed full Ironman-equivalent swim, ride, and run totals in a single day.',
+                count: fullIronmanCount
             });
         }
 
-        if (Object.values(yearlyDistance).some(km => km >= 10000)) {
+        const megaDistanceYears = Object.values(yearlyDistance).filter(km => km >= 10000).length;
+        if (megaDistanceYears > 0) {
             achievements.push({
                 emoji: '🚀',
                 label: '10,000 km Year',
-                description: 'Covered at least 10,000 km in a calendar year.'
+                description: 'Covered at least 10,000 km in a calendar year.',
+                count: megaDistanceYears
             });
         }
 
-        if (Object.values(yearlyHours).some(hours => hours >= 365)) {
+        const megaHoursYears = Object.values(yearlyHours).filter(hours => hours >= 365).length;
+        if (megaHoursYears > 0) {
             achievements.push({
                 emoji: '⏱️',
                 label: '365 Hour Year',
-                description: 'Trained for at least 365 hours in a calendar year.'
+                description: 'Trained for at least 365 hours in a calendar year.',
+                count: megaHoursYears
             });
         }
 
-        if (Object.values(yearlyElevation).some(meters => meters >= 200000)) {
+        const megaElevationYears = Object.values(yearlyElevation).filter(meters => meters >= 200000).length;
+        if (megaElevationYears > 0) {
             achievements.push({
                 emoji: '🗻',
                 label: '200k Climber',
-                description: 'Gained 200,000 m of elevation in a calendar year.'
+                description: 'Gained 200,000 m of elevation in a calendar year.',
+                count: megaElevationYears
             });
         }
 
@@ -467,10 +461,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         achievements.forEach(achievement => {
             const badge = document.createElement('button');
             badge.type = 'button';
-            badge.className = 'tooltip-target inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/20 text-base';
-            badge.innerHTML = `<span>${achievement.emoji}</span>`;
-            badge.setAttribute('aria-label', achievement.label);
-            attachTooltip(badge, `${achievement.label} — ${achievement.description}`);
+            badge.className = 'tooltip-target inline-flex h-9 min-w-[3rem] items-center justify-center gap-1 rounded-full bg-amber-500/20 px-2 text-base font-semibold';
+            badge.innerHTML = `
+                <span>${achievement.emoji}</span>
+                <span class="text-xs">x${achievement.count ?? 1}</span>
+            `;
+            badge.setAttribute('aria-label', `${achievement.label} earned ${achievement.count ?? 1} times`);
+            attachTooltip(badge, `${achievement.label} — ${achievement.description} • Earned ${achievement.count ?? 1}×`);
             container.appendChild(badge);
         });
     };
@@ -496,6 +493,57 @@ document.addEventListener('DOMContentLoaded', async () => {
                 clearInterval(timer);
             }
         }, stepTime);
+    };
+
+    const updateCoinSummaryFromWallet = (achievementCategories = []) => {
+        const totals = computeWalletCoinTotals(achievementCategories);
+        const elementMap = {
+            '💲': 'coin-dollar',
+            '💰': 'coin-money',
+            '🧈': 'coin-butter',
+            '💎': 'coin-diamond',
+            '👑': 'coin-king'
+        };
+
+        Object.entries(elementMap).forEach(([emoji, elementId]) => {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                return;
+            }
+            const targetValue = totals[emoji] || 0;
+            const currentValue = Number.parseInt(element.textContent, 10) || 0;
+            if (currentValue === targetValue) {
+                element.textContent = targetValue;
+            } else {
+                animateCount(elementId, currentValue, targetValue, 600);
+            }
+        });
+
+        const totalCoinValue = Object.entries(totals).reduce((sum, [emoji, count]) => {
+            const coinValue = COIN_VALUE_MAP[emoji] || 0;
+            return sum + (coinValue * count);
+        }, 0);
+
+        if (coinTotalValueElement) {
+            coinTotalValueElement.textContent = formatMillions(totalCoinValue);
+            const coinSummaryContainer = coinTotalValueElement.parentElement;
+            if (coinSummaryContainer) {
+                const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(', ');
+                attachTooltip(
+                    coinSummaryContainer,
+                    `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). Current total: $${totalCoinValue.toLocaleString()}.`
+                );
+            }
+        }
+
+        if (coinValueExplanationElement) {
+            const valueText = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(' · ');
+            coinValueExplanationElement.textContent = `${COIN_SUMMARY_LABEL} only • Value per coin: ${valueText}.`;
+        }
+
+        renderCoinBreakdown(coinBreakdownElement, totals);
+
+        return totals;
     };
 
     const hideTooltip = () => {
@@ -890,6 +938,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Logged an activity on Labor Day',
             dynamicDateResolver: (year) => [getLaborDayDate(year)]
         },
+        {
+            name: 'Pi Day Pace Setter',
+            emoji: '🥧',
+            description: 'Logged an activity on Pi Day',
+            dates: ['03-14']
+        },
+        {
+            name: 'Global Running Day Star',
+            emoji: '🌎🏃',
+            description: 'Logged an activity on Global Running Day',
+            dynamicDateResolver: (year) => [getGlobalRunningDay(year)]
+        },
+        {
+            name: 'Summer Solstice Sprinter',
+            emoji: '☀️',
+            description: 'Logged an activity on the summer solstice',
+            dates: ['06-21']
+        },
+        {
+            name: 'Super Nice Day',
+            emoji: '😎',
+            description: 'Logged an activity on 6/9 — the super nice day',
+            dates: ['06-09']
+        },
+        {
+            name: 'Leap Day Legend',
+            emoji: '🦘',
+            description: 'Logged an activity on Leap Day',
+            dynamicDateResolver: (year) => ((year % 4 === 0) && (year % 100 !== 0 || year % 400 === 0)) ? ['02-29'] : []
+        },
         // Additional Medals
         {
             name: 'Steep Climber',
@@ -1228,6 +1306,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         return '09-05'; // Fallback
     };
 
+    const getGlobalRunningDay = (year) => {
+        for (let day = 1; day <= 7; day++) {
+            const date = new Date(year, 5, day);
+            if (date.getDay() === 3) { // Wednesday
+                return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            }
+        }
+        return '06-05'; // Typical first Wednesday fallback
+    };
+
     // === Achievement Categories ===
     const categories = [
         {
@@ -1243,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             achievements: []
         },
         {
-            name: 'Other Achievements',
+            name: 'Calories (kcal)',
             achievements: []
         }
     ];
@@ -1576,160 +1664,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
 
-        // === Coin Configuration and Calculation ===
-        // Initialize coin counts
-        const coins = {
-            '💲': 0,
-            '💰': 0,
-            '🧈': 0,
-            '💎': 0,
-            '👑': 0
-        };
-        const coinBreakdownState = initializeCoinBreakdownState();
-
-        // Calculate date range for weekly data
-        const today = new Date();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(today.getDate() - 7);
-
-        // Calculate coins based on activities and segments
-        Object.entries(coinConfig).forEach(([type, config]) => {
-            if (type === 'Segment') {
-                // Handle Segment Completions
-                const completions = segments.reduce((sum, seg) => sum + (seg.count || 0), 0);
-
-                // Lifetime Coins
-                if (config.lifetime.metric === 'segmentCompletions') {
-                    const amount = Math.floor(completions / config.lifetime.threshold);
-                    registerCoinGain(coins, coinBreakdownState, type, config.lifetime.emoji, amount);
-                }
-
-                // Weekly Coins
-                // Assuming segment completions are cumulative and not time-bound
-                registerCoinGain(
-                    coins,
-                    coinBreakdownState,
-                    type,
-                    config.weekly.emoji,
-                    Math.floor(completions / config.weekly.threshold)
-                );
-
-                // Milestone Coins
-                config.milestone.forEach(milestone => {
-                    if (completions >= milestone.threshold) {
-                        registerCoinGain(coins, coinBreakdownState, type, milestone.emoji, 1);
-                    }
-                });
-
-                // Ultra Weekly Coins
-                registerCoinGain(
-                    coins,
-                    coinBreakdownState,
-                    type,
-                    config.ultraWeekly.emoji,
-                    Math.floor(completions / config.ultraWeekly.threshold)
-                );
-            } else {
-                const normalizedType = type.toUpperCase();
-                const relevantActivities = (normalizedType === 'KCAL' || normalizedType === 'ELEVATION')
-                    ? data.activities
-                    : data.activities.filter(activity => {
-                        const activityType = (activity.type || '').toUpperCase();
-                        if (normalizedType === 'RUN') {
-                            return activityType.includes('RUN');
-                        }
-                        if (normalizedType === 'RIDE') {
-                            return activityType.includes('RIDE');
-                        }
-                        return activityType === normalizedType;
-                    });
-
-                // Lifetime Coins
-                const totalMetric = relevantActivities.reduce((sum, activity) => {
-                    return sum + getMetricValue(activity, config.lifetime.metric);
-                }, 0);
-                registerCoinGain(
-                    coins,
-                    coinBreakdownState,
-                    type,
-                    config.lifetime.emoji,
-                    Math.floor(totalMetric / config.lifetime.threshold)
-                );
-
-                // Weekly Coins
-                const weeklyActivities = relevantActivities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
-                const weeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.weekly.metric), 0);
-
-                if (weeklyTotal >= config.weekly.threshold) {
-                    registerCoinGain(
-                        coins,
-                        coinBreakdownState,
-                        type,
-                        config.weekly.emoji,
-                        Math.floor(weeklyTotal / config.weekly.threshold)
-                    );
-                }
-
-                // Milestone Coins
-                config.milestone.forEach(milestone => {
-                    let milestoneCount = 0;
-                    relevantActivities.forEach(activity => {
-                        if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
-                            milestoneCount++;
-                        }
-                    });
-                    registerCoinGain(coins, coinBreakdownState, type, milestone.emoji, milestoneCount);
-                });
-
-                // Ultra Weekly Coins
-                const ultraWeeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.ultraWeekly.metric), 0);
-                if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
-                    registerCoinGain(
-                        coins,
-                        coinBreakdownState,
-                        type,
-                        config.ultraWeekly.emoji,
-                        Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold)
-                    );
-                }
-            }
-        });
-
-        // Animate Coin Counts
-        Object.entries(coins).forEach(([emoji, count]) => {
-            const elementId = {
-                '💲': 'coin-dollar',
-                '💰': 'coin-money',
-                '🧈': 'coin-butter',
-                '💎': 'coin-diamond',
-                '👑': 'coin-king'
-            }[emoji];
-            if (elementId) {
-                animateCount(elementId, 0, count, 1000);
-            }
-        });
-
-        const totalCoinValue = Object.entries(coins).reduce((sum, [emoji, count]) => {
-            const coinValue = COIN_VALUE_MAP[emoji] || 0;
-            return sum + (coinValue * count);
-        }, 0);
-        if (coinTotalValueElement) {
-            coinTotalValueElement.textContent = formatMillions(totalCoinValue);
-            const coinSummaryContainer = coinTotalValueElement.parentElement;
-            if (coinSummaryContainer) {
-                const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(', ');
-                attachTooltip(
-                    coinSummaryContainer,
-                    `Total haul adds each coin multiplied by its value (${valueBreakdown}). Current total: $${totalCoinValue.toLocaleString()}.`
-                );
-            }
-        }
-        if (coinValueExplanationElement) {
-            const valueText = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(' · ');
-            coinValueExplanationElement.textContent = `Value per coin: ${valueText}.`;
-        }
-        renderCoinBreakdown(coinBreakdownElement, coinBreakdownState);
-
         // === Achievement Wallet ===
 
         // Initialize Achievement Counts
@@ -1894,65 +1828,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        // Consistency Badges
-        // Weekly Consistency
-        const weeklyActivities = {};
-        data.activities.forEach(activity => {
-            const weekStart = new Date(activity.start_date);
-            weekStart.setHours(0, 0, 0, 0);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
-            const weekKey = weekStart.toISOString().slice(0, 10);
-            weeklyActivities[weekKey] = weeklyActivities[weekKey] || new Set();
-            weeklyActivities[weekKey].add(new Date(activity.start_date).getDate());
-        });
-        const weeklyConsistencyCount = Object.entries(weeklyActivities).filter(([weekKey, days]) => {
-            // Determine the number of days in the week (typically 7)
-            // Since weeks start on Sunday, it's always 7 days
-            return days.size === 7;
-        }).length;
-
-        // Monthly Consistency
-        const monthlyActivities = {};
-        data.activities.forEach(activity => {
-            const monthKey = new Date(activity.start_date).toISOString().slice(0, 7); // YYYY-MM
-            monthlyActivities[monthKey] = monthlyActivities[monthKey] || new Set();
-            monthlyActivities[monthKey].add(new Date(activity.start_date).getDate());
-        });
-        const monthlyConsistencyCount = Object.entries(monthlyActivities).filter(([monthKey, days]) => {
-            const [year, month] = monthKey.split('-');
-            const monthObj = new Date(`${year}-${month}-01`);
-            const daysInMonth = new Date(monthObj.getFullYear(), monthObj.getMonth() + 1, 0).getDate();
-            return days.size === daysInMonth;
-        }).length;
-
-        // Assign Consistency Achievements to 'Other Achievements' category
-        const consistencyAchievements = [
-            {
-                name: 'Weekly Consistency',
-                emoji: '📅',
-                description: 'Logged activities every day of a week',
-                count: weeklyConsistencyCount
-            },
-            {
-                name: 'Monthly Consistency',
-                emoji: '🗓️',
-                description: 'Logged activities every day of a month',
-                count: monthlyConsistencyCount
-            }
-        ];
-
-        consistencyAchievements.forEach(achievement => {
-            const category = categories.find(cat => cat.name === 'Other Achievements');
-            if (category) {
-                category.achievements.push({
-                    name: achievement.name,
-                    emoji: achievement.emoji,
-                    description: achievement.description,
-                    count: achievement.count
-                });
-            }
-        });
-
         // === KCal Badges ===
         const kcalBadges = {
             'Per Activity': {
@@ -1974,8 +1849,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const name = `${threshold} kcal Activity`;
             const description = kcalBadges['Per Activity'].description.replace('{}', threshold);
 
-            // Assign to 'Other Achievements' category
-            const category = categories.find(cat => cat.name === 'Other Achievements');
+            // Assign to 'Calories (kcal)' category
+            const category = categories.find(cat => cat.name === 'Calories (kcal)');
             if (category) {
                 category.achievements.push({
                     name: name,
@@ -2001,8 +1876,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const name = `${threshold} kcal Week`;
             const description = kcalBadges['Weekly'].description.replace('{}', threshold);
 
-            // Assign to 'Other Achievements' category
-            const category = categories.find(cat => cat.name === 'Other Achievements');
+            // Assign to 'Calories (kcal)' category
+            const category = categories.find(cat => cat.name === 'Calories (kcal)');
             if (category) {
                 category.achievements.push({
                     name: name,
@@ -2012,6 +1887,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
         });
+
+        updateCoinSummaryFromWallet(categories);
 
         // === Medals Calculation ===
         const medalsEarned = [];

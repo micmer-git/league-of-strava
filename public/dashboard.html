@@ -110,29 +110,23 @@
 
         <!-- Filter Bar -->
         <div class="sticky top-0 z-30 mb-6">
-            <div class="bg-white/95 dark:bg-gray-800/95 shadow-xl rounded-lg px-4 sm:px-6 py-4 backdrop-blur supports-backdrop-blur:border border-gray-200/40 dark:border-gray-700/40">
-                <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-                    <div>
-                        <h2 class="text-lg sm:text-xl font-semibold">Filter your adventure</h2>
-                        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-300">Pick a year or custom dates to explore every activity.</p>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 items-end">
-                        <label class="flex flex-col text-sm sm:text-base gap-1">
-                            <span class="font-medium">Year</span>
-                            <select id="year-select" class="px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
-                        </label>
-                        <label class="flex flex-col text-sm sm:text-base gap-1">
-                            <span class="font-medium">Start date</span>
-                            <input type="text" id="start-date" placeholder="YYYY-MM-DD" class="px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </label>
-                        <label class="flex flex-col text-sm sm:text-base gap-1">
-                            <span class="font-medium">End date</span>
-                            <input type="text" id="end-date" placeholder="YYYY-MM-DD" class="px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </label>
-                        <div class="flex gap-2 sm:gap-3">
-                            <button id="filter-button" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm sm:text-base font-semibold shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Apply</button>
-                            <button id="reset-button" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md text-sm sm:text-base font-semibold shadow hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">Reset</button>
-                        </div>
+            <div class="bg-white/95 dark:bg-gray-800/95 shadow-xl rounded-lg px-4 sm:px-5 py-3 backdrop-blur supports-backdrop-blur:border border-gray-200/40 dark:border-gray-700/40">
+                <div class="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-6 gap-3 items-end">
+                    <label class="col-span-1 sm:col-span-1 flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        <span>Year</span>
+                        <select id="year-select" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                    </label>
+                    <label class="col-span-1 sm:col-span-1 flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        <span>Start</span>
+                        <input type="text" id="start-date" placeholder="YYYY-MM-DD" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </label>
+                    <label class="col-span-1 sm:col-span-1 flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                        <span>End</span>
+                        <input type="text" id="end-date" placeholder="YYYY-MM-DD" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </label>
+                    <div class="col-span-2 sm:col-span-2 lg:col-span-2 flex justify-end gap-2">
+                        <button id="filter-button" class="flex-1 sm:flex-none rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Apply</button>
+                        <button id="reset-button" class="flex-1 sm:flex-none rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">Reset</button>
                     </div>
                 </div>
             </div>

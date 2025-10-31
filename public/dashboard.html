@@ -158,9 +158,14 @@
                     <div class="w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700">
                         <div id="ranking-progress" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
                     </div>
-                    <div class="flex justify-between mt-2">
-                        <span id="current-rank" class="text-sm font-medium"></span>
-                        <span id="level-progress" class="text-sm font-medium"></span>
+                    <div class="mt-2 flex flex-col gap-1">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span id="current-rank" class="text-sm font-medium"></span>
+                                <div id="premium-achievements" class="flex flex-wrap items-center gap-1"></div>
+                            </div>
+                            <span id="level-progress" class="text-sm font-medium"></span>
+                        </div>
                     </div>
                     <div id="rank-details" class="text-sm text-gray-500 mt-2"></div>
                     <div class="mt-4 flex flex-wrap gap-2">
@@ -182,10 +187,11 @@
 
             <!-- Coins Section -->
             <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
-                <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center justify-between mb-2">
                     <h3 class="text-xl font-bold">Your Coins</h3>
                     <div class="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-300">Total haul: <span id="coin-total-value">$0.00M</span></div>
                 </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Summed for the selected time period.</p>
                 <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
                     <!-- Coins with count below emojis and descriptions on hover/click -->
                     <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
@@ -214,6 +220,8 @@
                         <span id="coin-king" class="text-sm sm:text-base font-bold text-red-700 dark:text-red-300">0</span>
                     </button>
                 </div>
+                <p id="coin-value-explanation" class="mt-3 text-xs text-gray-500 dark:text-gray-400"></p>
+                <div id="coin-breakdown" class="mt-4 space-y-4"></div>
             </div>
         </div>
 
@@ -228,7 +236,7 @@
         <!-- Medals Section -->
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
             <h3 class="text-xl font-bold mb-4">Medals</h3>
-            <div id="medals-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+            <div id="medals-section" class="flex gap-3 sm:gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
                 <!-- Medals will be dynamically populated -->
             </div>
         </div>

@@ -37,8 +37,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     let filteredData = {}; // To store filtered data based on date
 
     const ACTIVITIES_PAGE_SIZE = 5;
+    const ACTIVITIES_PER_PAGE = 200;
+    const ACTIVITIES_BATCH_PAGES = 3;
+
     let visibleActivitiesCount = 0;
     let sortedActivities = [];
+    let hasMoreActivities = false;
+    let nextActivitiesPageStart = 1;
+    let isFetchingActivities = false;
 
     let tooltipHideTimeout = null;
     let spinnerHideTimeout = null;
@@ -121,6 +127,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => func.apply(this, args), delay);
         };
+    };
+
+    const getActivityKey = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return null;
+        }
+
+        if (activity.id !== undefined && activity.id !== null) {
+            return `id:${activity.id}`;
+        }
+
+        if (activity.external_id) {
+            return `external:${activity.external_id}`;
+        }
+
+        if (activity.start_date && activity.name) {
+            return `start:${activity.start_date}-${activity.name}`;
+        }
+
+        return null;
     };
 
     // Function to get metric value
@@ -344,11 +370,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (loadMoreButton) {
-            if (visibleActivitiesCount >= sortedActivities.length) {
+            if (visibleActivitiesCount >= sortedActivities.length && !hasMoreActivities) {
                 loadMoreButton.classList.add('hidden');
             } else {
                 loadMoreButton.classList.remove('hidden');
             }
+
+            loadMoreButton.disabled = isFetchingActivities;
         }
     };
 
@@ -677,46 +705,115 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // === Fetch and Process Data ===
-    const fetchData = async () => {
+    const fetchData = async ({ isLoadMore = false } = {}) => {
+        if (isFetchingActivities) {
+            return;
+        }
+
+        isFetchingActivities = true;
+
+        if (!isLoadMore) {
+            nextActivitiesPageStart = 1;
+        }
+
         try {
-            const response = await fetch('/api/strava-data');
+            const params = new URLSearchParams();
+            if (Number.isFinite(nextActivitiesPageStart)) {
+                params.set('startPage', String(nextActivitiesPageStart));
+            }
+            params.set('pageCount', String(ACTIVITIES_BATCH_PAGES));
+            params.set('perPage', String(ACTIVITIES_PER_PAGE));
+
+            const response = await fetch(`/api/strava-data?${params.toString()}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+
             const data = await response.json();
 
-            // Validate required fields
             if (!data.athlete || !data.activities || !data.totals) {
                 throw new Error('Incomplete data received from API.');
             }
 
-            allData = data;
+            const activitiesFromResponse = Array.isArray(data.activities) ? data.activities : [];
+            const segmentsFromResponse = Array.isArray(data.segments) ? data.segments : [];
+            const athlete = data.athlete || {};
 
-            const computedTotals = calculateTotals(allData.activities || []);
-            filteredData = {
-                ...allData,
-                activities: [...(allData.activities || [])],
-                totals: {
-                    ...(allData.totals || {}),
-                    hours: computedTotals.hours,
-                    distance: computedTotals.distance,
-                    elevation: computedTotals.elevation,
-                    calories: computedTotals.calories
-                }
+            if (!isLoadMore || !Array.isArray(allData.activities)) {
+                allData = {
+                    ...data,
+                    activities: [...activitiesFromResponse],
+                    segments: [...segmentsFromResponse],
+                    athlete,
+                };
+            } else {
+                const existingActivities = Array.isArray(allData.activities) ? allData.activities : [];
+                const existingKeys = new Set(existingActivities
+                    .map(existingActivity => getActivityKey(existingActivity))
+                    .filter(Boolean));
+
+                const dedupedActivities = activitiesFromResponse.filter(activity => {
+                    const key = getActivityKey(activity);
+                    if (!key) {
+                        return true;
+                    }
+                    if (existingKeys.has(key)) {
+                        return false;
+                    }
+                    existingKeys.add(key);
+                    return true;
+                });
+
+                allData.activities = existingActivities.concat(dedupedActivities);
+                allData.athlete = Object.keys(athlete).length ? athlete : allData.athlete;
+
+                const currentSegments = Array.isArray(allData.segments) ? allData.segments : [];
+                allData.segments = segmentsFromResponse.length > 0 ? segmentsFromResponse : currentSegments;
+            }
+
+            allData.cached = data.cached;
+            allData.stale = data.stale;
+            allData.hasMore = data.hasMore;
+            allData.pageInfo = data.pageInfo;
+
+            const aggregatedTotals = calculateTotals(allData.activities || []);
+            allData.totals = {
+                ...(allData.totals || {}),
+                hours: aggregatedTotals.hours,
+                distance: aggregatedTotals.distance,
+                elevation: aggregatedTotals.elevation,
+                calories: aggregatedTotals.calories
             };
 
-            populateYearSelect(allData.activities || []);
+            const effectiveSegments = Array.isArray(allData.segments)
+                ? allData.segments
+                : segmentsFromResponse;
+            allData.segments = effectiveSegments;
+            allData.athlete = allData.athlete || athlete;
 
-            // Process and Display Data
-            try {
-                processAndDisplayData(filteredData);
-            } catch (processingError) {
-                console.error('Error processing and displaying data:', processingError);
-                if (errorMessage) {
-                    errorMessage.classList.remove('hidden');
-                    errorMessage.textContent = 'An error occurred while processing your data. Please try again later.';
+            hasMoreActivities = Boolean(allData.pageInfo?.hasMore ?? allData.hasMore);
+
+            const nextStartFromResponse = allData.pageInfo?.nextPageStart;
+            if (Number.isFinite(nextStartFromResponse)) {
+                nextActivitiesPageStart = nextStartFromResponse;
+            } else if (!hasMoreActivities) {
+                nextActivitiesPageStart = null;
+            } else if (Number.isFinite(nextActivitiesPageStart)) {
+                nextActivitiesPageStart += ACTIVITIES_BATCH_PAGES;
+            }
+
+            const previousYearSelection = yearSelect ? yearSelect.value : 'all';
+            populateYearSelect(allData.activities || []);
+            if (yearSelect) {
+                const options = Array.from(yearSelect.options || []);
+                if (options.some(option => option.value === previousYearSelection)) {
+                    yearSelect.value = previousYearSelection;
+                } else {
+                    yearSelect.value = 'all';
                 }
             }
+
+            applyFilters({ preserveVisibleCount: isLoadMore });
         } catch (error) {
             console.error('Error fetching Strava data:', error);
             if (errorMessage) {
@@ -724,13 +821,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
             }
         } finally {
+            isFetchingActivities = false;
             // Fade out the spinner after all operations are complete
             fadeOutSpinner();
+            if (loadMoreButton) {
+                loadMoreButton.disabled = false;
+            }
         }
     };
 
     // === Function to Process and Display Data ===
-    const processAndDisplayData = (data) => {
+    const processAndDisplayData = (data, options = {}) => {
+        const { preserveVisibleCount = false } = options;
+        const previousVisibleCount = visibleActivitiesCount;
+
         // === Reset Existing Displays ===
         if (achievementWallet) achievementWallet.innerHTML = '';
         if (medalsSection) medalsSection.innerHTML = '';
@@ -1523,13 +1627,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return dateB - dateA;
             });
 
-        visibleActivitiesCount = sortedActivities.length === 0
-            ? 0
-            : Math.min(sortedActivities.length, ACTIVITIES_PAGE_SIZE);
+        if (sortedActivities.length === 0) {
+            visibleActivitiesCount = 0;
+        } else if (preserveVisibleCount) {
+            const baselineVisibleCount = previousVisibleCount > 0
+                ? previousVisibleCount
+                : ACTIVITIES_PAGE_SIZE;
+            visibleActivitiesCount = Math.min(sortedActivities.length, Math.max(baselineVisibleCount, ACTIVITIES_PAGE_SIZE));
+        } else {
+            visibleActivitiesCount = Math.min(sortedActivities.length, ACTIVITIES_PAGE_SIZE);
+        }
+
         renderActivitiesList();
     };
 
-    const applyFilters = () => {
+    function applyFilters(options = {}) {
+        const { preserveVisibleCount = false } = options;
         if (!allData.activities) {
             return;
         }
@@ -1582,7 +1695,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         try {
-            processAndDisplayData(filteredData);
+            processAndDisplayData(filteredData, { preserveVisibleCount });
             if (errorMessage) {
                 errorMessage.classList.add('hidden');
                 errorMessage.textContent = '';
@@ -1594,7 +1707,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 errorMessage.textContent = 'An error occurred while processing your data. Please try again later.';
             }
         }
-    };
+    }
 
     if (filterButton) {
         filterButton.addEventListener('click', () => {
@@ -1656,9 +1769,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (loadMoreButton) {
-        loadMoreButton.addEventListener('click', () => {
+        loadMoreButton.addEventListener('click', async () => {
+            const previousVisibleCount = visibleActivitiesCount;
+
             visibleActivitiesCount = Math.min(sortedActivities.length, visibleActivitiesCount + ACTIVITIES_PAGE_SIZE);
             renderActivitiesList();
+
+            if (!hasMoreActivities) {
+                return;
+            }
+
+            await fetchData({ isLoadMore: true });
+
+            const updatedSortedLength = sortedActivities.length;
+            if (updatedSortedLength > previousVisibleCount) {
+                visibleActivitiesCount = Math.min(updatedSortedLength, previousVisibleCount + ACTIVITIES_PAGE_SIZE);
+                renderActivitiesList();
+            }
         });
     } else {
         console.warn("'load-more-btn' element not found in the DOM.");

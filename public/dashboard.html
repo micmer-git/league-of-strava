@@ -83,7 +83,7 @@
             pointer-events: none;
             box-shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
             opacity: 0;
-            transform: translate(-50%, 0);
+            transform: translate(-50%, -50%);
             transition: opacity 0.15s ease-in-out;
         }
 
@@ -108,6 +108,36 @@
         <!-- Error Message -->
         <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
 
+        <!-- Filter Bar -->
+        <div class="sticky top-0 z-30 mb-6">
+            <div class="bg-white/95 dark:bg-gray-800/95 shadow-xl rounded-lg px-4 sm:px-6 py-4 backdrop-blur supports-backdrop-blur:border border-gray-200/40 dark:border-gray-700/40">
+                <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-semibold">Filter your adventure</h2>
+                        <p class="text-sm sm:text-base text-gray-600 dark:text-gray-300">Pick a year or custom dates to explore every activity.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 items-end">
+                        <label class="flex flex-col text-sm sm:text-base gap-1">
+                            <span class="font-medium">Year</span>
+                            <select id="year-select" class="px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                        </label>
+                        <label class="flex flex-col text-sm sm:text-base gap-1">
+                            <span class="font-medium">Start date</span>
+                            <input type="text" id="start-date" placeholder="YYYY-MM-DD" class="px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </label>
+                        <label class="flex flex-col text-sm sm:text-base gap-1">
+                            <span class="font-medium">End date</span>
+                            <input type="text" id="end-date" placeholder="YYYY-MM-DD" class="px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </label>
+                        <div class="flex gap-2 sm:gap-3">
+                            <button id="filter-button" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm sm:text-base font-semibold shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Apply</button>
+                            <button id="reset-button" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-md text-sm sm:text-base font-semibold shadow hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Top Section: User Info and Coins -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <!-- User Profile -->
@@ -115,7 +145,13 @@
                 <div class="flex items-center space-x-4">
                     <img id="athlete-avatar" src="" alt="Athlete Avatar" class="w-16 h-16 rounded-full">
                     <div>
-                        <h2 id="athlete-name" class="text-2xl font-bold"></h2>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                            <h2 id="athlete-name" class="text-2xl font-bold"></h2>
+                            <button id="fetch-more-data" type="button" class="mt-2 sm:mt-0 inline-flex items-center gap-2 bg-amber-500/90 hover:bg-amber-500 text-white text-sm sm:text-base font-semibold px-3 py-1.5 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-amber-300">
+                                <span aria-hidden="true">🔁</span>
+                                <span>Fetch more data</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="mt-4">
@@ -127,56 +163,57 @@
                         <span id="level-progress" class="text-sm font-medium"></span>
                     </div>
                     <div id="rank-details" class="text-sm text-gray-500 mt-2"></div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button id="globe-stat" type="button" class="tooltip-target inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200 px-3 py-1.5 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <span aria-hidden="true">🌍</span>
+                            <span id="globe-total">0</span>
+                        </button>
+                        <button id="everest-stat" type="button" class="tooltip-target inline-flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200 px-3 py-1.5 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                            <span aria-hidden="true">🏔️</span>
+                            <span id="everest-total">0</span>
+                        </button>
+                        <button id="pizza-stat" type="button" class="tooltip-target inline-flex items-center gap-2 bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200 px-3 py-1.5 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-400">
+                            <span aria-hidden="true">🍕</span>
+                            <span id="pizza-total">0</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <!-- Coins Section -->
             <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
-                <h3 class="text-xl font-bold mb-4">Your Coins</h3>
-                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">Your Coins</h3>
+                    <div class="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-300">Total haul: <span id="coin-total-value">$0.00M</span></div>
+                </div>
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
                     <!-- Coins with count below emojis and descriptions on hover/click -->
                     <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="Basic achievement coins\nEarned from completing regular activities">
+                            data-tooltip="Each 💲 marks consistent progress across your adventures.">
                         <span class="text-2xl sm:text-3xl">💲</span>
-                        <span id="coin-dollar" class="text-sm sm:text-base font-bold text-green-800">0</span>
+                        <span id="coin-dollar" class="text-sm sm:text-base font-bold text-green-700 dark:text-green-300">0</span>
                     </button>
                     <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="Weekly achievement coins\nEarned from completing weekly challenges">
+                            data-tooltip="💰 celebrates your biggest pushes within the week.">
                         <span class="text-2xl sm:text-3xl">💰</span>
-                        <span id="coin-money" class="text-sm sm:text-base font-bold text-blue-800">0</span>
+                        <span id="coin-money" class="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-300">0</span>
                     </button>
                     <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="Milestone achievement coins\nEarned from reaching distance milestones">
-                        <span class="text-2xl sm:text-3xl">🔰</span>
-                        <span id="coin-bootstrap" class="text-sm sm:text-base font-bold text-yellow-800">0</span>
+                            data-tooltip="🧈 is awarded for buttery-smooth milestone efforts.">
+                        <span class="text-2xl sm:text-3xl">🧈</span>
+                        <span id="coin-butter" class="text-sm sm:text-base font-bold text-amber-700 dark:text-amber-300">0</span>
                     </button>
                     <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="Ultra achievement coins\nEarned from completing ultra-distance challenges">
+                            data-tooltip="💎 shines whenever you conquer ultra achievements.">
                         <span class="text-2xl sm:text-3xl">💎</span>
-                        <span id="coin-diamond" class="text-sm sm:text-base font-bold text-purple-800">0</span>
+                        <span id="coin-diamond" class="text-sm sm:text-base font-bold text-purple-700 dark:text-purple-300">0</span>
                     </button>
                     <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="Elite achievement coins\nEarned from exceptional performances">
+                            data-tooltip="👑 crowns the elite moments you unlocked.">
                         <span class="text-2xl sm:text-3xl">👑</span>
-                        <span id="coin-king" class="text-sm sm:text-base font-bold text-red-800">0</span>
-                    </button>
-                    <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="Trophy coins\nEarned from outstanding achievements">
-                        <span class="text-2xl sm:text-3xl">🏆</span>
-                        <span id="coin-trophy" class="text-sm sm:text-base font-bold text-yellow-800">0</span>
+                        <span id="coin-king" class="text-sm sm:text-base font-bold text-red-700 dark:text-red-300">0</span>
                     </button>
                 </div>
-            </div>
-        </div>
-
-        <!-- Date Filtering Section -->
-        <div class="flex justify-end mb-6">
-            <div class="flex space-x-2">
-                <select id="year-select" class="px-4 py-2 border rounded"></select>
-                <input type="text" id="start-date" placeholder="Start Date" class="px-4 py-2 border rounded">
-                <input type="text" id="end-date" placeholder="End Date" class="px-4 py-2 border rounded">
-                <button id="filter-button" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filter</button>
-                <button id="reset-button" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Reset</button>
             </div>
         </div>
 

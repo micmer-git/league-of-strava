@@ -1,6 +1,17 @@
 // public/dashboard.js
 
 document.addEventListener('DOMContentLoaded', async () => {
+    const EARTH_CIRCUMFERENCE_KM = 40075;
+    const EVEREST_HEIGHT_M = 8849;
+    const PIZZA_KCAL = 800;
+    const COIN_VALUE_MAP = {
+        '💲': 1,
+        '💰': 5,
+        '🧈': 25,
+        '💎': 150,
+        '👑': 500
+    };
+
     // === DOM Elements ===
     const loadingSpinner = document.getElementById('loading-spinner');
     const closeSpinnerButton = document.getElementById('close-spinner');
@@ -9,10 +20,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const resetButton = document.getElementById('reset-button');
     const athleteNameElement = document.getElementById('athlete-name');
     const athleteAvatarElement = document.getElementById('athlete-avatar');
+    const fetchMoreDataButton = document.getElementById('fetch-more-data');
     const currentRankElement = document.getElementById('current-rank');
     const rankingProgressElement = document.getElementById('ranking-progress');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
+    const globeStatButton = document.getElementById('globe-stat');
+    const everestStatButton = document.getElementById('everest-stat');
+    const pizzaStatButton = document.getElementById('pizza-stat');
+    const globeTotalElement = document.getElementById('globe-total');
+    const everestTotalElement = document.getElementById('everest-total');
+    const pizzaTotalElement = document.getElementById('pizza-total');
+    const coinTotalValueElement = document.getElementById('coin-total-value');
     const achievementWallet = document.getElementById('achievement-wallet');
     const medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
@@ -54,6 +73,86 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.appendChild(tooltipElement);
 
     // === Utility Functions ===
+
+    const formatStatValue = (value) => {
+        if (!Number.isFinite(value) || value <= 0) {
+            return '0';
+        }
+        if (value >= 100) {
+            return value.toFixed(0);
+        }
+        if (value >= 10) {
+            return value.toFixed(1);
+        }
+        return value.toFixed(2);
+    };
+
+    const formatMillions = (value) => {
+        const millions = value / 1_000_000;
+        return `$${millions.toFixed(2)}M`;
+    };
+
+    const formatDistance = (km) => {
+        if (!Number.isFinite(km)) return '0.00 km';
+        return `${km.toFixed(2)} km`;
+    };
+    const formatElevation = (meters) => {
+        if (!Number.isFinite(meters)) return '0 m';
+        return `${meters.toFixed(0)} m`;
+    };
+    const formatCalories = (calories) => {
+        if (!Number.isFinite(calories)) return '0 kcal';
+        return `${calories.toFixed(0)} kcal`;
+    };
+    const formatPizzas = (pizzas) => {
+        if (!Number.isFinite(pizzas)) return '0.00 pizzas';
+        return `${pizzas.toFixed(2)} pizzas`;
+    };
+
+    function calculateActivityCalories(activity = {}) {
+        const movingTimeSeconds = activity.moving_time || 0;
+        const minutes = movingTimeSeconds / 60;
+        const averageHeartRate = activity.average_heartrate
+            ?? activity.avg_heart_rate
+            ?? activity.avg_heartrate
+            ?? null;
+
+        if (minutes > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
+            const kcalPerMinute = Math.max(0, 0.6309 * averageHeartRate - 55);
+            const calories = kcalPerMinute * minutes;
+            if (calories > 0) {
+                return calories;
+            }
+        }
+
+        if (Number.isFinite(activity.calories) && activity.calories > 0) {
+            return activity.calories;
+        }
+
+        if (Number.isFinite(activity.kilojoules) && activity.kilojoules > 0) {
+            return activity.kilojoules / 4.184;
+        }
+
+        return 0;
+    }
+
+    function computeActivitySmallStats(activity = {}) {
+        const distanceKm = Number.isFinite(activity.distance) ? activity.distance / 1000 : 0;
+        const elevationGain = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+        const calories = calculateActivityCalories(activity);
+        const globeTrips = distanceKm / EARTH_CIRCUMFERENCE_KM;
+        const everestSummits = elevationGain / EVEREST_HEIGHT_M;
+        const pizzaCount = calories / PIZZA_KCAL;
+
+        return {
+            distanceKm,
+            elevationGain,
+            calories,
+            globeTrips,
+            everestSummits,
+            pizzaCount
+        };
+    }
 
     // Function to fade out the spinner
     const fadeOutSpinner = () => {
@@ -154,7 +253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (metric === 'distance') {
             return activity.distance ? activity.distance / 1000 : 0; // Convert meters to kilometers
         } else if (metric === 'calories') {
-            return activity.kilojoules ? activity.kilojoules / 4.184 : 0; // Convert kJ to kcal
+            return calculateActivityCalories(activity);
         } else if (metric === 'segmentCompletions') {
             return allData.segments ? allData.segments.reduce((sum, seg) => sum + seg.count, 0) : 0; // Total segment completions
         }
@@ -197,17 +296,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const positionTooltip = (element) => {
         const rect = element.getBoundingClientRect();
-        const top = window.scrollY + rect.bottom + 12;
-        const center = window.scrollX + rect.left + (rect.width / 2);
-        tooltipElement.style.top = `${top}px`;
-        tooltipElement.style.left = `${center}px`;
+        const targetTop = window.scrollY + rect.top + (rect.height / 2);
+        const targetLeft = window.scrollX + rect.left + (rect.width / 2);
+
+        tooltipElement.style.top = `${targetTop}px`;
+        tooltipElement.style.left = `${targetLeft}px`;
 
         const tooltipRect = tooltipElement.getBoundingClientRect();
+        let adjustedLeft = targetLeft;
+        let adjustedTop = targetTop;
+
         if (tooltipRect.left < 12) {
-            tooltipElement.style.left = `${center + (12 - tooltipRect.left)}px`;
-        } else if (tooltipRect.right > window.innerWidth - 12) {
-            tooltipElement.style.left = `${center - (tooltipRect.right - (window.innerWidth - 12))}px`;
+            adjustedLeft += 12 - tooltipRect.left;
         }
+        if (tooltipRect.right > window.innerWidth - 12) {
+            adjustedLeft -= tooltipRect.right - (window.innerWidth - 12);
+        }
+        if (tooltipRect.top < 12) {
+            adjustedTop += 12 - tooltipRect.top;
+        }
+        if (tooltipRect.bottom > window.innerHeight - 12) {
+            adjustedTop -= tooltipRect.bottom - (window.innerHeight - 12);
+        }
+
+        tooltipElement.style.left = `${adjustedLeft}px`;
+        tooltipElement.style.top = `${adjustedTop}px`;
     };
 
     const showTooltip = (element, text) => {
@@ -232,11 +345,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const attachTooltip = (element, text) => {
-        if (!element || !text) return;
-        element.dataset.tooltip = text;
-        if (element.dataset.tooltipBound) return;
+        if (!element) return;
+        element.dataset.tooltipText = text || '';
+        if (element.dataset.tooltipBound) {
+            return;
+        }
 
-        const handleShow = () => showTooltip(element, text);
+        const handleShow = () => {
+            const tooltipText = element.dataset.tooltipText || '';
+            showTooltip(element, tooltipText);
+        };
         const handleHide = () => {
             if (tooltipElement.dataset.anchorId === element.dataset.tooltipId) {
                 hideTooltip();
@@ -288,10 +406,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             acc.hours += ((activity?.moving_time) || 0) / 3600;
             acc.distance += (activity?.distance) || 0;
             acc.elevation += (activity?.total_elevation_gain) || 0;
-            acc.calories += (activity?.kilojoules) || 0;
+            acc.calories += calculateActivityCalories(activity);
             return acc;
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
     };
+
 
     const renderActivitiesList = () => {
         if (!activitiesContainer) {
@@ -316,12 +435,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const activitiesToRender = sortedActivities.slice(0, visibleActivitiesCount);
 
+        const createBadge = (emoji, valueText, tooltipText, className) => {
+            const badge = document.createElement('button');
+            badge.type = 'button';
+            badge.className = `tooltip-target inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold text-xs sm:text-sm ${className}`;
+            const emojiSpan = document.createElement('span');
+            emojiSpan.textContent = emoji;
+            const valueSpan = document.createElement('span');
+            valueSpan.textContent = valueText;
+            badge.appendChild(emojiSpan);
+            badge.appendChild(valueSpan);
+            attachTooltip(badge, tooltipText);
+            return badge;
+        };
+
         activitiesToRender.forEach(activity => {
             const card = document.createElement('div');
-            card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3';
+            card.className = 'bg-gray-100 dark:bg-gray-700/80 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm';
 
             const infoWrapper = document.createElement('div');
-            infoWrapper.className = 'flex-1';
+            infoWrapper.className = 'flex-1 space-y-2';
 
             const title = document.createElement('div');
             title.className = 'text-lg font-semibold';
@@ -331,12 +464,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             details.className = 'text-sm text-gray-600 dark:text-gray-300';
             const activityDate = new Date(activity.start_date);
             const formattedDate = Number.isNaN(activityDate.getTime()) ? '' : activityDate.toLocaleDateString();
-            const distanceKm = activity.distance ? (activity.distance / 1000).toFixed(1) : null;
-            const elevationGain = activity.total_elevation_gain ? `${Math.round(activity.total_elevation_gain)} m` : null;
+            const distanceKmValue = activity.distance ? activity.distance / 1000 : 0;
+            const distanceKm = distanceKmValue ? distanceKmValue.toFixed(1) : null;
+            const elevationGainValue = activity.total_elevation_gain ? Math.round(activity.total_elevation_gain) : null;
+            const elevationGain = elevationGainValue ? `${elevationGainValue} m` : null;
             const movingHours = ((activity.moving_time || 0) / 3600);
             const movingTime = movingHours >= 1
                 ? `${movingHours.toFixed(1)} hrs`
-                : `${Math.round((activity.moving_time || 0) / 60)} mins`;
+                : `${Math.max(1, Math.round((activity.moving_time || 0) / 60))} mins`;
             const metrics = [
                 formattedDate,
                 distanceKm ? `${distanceKm} km` : null,
@@ -347,6 +482,72 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             infoWrapper.appendChild(title);
             infoWrapper.appendChild(details);
+
+            const stats = computeActivitySmallStats(activity);
+            const statsRow = document.createElement('div');
+            statsRow.className = 'flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3';
+
+            const smallStatsGroup = document.createElement('div');
+            smallStatsGroup.className = 'flex flex-wrap items-center gap-2';
+            smallStatsGroup.appendChild(createBadge(
+                '🌍',
+                formatStatValue(stats.globeTrips),
+                `This activity covered ${formatDistance(stats.distanceKm)} — ${formatStatValue(stats.globeTrips)} trips around the globe`,
+                'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200'
+            ));
+            smallStatsGroup.appendChild(createBadge(
+                '🏔️',
+                formatStatValue(stats.everestSummits),
+                `Elevation gain of ${formatElevation(stats.elevationGain)} — ${formatStatValue(stats.everestSummits)} Everest climbs`,
+                'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200'
+            ));
+            smallStatsGroup.appendChild(createBadge(
+                '🍕',
+                formatStatValue(stats.pizzaCount),
+                `Energy burned: ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzaCount)}`,
+                'bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200'
+            ));
+            statsRow.appendChild(smallStatsGroup);
+
+            const coinRewards = getActivityCoinRewards(activity, stats);
+            if (coinRewards.length > 0) {
+                const coinGroup = document.createElement('div');
+                coinGroup.className = 'flex flex-wrap items-center gap-1';
+                const label = document.createElement('span');
+                label.className = 'text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-300';
+                label.textContent = 'Coins';
+                coinGroup.appendChild(label);
+                coinRewards.forEach(coinEmoji => {
+                    const coinBadge = document.createElement('button');
+                    coinBadge.type = 'button';
+                    coinBadge.className = 'tooltip-target inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/70 dark:bg-gray-800/70 shadow text-lg';
+                    coinBadge.textContent = coinEmoji;
+                    attachTooltip(coinBadge, `This activity unlocked a ${coinEmoji} coin.`);
+                    coinGroup.appendChild(coinBadge);
+                });
+                statsRow.appendChild(coinGroup);
+            }
+
+            const achievementHighlights = getActivityAchievementHighlights(activity, stats);
+            if (achievementHighlights.length > 0) {
+                const achievementGroup = document.createElement('div');
+                achievementGroup.className = 'flex flex-wrap items-center gap-1';
+                const label = document.createElement('span');
+                label.className = 'text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-300';
+                label.textContent = 'Achievements';
+                achievementGroup.appendChild(label);
+                achievementHighlights.forEach(highlight => {
+                    const badge = document.createElement('button');
+                    badge.type = 'button';
+                    badge.className = 'tooltip-target inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-200/80 dark:bg-gray-800 text-lg';
+                    badge.textContent = highlight.emoji;
+                    attachTooltip(badge, highlight.description);
+                    achievementGroup.appendChild(badge);
+                });
+                statsRow.appendChild(achievementGroup);
+            }
+
+            infoWrapper.appendChild(statsRow);
 
             const activityId = activity.id || activity.external_id;
             const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
@@ -568,40 +769,158 @@ document.addEventListener('DOMContentLoaded', async () => {
             lifetime: { metric: 'distance', threshold: 10, emoji: '💲' },
             weekly: { metric: 'distance', threshold: 30, emoji: '💰' },
             milestone: [
-                { metric: 'distance', threshold: 21, emoji: '🔰', name: 'Half Marathon' },
-                { metric: 'distance', threshold: 42, emoji: '👑', name: 'Full Marathon' }
+                { metric: 'distance', threshold: 21, emoji: '🧈', name: 'Half Marathon' },
+                { metric: 'distance', threshold: 42, emoji: '💎', name: 'Full Marathon' }
             ],
-            ultraWeekly: { metric: 'distance', threshold: 65, emoji: '💎' }
+            ultraWeekly: { metric: 'distance', threshold: 65, emoji: '👑' }
         },
         'Ride': {
             lifetime: { metric: 'distance', threshold: 100, emoji: '💲' },
             weekly: { metric: 'distance', threshold: 300, emoji: '💰' },
             milestone: [
-                { metric: 'distance', threshold: 200, emoji: '🔰', name: 'Double Century' },
-                { metric: 'distance', threshold: 250, emoji: '👑', name: 'Extreme Endurance' }
+                { metric: 'distance', threshold: 200, emoji: '🧈', name: 'Double Century' },
+                { metric: 'distance', threshold: 250, emoji: '💎', name: 'Extreme Endurance' }
             ],
-            ultraWeekly: { metric: 'distance', threshold: 600, emoji: '💎' }
+            ultraWeekly: { metric: 'distance', threshold: 600, emoji: '👑' }
         },
         'kcal': {
             lifetime: { metric: 'calories', threshold: 1000, emoji: '💲' },
             weekly: { metric: 'calories', threshold: 6000, emoji: '💰' },
             milestone: [
-                { metric: 'calories', threshold: 3000, emoji: '🔰', name: 'Metabolism Boost' },
-                { metric: 'calories', threshold: 7500, emoji: '👑', name: 'Metabolic Master' }
+                { metric: 'calories', threshold: 3000, emoji: '🧈', name: 'Metabolism Boost' },
+                { metric: 'calories', threshold: 7500, emoji: '💎', name: 'Metabolic Master' }
             ],
-            ultraWeekly: { metric: 'calories', threshold: 12000, emoji: '💎' }
+            ultraWeekly: { metric: 'calories', threshold: 12000, emoji: '👑' }
         },
         'Segment': { // New category for Segment Completions
             lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
             weekly: { metric: 'segmentCompletions', threshold: 5, emoji: '💰' },
             milestone: [
-                { metric: 'segmentCompletions', threshold: 10, emoji: '🔰', name: '10 Completions' },
+                { metric: 'segmentCompletions', threshold: 10, emoji: '🧈', name: '10 Completions' },
                 { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions' },
                 { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions' }
             ],
-            ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '🏆' } // Optional: Add '🏆' if desired
+            ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '👑' }
         }
     };
+
+    function getActivityCoinRewards(activity = {}, statsOverride = null) {
+        const rewards = new Set();
+        const stats = statsOverride || computeActivitySmallStats(activity);
+        const type = (activity.type || '').toUpperCase();
+
+        if (coinConfig?.Run && type === 'RUN') {
+            const runConfig = coinConfig.Run;
+            if (stats.distanceKm >= runConfig.lifetime.threshold) {
+                rewards.add(runConfig.lifetime.emoji);
+            }
+            if (stats.distanceKm >= runConfig.weekly.threshold) {
+                rewards.add(runConfig.weekly.emoji);
+            }
+            runConfig.milestone.forEach(milestone => {
+                if (stats.distanceKm >= milestone.threshold) {
+                    rewards.add(milestone.emoji);
+                }
+            });
+            if (stats.distanceKm >= runConfig.ultraWeekly.threshold) {
+                rewards.add(runConfig.ultraWeekly.emoji);
+            }
+        }
+
+        if (coinConfig?.Ride && type === 'RIDE') {
+            const rideConfig = coinConfig.Ride;
+            if (stats.distanceKm >= rideConfig.lifetime.threshold) {
+                rewards.add(rideConfig.lifetime.emoji);
+            }
+            if (stats.distanceKm >= rideConfig.weekly.threshold) {
+                rewards.add(rideConfig.weekly.emoji);
+            }
+            rideConfig.milestone.forEach(milestone => {
+                if (stats.distanceKm >= milestone.threshold) {
+                    rewards.add(milestone.emoji);
+                }
+            });
+            if (stats.distanceKm >= rideConfig.ultraWeekly.threshold) {
+                rewards.add(rideConfig.ultraWeekly.emoji);
+            }
+        }
+
+        if (coinConfig?.kcal) {
+            const kcalConfig = coinConfig.kcal;
+            if (stats.calories >= kcalConfig.lifetime.threshold) {
+                rewards.add(kcalConfig.lifetime.emoji);
+            }
+            if (stats.calories >= kcalConfig.weekly.threshold) {
+                rewards.add(kcalConfig.weekly.emoji);
+            }
+            kcalConfig.milestone.forEach(milestone => {
+                if (stats.calories >= milestone.threshold) {
+                    rewards.add(milestone.emoji);
+                }
+            });
+            if (stats.calories >= kcalConfig.ultraWeekly.threshold) {
+                rewards.add(kcalConfig.ultraWeekly.emoji);
+            }
+        }
+
+        return Array.from(rewards);
+    }
+
+    function getActivityAchievementHighlights(activity = {}, statsOverride = null) {
+        const highlights = [];
+        const stats = statsOverride || computeActivitySmallStats(activity);
+        const type = (activity.type || '').toUpperCase();
+        const seen = new Set();
+
+        const pushHighlight = (emoji, description) => {
+            const key = `${emoji}-${description}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                highlights.push({ emoji, description });
+            }
+        };
+
+        if (type === 'RUN') {
+            const thresholds = [10, 21, 42, 50, 100];
+            const emojis = ['💲', '💰', '🧈', '💎', '👑'];
+            thresholds.forEach((threshold, idx) => {
+                if (stats.distanceKm >= threshold) {
+                    pushHighlight(emojis[idx] || '🏅', `Run distance of at least ${threshold} km.`);
+                }
+            });
+        }
+
+        if (type === 'RIDE') {
+            const thresholds = [100, 150, 200, 300, 600];
+            const emojis = ['💲', '💰', '🧈', '💎', '👑'];
+            thresholds.forEach((threshold, idx) => {
+                if (stats.distanceKm >= threshold) {
+                    pushHighlight(emojis[idx] || '🏅', `Ride distance of at least ${threshold} km.`);
+                }
+            });
+        }
+
+        const elevationThresholds = [1000, 2000, 4424, 10000, 25000];
+        const elevationEmojis = ['💲', '💰', '🧈', '👑', '💎'];
+        elevationThresholds.forEach((threshold, idx) => {
+            if (stats.elevationGain >= threshold) {
+                const description = threshold === 4424
+                    ? 'Elevation gain matched Half Everest.'
+                    : `Elevation gain of at least ${threshold} m.`;
+                pushHighlight(elevationEmojis[idx] || '🏅', description);
+            }
+        });
+
+        const calorieThresholds = [1000, 2000, 4000];
+        const calorieEmojis = ['💲', '💰', '🧈'];
+        calorieThresholds.forEach((threshold, idx) => {
+            if (stats.calories >= threshold) {
+                pushHighlight(calorieEmojis[idx] || '🏅', `Burned ${threshold}+ kcal in this activity.`);
+            }
+        });
+
+        return highlights;
+    }
 
     // === Initialize Medals Dates ===
     // Function to get Thanksgiving date for a given year (4th Thursday of November)
@@ -830,6 +1149,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    if (fetchMoreDataButton) {
+        const originalLabel = fetchMoreDataButton.querySelector('span:last-child');
+        const originalText = originalLabel ? originalLabel.textContent : fetchMoreDataButton.textContent;
+        fetchMoreDataButton.addEventListener('click', async () => {
+            if (isFetchingActivities) {
+                return;
+            }
+            fetchMoreDataButton.disabled = true;
+            fetchMoreDataButton.classList.add('opacity-75');
+            if (originalLabel) {
+                originalLabel.textContent = 'Fetching...';
+            } else {
+                fetchMoreDataButton.textContent = 'Fetching...';
+            }
+
+            try {
+                await fetchData({ isLoadMore: true });
+            } finally {
+                fetchMoreDataButton.disabled = false;
+                fetchMoreDataButton.classList.remove('opacity-75');
+                if (originalLabel) {
+                    originalLabel.textContent = originalText;
+                } else {
+                    fetchMoreDataButton.textContent = originalText;
+                }
+            }
+        });
+    }
+
     // === Function to Process and Display Data ===
     const processAndDisplayData = (data, options = {}) => {
         const { preserveVisibleCount = false } = options;
@@ -847,6 +1195,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasActivities = activities.length > 0;
         const totals = calculateTotals(activities);
         const totalHours = totals.hours;
+
+        const aggregatedSmallStats = activities.reduce((acc, activity) => {
+            const stats = computeActivitySmallStats(activity);
+            acc.distanceKm += stats.distanceKm;
+            acc.elevationGain += stats.elevationGain;
+            acc.calories += stats.calories;
+            acc.globeTrips += stats.globeTrips;
+            acc.everestSummits += stats.everestSummits;
+            acc.pizzas += stats.pizzaCount;
+            return acc;
+        }, {
+            distanceKm: 0,
+            elevationGain: 0,
+            calories: 0,
+            globeTrips: 0,
+            everestSummits: 0,
+            pizzas: 0
+        });
+
+        if (globeTotalElement) {
+            globeTotalElement.textContent = formatStatValue(aggregatedSmallStats.globeTrips);
+        }
+        if (everestTotalElement) {
+            everestTotalElement.textContent = formatStatValue(aggregatedSmallStats.everestSummits);
+        }
+        if (pizzaTotalElement) {
+            pizzaTotalElement.textContent = formatStatValue(aggregatedSmallStats.pizzas);
+        }
+
+        if (globeStatButton) {
+            const message = hasActivities
+                ? `Total distance ${formatDistance(aggregatedSmallStats.distanceKm)} — ${formatStatValue(aggregatedSmallStats.globeTrips)} globe trips.`
+                : 'No distance recorded for the selected period.';
+            attachTooltip(globeStatButton, message);
+        }
+        if (everestStatButton) {
+            const message = hasActivities
+                ? `Total elevation ${formatElevation(aggregatedSmallStats.elevationGain)} — ${formatStatValue(aggregatedSmallStats.everestSummits)} Everest climbs.`
+                : 'No elevation recorded for the selected period.';
+            attachTooltip(everestStatButton, message);
+        }
+        if (pizzaStatButton) {
+            const message = hasActivities
+                ? `Energy burned ${formatCalories(aggregatedSmallStats.calories)} ≈ ${formatPizzas(aggregatedSmallStats.pizzas)}.`
+                : 'No heart rate data to estimate calories for this period.';
+            attachTooltip(pizzaStatButton, message);
+        }
 
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
@@ -942,10 +1337,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const coins = {
             '💲': 0,
             '💰': 0,
-            '🔰': 0,
+            '🧈': 0,
             '💎': 0,
-            '👑': 0,
-            '🏆': 0 // Ensure corresponding HTML elements exist
+            '👑': 0
         };
 
         // Calculate date range for weekly data
@@ -979,7 +1373,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 coins[config.ultraWeekly.emoji] += Math.floor(completions / config.ultraWeekly.threshold);
             } else {
                 // Handle Run, Ride, and kcal
-                const activities = data.activities.filter(a => a.type.toUpperCase() === type.toUpperCase());
+                const activities = type === 'kcal'
+                    ? data.activities
+                    : data.activities.filter(a => a.type && a.type.toUpperCase() === type.toUpperCase());
 
                 // Lifetime Coins
                 if (config.lifetime.metric === 'distance' || config.lifetime.metric === 'calories') {
@@ -1019,15 +1415,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             const elementId = {
                 '💲': 'coin-dollar',
                 '💰': 'coin-money',
-                '🔰': 'coin-bootstrap',
+                '🧈': 'coin-butter',
                 '💎': 'coin-diamond',
-                '👑': 'coin-king',
-                '🏆': 'coin-trophy' // Ensure you have this ID in your HTML if using '🏆'
+                '👑': 'coin-king'
             }[emoji];
             if (elementId) {
                 animateCount(elementId, 0, count, 1000);
             }
         });
+
+        const totalCoinValue = Object.entries(coins).reduce((sum, [emoji, count]) => {
+            const coinValue = COIN_VALUE_MAP[emoji] || 0;
+            return sum + (coinValue * count);
+        }, 0);
+        if (coinTotalValueElement) {
+            coinTotalValueElement.textContent = formatMillions(totalCoinValue);
+            const coinSummaryContainer = coinTotalValueElement.parentElement;
+            if (coinSummaryContainer) {
+                attachTooltip(coinSummaryContainer, `Equivalent to $${totalCoinValue.toLocaleString()} collected in total value.`);
+            }
+        }
 
         // === Achievement Wallet ===
 
@@ -1269,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Per Activity KCal Badges
         kcalBadges['Per Activity'].thresholds.forEach((threshold, idx) => {
             const emoji = kcalBadges['Per Activity'].emojis[idx] || '🏅';
-            const count = data.activities.filter(a => (a.kilojoules / 4.184) >= threshold).length;
+            const count = data.activities.filter(a => calculateActivityCalories(a) >= threshold).length;
             const name = `${threshold} kcal Activity`;
             const description = kcalBadges['Per Activity'].description.replace('{}', threshold);
 
@@ -1292,7 +1699,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             weekStart.setHours(0, 0, 0, 0);
             weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
             const weekKey = weekStart.toISOString().slice(0, 10);
-            weeklyKcal[weekKey] = (weeklyKcal[weekKey] || 0) + (activity.kilojoules / 4.184);
+            weeklyKcal[weekKey] = (weeklyKcal[weekKey] || 0) + calculateActivityCalories(activity);
         });
         kcalBadges['Weekly'].thresholds.forEach((threshold, idx) => {
             const emoji = kcalBadges['Weekly'].emojis[idx] || '🏅';
@@ -1366,7 +1773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const dailyCalories = {};
                     activities.forEach(activity => {
                         const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
-                        dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + (activity.kilojoules / 4.184);
+                        dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + calculateActivityCalories(activity);
                     });
 
                     const dates = Object.keys(dailyCalories).sort();
@@ -1449,8 +1856,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <span class="text-xl sm:text-2xl">${ach.emoji}</span>
                             <span class="text-xs sm:text-sm font-semibold">${ach.count}</span>
                         `;
-                        achButton.setAttribute('aria-label', `${ach.name} earned ${ach.count} times`);
-                        attachTooltip(achButton, `${ach.name}\n${ach.description}\nEarned: ${ach.count} times`);
+                        achButton.setAttribute('aria-label', `${ach.description} earned ${ach.count} times`);
+                        const achievementTooltip = ach.count
+                            ? `${ach.description} • Earned ${ach.count}×`
+                            : ach.description;
+                        attachTooltip(achButton, achievementTooltip);
                         achievementsRow.appendChild(achButton);
                     });
 
@@ -1478,8 +1888,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="text-xs sm:text-sm font-semibold">${medal.name}</span>
                         <span class="text-[10px] sm:text-xs text-gray-600 dark:text-gray-300">x${medal.count}</span>
                     `;
-                    medalButton.setAttribute('aria-label', `${medal.name} earned ${medal.count} times`);
-                    attachTooltip(medalButton, `${medal.name}\n${medal.description}\nEarned: ${medal.count} times`);
+                    medalButton.setAttribute('aria-label', `${medal.description} earned ${medal.count} times`);
+                    const medalTooltip = medal.count
+                        ? `${medal.description} • Earned ${medal.count}×`
+                        : medal.description;
+                    attachTooltip(medalButton, medalTooltip);
                     medalsSection.appendChild(medalButton);
                 });
             }

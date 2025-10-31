@@ -12,14 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         '👑': 10000
     };
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
-    const COIN_DESCRIPTIONS = {
-        '💲': 'Each 💲 marks consistent progress across your adventures.',
-        '💰': '💰 celebrates your biggest pushes within the week.',
-        '🧈': '🧈 is awarded for buttery-smooth milestone efforts.',
-        '💎': '💎 shines whenever you conquer ultra achievements.',
-        '👑': '👑 crowns the elite moments you unlocked.'
-    };
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
+    const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
 
     // === DOM Elements ===
     const loadingSpinner = document.getElementById('loading-spinner');
@@ -41,11 +35,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
     const coinTotalValueElement = document.getElementById('coin-total-value');
-    const coinValueExplanationElement = document.getElementById('coin-value-explanation');
-    const coinBreakdownElement = document.getElementById('coin-breakdown');
     const achievementWallet = document.getElementById('achievement-wallet');
     const medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
+    const segmentSection = document.getElementById('segment-completions');
+    if (segmentSection) {
+        segmentSection.classList.add('hidden');
+    }
     const bestActivitiesContainer = document.getElementById('best-activities');
     const yearSelect = document.getElementById('year-select');
     const activitiesContainer = document.getElementById('activities-container');
@@ -282,35 +278,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return totals;
     };
 
-    const renderCoinBreakdown = (container, totals) => {
-        if (!container) {
-            return;
-        }
-
-        container.innerHTML = '';
-        const totalAchievements = Object.values(totals || {}).reduce((sum, value) => sum + value, 0);
-
-        const summary = document.createElement('p');
-        summary.className = 'text-sm text-gray-600 dark:text-gray-300';
-        summary.textContent = totalAchievements > 0
-            ? `${COIN_SUMMARY_LABEL} contributions minted ${totalAchievements} coins in total.`
-            : 'Collect achievements to mint your first coins.';
-        container.appendChild(summary);
-
-        if (totalAchievements > 0) {
-            const detailRow = document.createElement('div');
-            detailRow.className = 'mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400';
-            COIN_EMOJIS.forEach(emoji => {
-                const count = totals[emoji] || 0;
-                const chip = document.createElement('span');
-                chip.className = 'inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 dark:bg-gray-700';
-                chip.innerHTML = `<span class="text-sm">${emoji}</span><span class="font-semibold">x${count}</span>`;
-                detailRow.appendChild(chip);
-            });
-            container.appendChild(detailRow);
-        }
-    };
-
     const computePremiumAchievements = (lifetimeActivities = []) => {
         if (!Array.isArray(lifetimeActivities) || lifetimeActivities.length === 0) {
             return [];
@@ -528,20 +495,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             coinTotalValueElement.textContent = formatMillions(totalCoinValue);
             const coinSummaryContainer = coinTotalValueElement.parentElement;
             if (coinSummaryContainer) {
-                const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(', ');
+                const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=${currencyFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`).join(', ');
                 attachTooltip(
                     coinSummaryContainer,
-                    `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). Current total: $${totalCoinValue.toLocaleString()}.`
+                    `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). Current total: ${currencyFormatter.format(totalCoinValue)}.`
                 );
             }
         }
-
-        if (coinValueExplanationElement) {
-            const valueText = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(' · ');
-            coinValueExplanationElement.textContent = `${COIN_SUMMARY_LABEL} only • Value per coin: ${valueText}.`;
-        }
-
-        renderCoinBreakdown(coinBreakdownElement, totals);
 
         return totals;
     };
@@ -774,21 +734,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const coinRewards = getActivityCoinRewards(activity, stats);
             if (coinRewards.length > 0) {
-                const coinGroup = document.createElement('div');
-                coinGroup.className = 'flex flex-wrap items-center gap-1';
-                const label = document.createElement('span');
-                label.className = 'text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-300';
-                label.textContent = 'Coins';
-                coinGroup.appendChild(label);
-                coinRewards.forEach(coinEmoji => {
-                    const coinBadge = document.createElement('button');
-                    coinBadge.type = 'button';
-                    coinBadge.className = 'tooltip-target inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/70 dark:bg-gray-800/70 shadow text-lg';
-                    coinBadge.textContent = coinEmoji;
-                    attachTooltip(coinBadge, `This activity unlocked a ${coinEmoji} coin.`);
-                    coinGroup.appendChild(coinBadge);
-                });
-                statsRow.appendChild(coinGroup);
+                const totalCoinValueDollars = coinRewards.reduce((sum, coinEmoji) => {
+                    return sum + (COIN_VALUE_MAP[coinEmoji] || 0);
+                }, 0);
+                const totalCoinValueCents = Math.round(totalCoinValueDollars * 100);
+                const worldBadge = document.createElement('button');
+                worldBadge.type = 'button';
+                worldBadge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 shadow-sm dark:bg-indigo-900/40 dark:text-indigo-200';
+                worldBadge.innerHTML = `
+                    <span class="text-base leading-none">🌍¢</span>
+                    <span>${totalCoinValueCents.toLocaleString()}</span>
+                `;
+                const breakdownText = coinRewards
+                    .map(emoji => `${emoji}=${currencyFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`)
+                    .join(' • ');
+                const mintedLabel = coinRewards.length === 1 ? 'coin' : 'coins';
+                const totalValueText = currencyFormatter.format(totalCoinValueDollars);
+                attachTooltip(
+                    worldBadge,
+                    `This activity minted ${coinRewards.length} ${mintedLabel}. ${breakdownText}. Total value: ${totalValueText}.`
+                );
+                statsRow.appendChild(worldBadge);
             }
 
             const achievementHighlights = getActivityAchievementHighlights(activity, stats);
@@ -822,7 +788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             linkButton.href = activityUrl;
             linkButton.target = '_blank';
             linkButton.rel = 'noopener noreferrer';
-            linkButton.className = 'inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400';
+            linkButton.className = 'inline-flex items-center gap-2 rounded-full bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
             linkButton.textContent = 'View Activity';
 
             actionWrapper.appendChild(linkButton);
@@ -1026,7 +992,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     ];
 
     // === Rank Configuration ===
-    const rankConfig = [
+    const MASTER_PRESTIGE_MAX = 1000;
+    const MASTER_PRESTIGE_START_HOURS = 4000;
+    const MAX_RANK_HOURS = 20000;
+
+    const baseRanks = [
         { name: 'Bronze 3', emoji: '🥉', minHours: 0 },
         { name: 'Bronze 2', emoji: '🥉', minHours: 100 },
         { name: 'Bronze 1', emoji: '🥉', minHours: 200 },
@@ -1049,24 +1019,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         { name: 'Grandmaster 2', emoji: '🚀', minHours: 1900 },
         { name: 'Grandmaster 1', emoji: '🚀', minHours: 2000 },
         { name: 'Challenger', emoji: '🌟', minHours: 2100 },
-        ...Array.from({ length: 5 }, (_, i) => ({
-            name: `Master Prestige ${i + 1}`,
+        { name: 'Ascendant', emoji: '✨', minHours: 2300 },
+        { name: 'Paragon', emoji: '🛡️', minHours: 2600 },
+        { name: 'Mythic', emoji: '🐉', minHours: 2900 },
+        { name: 'Celestial', emoji: '🌠', minHours: 3200 },
+        { name: 'Eternal', emoji: '♾️', minHours: 3500 },
+        { name: 'Transcendent', emoji: '🧬', minHours: 3800 },
+        { name: 'Apex', emoji: '🗻', minHours: 3900 }
+    ];
+
+    const masterPrestigeIncrement = (MASTER_PRESTIGE_MAX > 1)
+        ? (MAX_RANK_HOURS - MASTER_PRESTIGE_START_HOURS) / (MASTER_PRESTIGE_MAX - 1)
+        : 0;
+
+    let lastPrestigeMinHours = MASTER_PRESTIGE_START_HOURS - 1;
+    const masterPrestigeRanks = Array.from({ length: MASTER_PRESTIGE_MAX }, (_, index) => {
+        const computedHours = index === MASTER_PRESTIGE_MAX - 1
+            ? MAX_RANK_HOURS
+            : MASTER_PRESTIGE_START_HOURS + (index * masterPrestigeIncrement);
+        const roundedHours = Math.round(computedHours);
+        const minHours = index === 0
+            ? MASTER_PRESTIGE_START_HOURS
+            : Math.max(lastPrestigeMinHours + 1, roundedHours);
+        lastPrestigeMinHours = minHours;
+        return {
+            name: `Master Prestige ${index + 1}`,
             emoji: '⭐',
-            minHours: 2200 + (i * 100)
-        })),
-        ...Array.from({ length: 5 }, (_, i) => ({
-            name: `Legend ${i + 1}`,
-            emoji: '🌌',
-            minHours: 2700 + (i * 100)
-        })),
-        ...Array.from({ length: 5 }, (_, i) => ({
-            name: `Mythic ${i + 1}`,
-            emoji: '🐉',
-            minHours: 3200 + (i * 100)
-        })),
-        { name: 'Celestial', emoji: '✨', minHours: 3700 },
-        { name: 'Eternal', emoji: '♾️', minHours: 3800 },
-        { name: 'Transcendent', emoji: '🧬', minHours: 3900 }
+            minHours
+        };
+    });
+
+    const rankConfig = [
+        ...baseRanks,
+        ...masterPrestigeRanks
     ];
 
     // === Coin Configuration ===
@@ -1590,8 +1575,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Calculate progress percentage towards next rank
-        const progressPercentage = nextRank
-            ? ((totalHours - currentRank.minHours) / (nextRank.minHours - currentRank.minHours)) * 100
+        const nextRankGap = nextRank ? (nextRank.minHours - currentRank.minHours) : 0;
+        const progressPercentage = (nextRank && nextRankGap > 0)
+            ? ((totalHours - currentRank.minHours) / nextRankGap) * 100
             : 100;
         const clampedProgress = hasActivities
             ? Math.max(0, Math.min(progressPercentage, 100))
@@ -1651,8 +1637,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (levelProgressElement) {
-            const levelCap = 200;
-            const level = hasActivities ? Math.min(Math.floor(totalHours / 10), levelCap) : 0;
+            const levelCap = MASTER_PRESTIGE_MAX;
+            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
+            const level = hasActivities
+                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
+                : 0;
             levelProgressElement.textContent = `Level ${level}/${levelCap}`;
         } else {
             console.warn("'level-progress' element not found in the DOM.");
@@ -1926,7 +1915,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         name: medal.name,
                         emoji: medal.emoji,
                         description: medal.description,
-                        count
+                        count,
+                        isDayBased: true
                     });
                 }
             } else if (medal.criteria) {
@@ -1936,7 +1926,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         name: medal.name,
                         emoji: medal.emoji,
                         description: medal.description,
-                        count
+                        count,
+                        isDayBased: false
                     });
                 }
             } else {
@@ -1965,7 +1956,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             name: medal.name,
                             emoji: medal.emoji,
                             description: medal.description,
-                            count: Math.floor(maxStreak / 7)
+                            count: Math.floor(maxStreak / 7),
+                            isDayBased: false
                         });
                     }
                 }
@@ -1995,7 +1987,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             name: medal.name,
                             emoji: medal.emoji,
                             description: medal.description,
-                            count: Math.floor(maxStreak / 5)
+                            count: Math.floor(maxStreak / 5),
+                            isDayBased: false
                         });
                     }
                 }
@@ -2006,39 +1999,99 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (achievementWallet) {
             achievementWallet.innerHTML = '';
 
-            categories.forEach(category => {
-                if (category.achievements.length > 0) {
-                    const categoryDiv = document.createElement('div');
-                    categoryDiv.className = 'bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg mb-3 sm:mb-4 space-y-3';
+            const table = document.createElement('table');
+            table.className = 'min-w-[26rem] w-full border-separate border-spacing-y-2 text-sm';
 
-                    const categoryHeader = document.createElement('h4');
-                    categoryHeader.className = 'text-base sm:text-lg font-semibold';
-                    categoryHeader.textContent = category.name;
-                    categoryDiv.appendChild(categoryHeader);
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
 
-                    const achievementsRow = document.createElement('div');
-                    achievementsRow.className = 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-3';
+            const headerLabel = document.createElement('th');
+            headerLabel.className = 'px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300';
+            headerLabel.textContent = 'Discipline';
+            headerRow.appendChild(headerLabel);
 
-                    category.achievements.forEach(ach => {
-                        const achButton = document.createElement('button');
-                        achButton.type = 'button';
-                        achButton.className = 'tooltip-target flex flex-col items-center justify-center gap-1 px-2 py-2 bg-white/70 dark:bg-gray-800/70 rounded-md shadow-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400';
-                        achButton.innerHTML = `
-                            <span class="text-xl sm:text-2xl">${ach.emoji}</span>
-                            <span class="text-xs sm:text-sm font-semibold">${ach.count}</span>
-                        `;
-                        achButton.setAttribute('aria-label', `${ach.description} earned ${ach.count} times`);
-                        const achievementTooltip = ach.count
-                            ? `${ach.description} • Earned ${ach.count}×`
-                            : ach.description;
-                        attachTooltip(achButton, achievementTooltip);
-                        achievementsRow.appendChild(achButton);
-                    });
-
-                    categoryDiv.appendChild(achievementsRow);
-                    achievementWallet.appendChild(categoryDiv);
-                }
+            COIN_EMOJIS.forEach(emoji => {
+                const headerCell = document.createElement('th');
+                headerCell.className = 'px-3 py-2 text-center text-base';
+                headerCell.textContent = emoji;
+                headerRow.appendChild(headerCell);
             });
+
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            const walletRows = [
+                { key: 'Distance Run', label: 'Run', icon: '🏃' },
+                { key: 'Distance Ride', label: 'Ride', icon: '🚴' },
+                { key: 'Elevation', label: 'Elevation', icon: '🧗' },
+                { key: 'Calories (kcal)', label: 'Calories', icon: '🔥' }
+            ];
+
+            walletRows.forEach(rowConfig => {
+                const row = document.createElement('tr');
+                row.className = 'align-middle';
+
+                const category = categories.find(cat => cat.name === rowConfig.key) || { achievements: [] };
+                const countsByEmoji = COIN_EMOJIS.reduce((acc, emoji) => {
+                    acc[emoji] = 0;
+                    return acc;
+                }, {});
+                const detailsByEmoji = COIN_EMOJIS.reduce((acc, emoji) => {
+                    acc[emoji] = [];
+                    return acc;
+                }, {});
+
+                category.achievements.forEach(achievement => {
+                    const emoji = achievement?.emoji;
+                    if (!COIN_EMOJIS.includes(emoji)) {
+                        return;
+                    }
+                    const count = Number.isFinite(achievement.count) ? achievement.count : 0;
+                    countsByEmoji[emoji] += count;
+                    if (count > 0) {
+                        const label = achievement.name || achievement.description || 'Achievement';
+                        detailsByEmoji[emoji].push(`${label} • ${count}×`);
+                    }
+                });
+
+                const rowTotal = Object.values(countsByEmoji).reduce((sum, value) => sum + value, 0);
+
+                const labelCell = document.createElement('th');
+                labelCell.scope = 'row';
+                labelCell.className = 'px-3 py-2 text-left';
+                const labelWrapper = document.createElement('div');
+                labelWrapper.className = 'flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 font-semibold text-gray-700 dark:bg-gray-700/70 dark:text-gray-100';
+                labelWrapper.innerHTML = `<span class="text-lg">${rowConfig.icon}</span><span>${rowConfig.label}</span>`;
+                const rowTooltip = rowTotal > 0
+                    ? `${rowConfig.label} minted ${rowTotal} coin${rowTotal === 1 ? '' : 's'} across the wallet.`
+                    : `${rowConfig.label} has not minted any coins yet.`;
+                attachTooltip(labelWrapper, rowTooltip);
+                labelCell.appendChild(labelWrapper);
+                row.appendChild(labelCell);
+
+                COIN_EMOJIS.forEach(emoji => {
+                    const cell = document.createElement('td');
+                    cell.className = 'px-2 py-2 text-center';
+                    const cellWrapper = document.createElement('div');
+                    cellWrapper.className = 'rounded-lg bg-gray-50 px-2.5 py-1.5 text-base font-semibold text-gray-800 shadow-sm dark:bg-gray-800/80 dark:text-gray-100';
+                    cellWrapper.textContent = countsByEmoji[emoji].toLocaleString();
+
+                    const tooltipDetails = detailsByEmoji[emoji];
+                    const tooltipText = tooltipDetails.length > 0
+                        ? `${rowConfig.label} ${emoji} coins:\n${tooltipDetails.join('\n')}`
+                        : `${rowConfig.label} has not minted ${emoji} coins yet.`;
+                    attachTooltip(cellWrapper, tooltipText);
+
+                    cell.appendChild(cellWrapper);
+                    row.appendChild(cell);
+                });
+
+                tbody.appendChild(row);
+            });
+
+            table.appendChild(tbody);
+            achievementWallet.appendChild(table);
         } else {
             console.warn("'achievement-wallet' element not found in the DOM.");
         }
@@ -2050,19 +2103,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (medalsEarned.length === 0) {
                 medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals earned for the selected filters.</p>';
             } else {
-                medalsEarned.forEach(medal => {
+                const sortedMedals = medalsEarned.slice().sort((a, b) => {
+                    const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
+                    if (dayComparison !== 0) {
+                        return dayComparison;
+                    }
+                    if (b.count !== a.count) {
+                        return b.count - a.count;
+                    }
+                    return a.name.localeCompare(b.name);
+                });
+
+                sortedMedals.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
-                    medalButton.className = 'tooltip-target shrink-0 snap-center min-w-[120px] bg-gray-100 dark:bg-gray-700 px-3 py-3 rounded-lg flex flex-col items-center text-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.className = 'tooltip-target shrink-0 snap-center w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-700/80 flex items-center justify-center gap-1 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
                     medalButton.innerHTML = `
-                        <span class="text-2xl sm:text-3xl">${medal.emoji}</span>
-                        <span class="text-xs sm:text-sm font-semibold">${medal.name}</span>
-                        <span class="text-[10px] sm:text-xs text-gray-600 dark:text-gray-300">x${medal.count}</span>
+                        <span class="text-2xl">${medal.emoji}</span>
+                        <span class="text-sm font-semibold">x${medal.count}</span>
                     `;
-                    medalButton.setAttribute('aria-label', `${medal.description} earned ${medal.count} times`);
+                    medalButton.setAttribute('aria-label', `${medal.name}: ${medal.description} — earned ${medal.count} times`);
                     const medalTooltip = medal.count
-                        ? `${medal.description} • Earned ${medal.count}×`
-                        : medal.description;
+                        ? `${medal.name} • ${medal.description} • Earned ${medal.count}×`
+                        : `${medal.name} • ${medal.description}`;
                     attachTooltip(medalButton, medalTooltip);
                     medalsSection.appendChild(medalButton);
                 });
@@ -2073,33 +2136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Update Segment Completions Display ===
         if (segmentContainer) {
-            segmentContainer.innerHTML = ''; // Clear existing content
-
-            if (segments.length > 0) {
-                segments.forEach(segment => {
-                    const card = document.createElement('div');
-                    card.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col items-center space-y-2 cursor-pointer';
-                    card.title = `${segment.name}\nCompletions: ${segment.count}`;
-
-                    card.innerHTML = `
-                        <span class="text-3xl">📍</span>
-                        <div class="text-lg font-semibold">${segment.count}</div>
-                        <div class="text-sm text-gray-600 dark:text-gray-300">${segment.name}</div>
-                    `;
-
-                    // Optional: Add click event to show more details
-                    card.addEventListener('click', () => {
-                        // Implement modal or additional details if desired
-                        alert(`Segment: ${segment.name}\nCompletions: ${segment.count}`);
-                    });
-
-                    segmentContainer.appendChild(card);
-                });
-            } else {
-                segmentContainer.innerHTML = '<div class="text-center text-gray-500">No segment data available.</div>';
-            }
-        } else {
-            console.warn("'segment-completions .grid' element not found in the DOM.");
+            segmentContainer.innerHTML = '';
         }
 
         // === Update Best Activities with Clickable Titles ===
@@ -2186,7 +2223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     actionButton.href = activityUrl;
                     actionButton.target = '_blank';
                     actionButton.rel = 'noopener noreferrer';
-                    actionButton.className = 'inline-flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    actionButton.className = 'inline-flex items-center gap-2 rounded-full bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
                     actionButton.textContent = 'View Activity';
 
                     card.appendChild(infoWrapper);

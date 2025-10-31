@@ -108,6 +108,9 @@ app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   const accessToken = req.cookies.strava_token;
   const forceRefresh = req.query.refresh === 'true';
+  const startPage = Math.max(Number.parseInt(req.query.startPage, 10) || 1, 1);
+  const requestedPageCount = Math.max(Number.parseInt(req.query.pageCount, 10) || 3, 1);
+  const perPage = Math.min(Math.max(Number.parseInt(req.query.perPage, 10) || 200, 1), 200);
 
   if (!accessToken) {
     console.warn('No access token found in cookies');
@@ -115,6 +118,7 @@ app.get('/api/strava-data', async (req, res) => {
   }
 
   let userId;
+  let cacheKey;
 
   // Identify the user uniquely. Here, we'll use the athlete's ID from Strava.
   try {
@@ -125,7 +129,9 @@ app.get('/api/strava-data', async (req, res) => {
 
     userId = athleteResponse.data.id.toString(); // Using Strava athlete ID as the sheet name
 
-    const existingCache = userDataCache.get(userId);
+    cacheKey = `${userId}:${startPage}:${requestedPageCount}:${perPage}`;
+
+    const existingCache = userDataCache.get(cacheKey);
     const now = Date.now();
 
     if (!forceRefresh && existingCache && now - existingCache.timestamp < CACHE_TTL_MS) {
@@ -137,8 +143,23 @@ app.get('/api/strava-data', async (req, res) => {
       });
     }
 
-    // Fetch all activities from Strava
-    const allActivities = await fetchAllActivities(accessToken);
+    const allowedPageCount = MAX_ACTIVITY_PAGES > 0
+      ? Math.min(requestedPageCount, Math.max(0, MAX_ACTIVITY_PAGES - (startPage - 1)))
+      : requestedPageCount;
+
+    let activitiesResult = { activities: [], hasMore: false, fetchedPages: 0, lastPageSize: 0 };
+
+    if (allowedPageCount > 0) {
+      activitiesResult = await fetchAllActivities(accessToken, {
+        startPage,
+        pageCount: allowedPageCount,
+        perPage,
+      });
+    } else {
+      console.log('Requested start page exceeds configured maximum activity pages. Returning empty activity list.');
+    }
+
+    const { activities: allActivities, hasMore: hasMoreFromStrava, fetchedPages, lastPageSize } = activitiesResult;
     console.log(`Total activities fetched: ${allActivities.length}`);
 
     // Recalculate totals based on fetched activities
@@ -148,15 +169,28 @@ app.get('/api/strava-data', async (req, res) => {
     console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
     let segments = await fetchSegmentDetails(TRACKED_SEGMENTS, accessToken); // Refactor segment fetching into a separate function
 
+    const reachedConfiguredLimit = MAX_ACTIVITY_PAGES > 0 && (startPage - 1 + fetchedPages) >= MAX_ACTIVITY_PAGES;
+    const hasMore = Boolean(hasMoreFromStrava && !reachedConfiguredLimit);
+    const nextPageStart = hasMore ? startPage + fetchedPages : null;
+
     const responsePayload = {
       athlete: athleteResponse.data,
       activities: allActivities,
       totals: totals,
       segments: segments, // Array of segments with name and count
-      hasMore: false, // Since we've fetched all
+      hasMore,
+      pageInfo: {
+        startPage,
+        requestedPageCount,
+        fetchedPages,
+        perPage,
+        lastPageSize,
+        hasMore,
+        nextPageStart,
+      },
     };
 
-    userDataCache.set(userId, {
+    userDataCache.set(cacheKey, {
       timestamp: now,
       data: responsePayload,
     });
@@ -170,8 +204,8 @@ app.get('/api/strava-data', async (req, res) => {
     const statusCode = error.statusCode || error.response?.status || 500;
     console.error('Error fetching Strava data:', error.response ? error.response.data : error.message);
 
-    if (userId) {
-      const cachedEntry = userDataCache.get(userId);
+    if (cacheKey) {
+      const cachedEntry = userDataCache.get(cacheKey);
       if ((error.isRateLimit || statusCode === 429 || statusCode === 503) && cachedEntry) {
         const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
         const retryAfter = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : Math.ceil(CACHE_TTL_MS / 1000);
@@ -248,37 +282,46 @@ async function stravaGet(path, accessToken, params = {}, retries = 2) {
  * @param {string} accessToken
  * @returns {Promise<Array>}
  */
-async function fetchAllActivities(accessToken) {
-  const per_page = 200;
+async function fetchAllActivities(accessToken, { startPage = 1, pageCount = 3, perPage = 200 } = {}) {
   let allActivities = [];
-  let page = 1;
+  let page = startPage;
+  let fetchedPages = 0;
+  let lastPageSize = 0;
 
-  while (true) {
-    console.log(`Fetching activities - Page: ${page}, Per Page: ${per_page}`);
-    const activitiesResponse = await stravaGet('athlete/activities', accessToken, { per_page, page });
+  while (fetchedPages < pageCount) {
+    console.log(`Fetching activities - Page: ${page}, Per Page: ${perPage}`);
+    const activitiesResponse = await stravaGet('athlete/activities', accessToken, { per_page: perPage, page });
 
     const activities = activitiesResponse.data.map(activity => {
       const estimatedCalories = estimateCalories(activity);
       return { ...activity, estimated_calories: estimatedCalories };
     });
 
+    lastPageSize = activities.length;
     console.log(`Fetched ${activities.length} activities from page ${page}`);
     allActivities = allActivities.concat(activities);
 
-    if (activities.length < per_page) {
-      break;
-    }
+    fetchedPages += 1;
 
-    if (MAX_ACTIVITY_PAGES > 0 && page >= MAX_ACTIVITY_PAGES) {
-      console.log(`Reached configured maximum of ${MAX_ACTIVITY_PAGES} pages when fetching activities.`);
+    if (lastPageSize < perPage) {
       break;
     }
 
     page += 1;
-    await sleep(1000); // Sleep to respect rate limits
+
+    if (fetchedPages < pageCount) {
+      await sleep(1000); // Sleep to respect rate limits
+    }
   }
 
-  return allActivities;
+  const hasMore = lastPageSize === perPage;
+
+  return {
+    activities: allActivities,
+    hasMore,
+    fetchedPages,
+    lastPageSize,
+  };
 }
 
 /**

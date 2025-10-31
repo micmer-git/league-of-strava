@@ -5,11 +5,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const EVEREST_HEIGHT_M = 8849;
     const PIZZA_KCAL = 800;
     const COIN_VALUE_MAP = {
-        '💲': 1,
-        '💰': 5,
-        '🧈': 25,
-        '💎': 150,
-        '👑': 500
+        '💲': 20,
+        '💰': 100,
+        '🧈': 500,
+        '💎': 3000,
+        '👑': 10000
+    };
+    const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
+    const COIN_DESCRIPTIONS = {
+        '💲': 'Each 💲 marks consistent progress across your adventures.',
+        '💰': '💰 celebrates your biggest pushes within the week.',
+        '🧈': '🧈 is awarded for buttery-smooth milestone efforts.',
+        '💎': '💎 shines whenever you conquer ultra achievements.',
+        '👑': '👑 crowns the elite moments you unlocked.'
+    };
+    const COIN_CATEGORY_LABELS = {
+        Run: 'Distance Run',
+        Ride: 'Distance Ride',
+        Elevation: 'Elevation Coins'
     };
 
     // === DOM Elements ===
@@ -32,6 +45,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
     const coinTotalValueElement = document.getElementById('coin-total-value');
+    const coinValueExplanationElement = document.getElementById('coin-value-explanation');
+    const coinBreakdownElement = document.getElementById('coin-breakdown');
     const achievementWallet = document.getElementById('achievement-wallet');
     const medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
@@ -40,6 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activitiesContainer = document.getElementById('activities-container');
     const activitiesEmptyState = document.getElementById('activities-empty');
     const loadMoreButton = document.getElementById('load-more-btn');
+    const premiumAchievementsElement = document.getElementById('premium-achievements');
 
     // === Date Pickers ===
     const startDatePicker = flatpickr("#start-date", {
@@ -111,16 +127,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function calculateActivityCalories(activity = {}) {
         const movingTimeSeconds = activity.moving_time || 0;
-        const minutes = movingTimeSeconds / 60;
+        const hours = movingTimeSeconds / 3600;
         const averageHeartRate = activity.average_heartrate
             ?? activity.avg_heart_rate
             ?? activity.avg_heartrate
             ?? null;
 
-        if (minutes > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
-            const kcalPerMinute = Math.max(0, 0.6309 * averageHeartRate - 55);
-            const calories = kcalPerMinute * minutes;
-            if (calories > 0) {
+        if (hours > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
+            const calories = (180 / averageHeartRate) * hours;
+            if (Number.isFinite(calories) && calories > 0) {
                 return calories;
             }
         }
@@ -256,8 +271,208 @@ document.addEventListener('DOMContentLoaded', async () => {
             return calculateActivityCalories(activity);
         } else if (metric === 'segmentCompletions') {
             return allData.segments ? allData.segments.reduce((sum, seg) => sum + seg.count, 0) : 0; // Total segment completions
+        } else if (metric === 'elevation') {
+            return activity.total_elevation_gain ? activity.total_elevation_gain : 0;
         }
         return 0;
+    };
+
+    const initializeCoinBreakdownState = () => {
+        return Object.keys(COIN_CATEGORY_LABELS).reduce((acc, key) => {
+            acc[key] = COIN_EMOJIS.reduce((emojiAcc, emoji) => {
+                emojiAcc[emoji] = 0;
+                return emojiAcc;
+            }, {});
+            return acc;
+        }, {});
+    };
+
+    const registerCoinGain = (coins, breakdownState, categoryKey, emoji, amount) => {
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return;
+        }
+        coins[emoji] = (coins[emoji] || 0) + amount;
+        if (categoryKey && breakdownState && breakdownState[categoryKey]) {
+            breakdownState[categoryKey][emoji] = (breakdownState[categoryKey][emoji] || 0) + amount;
+        }
+    };
+
+    const renderCoinBreakdown = (container, breakdownState) => {
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+        Object.entries(COIN_CATEGORY_LABELS).forEach(([categoryKey, labelText]) => {
+            const emojiCounts = breakdownState?.[categoryKey] || {};
+            const wrapper = document.createElement('div');
+            wrapper.className = 'space-y-1';
+
+            const label = document.createElement('div');
+            label.className = 'text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400';
+            label.textContent = labelText;
+            wrapper.appendChild(label);
+
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-3 overflow-x-auto pb-1';
+
+            COIN_EMOJIS.forEach(emoji => {
+                const count = emojiCounts?.[emoji] || 0;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'tooltip-target inline-flex flex-col items-center justify-center gap-1 rounded-md bg-gray-100 px-2 py-2 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-100';
+                if (count === 0) {
+                    button.classList.add('opacity-50');
+                }
+                button.innerHTML = `<span class="text-lg">${emoji}</span><span>${count}</span>`;
+                button.setAttribute('aria-label', `${labelText} ${emoji} coins earned`);
+                const description = COIN_DESCRIPTIONS[emoji] || 'Coin reward';
+                attachTooltip(button, `${description} Earned ${count}× from ${labelText}.`);
+                row.appendChild(button);
+            });
+
+            wrapper.appendChild(row);
+            container.appendChild(wrapper);
+        });
+    };
+
+    const computePremiumAchievements = (lifetimeActivities = []) => {
+        if (!Array.isArray(lifetimeActivities) || lifetimeActivities.length === 0) {
+            return [];
+        }
+
+        let hasMarathon = false;
+        const dayBuckets = new Map();
+        const yearlyDistance = {};
+        const yearlyHours = {};
+        const yearlyElevation = {};
+
+        lifetimeActivities.forEach(activity => {
+            const activityDate = new Date(activity.start_date);
+            if (Number.isNaN(activityDate.getTime())) {
+                return;
+            }
+
+            const distanceMeters = Number.isFinite(activity.distance) ? activity.distance : 0;
+            const movingTimeSeconds = Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
+            const elevationGain = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+            const normalizedType = (activity.type || '').toUpperCase();
+            const isRun = normalizedType.includes('RUN');
+            const isRide = normalizedType.includes('RIDE');
+            const isSwim = normalizedType.includes('SWIM');
+
+            const year = activityDate.getUTCFullYear();
+            yearlyDistance[year] = (yearlyDistance[year] || 0) + (distanceMeters / 1000);
+            yearlyHours[year] = (yearlyHours[year] || 0) + (movingTimeSeconds / 3600);
+            yearlyElevation[year] = (yearlyElevation[year] || 0) + elevationGain;
+
+            if (isRun && distanceMeters >= 42195) {
+                hasMarathon = true;
+            }
+
+            const bucketKey = activityDate.toISOString().slice(0, 10);
+            if (!dayBuckets.has(bucketKey)) {
+                dayBuckets.set(bucketKey, { run: 0, ride: 0, swim: 0 });
+            }
+            const bucket = dayBuckets.get(bucketKey);
+            if (isRun) {
+                bucket.run += distanceMeters;
+            }
+            if (isRide) {
+                bucket.ride += distanceMeters;
+            }
+            if (isSwim) {
+                bucket.swim += distanceMeters;
+            }
+        });
+
+        let hasHalfIronman = false;
+        let hasFullIronman = false;
+
+        dayBuckets.forEach(bucket => {
+            if (bucket.swim >= 3800 && bucket.ride >= 180000 && bucket.run >= 42195) {
+                hasFullIronman = true;
+                hasHalfIronman = true;
+            } else if (bucket.swim >= 1900 && bucket.ride >= 90000 && bucket.run >= 21100) {
+                hasHalfIronman = true;
+            }
+        });
+
+        const achievements = [];
+
+        if (hasMarathon) {
+            achievements.push({
+                emoji: '🏃‍♂️',
+                label: 'Marathon Finisher',
+                description: 'Completed a marathon-distance run.'
+            });
+        }
+
+        if (hasHalfIronman) {
+            achievements.push({
+                emoji: '🛟',
+                label: 'Ironman 70.3 Finisher',
+                description: 'Completed swim, ride, and run totals matching a 70.3 race in a single day.'
+            });
+        }
+
+        if (hasFullIronman) {
+            achievements.push({
+                emoji: '🔥',
+                label: 'Ironman Finisher',
+                description: 'Completed full Ironman-equivalent swim, ride, and run totals in a single day.'
+            });
+        }
+
+        if (Object.values(yearlyDistance).some(km => km >= 10000)) {
+            achievements.push({
+                emoji: '🚀',
+                label: '10,000 km Year',
+                description: 'Covered at least 10,000 km in a calendar year.'
+            });
+        }
+
+        if (Object.values(yearlyHours).some(hours => hours >= 365)) {
+            achievements.push({
+                emoji: '⏱️',
+                label: '365 Hour Year',
+                description: 'Trained for at least 365 hours in a calendar year.'
+            });
+        }
+
+        if (Object.values(yearlyElevation).some(meters => meters >= 200000)) {
+            achievements.push({
+                emoji: '🗻',
+                label: '200k Climber',
+                description: 'Gained 200,000 m of elevation in a calendar year.'
+            });
+        }
+
+        return achievements;
+    };
+
+    const renderPremiumAchievements = (container, achievements) => {
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+
+        if (!achievements || achievements.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+        achievements.forEach(achievement => {
+            const badge = document.createElement('button');
+            badge.type = 'button';
+            badge.className = 'tooltip-target inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/20 text-base';
+            badge.innerHTML = `<span>${achievement.emoji}</span>`;
+            badge.setAttribute('aria-label', achievement.label);
+            attachTooltip(badge, `${achievement.label} — ${achievement.description}`);
+            container.appendChild(badge);
+        });
     };
 
     // Function to animate coin counts
@@ -760,7 +975,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: `Master Prestige ${i + 1}`,
             emoji: '⭐',
             minHours: 2200 + (i * 100)
-        }))
+        })),
+        ...Array.from({ length: 5 }, (_, i) => ({
+            name: `Legend ${i + 1}`,
+            emoji: '🌌',
+            minHours: 2700 + (i * 100)
+        })),
+        ...Array.from({ length: 5 }, (_, i) => ({
+            name: `Mythic ${i + 1}`,
+            emoji: '🐉',
+            minHours: 3200 + (i * 100)
+        })),
+        { name: 'Celestial', emoji: '✨', minHours: 3700 },
+        { name: 'Eternal', emoji: '♾️', minHours: 3800 },
+        { name: 'Transcendent', emoji: '🧬', minHours: 3900 }
     ];
 
     // === Coin Configuration ===
@@ -782,6 +1010,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 { metric: 'distance', threshold: 250, emoji: '💎', name: 'Extreme Endurance' }
             ],
             ultraWeekly: { metric: 'distance', threshold: 600, emoji: '👑' }
+        },
+        'Elevation': {
+            lifetime: { metric: 'elevation', threshold: 1000, emoji: '💲' },
+            weekly: { metric: 'elevation', threshold: 5000, emoji: '💰' },
+            milestone: [
+                { metric: 'elevation', threshold: 10000, emoji: '🧈', name: 'Climb Crusher' },
+                { metric: 'elevation', threshold: 25000, emoji: '💎', name: 'Peak Performer' }
+            ],
+            ultraWeekly: { metric: 'elevation', threshold: 50000, emoji: '👑' }
         },
         'kcal': {
             lifetime: { metric: 'calories', threshold: 1000, emoji: '💲' },
@@ -1326,11 +1563,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (levelProgressElement) {
-            const level = Math.min(Math.floor(totalHours / 20), 100);
-            levelProgressElement.textContent = `Level ${level}/100`;
+            const levelCap = 200;
+            const level = hasActivities ? Math.min(Math.floor(totalHours / 10), levelCap) : 0;
+            levelProgressElement.textContent = `Level ${level}/${levelCap}`;
         } else {
             console.warn("'level-progress' element not found in the DOM.");
         }
+
+        const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
+            ? allData.activities
+            : activities;
+        const premiumAchievements = computePremiumAchievements(lifetimeActivities);
+        renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
 
         // === Coin Configuration and Calculation ===
         // Initialize coin counts
@@ -1341,6 +1585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             '💎': 0,
             '👑': 0
         };
+        const coinBreakdownState = initializeCoinBreakdownState();
 
         // Calculate date range for weekly data
         const today = new Date();
@@ -1355,57 +1600,97 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 // Lifetime Coins
                 if (config.lifetime.metric === 'segmentCompletions') {
-                    coins[config.lifetime.emoji] += Math.floor(completions / config.lifetime.threshold);
+                    const amount = Math.floor(completions / config.lifetime.threshold);
+                    registerCoinGain(coins, coinBreakdownState, type, config.lifetime.emoji, amount);
                 }
 
                 // Weekly Coins
                 // Assuming segment completions are cumulative and not time-bound
-                coins[config.weekly.emoji] += Math.floor(completions / config.weekly.threshold);
+                registerCoinGain(
+                    coins,
+                    coinBreakdownState,
+                    type,
+                    config.weekly.emoji,
+                    Math.floor(completions / config.weekly.threshold)
+                );
 
                 // Milestone Coins
                 config.milestone.forEach(milestone => {
                     if (completions >= milestone.threshold) {
-                        coins[milestone.emoji]++;
+                        registerCoinGain(coins, coinBreakdownState, type, milestone.emoji, 1);
                     }
                 });
 
                 // Ultra Weekly Coins
-                coins[config.ultraWeekly.emoji] += Math.floor(completions / config.ultraWeekly.threshold);
+                registerCoinGain(
+                    coins,
+                    coinBreakdownState,
+                    type,
+                    config.ultraWeekly.emoji,
+                    Math.floor(completions / config.ultraWeekly.threshold)
+                );
             } else {
-                // Handle Run, Ride, and kcal
-                const activities = type === 'kcal'
+                const normalizedType = type.toUpperCase();
+                const relevantActivities = (normalizedType === 'KCAL' || normalizedType === 'ELEVATION')
                     ? data.activities
-                    : data.activities.filter(a => a.type && a.type.toUpperCase() === type.toUpperCase());
+                    : data.activities.filter(activity => {
+                        const activityType = (activity.type || '').toUpperCase();
+                        if (normalizedType === 'RUN') {
+                            return activityType.includes('RUN');
+                        }
+                        if (normalizedType === 'RIDE') {
+                            return activityType.includes('RIDE');
+                        }
+                        return activityType === normalizedType;
+                    });
 
                 // Lifetime Coins
-                if (config.lifetime.metric === 'distance' || config.lifetime.metric === 'calories') {
-                    const totalMetric = activities.reduce((sum, a) => sum + getMetricValue(a, config.lifetime.metric), 0);
-                    coins[config.lifetime.emoji] += Math.floor(totalMetric / config.lifetime.threshold);
-                }
+                const totalMetric = relevantActivities.reduce((sum, activity) => {
+                    return sum + getMetricValue(activity, config.lifetime.metric);
+                }, 0);
+                registerCoinGain(
+                    coins,
+                    coinBreakdownState,
+                    type,
+                    config.lifetime.emoji,
+                    Math.floor(totalMetric / config.lifetime.threshold)
+                );
 
                 // Weekly Coins
-                const weeklyActivities = activities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
+                const weeklyActivities = relevantActivities.filter(a => new Date(a.start_date) >= sevenDaysAgo);
                 const weeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.weekly.metric), 0);
 
                 if (weeklyTotal >= config.weekly.threshold) {
-                    coins[config.weekly.emoji] += Math.floor(weeklyTotal / config.weekly.threshold);
+                    registerCoinGain(
+                        coins,
+                        coinBreakdownState,
+                        type,
+                        config.weekly.emoji,
+                        Math.floor(weeklyTotal / config.weekly.threshold)
+                    );
                 }
 
                 // Milestone Coins
                 config.milestone.forEach(milestone => {
                     let milestoneCount = 0;
-                    activities.forEach(activity => {
+                    relevantActivities.forEach(activity => {
                         if (getMetricValue(activity, milestone.metric) >= milestone.threshold) {
                             milestoneCount++;
                         }
                     });
-                    coins[milestone.emoji] += milestoneCount;
+                    registerCoinGain(coins, coinBreakdownState, type, milestone.emoji, milestoneCount);
                 });
 
                 // Ultra Weekly Coins
                 const ultraWeeklyTotal = weeklyActivities.reduce((sum, a) => sum + getMetricValue(a, config.ultraWeekly.metric), 0);
                 if (ultraWeeklyTotal >= config.ultraWeekly.threshold) {
-                    coins[config.ultraWeekly.emoji] += Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold);
+                    registerCoinGain(
+                        coins,
+                        coinBreakdownState,
+                        type,
+                        config.ultraWeekly.emoji,
+                        Math.floor(ultraWeeklyTotal / config.ultraWeekly.threshold)
+                    );
                 }
             }
         });
@@ -1432,9 +1717,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             coinTotalValueElement.textContent = formatMillions(totalCoinValue);
             const coinSummaryContainer = coinTotalValueElement.parentElement;
             if (coinSummaryContainer) {
-                attachTooltip(coinSummaryContainer, `Equivalent to $${totalCoinValue.toLocaleString()} collected in total value.`);
+                const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(', ');
+                attachTooltip(
+                    coinSummaryContainer,
+                    `Total haul adds each coin multiplied by its value (${valueBreakdown}). Current total: $${totalCoinValue.toLocaleString()}.`
+                );
             }
         }
+        if (coinValueExplanationElement) {
+            const valueText = COIN_EMOJIS.map(emoji => `${emoji}=$${COIN_VALUE_MAP[emoji].toLocaleString()}`).join(' · ');
+            coinValueExplanationElement.textContent = `Value per coin: ${valueText}.`;
+        }
+        renderCoinBreakdown(coinBreakdownElement, coinBreakdownState);
 
         // === Achievement Wallet ===
 
@@ -1882,7 +2176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalsEarned.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
-                    medalButton.className = 'tooltip-target bg-gray-100 dark:bg-gray-700 p-3 sm:p-4 rounded-lg flex flex-col items-center text-center gap-1 sm:gap-2 focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.className = 'tooltip-target shrink-0 snap-center min-w-[120px] bg-gray-100 dark:bg-gray-700 px-3 py-3 rounded-lg flex flex-col items-center text-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-400';
                     medalButton.innerHTML = `
                         <span class="text-2xl sm:text-3xl">${medal.emoji}</span>
                         <span class="text-xs sm:text-sm font-semibold">${medal.name}</span>

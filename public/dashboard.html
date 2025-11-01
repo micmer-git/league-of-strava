@@ -111,23 +111,12 @@
         <!-- Filter Bar -->
         <div class="sticky top-0 z-30 mb-6">
             <div class="bg-white/95 dark:bg-gray-800/95 shadow-xl rounded-lg px-4 sm:px-5 py-3 backdrop-blur supports-backdrop-blur:border border-gray-200/40 dark:border-gray-700/40">
-                <div class="grid grid-cols-1 sm:grid-cols-4 lg:grid-cols-6 gap-3 items-end">
-                    <label class="col-span-1 sm:col-span-1 flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
                         <span>Year</span>
-                        <select id="year-select" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                        <select id="year-select" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[10rem]"></select>
                     </label>
-                    <label class="col-span-1 sm:col-span-1 flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
-                        <span>Start</span>
-                        <input type="text" id="start-date" placeholder="YYYY-MM-DD" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </label>
-                    <label class="col-span-1 sm:col-span-1 flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
-                        <span>End</span>
-                        <input type="text" id="end-date" placeholder="YYYY-MM-DD" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </label>
-                    <div class="col-span-2 sm:col-span-2 lg:col-span-2 flex justify-end gap-2">
-                        <button id="filter-button" class="flex-1 sm:flex-none rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Apply</button>
-                        <button id="reset-button" class="flex-1 sm:flex-none rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">Reset</button>
-                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 sm:text-right">Choose a year or select “All Years” to view your complete history.</p>
                 </div>
             </div>
         </div>
@@ -149,16 +138,17 @@
                     </div>
                 </div>
                 <div class="mt-4">
-                    <div class="w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700">
-                        <div id="ranking-progress" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <div id="premium-achievements" class="flex flex-wrap items-center gap-1"></div>
+                        <span id="level-progress" class="text-sm font-semibold text-gray-700 dark:text-gray-200"></span>
                     </div>
-                    <div class="mt-2 flex flex-col gap-1">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <div class="flex items-center gap-2">
-                                <span id="current-rank" class="text-sm font-medium"></span>
-                                <div id="premium-achievements" class="flex flex-wrap items-center gap-1"></div>
-                            </div>
-                            <span id="level-progress" class="text-sm font-medium"></span>
+                    <div class="mt-3 space-y-2">
+                        <div class="flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            <span id="current-rank" class="flex items-center gap-1"></span>
+                            <span id="next-rank" class="flex items-center gap-1 text-right"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                            <div id="ranking-progress" class="bg-blue-600 h-3 rounded-full" style="width: 0%"></div>
                         </div>
                     </div>
                     <div id="rank-details" class="text-sm text-gray-500 mt-2"></div>
@@ -185,37 +175,26 @@
                     <h3 class="text-xl font-bold">Your Coins</h3>
                     <div class="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-300">Total haul: <span id="coin-total-value">$0.00M</span></div>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
-                    <!-- Coins with count below emojis and descriptions on hover/click -->
-                    <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="Each 💲 marks consistent progress across your adventures.">
-                        <span class="text-2xl sm:text-3xl">💲</span>
+                <div class="flex gap-2 overflow-x-auto pb-1" id="coin-summary">
+                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        <span class="text-2xl sm:text-3xl leading-none">💲</span>
                         <span id="coin-dollar" class="text-sm sm:text-base font-bold text-green-700 dark:text-green-300">0</span>
-                        <span class="text-[11px] text-gray-500 dark:text-gray-300">Steady progress</span>
                     </button>
-                    <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="💰 celebrates your biggest pushes within the week.">
-                        <span class="text-2xl sm:text-3xl">💰</span>
+                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        <span class="text-2xl sm:text-3xl leading-none">💰</span>
                         <span id="coin-money" class="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-300">0</span>
-                        <span class="text-[11px] text-gray-500 dark:text-gray-300">Weekly surge</span>
                     </button>
-                    <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="🧈 is awarded for buttery-smooth milestone efforts.">
-                        <span class="text-2xl sm:text-3xl">🧈</span>
+                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        <span class="text-2xl sm:text-3xl leading-none">🧈</span>
                         <span id="coin-butter" class="text-sm sm:text-base font-bold text-amber-700 dark:text-amber-300">0</span>
-                        <span class="text-[11px] text-gray-500 dark:text-gray-300">Milestone magic</span>
                     </button>
-                    <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="💎 shines whenever you conquer ultra achievements.">
-                        <span class="text-2xl sm:text-3xl">💎</span>
+                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        <span class="text-2xl sm:text-3xl leading-none">💎</span>
                         <span id="coin-diamond" class="text-sm sm:text-base font-bold text-purple-700 dark:text-purple-300">0</span>
-                        <span class="text-[11px] text-gray-500 dark:text-gray-300">Ultra shine</span>
                     </button>
-                    <button type="button" class="flex flex-col items-center gap-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 tooltip-target"
-                            data-tooltip="👑 crowns the elite moments you unlocked.">
-                        <span class="text-2xl sm:text-3xl">👑</span>
+                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        <span class="text-2xl sm:text-3xl leading-none">👑</span>
                         <span id="coin-king" class="text-sm sm:text-base font-bold text-red-700 dark:text-red-300">0</span>
-                        <span class="text-[11px] text-gray-500 dark:text-gray-300">Legendary streak</span>
                     </button>
                 </div>
             </div>

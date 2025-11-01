@@ -53,6 +53,10 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['INITIALIZATION_DONE'] = False
 
 
+# General constants
+CALORIE_ADJUSTMENT_FACTOR = 0.65
+
+
 
 # Import models after initializing db to avoid circular imports
 from models import User, Activity
@@ -852,22 +856,35 @@ def calculate_rank(total_hours):
 
 def calculate_coins(df):
     """Calculate coins based on activities."""
+    elevation_gain = df['Elevation_Gain'].sum() if 'Elevation_Gain' in df else 0
+    calories_series = df['Calories'] if 'Calories' in df else pd.Series(dtype=float)
+    adjusted_calories = calories_series.fillna(0) * CALORIE_ADJUSTMENT_FACTOR
+    average_hr_series = df['Average_Heart_Rate'] if 'Average_Heart_Rate' in df else pd.Series(dtype=float)
+
     coins = {
-        'everest': float(round(df['Elevation_Gain'].sum() / 8848, 2)),  # 1 Everest = 8848m
-        'pizza': float(round(df['Calories'].sum() / 1000, 2)),         # 1 Pizza = 1000 kcal
-        'heartbeat': int(df['Average_Heart_Rate'].sum()/1000)                   # 1 Heartbeat Coin = 1 heartbeat (adjust as needed)
+        'everest': float(round(elevation_gain / 8848, 2)),  # 1 Everest = 8848m
+        'pizza': float(round(adjusted_calories.sum() / 1000, 2)),  # 1 Pizza = 1000 kcal
+        'heartbeat': int(average_hr_series.fillna(0).sum() / 1000)  # 1 Heartbeat Coin = 1 heartbeat (adjust as needed)
     }
     coins = convert_to_native(coins)
     return coins
 def calculate_stats(df):
     """Calculate user statistics, including average temperature, total likes, and most common hour."""
+    adjusted_calories = 0
+    if 'Calories' in df:
+        adjusted_calories = float(round((df['Calories'].fillna(0) * CALORIE_ADJUSTMENT_FACTOR).sum(), 1))
+
     stats = {
         'hours': float(round(df['Moving_Time'].sum() / 3600, 1)),        # Convert to hours
         'distance': float(round(df['Distance_km'].sum(), 1)),           # Already in km
         'elevation': float(round(df['Elevation_Gain'].sum(), 1)),       # in meters
         'bpm': float(round(df['Average_Heart_Rate'].mean(), 1)),       # in meters
-        'calories': float(round(df['Calories'].sum(), 1)),              # in kcal
+        'calories': adjusted_calories,              # in kcal
     }
+
+    # Ensure calories are included even when the column is missing
+    if 'Calories' not in df:
+        stats['calories'] = 0.0
 
     # Compute Average Temperature
     if 'Average_Temperature' in df.columns:
@@ -911,6 +928,24 @@ def calculate_stats(df):
 
     stats = convert_to_native(stats)
     return stats
+
+
+def calculate_dollars(achievements, timeframe='all_time'):
+    """Compute total dollars generated from achievements and medals."""
+    if not achievements or timeframe not in achievements:
+        return 0
+
+    timeframe_data = achievements.get(timeframe, {}) or {}
+    total_dollars = 0
+
+    for category in timeframe_data.get('categories', []):
+        for badge in category.get('achievements', []):
+            total_dollars += badge.get('count', 0) * 1000
+
+    for medal in timeframe_data.get('Medals', []):
+        total_dollars += medal.get('count', 0) * 5000
+
+    return int(total_dollars)
 
 def get_user_rank(total_hours):
     """Determine user's rank and progress."""
@@ -1196,7 +1231,9 @@ def index():
                     duration = row['Moving_Time'] / 3600  # Convert to hours
                     duration_minutes = int((row['Moving_Time'] % 3600) / 60)
                     elevation_gain = row['Elevation_Gain']
-                    calories = row['Calories']
+                    raw_calories = pd.to_numeric(row.get('Calories', 0), errors='coerce')
+                    raw_calories = 0 if pd.isna(raw_calories) else float(raw_calories)
+                    calories = raw_calories * CALORIE_ADJUSTMENT_FACTOR
                     max_heart_rate = row['Max_Heart_Rate_1']  # or 'Max_Heart_Rate_2' based on your logic
                     heartbeats = int(max_heart_rate * (moving_time / 60))  # Example calculation
                     coins_everest = round(elevation_gain / 8848, 2)
@@ -1372,6 +1409,7 @@ def dashboard(username):
             'pizza': user.coins_pizza,
             'heartbeat': user.coins_heartbeat
         },
+        'dollars': calculate_dollars(user.achievements),
         'stats': user.stats,  # Accessing stats directly
         'achievements': user.achievements,  # Now a dict with timeframes
         'max_metrics': {
@@ -1399,10 +1437,14 @@ def dashboard(username):
 
     # Define the timeframes as per calculate_achievements function
 
+    dashboard_timeframes = ['all_time', '365_D']
+    timeframe_labels = {'all_time': 'All', '365_D': 'Year'}
+
     return render_template('dashboard.html',
                            user=user_data,
                            achievements=user.achievements,
-                           timeframes=timeframes,
+                           timeframes=dashboard_timeframes,
+                           timeframe_labels=timeframe_labels,
                            rank_config=rank_config,
                            rank_info=user_rank)
 

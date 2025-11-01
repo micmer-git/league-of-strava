@@ -259,26 +259,36 @@
         .coin-metrics-inline {
             display: flex;
             gap: 10px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             font-size: 1em;
-            justify-content: center;
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            width: 100%;
+        }
+
+        .coin-metrics-inline::-webkit-scrollbar {
+            display: none;
         }
 
         .coin {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
             background-color: #e9ecef;
-            padding: 5px 10px;
+            padding: 6px 12px;
             border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.3s;
+            white-space: nowrap;
         }
 
-        .coin:hover {
-            transform: scale(1.05);
-            background-color: #adb5bd;
-            color: #fff;
+        .coin-value {
+            font-weight: 600;
+        }
+
+        .coin-label {
+            font-size: 0.85em;
+            color: #555;
+            text-transform: uppercase;
         }
         /* **Integrated Coins Styling End** */
 
@@ -309,13 +319,31 @@
         }
 
         /* Rank Progress Bar */
+        .rank-progress-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .rank-levels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95em;
+            color: #555;
+        }
+
+        .rank-level {
+            font-weight: 600;
+        }
+
         .rank-progress {
             width: 100%;
             background-color: #e9ecef;
             border-radius: 20px;
             height: 20px;
-            margin: 2px;
             position: relative;
+            overflow: hidden;
         }
 
         .progress-bar {
@@ -326,14 +354,6 @@
             transition: width 0.3s ease-in-out;
         }
 
-        .progress-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 2px;
-            font-size: 0.9em;
-            color: #555;
-        }
-
         .rank-details {
             text-align: center;
             font-size: 1em;
@@ -342,6 +362,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            width: 100%;
         }
 
         /* Section Styles (Toggleable Sections) */
@@ -389,53 +410,6 @@
 
         .section.active .toggle-icon {
             transform: rotate(180deg);
-        }
-
-        /* Pop-up Styles */
-        .popup-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.6);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1001;
-            padding: 20px;
-        }
-
-        .popup-overlay.active {
-            display: flex;
-        }
-
-        .popup {
-            background-color: #fff;
-            border-radius: 12px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            padding: 20px;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .popup-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: none;
-            border: none;
-            font-size: 1.5em;
-            cursor: pointer;
-            color: #ff6600;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
         }
 
         /* Top Activities Section */
@@ -502,40 +476,37 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            cursor: pointer;
-            transition: transform 0.2s;
-            position: relative;
+            gap: 6px;
             font-size: 0.9em;
             padding: 10px;
             border-radius: 8px;
-            background-color: #f1f1f1;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #f7f7f7;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
             text-decoration: none;
+            min-height: 120px;
         }
 
-        .achievement-card:hover, .achievement-card:focus,
-        .medal-card:hover, .medal-card:focus {
-            transform: scale(1.05);
-            background-color: #e9ecef;
-        }
-
-        .achievement-emoji, .medal-emoji {
-            font-size: 2.5em; /* Increased size */
-            margin:0px;
-            filter: none;
-            transition: filter 0.3s ease;
-        }
-
-        .achievement-card.not-obtained .achievement-emoji,
-        .medal-card.not-obtained .medal-emoji {
-            filter: grayscale(100%);
+        .achievement-card.not-obtained .achievement-count,
+        .medal-card.not-obtained .medal-count {
+            color: #999;
         }
 
         .achievement-count, .medal-count {
-            font-size: 1.5em; /* Increased size */
+            font-size: 1.4em;
             font-weight: bold;
             margin:0px;
-            color: green;
+            color: #28a745;
+        }
+
+        .achievement-label {
+            font-size: 0.85em;
+            text-align: center;
+            color: #444;
+        }
+
+        .medal-label {
+            font-size: 0.85em;
+            color: #444;
         }
 
         .new-earned {
@@ -543,30 +514,7 @@
             color: #fff;
             border-radius: 12px;
             padding: 2px 6px;
-            font-size: 0.8em;
-            position: absolute;
-            top: 5px;
-            right: 5px;
-        }
-
-        .tooltip {
-            display: none;
-            position: absolute;
-            bottom: 110%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: #fff;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            white-space: nowrap;
-            z-index: 1000;
-        }
-
-        .achievement-card:hover .tooltip, .achievement-card:focus .tooltip,
-        .medal-card:hover .tooltip, .medal-card:focus .tooltip {
-            display: block;
+            font-size: 0.75em;
         }
         /* **Integrated Achievements Table Styling End** */
 
@@ -695,6 +643,23 @@
             transform: scale(1.1);
         }
 
+        .activity-medals {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .medal-badge {
+            background-color: #ffe599;
+            color: #7a4f01;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
         /* Load More Button */
         #load-more-button {
             display: block;
@@ -743,12 +708,6 @@
                 font-size: 0.95em;
             }
 
-            .achievement-emoji, .medal-emoji {
-                font-size: 1.5em;
-                margin:0px;
-
-            }
-
             .achievement-count, .medal-count {
                 font-size: 1.2em;
                 margin:0px;
@@ -766,6 +725,10 @@
             .activity-main p, .activity-coins .coin {
                 font-size: 0.85em;
             }
+
+            .medal-badge {
+                font-size: 0.7em;
+            }
         }
 
         @media (max-width: 768px) {
@@ -775,8 +738,8 @@
             }
 
             .coin-metrics-inline {
-                flex-wrap: wrap;
-                gap: 8px;
+                flex-wrap: nowrap;
+                overflow-x: auto;
             }
 
             .rank-progress {
@@ -817,6 +780,10 @@
             .activity-main p, .activity-coins .coin {
                 font-size: 0.8em;
             }
+
+            .activity-medals {
+                justify-content: flex-start;
+            }
         }
 
         @media (max-width: 576px) {
@@ -846,13 +813,7 @@
 
             .achievement-card, .medal-card {
                 padding: 3px;
-                font-size: 0.75em;
-            }
-
-            .achievement-emoji, .medal-emoji {
-                font-size: 1.4em;
-                margin:0px;
-
+                font-size: 0.8em;
             }
 
             .achievement-count, .medal-count {
@@ -876,6 +837,10 @@
 
             .activity-main p, .activity-coins .coin {
                 font-size: 0.75em;
+            }
+
+            .medal-badge {
+                font-size: 0.65em;
             }
 
             #load-more-button {
@@ -944,16 +909,6 @@
         <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
     </div>
 
-    <!-- Pop-up Overlay -->
-    <div class="popup-overlay" id="popup-overlay" aria-hidden="true">
-        <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
-            <button class="popup-close" id="popup-close" aria-label="Close pop-up">&times;</button>
-            <div id="popup-content">
-                <!-- Dynamic Content Goes Here -->
-            </div>
-        </div>
-    </div>
-
     <div id="dashboard-container">
         <!-- Loading Indicator -->
         <div id="loading">Loading your dashboard...</div>
@@ -962,20 +917,42 @@
         <div class="overview-section hidden">
             <div class="overview-content">
                 <div class="user-info">
-                    <div class="coin-metrics-inline">
-                        <span class="coin" title="Everest Coins: total elevation gain (measured in Mount Everest units)">🏔️ {{ user.coins.everest | int }}</span>
-                        <span class="coin" title="Pizza Coins: total calories burned in pizzas (1000 kcal each)">🍕 {{ user.coins.pizza | int }}</span>
-                        <span class="coin" title="Heartbeat Coins: Represents your total heartbeats (in millions)">❤️ {{ user.coins.heartbeat | int }}</span>
-                        <span class="coin" title="Distance: 100km per icon">🚴 {{ (user.stats.distance/1000) | int }}</span>
+                    <div class="coin-metrics-inline" aria-label="Key totals">
+                        <div class="coin">
+                            <span class="coin-value">🏔️ {{ user.coins.everest | int }}</span>
+                            <span class="coin-label">Everest</span>
+                        </div>
+                        <div class="coin">
+                            <span class="coin-value">🍕 {{ user.coins.pizza | int }}</span>
+                            <span class="coin-label">Pizza</span>
+                        </div>
+                        <div class="coin">
+                            <span class="coin-value">❤️ {{ user.coins.heartbeat | int }}</span>
+                            <span class="coin-label">Heartbeat</span>
+                        </div>
+                        <div class="coin">
+                            <span class="coin-value">🚴 {{ (user.stats.distance/1000) | int }}</span>
+                            <span class="coin-label">100km Blocks</span>
+                        </div>
+                        <div class="coin">
+                            <span class="coin-value">💵 {{ "{:,.0f}".format(user.dollars) }}</span>
+                            <span class="coin-label">Dollars</span>
+                        </div>
                     </div>
                     <h1 id="athlete-name">{{ user.username }}</h1>
-                    <h2 id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h3>
-                    <div class="rank-progress">
-                        <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
+                    <h2 id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
+                    <div class="rank-progress-wrapper">
+                        <div class="rank-levels">
+                            <span class="rank-level">{{ rank_info.current_rank.name }}{{ rank_info.current_rank.emoji }}</span>
+                            <span class="rank-level">{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</span>
+                        </div>
+                        <div class="rank-progress">
+                            <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
+                        </div>
                     </div>
                     <div class="rank-details">
-                        <span><strong id="current-points">{{ rank_info.current_points }}</strong> / <strong id="next-rank-points">{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
-                        <span id="next-rank-label">Next: <strong>{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</strong></span>
+                        <span><strong id="current-points">{{ rank_info.current_points }}</strong> hrs</span>
+                        <span id="next-rank-label">Next at <strong>{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
                     </div>
                 </div>
                 <div class="user-image-container">
@@ -993,12 +970,9 @@
             <div class="section-content">
                 <!-- Timeframe Buttons -->
                 <div class="timeframe-buttons">
-                    <button class="timeframe-btn active" data-timeframe="all_time" tabindex="0">All Time</button>
-                    <button class="timeframe-btn" data-timeframe="7_D" tabindex="0">7D</button>
-                    <button class="timeframe-btn" data-timeframe="14_D" tabindex="0">14D</button>
-                    <button class="timeframe-btn" data-timeframe="30_D" tabindex="0">30D</button>
-                    <button class="timeframe-btn" data-timeframe="YTD" tabindex="0">YTD</button>
-                    <button class="timeframe-btn" data-timeframe="365_D" tabindex="0">365D</button>
+                    {% for tf in timeframes %}
+                        <button class="timeframe-btn {% if loop.first %}active{% endif %}" data-timeframe="{{ tf }}" tabindex="0">{{ timeframe_labels.get(tf, tf.replace('_', ' ').title()) }}</button>
+                    {% endfor %}
                 </div>
 
                 <!-- Achievements Table -->
@@ -1022,13 +996,12 @@
                             {% if achievements_tf.Medals %}
                                 <div class="medals-data" data-timeframe="{{ tf }}" style="display: none;">
                                     {% for medal in achievements_tf.Medals %}
-                                        <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" data-popup="{{ medal.name }}" title="{{ medal.description or medal.name }}" tabindex="0">
-                                            <p class="medal-emoji">{{ medal.emoji }}</p>
+                                        <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" tabindex="0">
                                             <p class="medal-count">{{ medal.count }}</p>
+                                            <p class="medal-label">{{ medal.emoji }} {{ medal.name }}</p>
                                             {% if medal.last_month_earned %}
                                                 <span class="new-earned">+{{ medal.last_month_earned }}</span>
                                             {% endif %}
-                                            <div class="tooltip">{{ medal.description or medal.name }}</div>
                                         </div>
                                     {% endfor %}
                                 </div>
@@ -1125,10 +1098,21 @@
                                 <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
                             </div>
                             <div class="activity-coins">
-                                <span class="coin" title="Everest Coins">+{{ activity.coins.everest | round(2) }} 🏔️</span>
-                                <span class="coin" title="Pizza Coins">+{{ activity.coins.pizza | round(1) }} 🍕</span>
-                                <span class="coin" title="Heartbeat Coins">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                                <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
+                                <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
+                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
                             </div>
+                            {% set activity_medals = [] %}
+                            {% if activity.additional_data %}
+                                {% set activity_medals = activity.additional_data.get('medals', activity.additional_data.get('Medals', [])) %}
+                            {% endif %}
+                            {% if activity_medals %}
+                                <div class="activity-medals">
+                                    {% for medal in activity_medals %}
+                                        <span class="medal-badge">{{ medal }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>
@@ -1225,91 +1209,6 @@
             });
 
             // Pop-up Functionality
-            const popupOverlay = document.getElementById('popup-overlay');
-            const popupContent = document.getElementById('popup-content');
-            const popupClose = document.getElementById('popup-close');
-
-            const openPopup = (title, content) => {
-                popupContent.innerHTML = `<h2 id="popup-title">${title}</h3><p>${content}</p>`;
-                popupOverlay.classList.add('active');
-                popupOverlay.setAttribute('aria-hidden', 'false');
-                // Trap focus within the popup for accessibility
-                popupClose.focus();
-            };
-
-            const closePopup = () => {
-                popupOverlay.classList.remove('active');
-                popupOverlay.setAttribute('aria-hidden', 'true');
-            };
-
-            popupClose.addEventListener('click', closePopup);
-            popupClose.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    closePopup();
-                }
-            });
-
-            popupOverlay.addEventListener('click', (e) => {
-                if (e.target === popupOverlay) {
-                    closePopup();
-                }
-            });
-
-            // Close popup with Esc key
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && popupOverlay.classList.contains('active')) {
-                    closePopup();
-                }
-            });
-
-            // Attach pop-up to achievement and medal cards
-            const popupElements = document.querySelectorAll('[data-popup]');
-            popupElements.forEach(elem => {
-                elem.addEventListener('click', () => {
-                    const title = elem.getAttribute('data-popup');
-                    let content = '';
-                    // Customize content based on the achievement or medal name
-                    switch(title) {
-                        case 'Max Elevation Gain':
-                            content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
-                            break;
-                        case 'Longest Duration':
-                            content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
-                            break;
-                        case 'Greatest Distance':
-                            content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
-                            break;
-                        // Add more cases as needed
-                        default:
-                            content = 'More information about this achievement.';
-                    }
-                    openPopup(title, content);
-                });
-
-                elem.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        const title = elem.getAttribute('data-popup');
-                        let content = '';
-                        // Customize content based on the achievement or medal name
-                        switch(title) {
-                            case 'Max Elevation Gain':
-                                content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
-                                break;
-                            case 'Longest Duration':
-                                content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
-                                break;
-                            case 'Greatest Distance':
-                                content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
-                                break;
-                            // Add more cases as needed
-                            default:
-                                content = 'More information about this achievement.';
-                        }
-                        openPopup(title, content);
-                    }
-                });
-            });
-
             // Make top-activity-cards clickable and redirect
             const topActivityCards = document.querySelectorAll('.top-activity-card');
             topActivityCards.forEach(card => {
@@ -1337,6 +1236,12 @@
                     const nextCount = currentCount + 10;
                     for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
                         const activity = additionalActivities[i];
+                        const medals = activity.additional_data ? (activity.additional_data.medals || activity.additional_data.Medals || []) : [];
+                        const medalsMarkup = medals.length ? `
+                                <div class="activity-medals">
+                                    ${medals.map(medal => `<span class="medal-badge">${medal}</span>`).join('')}
+                                </div>
+                            ` : '';
                         const activityItem = document.createElement('div');
                         activityItem.classList.add('activity-item');
                         activityItem.innerHTML = `
@@ -1348,10 +1253,11 @@
                                 <p>${activity.additional_data.Activity_Type}</p>
                             </div>
                             <div class="activity-coins">
-                                <span class="coin" title="Everest Coins">+${activity.coins.everest.toFixed(2)} 🏔️</span>
-                                <span class="coin" title="Pizza Coins">+${Math.round(activity.coins.pizza)} 🍕</span>
-                                <span class="coin" title="Heartbeat Coins">+${Math.round(activity.coins.heartbeat)} ❤️</span>
+                                <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
+                                <span class="coin">+${Math.round(activity.coins.pizza)} 🍕</span>
+                                <span class="coin">+${Math.round(activity.coins.heartbeat)} ❤️</span>
                             </div>
+                            ${medalsMarkup}
                         `;
                         activitiesList.appendChild(activityItem);
                     }
@@ -1420,7 +1326,7 @@
                 // Build table headers
                 let theadHTML = '<tr><th>Category</th>';
                 for (let i = 0; i < maxBadges; i++) {
-                    theadHTML += `<th>Badge ${i + 1}</th>`;
+                    theadHTML += `<th>Milestone ${i + 1}</th>`;
                 }
                 theadHTML += '</tr>';
                 achievementsThead.innerHTML = theadHTML;
@@ -1434,13 +1340,10 @@
                             const badge = category.achievements[i];
                             tbodyHTML += `
                                 <td>
-                                    <div class="achievement-card ${badge.count === 0 ? 'not-obtained' : ''}" data-popup="${badge.name}" title="${badge.description}">
+                                    <div class="achievement-card ${badge.count === 0 ? 'not-obtained' : ''}">
                                         <p class="achievement-count">${badge.count}</p>
-                                        <small>
-                                            ${category.intro.split('|')[i] ? category.intro.split('|')[i].substring(1) : ''}
-                                        </small>
+                                        <p class="achievement-label">${badge.emoji ? `${badge.emoji} ` : ''}${badge.name}</p>
                                         ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
-                                        <div class="tooltip">${badge.description}</div>
                                     </div>
                                 </td>
                             `;
@@ -1492,56 +1395,6 @@
                         button.click();
                     }
                 });
-            });
-
-            // Attach pop-up to dynamically created achievement cards
-            const achievementsContainer = document.querySelector('.achievements-table-container');
-            achievementsContainer.addEventListener('click', function(e) {
-                const achievementCard = e.target.closest('.achievement-card');
-                if (achievementCard) {
-                    const title = achievementCard.getAttribute('data-popup');
-                    let content = '';
-                    // Customize content based on the achievement name
-                    switch(title) {
-                        case 'Max Elevation Gain':
-                            content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
-                            break;
-                        case 'Longest Duration':
-                            content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
-                            break;
-                        case 'Greatest Distance':
-                            content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
-                            break;
-                        // Add more cases as needed
-                        default:
-                            content = 'More information about this achievement.';
-                    }
-                    openPopup(title, content);
-                }
-            });
-
-            achievementsContainer.addEventListener('keypress', function(e) {
-                if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.achievement-card')) {
-                    const achievementCard = e.target.closest('.achievement-card');
-                    const title = achievementCard.getAttribute('data-popup');
-                    let content = '';
-                    // Customize content based on the achievement name
-                    switch(title) {
-                        case 'Max Elevation Gain':
-                            content = 'Details about your maximum elevation gain. This represents the highest elevation you have achieved in your activities.';
-                            break;
-                        case 'Longest Duration':
-                            content = 'Details about your longest duration activity. This indicates the longest time you have spent on a single activity.';
-                            break;
-                        case 'Greatest Distance':
-                            content = 'Details about your greatest distance activity. This showcases the longest distance you have covered in a single activity.';
-                            break;
-                        // Add more cases as needed
-                        default:
-                            content = 'More information about this achievement.';
-                    }
-                    openPopup(title, content);
-                }
             });
 
         });

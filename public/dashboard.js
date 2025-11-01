@@ -11,27 +11,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         '💎': 3000,
         '👑': 10000
     };
+    const MEDAL_DOLLAR_VALUE = 5000;
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
-    const COIN_SHORT_DESCRIPTIONS = {
-        '💲': 'Steady progress',
-        '💰': 'Weekly surge',
-        '🧈': 'Milestone magic',
-        '💎': 'Ultra shine',
-        '👑': 'Legendary streak'
+    const COIN_CELL_DESCRIPTIONS = {
+        Run: {
+            '💲': '10 km run',
+            '💰': '30 km week',
+            '🧈': '21 km run',
+            '💎': '42 km run',
+            '👑': '65 km week'
+        },
+        Ride: {
+            '💲': '100 km ride',
+            '💰': '300 km week',
+            '🧈': '200 km ride',
+            '💎': '250 km ride',
+            '👑': '600 km week'
+        },
+        Elevation: {
+            '💲': '1k m climb',
+            '💰': '5k m week',
+            '🧈': '10k m climb',
+            '💎': '25k m climb',
+            '👑': '50k m climb'
+        },
+        Calories: {
+            '💲': '1k kcal burn',
+            '💰': '6k kcal week',
+            '🧈': '3k kcal burn',
+            '💎': '7.5k kcal burn',
+            '👑': '12k kcal week'
+        }
     };
+    const CALORIE_SCALE_FACTOR = 0.65;
     const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
 
     // === DOM Elements ===
     const loadingSpinner = document.getElementById('loading-spinner');
     const closeSpinnerButton = document.getElementById('close-spinner');
     const errorMessage = document.getElementById('error-message');
-    const filterButton = document.getElementById('filter-button');
-    const resetButton = document.getElementById('reset-button');
     const athleteNameElement = document.getElementById('athlete-name');
     const athleteAvatarElement = document.getElementById('athlete-avatar');
     const fetchMoreDataButton = document.getElementById('fetch-more-data');
     const currentRankElement = document.getElementById('current-rank');
+    const nextRankElement = document.getElementById('next-rank');
     const rankingProgressElement = document.getElementById('ranking-progress');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
@@ -55,16 +79,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activitiesEmptyState = document.getElementById('activities-empty');
     const loadMoreButton = document.getElementById('load-more-btn');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
-
-    // === Date Pickers ===
-    const startDatePicker = flatpickr("#start-date", {
-        dateFormat: "Y-m-d",
-        allowInput: true
-    });
-    const endDatePicker = flatpickr("#end-date", {
-        dateFormat: "Y-m-d",
-        allowInput: true
-    });
 
     // === Data Storage ===
     let allData = {}; // To store all fetched data
@@ -132,22 +146,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             ?? activity.avg_heartrate
             ?? null;
 
+        let estimate = 0;
+
         if (hours > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
             const calories = (190 / averageHeartRate) * hours * 800;
             if (Number.isFinite(calories) && calories > 0) {
-                return calories;
+                estimate = calories;
             }
         }
 
-        if (Number.isFinite(activity.calories) && activity.calories > 0) {
-            return activity.calories;
+        if (estimate <= 0 && Number.isFinite(activity.calories) && activity.calories > 0) {
+            estimate = activity.calories;
         }
 
-        if (Number.isFinite(activity.kilojoules) && activity.kilojoules > 0) {
-            return activity.kilojoules / 4.184;
+        if (estimate <= 0 && Number.isFinite(activity.kilojoules) && activity.kilojoules > 0) {
+            estimate = activity.kilojoules / 4.184;
         }
 
-        return 0;
+        const scaledEstimate = estimate > 0 ? estimate * CALORIE_SCALE_FACTOR : 0;
+        return Number.isFinite(scaledEstimate) && scaledEstimate > 0 ? scaledEstimate : 0;
     }
 
     function computeActivitySmallStats(activity = {}) {
@@ -469,7 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, stepTime);
     };
 
-    const updateCoinSummaryFromWallet = (achievementCategories = []) => {
+    const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }) => {
         const totals = computeWalletCoinTotals(achievementCategories);
         const elementMap = {
             '💲': 'coin-dollar',
@@ -498,14 +515,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             return sum + (coinValue * count);
         }, 0);
 
+        const medalValue = Number.isFinite(medalSummary?.value) ? medalSummary.value : 0;
+        const medalCount = Number.isFinite(medalSummary?.count) ? medalSummary.count : 0;
+        const combinedValue = totalCoinValue + medalValue;
+
         if (coinTotalValueElement) {
-            coinTotalValueElement.textContent = formatMillions(totalCoinValue);
+            coinTotalValueElement.textContent = formatMillions(combinedValue);
             const coinSummaryContainer = coinTotalValueElement.parentElement;
             if (coinSummaryContainer) {
                 const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=${currencyFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`).join(', ');
+                const medalLine = medalCount > 0
+                    ? `Medals ×${medalCount} add ${currencyFormatter.format(medalValue)}.`
+                    : 'No medals collected in this view.';
                 attachTooltip(
                     coinSummaryContainer,
-                    `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). Current total: ${currencyFormatter.format(totalCoinValue)}.`
+                    `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). ${medalLine} Combined haul: ${currencyFormatter.format(combinedValue)}.`
                 );
             }
         }
@@ -665,18 +689,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const activitiesToRender = sortedActivities.slice(0, visibleActivitiesCount);
 
-        const createBadge = ({ icon, valueText, subtitleText = null, tooltipText, className }) => {
+        const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className }) => {
             const badge = document.createElement('button');
             badge.type = 'button';
             badge.className = `tooltip-target inline-flex flex-col items-center justify-center px-2.5 py-1.5 rounded-full font-semibold text-xs sm:text-sm text-center gap-0.5 ${className}`;
 
             const topRow = document.createElement('div');
-            topRow.className = 'flex items-center gap-1 leading-none';
-            const iconSpan = document.createElement('span');
-            iconSpan.textContent = icon;
+            topRow.className = icon ? 'flex items-center gap-1 leading-none' : 'flex items-center leading-none';
+            if (icon) {
+                const iconSpan = document.createElement('span');
+                iconSpan.textContent = icon;
+                topRow.appendChild(iconSpan);
+            }
             const valueSpan = document.createElement('span');
             valueSpan.textContent = valueText;
-            topRow.appendChild(iconSpan);
             topRow.appendChild(valueSpan);
             badge.appendChild(topRow);
 
@@ -739,51 +765,87 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? `This activity covered ${formatDistance(stats.distanceKm)} — about ${formatStatValue(stats.globeTrips)} of a full world tour (${worldCents} world-tour cents). Each cent equals 1/100 of the full loop.`
                 : 'No distance recorded for this activity yet.';
             smallStatsGroup.appendChild(createBadge({
-                icon: '🌍',
-                valueText: `${worldCents.toLocaleString()}¢`,
-                subtitleText: 'World tour cent',
+                valueText: `World ${worldCents.toLocaleString()}¢`,
                 tooltipText: worldTooltip,
                 className: 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200'
             }));
             smallStatsGroup.appendChild(createBadge({
                 icon: '🏔️',
                 valueText: formatStatValue(stats.everestSummits),
-                subtitleText: 'Everest climbs',
                 tooltipText: `Elevation gain of ${formatElevation(stats.elevationGain)} — ${formatStatValue(stats.everestSummits)} Everest climbs`,
                 className: 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200'
             }));
             smallStatsGroup.appendChild(createBadge({
                 icon: '🍕',
                 valueText: formatStatValue(stats.pizzaCount),
-                subtitleText: 'Pizza slices',
                 tooltipText: `Energy burned: ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzaCount)}`,
                 className: 'bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200'
             }));
             statsRow.appendChild(smallStatsGroup);
 
             const coinRewards = getActivityCoinRewards(activity, stats);
-            if (coinRewards.length > 0) {
-                const totalCoinValueDollars = coinRewards.reduce((sum, coinEmoji) => {
-                    return sum + (COIN_VALUE_MAP[coinEmoji] || 0);
-                }, 0);
-                const totalCoinValueWholeDollars = Math.round(totalCoinValueDollars);
+            const medalRewards = getActivityMedals(activity);
+            const coinCounts = coinRewards.reduce((acc, emoji) => {
+                acc[emoji] = (acc[emoji] || 0) + 1;
+                return acc;
+            }, {});
+            const totalCoinsMinted = Object.values(coinCounts).reduce((sum, count) => sum + count, 0);
+            const totalCoinValueDollars = Object.entries(coinCounts).reduce((sum, [emoji, count]) => {
+                return sum + count * (COIN_VALUE_MAP[emoji] || 0);
+            }, 0);
+            const medalValue = medalRewards.length * MEDAL_DOLLAR_VALUE;
+            const totalValueDollars = totalCoinValueDollars + medalValue;
+
+            if (totalValueDollars > 0) {
                 const mintedBadge = document.createElement('button');
                 mintedBadge.type = 'button';
                 mintedBadge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm dark:bg-indigo-900/40 dark:text-indigo-200';
                 mintedBadge.innerHTML = `
                     <span class="text-base leading-none">$</span>
-                    <span>${totalCoinValueWholeDollars.toLocaleString()}</span>
+                    <span>${Math.round(totalValueDollars).toLocaleString()}</span>
                 `;
-                const breakdownText = coinRewards
-                    .map(emoji => `${emoji}=${currencyFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`)
-                    .join(' • ');
-                const mintedLabel = coinRewards.length === 1 ? 'coin' : 'coins';
-                const totalValueText = currencyFormatter.format(totalCoinValueDollars);
-                attachTooltip(
-                    mintedBadge,
-                    `This activity minted ${coinRewards.length} ${mintedLabel}. ${breakdownText}. Total value: ${totalValueText}.`
-                );
+
+                const breakdownLines = Object.entries(coinCounts)
+                    .filter(([, count]) => count > 0)
+                    .map(([emoji, count]) => `${emoji} ×${count} = ${currencyFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
+                if (medalRewards.length > 0) {
+                    breakdownLines.push(`Medals ×${medalRewards.length} = ${currencyFormatter.format(medalValue)}`);
+                }
+
+                const mintedParts = [];
+                if (totalCoinsMinted > 0) {
+                    mintedParts.push(`${totalCoinsMinted} coin${totalCoinsMinted === 1 ? '' : 's'}`);
+                }
+                if (medalRewards.length > 0) {
+                    mintedParts.push(`${medalRewards.length} medal${medalRewards.length === 1 ? '' : 's'}`);
+                }
+
+                const tooltipLines = [];
+                if (mintedParts.length > 0) {
+                    tooltipLines.push(`Minted ${mintedParts.join(' and ')}.`);
+                }
+                if (breakdownLines.length > 0) {
+                    tooltipLines.push(breakdownLines.join('\n'));
+                }
+                tooltipLines.push(`Total value: ${currencyFormatter.format(totalValueDollars)}.`);
+
+                attachTooltip(mintedBadge, tooltipLines.join('\n'));
                 statsRow.appendChild(mintedBadge);
+            }
+
+            if (medalRewards.length > 0) {
+                const medalGroup = document.createElement('div');
+                medalGroup.className = 'flex flex-wrap items-center gap-2';
+                medalRewards.forEach(medal => {
+                    const medalBadge = document.createElement('button');
+                    medalBadge.type = 'button';
+                    medalBadge.className = 'tooltip-target inline-flex items-center justify-center rounded-full bg-yellow-100 px-2.5 py-1 text-base font-semibold text-yellow-700 shadow-sm dark:bg-yellow-900/40 dark:text-yellow-200';
+                    medalBadge.innerHTML = `<span class="leading-none">${medal.emoji}</span>`;
+                    medalBadge.setAttribute('aria-label', medal.name);
+                    attachTooltip(medalBadge, `${medal.name} • ${medal.description}`);
+                    medalGroup.appendChild(medalBadge);
+                });
+                statsRow.appendChild(medalGroup);
             }
 
             const achievementHighlights = getActivityAchievementHighlights(activity, stats);
@@ -1150,66 +1212,115 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    function getActivityMedals(activity = {}) {
+        if (!activity || !medalsConfig) {
+            return [];
+        }
+
+        const collected = [];
+        const seen = new Set();
+        const activityDate = new Date(activity.start_date);
+        const hasValidDate = !Number.isNaN(activityDate.getTime());
+        const monthDay = hasValidDate ? activityDate.toISOString().slice(5, 10) : null;
+        const year = hasValidDate ? activityDate.getFullYear() : null;
+
+        medalsConfig.forEach(medal => {
+            if (!medal || !medal.name || seen.has(medal.name)) {
+                return;
+            }
+
+            let qualifies = false;
+
+            if (typeof medal.criteria === 'function') {
+                try {
+                    qualifies = Boolean(medal.criteria(activity));
+                } catch (error) {
+                    qualifies = false;
+                }
+            } else if (hasValidDate) {
+                const allowedDates = new Set(medal.dates || []);
+                if (typeof medal.dynamicDateResolver === 'function' && year !== null) {
+                    const resolved = medal.dynamicDateResolver(year) || [];
+                    resolved.filter(Boolean).forEach(dateStr => allowedDates.add(dateStr));
+                }
+                if (allowedDates.size > 0 && monthDay && allowedDates.has(monthDay)) {
+                    qualifies = true;
+                }
+            }
+
+            if (qualifies) {
+                seen.add(medal.name);
+                collected.push({
+                    name: medal.name,
+                    emoji: medal.emoji,
+                    description: medal.description || ''
+                });
+            }
+        });
+
+        return collected;
+    }
+
     function getActivityCoinRewards(activity = {}, statsOverride = null) {
-        const rewards = new Set();
+        const rewards = [];
         const stats = statsOverride || computeActivitySmallStats(activity);
         const type = (activity.type || '').toUpperCase();
 
         if (coinConfig?.Run && type === 'RUN') {
             const runConfig = coinConfig.Run;
             if (stats.distanceKm >= runConfig.lifetime.threshold) {
-                rewards.add(runConfig.lifetime.emoji);
+                rewards.push(runConfig.lifetime.emoji);
             }
             if (stats.distanceKm >= runConfig.weekly.threshold) {
-                rewards.add(runConfig.weekly.emoji);
+                rewards.push(runConfig.weekly.emoji);
             }
             runConfig.milestone.forEach(milestone => {
                 if (stats.distanceKm >= milestone.threshold) {
-                    rewards.add(milestone.emoji);
+                    rewards.push(milestone.emoji);
                 }
             });
             if (stats.distanceKm >= runConfig.ultraWeekly.threshold) {
-                rewards.add(runConfig.ultraWeekly.emoji);
+                rewards.push(runConfig.ultraWeekly.emoji);
             }
         }
 
         if (coinConfig?.Ride && type === 'RIDE') {
             const rideConfig = coinConfig.Ride;
             if (stats.distanceKm >= rideConfig.lifetime.threshold) {
-                rewards.add(rideConfig.lifetime.emoji);
+                rewards.push(rideConfig.lifetime.emoji);
             }
             if (stats.distanceKm >= rideConfig.weekly.threshold) {
-                rewards.add(rideConfig.weekly.emoji);
+                rewards.push(rideConfig.weekly.emoji);
             }
             rideConfig.milestone.forEach(milestone => {
                 if (stats.distanceKm >= milestone.threshold) {
-                    rewards.add(milestone.emoji);
+                    rewards.push(milestone.emoji);
                 }
             });
             if (stats.distanceKm >= rideConfig.ultraWeekly.threshold) {
-                rewards.add(rideConfig.ultraWeekly.emoji);
+                rewards.push(rideConfig.ultraWeekly.emoji);
             }
         }
 
         if (coinConfig?.kcal) {
             const kcalConfig = coinConfig.kcal;
             if (stats.calories >= kcalConfig.lifetime.threshold) {
-                rewards.add(kcalConfig.lifetime.emoji);
+                rewards.push(kcalConfig.lifetime.emoji);
             }
             if (stats.calories >= kcalConfig.weekly.threshold) {
-                rewards.add(kcalConfig.weekly.emoji);
+                rewards.push(kcalConfig.weekly.emoji);
             }
             kcalConfig.milestone.forEach(milestone => {
                 if (stats.calories >= milestone.threshold) {
-                    rewards.add(milestone.emoji);
+                    rewards.push(milestone.emoji);
                 }
             });
             if (stats.calories >= kcalConfig.ultraWeekly.threshold) {
-                rewards.add(kcalConfig.ultraWeekly.emoji);
+                rewards.push(kcalConfig.ultraWeekly.emoji);
             }
         }
 
-        return Array.from(rewards);
+        return rewards;
     }
 
     function getActivityAchievementHighlights(activity = {}, statsOverride = null) {
@@ -1631,9 +1742,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Update the ranking progress bar
         if (currentRankElement) {
-            currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
+            currentRankElement.textContent = `Current: ${currentRank.emoji} ${currentRank.name}`;
         } else {
             console.warn("'current-rank' element not found in the DOM.");
+        }
+
+        if (nextRankElement) {
+            nextRankElement.textContent = nextRank
+                ? `Next: ${nextRank.emoji} ${nextRank.name}`
+                : 'Next: Max rank reached';
+        } else {
+            console.warn("'next-rank' element not found in the DOM.");
         }
 
         if (rankingProgressElement) {
@@ -1923,8 +2042,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        updateCoinSummaryFromWallet(categories);
-
         // === Medals Calculation ===
         const medalsEarned = [];
         const activityYears = Array.from(new Set(activities
@@ -2041,12 +2158,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + (medal.count || 0), 0);
+        const medalSummary = {
+            count: totalMedalCount,
+            value: totalMedalCount * MEDAL_DOLLAR_VALUE
+        };
+
+        updateCoinSummaryFromWallet(categories, medalSummary);
+
         // === Update Achievement Wallet ===
         if (achievementWallet) {
             achievementWallet.innerHTML = '';
 
             const table = document.createElement('table');
-            table.className = 'w-full min-w-[24rem] border-separate border-spacing-y-2 text-sm';
+            table.className = 'w-full text-xs sm:text-sm border-separate border-spacing-y-1';
 
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
@@ -2109,7 +2234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 labelCell.scope = 'row';
                 labelCell.className = 'px-3 py-2 text-center align-middle';
                 const labelWrapper = document.createElement('div');
-                labelWrapper.className = 'flex flex-col items-center gap-1 rounded-lg bg-gray-100 px-3 py-2 text-center font-semibold text-gray-700 dark:bg-gray-700/70 dark:text-gray-100';
+                labelWrapper.className = 'flex flex-col items-center gap-1 px-2 py-1 text-center font-semibold text-gray-700 dark:text-gray-200';
                 labelWrapper.innerHTML = `<span class="text-xl leading-none">${rowConfig.icon}</span><span class="text-sm">${rowConfig.label}</span>`;
                 const rowTooltip = rowTotal > 0
                     ? `${rowConfig.label} minted ${rowTotal} coin${rowTotal === 1 ? '' : 's'} across the wallet.`
@@ -2122,12 +2247,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const cell = document.createElement('td');
                     cell.className = 'px-2 py-2 text-center align-middle';
                     const cellWrapper = document.createElement('div');
-                    cellWrapper.className = 'flex min-w-[4.5rem] flex-col items-center gap-1 rounded-lg bg-gray-50 px-2.5 py-2 text-base font-semibold text-gray-800 shadow-sm dark:bg-gray-800/80 dark:text-gray-100';
+                    cellWrapper.className = 'flex min-w-[3.75rem] flex-col items-center gap-0.5 px-1.5 py-1 text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-100';
                     const countValue = countsByEmoji[emoji].toLocaleString();
-                    const description = COIN_SHORT_DESCRIPTIONS[emoji] || '—';
+                    const description = (COIN_CELL_DESCRIPTIONS[rowConfig.label] || {})[emoji] || '—';
                     cellWrapper.innerHTML = `
                         <span class="leading-none">${countValue}</span>
-                        <span class="text-[10px] font-medium text-gray-500 dark:text-gray-300">${description}</span>
+                        <span class="text-[10px] sm:text-[11px] font-medium text-gray-500 dark:text-gray-300">${description}</span>
                     `;
 
                     const tooltipDetails = detailsByEmoji[emoji];
@@ -2322,20 +2447,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const selectedYear = yearSelect ? yearSelect.value : 'all';
-        const startDateValue = (startDatePicker && startDatePicker.selectedDates.length > 0)
-            ? new Date(startDatePicker.selectedDates[0])
-            : null;
-        const endDateValue = (endDatePicker && endDatePicker.selectedDates.length > 0)
-            ? new Date(endDatePicker.selectedDates[0])
-            : null;
-
-        const startDate = startDateValue ? new Date(startDateValue.setHours(0, 0, 0, 0)) : null;
-        const endDate = endDateValue ? new Date(endDateValue.setHours(23, 59, 59, 999)) : null;
-
-        if (startDate && endDate && startDate > endDate) {
-            alert('Start Date cannot be after End Date.');
-            return;
-        }
 
         const filteredActivities = allData.activities.filter(activity => {
             const activityDate = new Date(activity.start_date);
@@ -2343,12 +2454,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return false;
             }
             if (selectedYear && selectedYear !== 'all' && activityDate.getFullYear().toString() !== selectedYear) {
-                return false;
-            }
-            if (startDate && activityDate < startDate) {
-                return false;
-            }
-            if (endDate && activityDate > endDate) {
                 return false;
             }
             return true;
@@ -2383,63 +2488,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    if (filterButton) {
-        filterButton.addEventListener('click', () => {
-            applyFilters();
-        });
-    } else {
-        console.warn("'filter-button' element not found in the DOM.");
-    }
-
-    if (resetButton) {
-        resetButton.addEventListener('click', () => {
-            if (startDatePicker) {
-                startDatePicker.clear();
-            }
-            if (endDatePicker) {
-                endDatePicker.clear();
-            }
-            if (yearSelect) {
-                yearSelect.value = 'all';
-            }
-            applyFilters();
-        });
-    } else {
-        console.warn("'reset-button' element not found in the DOM.");
-    }
-
     if (yearSelect) {
         yearSelect.addEventListener('change', () => {
-            if (yearSelect.value !== 'all') {
-                const year = parseInt(yearSelect.value, 10);
-                if (!Number.isNaN(year)) {
-                    const startOfYear = new Date(year, 0, 1);
-                    const endOfYear = new Date(year, 11, 31);
-                    if (startDatePicker) {
-                        startDatePicker.setDate(startOfYear, false);
-                    }
-                    if (endDatePicker) {
-                        endDatePicker.setDate(endOfYear, false);
-                    }
-                }
-            } else {
-                if (startDatePicker) {
-                    startDatePicker.clear();
-                }
-                if (endDatePicker) {
-                    endDatePicker.clear();
-                }
-            }
             applyFilters();
         });
-    }
-
-    if (startDatePicker) {
-        startDatePicker.config.onChange.push(() => applyFilters());
-    }
-
-    if (endDatePicker) {
-        endDatePicker.config.onChange.push(() => applyFilters());
     }
 
     if (loadMoreButton) {

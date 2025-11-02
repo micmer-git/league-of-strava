@@ -169,13 +169,13 @@
                 </div>
             </div>
 
-            <!-- Coins Section -->
-            <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-xl font-bold">Your Coins</h3>
-                    <div class="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-300">Total haul: <span id="coin-total-value">$0.00M</span></div>
-                </div>
-                <div class="flex gap-2 overflow-x-auto pb-1" id="coin-summary">
+        <!-- Coins Section -->
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xl font-bold">Your Coins</h3>
+                <div class="text-sm sm:text-base font-semibold text-emerald-600 dark:text-emerald-300">Total haul: <span id="coin-total-value">$0.00M</span></div>
+            </div>
+            <div class="flex gap-2 overflow-x-auto pb-1" id="coin-summary">
                     <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                         <span class="text-2xl sm:text-3xl leading-none">💲</span>
                         <span id="coin-dollar" class="text-sm sm:text-base font-bold text-green-700 dark:text-green-300">0</span>
@@ -197,6 +197,36 @@
                         <span id="coin-king" class="text-sm sm:text-base font-bold text-red-700 dark:text-red-300">0</span>
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Medal & Treasure Insights -->
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-3xl p-6 md:p-8 mb-8">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <h3 class="text-2xl font-bold tracking-tight">Medal Treasury</h3>
+                    <p id="chart-subtitle" class="text-sm text-slate-500 dark:text-slate-300 mt-1">Chart will appear once we crunch your activities.</p>
+                </div>
+                <div class="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-700/60 p-1" role="group" aria-label="Medal and dollar chart mode">
+                    <button type="button" data-chart-mode="medals" class="chart-mode-btn px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-full text-slate-600 dark:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Medals</button>
+                    <button type="button" data-chart-mode="dollars" class="chart-mode-btn px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-full text-slate-600 dark:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">Cumulative $</button>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <div id="yearly-insights-slider" class="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory" aria-label="Yearly medal highlights">
+                    <!-- Yearly highlight chips will be rendered here -->
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <div class="relative w-full h-64 sm:h-72">
+                    <canvas id="medal-dollar-chart" class="absolute inset-0"></canvas>
+                </div>
+            </div>
+
+            <div id="special-medal-strip" class="mt-6 flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory" aria-label="Special medals">
+                <!-- Special medals will be injected here -->
             </div>
         </div>
 

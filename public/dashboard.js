@@ -695,26 +695,74 @@ document.addEventListener('DOMContentLoaded', async () => {
         return currencyFormatter.format(value);
     };
 
-    const computeDividendRate = (hours) => {
+    let activeRankConfig = null;
+
+    const DIVIDEND_RATE_ANCHORS = [
+        { hours: 0, rate: 0 },
+        { hours: 100, rate: 0.0005 },
+        { hours: 1000, rate: 0.005 },
+        { hours: 10000, rate: 0.01 },
+        { hours: 20000, rate: 0.01 }
+    ];
+
+    const getRateForHours = (hours) => {
         if (!Number.isFinite(hours) || hours <= 0) {
             return 0;
         }
 
-        const minHours = 100;
-        const maxHours = 10000;
-        const minRate = 0.0005;
-        const maxRate = 0.01;
+        const clampedHours = Math.min(
+            Math.max(hours, DIVIDEND_RATE_ANCHORS[0].hours),
+            DIVIDEND_RATE_ANCHORS[DIVIDEND_RATE_ANCHORS.length - 1].hours
+        );
 
-        if (hours <= minHours) {
-            return (hours / minHours) * minRate;
+        for (let index = DIVIDEND_RATE_ANCHORS.length - 1; index >= 0; index--) {
+            const lowerTier = DIVIDEND_RATE_ANCHORS[index];
+            if (clampedHours >= lowerTier.hours) {
+                const upperTier = DIVIDEND_RATE_ANCHORS[index + 1];
+                if (!upperTier) {
+                    return lowerTier.rate;
+                }
+
+                const span = Math.max(upperTier.hours - lowerTier.hours, 1);
+                const progress = (clampedHours - lowerTier.hours) / span;
+                return lowerTier.rate + (upperTier.rate - lowerTier.rate) * progress;
+            }
         }
 
-        if (hours >= maxHours) {
-            return maxRate;
+        return 0;
+    };
+
+    const computeDividendRate = (hours, ranks) => {
+        if (!Number.isFinite(hours) || hours <= 0) {
+            return 0;
         }
 
-        const slope = (maxRate - minRate) / (maxHours - minHours);
-        return minRate + (hours - minHours) * slope;
+        const availableRanks = Array.isArray(ranks) && ranks.length > 0
+            ? ranks
+            : (Array.isArray(activeRankConfig) && activeRankConfig.length > 0 ? activeRankConfig : null);
+        if (!availableRanks) {
+            return getRateForHours(hours);
+        }
+
+        let currentRank = availableRanks[0];
+        let nextRank = null;
+
+        for (let index = availableRanks.length - 1; index >= 0; index--) {
+            if (hours >= availableRanks[index].minHours) {
+                currentRank = availableRanks[index];
+                nextRank = availableRanks[index + 1] || null;
+                break;
+            }
+        }
+
+        const currentRate = getRateForHours(currentRank.minHours || 0);
+        const nextRate = nextRank ? getRateForHours(nextRank.minHours) : currentRate;
+        const rankSpan = nextRank ? Math.max(nextRank.minHours - currentRank.minHours, 1) : 1;
+        const progress = nextRank
+            ? Math.min(Math.max((hours - currentRank.minHours) / rankSpan, 0), 1)
+            : 1;
+
+        return currentRate + (nextRate - currentRate) * progress;
     };
 
     const getISOWeekInfo = (inputDate) => {
@@ -1964,6 +2012,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         ...baseRanks,
         ...masterPrestigeRanks
     ];
+
+    activeRankConfig = rankConfig;
 
     // === Coin Configuration ===
     const coinConfig = {

@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         '👑': 10000
     };
     const MEDAL_DOLLAR_VALUE = 5000;
+    const SPECIAL_MEDAL_VALUE = 100000;
+    const MILLION_DOLLAR_THRESHOLD = 1_000_000;
+    const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const COIN_CELL_DESCRIPTIONS = {
@@ -66,6 +69,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
     const coinTotalValueElement = document.getElementById('coin-total-value');
+    const medalDollarChartCanvas = document.getElementById('medal-dollar-chart');
+    const chartSubtitleElement = document.getElementById('chart-subtitle');
+    const chartModeButtons = document.querySelectorAll('.chart-mode-btn');
+    const yearlyInsightsSlider = document.getElementById('yearly-insights-slider');
+    const specialMedalStrip = document.getElementById('special-medal-strip');
     const achievementWallet = document.getElementById('achievement-wallet');
     const medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
@@ -93,6 +101,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
+
+    let medalDollarChartInstance = null;
+    let medalDollarChartMode = 'medals';
+    let medalDollarInsightsCache = null;
 
     let tooltipHideTimeout = null;
     let spinnerHideTimeout = null;
@@ -664,6 +676,797 @@ document.addEventListener('DOMContentLoaded', async () => {
             return acc;
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
     };
+
+    const formatCompactCurrency = (value) => {
+        if (!Number.isFinite(value)) {
+            return '$0';
+        }
+
+        const absValue = Math.abs(value);
+        if (absValue >= 1_000_000_000) {
+            return `$${(value / 1_000_000_000).toFixed(1)}B`;
+        }
+        if (absValue >= 1_000_000) {
+            return `$${(value / 1_000_000).toFixed(1)}M`;
+        }
+        if (absValue >= 1_000) {
+            return `$${(value / 1_000).toFixed(0)}k`;
+        }
+        return currencyFormatter.format(value);
+    };
+
+    const computeDividendRate = (hours) => {
+        if (!Number.isFinite(hours) || hours <= 0) {
+            return 0;
+        }
+
+        const minHours = 100;
+        const maxHours = 10000;
+        const minRate = 0.0005;
+        const maxRate = 0.01;
+
+        if (hours <= minHours) {
+            return (hours / minHours) * minRate;
+        }
+
+        if (hours >= maxHours) {
+            return maxRate;
+        }
+
+        const slope = (maxRate - minRate) / (maxHours - minHours);
+        return minRate + (hours - minHours) * slope;
+    };
+
+    const getISOWeekInfo = (inputDate) => {
+        if (!(inputDate instanceof Date) || Number.isNaN(inputDate.getTime())) {
+            return null;
+        }
+
+        const date = new Date(inputDate);
+        date.setHours(0, 0, 0, 0);
+
+        const dayNumber = (date.getDay() + 6) % 7; // 0 = Monday
+        const monday = new Date(date);
+        monday.setDate(date.getDate() - dayNumber);
+
+        const thursday = new Date(monday);
+        thursday.setDate(monday.getDate() + 3);
+
+        const firstThursday = new Date(thursday.getFullYear(), 0, 4);
+        const firstThursdayDayNumber = (firstThursday.getDay() + 6) % 7;
+        firstThursday.setDate(firstThursday.getDate() - firstThursdayDayNumber + 3);
+
+        const weekNumber = 1 + Math.round((thursday - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+        const weekYear = thursday.getFullYear();
+
+        const weekStart = new Date(monday);
+        weekStart.setHours(0, 0, 0, 0);
+
+        return {
+            key: `${weekYear}-W${String(weekNumber).padStart(2, '0')}`,
+            year: weekYear,
+            week: weekNumber,
+            startDate: weekStart
+        };
+    };
+
+    const ensureYearRecord = (map, year) => {
+        if (!map.has(year)) {
+            map.set(year, {
+                year,
+                medalCount: 0,
+                specialMedalCount: 0,
+                coinValue: 0,
+                activityDollarValue: 0,
+                specialDollarValue: 0,
+                totalHours: 0,
+                activityCount: 0,
+                events: []
+            });
+        }
+        return map.get(year);
+    };
+
+    const ensureMonthRecord = (map, year, monthIndex) => {
+        const key = `${year}-${monthIndex}`;
+        if (!map.has(key)) {
+            map.set(key, {
+                year,
+                monthIndex,
+                label: MONTH_LABELS[monthIndex] || `M${monthIndex + 1}`,
+                medalCount: 0,
+                specialMedalCount: 0,
+                activityDollarValue: 0,
+                specialDollarValue: 0,
+                totalHours: 0,
+                events: []
+            });
+        }
+        return map.get(key);
+    };
+
+    const aggregateMedalDollarInsights = (activities = []) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return {
+                yearly: [],
+                monthsByYear: new Map(),
+                specialEvents: [],
+                specialEventsByYear: new Map(),
+                yearLookup: new Map(),
+                totals: {
+                    medals: 0,
+                    specialMedals: 0,
+                    treasure: 0,
+                    treasureWithDividend: 0
+                }
+            };
+        }
+
+        const parsedActivities = activities
+            .map(activity => {
+                const date = new Date(activity.start_date);
+                if (Number.isNaN(date.getTime())) {
+                    return null;
+                }
+                return { activity, date };
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.date - b.date);
+
+        if (parsedActivities.length === 0) {
+            return {
+                yearly: [],
+                monthsByYear: new Map(),
+                specialEvents: [],
+                specialEventsByYear: new Map(),
+                yearLookup: new Map(),
+                totals: {
+                    medals: 0,
+                    specialMedals: 0,
+                    treasure: 0,
+                    treasureWithDividend: 0
+                }
+            };
+        }
+
+        const yearMap = new Map();
+        const monthMap = new Map();
+        const specialEvents = [];
+        const specialEventsByYear = new Map();
+        const specialEventFlags = new Set();
+
+        const weeklyRideDistance = new Map();
+        const weeklyRunDistance = new Map();
+
+        const activityMilestones = [
+            { id: 'activities-1000', threshold: 1000, name: '1K Activities', emoji: '🎯', description: 'Completed 1,000 logged activities.' },
+            { id: 'activities-2000', threshold: 2000, name: '2K Activities', emoji: '🥈', description: 'Completed 2,000 logged activities.' },
+            { id: 'activities-5000', threshold: 5000, name: '5K Activities', emoji: '🥇', description: 'Completed 5,000 logged activities.' },
+            { id: 'activities-10000', threshold: 10000, name: '10K Activities', emoji: '🏆', description: 'Completed 10,000 logged activities.' }
+        ];
+
+        const seenYearsInOrder = [];
+
+        let cumulativeBaseWithoutSpecial = 0;
+        let totalActivities = 0;
+
+        const registerSpecialEvent = (event) => {
+            if (!event || !event.id || specialEventFlags.has(event.id)) {
+                return;
+            }
+
+            const providedDate = event.date instanceof Date ? event.date : null;
+            const safeDate = providedDate && !Number.isNaN(providedDate.getTime())
+                ? new Date(providedDate)
+                : new Date(event.year || new Date().getFullYear(), event.month ?? 0, 1);
+            safeDate.setHours(0, 0, 0, 0);
+
+            const eventYear = event.year ?? safeDate.getFullYear();
+            const eventMonth = event.month ?? safeDate.getMonth();
+
+            const yearRecord = ensureYearRecord(yearMap, eventYear);
+            yearRecord.specialMedalCount += 1;
+            yearRecord.specialDollarValue += SPECIAL_MEDAL_VALUE;
+            yearRecord.events.push(event);
+
+            const monthRecord = ensureMonthRecord(monthMap, eventYear, eventMonth);
+            monthRecord.specialMedalCount += 1;
+            monthRecord.specialDollarValue += SPECIAL_MEDAL_VALUE;
+            monthRecord.events.push(event);
+
+            const eventWithMeta = {
+                id: event.id,
+                name: event.name,
+                emoji: event.emoji,
+                description: event.description,
+                value: SPECIAL_MEDAL_VALUE,
+                date: safeDate,
+                year: eventYear,
+                month: eventMonth,
+                dateLabel: safeDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+            };
+
+            specialEventFlags.add(event.id);
+            specialEvents.push(eventWithMeta);
+
+            const listForYear = specialEventsByYear.get(eventYear) || [];
+            listForYear.push(eventWithMeta);
+            specialEventsByYear.set(eventYear, listForYear);
+        };
+
+        parsedActivities.forEach(({ activity, date }) => {
+            const year = date.getFullYear();
+            const monthIndex = date.getMonth();
+            const type = (activity.type || '').toUpperCase();
+
+            if (!seenYearsInOrder.includes(year)) {
+                seenYearsInOrder.push(year);
+                if (seenYearsInOrder.length === 5 && !specialEventFlags.has('years-5')) {
+                    registerSpecialEvent({
+                        id: 'years-5',
+                        name: '5-Year Streak',
+                        emoji: '🗓️',
+                        description: 'Logged activities in five different calendar years.',
+                        date: new Date(year, 0, 1)
+                    });
+                }
+                if (seenYearsInOrder.length === 10 && !specialEventFlags.has('years-10')) {
+                    registerSpecialEvent({
+                        id: 'years-10',
+                        name: 'Decade Club',
+                        emoji: '⏳',
+                        description: 'Logged activities across a decade of seasons.',
+                        date: new Date(year, 0, 1)
+                    });
+                }
+            }
+
+            const stats = computeActivitySmallStats(activity);
+            const medals = getActivityMedals(activity);
+            const medalCount = medals.length;
+            const coinRewards = getActivityCoinRewards(activity, stats);
+            const coinValue = coinRewards.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
+            const medalValue = medalCount * MEDAL_DOLLAR_VALUE;
+            const baseDollarValue = coinValue + medalValue;
+            const hours = Number.isFinite(activity.moving_time) ? (activity.moving_time / 3600) : 0;
+
+            totalActivities += 1;
+            cumulativeBaseWithoutSpecial += baseDollarValue;
+
+            const yearRecord = ensureYearRecord(yearMap, year);
+            yearRecord.medalCount += medalCount;
+            yearRecord.coinValue += coinValue;
+            yearRecord.activityDollarValue += baseDollarValue;
+            yearRecord.totalHours += hours;
+            yearRecord.activityCount += 1;
+
+            const monthRecord = ensureMonthRecord(monthMap, year, monthIndex);
+            monthRecord.medalCount += medalCount;
+            monthRecord.activityDollarValue += baseDollarValue;
+            monthRecord.totalHours += hours;
+
+            if (!specialEventFlags.has('million-dollar') && cumulativeBaseWithoutSpecial >= MILLION_DOLLAR_THRESHOLD) {
+                registerSpecialEvent({
+                    id: 'million-dollar',
+                    name: 'Millionaire Medal',
+                    emoji: '🏦',
+                    description: 'Cumulative treasure from medals and coins surpassed $1M.',
+                    date
+                });
+            }
+
+            activityMilestones.forEach(milestone => {
+                if (!specialEventFlags.has(milestone.id) && totalActivities >= milestone.threshold) {
+                    registerSpecialEvent({
+                        id: milestone.id,
+                        name: milestone.name,
+                        emoji: milestone.emoji,
+                        description: milestone.description,
+                        date
+                    });
+                }
+            });
+
+            if (!specialEventFlags.has('everesting') && stats.elevationGain >= EVEREST_HEIGHT_M) {
+                registerSpecialEvent({
+                    id: 'everesting',
+                    name: 'Everesting Medal',
+                    emoji: '🧗',
+                    description: 'Scaled the height of Everest in a single activity.',
+                    date
+                });
+            }
+
+            if (!specialEventFlags.has('ten-hour-activity') && hours >= 10) {
+                registerSpecialEvent({
+                    id: 'ten-hour-activity',
+                    name: '10-Hour Epic',
+                    emoji: '⏱️',
+                    description: 'Completed an activity that lasted at least ten hours.',
+                    date
+                });
+            }
+
+            if (!specialEventFlags.has('run-100k') && type === 'RUN' && stats.distanceKm >= 100) {
+                registerSpecialEvent({
+                    id: 'run-100k',
+                    name: '100K Run Medal',
+                    emoji: '🏃',
+                    description: 'Logged a single run of 100 km or more.',
+                    date
+                });
+            }
+
+            if (!specialEventFlags.has('swim-10k') && type === 'SWIM' && stats.distanceKm >= 10) {
+                registerSpecialEvent({
+                    id: 'swim-10k',
+                    name: '10K Swim Medal',
+                    emoji: '🏊',
+                    description: 'Completed a 10 km swim session.',
+                    date
+                });
+            }
+
+            const weekInfo = getISOWeekInfo(date);
+            if (weekInfo) {
+                if (type === 'RIDE') {
+                    const rideEntry = weeklyRideDistance.get(weekInfo.key) || { distanceKm: 0, startDate: weekInfo.startDate };
+                    rideEntry.distanceKm += stats.distanceKm;
+                    rideEntry.startDate = weekInfo.startDate;
+                    weeklyRideDistance.set(weekInfo.key, rideEntry);
+
+                    if (!specialEventFlags.has('ride-2000-week') && rideEntry.distanceKm >= 2000) {
+                        registerSpecialEvent({
+                            id: 'ride-2000-week',
+                            name: '2000 km Ride Week',
+                            emoji: '🚴',
+                            description: 'Covered 2,000 km of riding inside a single ISO week.',
+                            date: rideEntry.startDate
+                        });
+                    }
+                }
+
+                if (type === 'RUN') {
+                    const runEntry = weeklyRunDistance.get(weekInfo.key) || { distanceKm: 0, startDate: weekInfo.startDate };
+                    runEntry.distanceKm += stats.distanceKm;
+                    runEntry.startDate = weekInfo.startDate;
+                    weeklyRunDistance.set(weekInfo.key, runEntry);
+                }
+            }
+        });
+
+        if (!specialEventFlags.has('run-100k-streak')) {
+            const sortedRunWeeks = Array.from(weeklyRunDistance.values()).sort((a, b) => a.startDate - b.startDate);
+            let streak = 0;
+            let previousWeekStart = null;
+
+            sortedRunWeeks.forEach(entry => {
+                if (entry.distanceKm >= 100) {
+                    if (previousWeekStart) {
+                        const diffWeeks = Math.round((entry.startDate - previousWeekStart) / (7 * 24 * 60 * 60 * 1000));
+                        streak = diffWeeks === 1 ? streak + 1 : 1;
+                    } else {
+                        streak = 1;
+                    }
+
+                    if (streak >= 4 && !specialEventFlags.has('run-100k-streak')) {
+                        registerSpecialEvent({
+                            id: 'run-100k-streak',
+                            name: '4-Week Run Furnace',
+                            emoji: '🔥',
+                            description: 'Hit 100 km of running for four consecutive weeks.',
+                            date: entry.startDate
+                        });
+                    }
+                } else {
+                    streak = 0;
+                }
+                previousWeekStart = entry.startDate;
+            });
+        }
+
+        specialEvents.sort((a, b) => a.date - b.date);
+        specialEventsByYear.forEach(list => list.sort((a, b) => a.date - b.date));
+
+        const yearly = Array.from(yearMap.values()).sort((a, b) => a.year - b.year);
+        const yearLookup = new Map();
+
+        let cumulativeBase = 0;
+        let cumulativeWithDividend = 0;
+        let cumulativeHours = 0;
+
+        yearly.forEach(yearRecord => {
+            yearRecord.totalDollarValue = yearRecord.activityDollarValue + yearRecord.specialDollarValue;
+            yearRecord.totalMedalCount = yearRecord.medalCount + yearRecord.specialMedalCount;
+
+            yearRecord.cumulativeBaseBefore = cumulativeBase;
+            yearRecord.cumulativeWithDividendBefore = cumulativeWithDividend;
+            yearRecord.cumulativeHoursBefore = cumulativeHours;
+
+            cumulativeBase += yearRecord.totalDollarValue;
+            cumulativeHours += yearRecord.totalHours;
+
+            const dividendRate = computeDividendRate(cumulativeHours);
+            const dividendBonus = cumulativeWithDividend * dividendRate;
+            const totalWithDividend = yearRecord.totalDollarValue + dividendBonus;
+
+            cumulativeWithDividend += totalWithDividend;
+
+            yearRecord.dividendRate = dividendRate;
+            yearRecord.dividendBonus = dividendBonus;
+            yearRecord.totalWithDividend = totalWithDividend;
+            yearRecord.cumulativeWithDividend = cumulativeWithDividend;
+            yearRecord.cumulativeBase = cumulativeBase;
+            yearRecord.cumulativeHours = cumulativeHours;
+
+            yearLookup.set(yearRecord.year, yearRecord);
+        });
+
+        const monthsByYear = new Map();
+        yearly.forEach(yearRecord => {
+            const months = MONTH_LABELS.map((label, index) => {
+                const monthRecord = ensureMonthRecord(monthMap, yearRecord.year, index);
+                return {
+                    year: yearRecord.year,
+                    monthIndex: index,
+                    label,
+                    medalCount: monthRecord.medalCount,
+                    specialMedalCount: monthRecord.specialMedalCount,
+                    activityDollarValue: monthRecord.activityDollarValue,
+                    specialDollarValue: monthRecord.specialDollarValue,
+                    totalHours: monthRecord.totalHours,
+                    events: monthRecord.events.slice()
+                };
+            });
+            monthsByYear.set(yearRecord.year, months);
+        });
+
+        const totals = {
+            medals: yearly.reduce((sum, year) => sum + (year.totalMedalCount || 0), 0),
+            specialMedals: specialEvents.length,
+            treasure: cumulativeBase,
+            treasureWithDividend: cumulativeWithDividend
+        };
+
+        return {
+            yearly,
+            monthsByYear,
+            specialEvents,
+            specialEventsByYear,
+            yearLookup,
+            totals
+        };
+    };
+
+    const renderYearlyInsightsSlider = (insights, selectedYear = 'all') => {
+        if (!yearlyInsightsSlider) {
+            return;
+        }
+
+        yearlyInsightsSlider.innerHTML = '';
+
+        if (!insights || !Array.isArray(insights.yearly) || insights.yearly.length === 0) {
+            const placeholder = document.createElement('p');
+            placeholder.className = 'text-sm text-slate-500 dark:text-slate-300';
+            placeholder.textContent = 'Log a few activities to unlock your medal treasury insights.';
+            yearlyInsightsSlider.appendChild(placeholder);
+            return;
+        }
+
+        const totalMedals = insights.yearly.reduce((sum, year) => sum + (year.totalMedalCount || 0), 0);
+        const totalTreasure = insights.yearly[insights.yearly.length - 1]?.cumulativeWithDividend || 0;
+
+        const createCard = ({ key, label, subtitle, value, hint, active }) => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'snap-center shrink-0 rounded-2xl px-4 py-3 text-left shadow-sm transition transform bg-slate-50 dark:bg-slate-700/60 text-slate-700 dark:text-slate-100 min-w-[9.5rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+            if (active) {
+                card.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50', 'dark:bg-blue-900/40', 'dark:ring-blue-400');
+            }
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'text-sm font-semibold tracking-tight';
+            titleEl.textContent = label;
+            card.appendChild(titleEl);
+
+            if (subtitle) {
+                const subtitleEl = document.createElement('div');
+                subtitleEl.className = 'mt-1 text-xs text-slate-500 dark:text-slate-300';
+                subtitleEl.textContent = subtitle;
+                card.appendChild(subtitleEl);
+            }
+
+            const valueEl = document.createElement('div');
+            valueEl.className = 'mt-2 text-lg font-bold text-slate-900 dark:text-white';
+            valueEl.textContent = value;
+            card.appendChild(valueEl);
+
+            if (hint) {
+                const hintEl = document.createElement('div');
+                hintEl.className = 'mt-1 text-[11px] text-slate-400 dark:text-slate-300';
+                hintEl.textContent = hint;
+                card.appendChild(hintEl);
+            }
+
+            card.addEventListener('click', () => {
+                if (!yearSelect) {
+                    return;
+                }
+                if (key === 'all') {
+                    yearSelect.value = 'all';
+                } else {
+                    yearSelect.value = String(key);
+                }
+                applyFilters();
+            });
+
+            yearlyInsightsSlider.appendChild(card);
+        };
+
+        createCard({
+            key: 'all',
+            label: 'All Years',
+            subtitle: `${totalMedals.toLocaleString()} medals`,
+            value: formatMillions(totalTreasure),
+            hint: 'Lifetime treasury',
+            active: selectedYear === 'all'
+        });
+
+        insights.yearly.forEach(yearRecord => {
+            const yearKey = yearRecord.year;
+            const medalSubtitle = `${(yearRecord.totalMedalCount || 0).toLocaleString()} medals`;
+            const cumulativeValue = formatMillions(yearRecord.cumulativeWithDividend || 0);
+            const yearBonus = formatCompactCurrency(Math.round(yearRecord.totalWithDividend || 0));
+
+            createCard({
+                key: yearKey,
+                label: String(yearKey),
+                subtitle: medalSubtitle,
+                value: cumulativeValue,
+                hint: `+${yearBonus} this year`,
+                active: selectedYear === String(yearKey)
+            });
+        });
+    };
+
+    const renderSpecialMedalStrip = (insights, selectedYear = 'all') => {
+        if (!specialMedalStrip) {
+            return;
+        }
+
+        specialMedalStrip.innerHTML = '';
+
+        if (!insights) {
+            return;
+        }
+
+        const yearKey = selectedYear === 'all' ? null : Number.parseInt(selectedYear, 10);
+        const events = selectedYear === 'all'
+            ? insights.specialEvents
+            : (insights.specialEventsByYear.get(yearKey) || []);
+
+        if (!events || events.length === 0) {
+            const placeholder = document.createElement('p');
+            placeholder.className = 'text-sm text-slate-500 dark:text-slate-300';
+            placeholder.textContent = 'Special medals will appear here once unlocked. Each adds $100k to your treasury!';
+            specialMedalStrip.appendChild(placeholder);
+            return;
+        }
+
+        events.forEach(event => {
+            const pill = document.createElement('button');
+            pill.type = 'button';
+            pill.className = 'tooltip-target shrink-0 snap-center inline-flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-900/40 px-3 py-2 text-sm font-semibold text-amber-700 dark:text-amber-200 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400';
+            pill.innerHTML = `
+                <span class="text-base leading-none">${event.emoji}</span>
+                <span class="leading-tight">${event.name}</span>
+            `;
+            const tooltipLines = [event.description];
+            if (event.dateLabel) {
+                tooltipLines.push(`Awarded: ${event.dateLabel}`);
+            }
+            tooltipLines.push(`Adds ${currencyFormatter.format(SPECIAL_MEDAL_VALUE)} to your balance.`);
+            attachTooltip(pill, tooltipLines.join('\n'));
+            specialMedalStrip.appendChild(pill);
+        });
+    };
+
+    const ensureMedalDollarChart = () => {
+        if (!medalDollarChartCanvas || typeof Chart === 'undefined') {
+            return null;
+        }
+
+        if (!medalDollarChartInstance) {
+            const context = medalDollarChartCanvas.getContext('2d');
+            medalDollarChartInstance = new Chart(context, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 500 },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', maxRotation: 0 }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(148, 163, 184, 0.18)' },
+                            ticks: { color: '#64748b' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {}
+                    }
+                }
+            });
+        }
+
+        return medalDollarChartInstance;
+    };
+
+    const setChartMode = (mode, options = {}) => {
+        const resolvedMode = mode === 'dollars' ? 'dollars' : 'medals';
+        medalDollarChartMode = resolvedMode;
+
+        chartModeButtons.forEach(button => {
+            const isActive = button.dataset.chartMode === resolvedMode;
+            button.classList.toggle('bg-blue-600', isActive);
+            button.classList.toggle('text-white', isActive);
+            button.classList.toggle('shadow', isActive);
+            if (!isActive) {
+                button.classList.add('text-slate-600', 'dark:text-slate-200');
+            } else {
+                button.classList.remove('text-slate-600', 'dark:text-slate-200');
+            }
+        });
+
+        if (!options.skipUpdate && medalDollarInsightsCache) {
+            const selectedYear = yearSelect ? yearSelect.value : 'all';
+            updateMedalDollarChart(medalDollarInsightsCache, selectedYear);
+        }
+    };
+
+    const updateMedalDollarChart = (insights, selectedYear = 'all') => {
+        const chart = ensureMedalDollarChart();
+        if (!chart) {
+            return;
+        }
+
+        if (!insights || !Array.isArray(insights.yearly) || insights.yearly.length === 0) {
+            chart.data.labels = [];
+            chart.data.datasets = [];
+            chart.update();
+            if (chartSubtitleElement) {
+                chartSubtitleElement.textContent = 'Chart will appear once we crunch your activities.';
+            }
+            return;
+        }
+
+        let labels = [];
+        let dataPoints = [];
+        let datasetConfig = {};
+        let subtitleText = '';
+
+        if (selectedYear === 'all') {
+            labels = insights.yearly.map(year => String(year.year));
+            if (medalDollarChartMode === 'medals') {
+                dataPoints = insights.yearly.map(year => year.totalMedalCount || 0);
+                datasetConfig = {
+                    type: 'bar',
+                    backgroundColor: 'rgba(249, 115, 22, 0.75)',
+                    borderRadius: 12,
+                    maxBarThickness: 42
+                };
+                subtitleText = 'Total medals minted per year (including special awards).';
+            } else {
+                dataPoints = insights.yearly.map(year => Math.round(year.cumulativeWithDividend));
+                datasetConfig = {
+                    type: 'line',
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.18)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true
+                };
+                subtitleText = 'Cumulative treasure with dividend bonus applied each year.';
+            }
+        } else {
+            const numericYear = Number.parseInt(selectedYear, 10);
+            const months = insights.monthsByYear.get(numericYear) || [];
+            labels = months.map(month => month.label);
+
+            if (medalDollarChartMode === 'medals') {
+                dataPoints = months.map(month => month.medalCount + month.specialMedalCount);
+                datasetConfig = {
+                    type: 'bar',
+                    backgroundColor: 'rgba(249, 115, 22, 0.75)',
+                    borderRadius: 10,
+                    maxBarThickness: 36
+                };
+                subtitleText = `${numericYear} medals minted by month (special awards count as 1).`;
+            } else {
+                const yearRecord = insights.yearLookup.get(numericYear);
+                let runningTreasure = yearRecord ? (yearRecord.cumulativeWithDividendBefore || 0) : 0;
+                let runningHours = yearRecord ? (yearRecord.cumulativeHoursBefore || 0) : 0;
+
+                dataPoints = months.map(month => {
+                    runningHours += month.totalHours;
+                    const monthBase = month.activityDollarValue + month.specialDollarValue;
+                    const rate = computeDividendRate(runningHours);
+                    const bonus = runningTreasure * rate;
+                    const totalWithDividend = monthBase + bonus;
+                    runningTreasure += totalWithDividend;
+                    month.totalWithDividend = totalWithDividend;
+                    month.cumulativeWithDividend = runningTreasure;
+                    return Math.round(runningTreasure);
+                });
+
+                datasetConfig = {
+                    type: 'line',
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.18)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true
+                };
+                subtitleText = `${numericYear} cumulative treasure with dividend bonus.`;
+            }
+        }
+
+        chart.data.labels = labels;
+        chart.data.datasets = [{
+            label: medalDollarChartMode === 'medals' ? 'Medals' : 'Treasure',
+            data: dataPoints,
+            ...datasetConfig
+        }];
+
+        chart.options.scales.y.ticks = medalDollarChartMode === 'medals'
+            ? {
+                color: '#64748b',
+                precision: 0,
+                callback: (value) => `${value}`
+            }
+            : {
+                color: '#64748b',
+                callback: (value) => formatCompactCurrency(value)
+            };
+
+        chart.options.plugins.tooltip = chart.options.plugins.tooltip || {};
+        chart.options.plugins.tooltip.callbacks = {
+            label: (context) => medalDollarChartMode === 'medals'
+                ? `${context.parsed.y.toLocaleString()} medals`
+                : currencyFormatter.format(context.parsed.y)
+        };
+
+        chart.update();
+
+        if (chartSubtitleElement) {
+            chartSubtitleElement.textContent = subtitleText;
+        }
+    };
+
+    const renderMedalDollarInsights = (insights, selectedYear = 'all') => {
+        medalDollarInsightsCache = insights;
+        renderYearlyInsightsSlider(insights, selectedYear);
+        renderSpecialMedalStrip(insights, selectedYear);
+        updateMedalDollarChart(insights, selectedYear);
+    };
+
+    if (chartModeButtons && chartModeButtons.length > 0) {
+        setChartMode('medals', { skipUpdate: true });
+        chartModeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const mode = button.dataset.chartMode === 'dollars' ? 'dollars' : 'medals';
+                setChartMode(mode);
+            });
+        });
+    }
 
 
     const renderActivitiesList = () => {
@@ -1649,6 +2452,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const processAndDisplayData = (data, options = {}) => {
         const { preserveVisibleCount = false } = options;
         const previousVisibleCount = visibleActivitiesCount;
+        const selectedYear = yearSelect ? yearSelect.value : 'all';
 
         // === Reset Existing Displays ===
         if (achievementWallet) achievementWallet.innerHTML = '';
@@ -1815,6 +2619,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
             ? allData.activities
             : activities;
+        const medalDollarInsights = aggregateMedalDollarInsights(lifetimeActivities);
+        renderMedalDollarInsights(medalDollarInsights, selectedYear);
+        const selectedYearNumber = selectedYear === 'all'
+            ? null
+            : Number.parseInt(selectedYear, 10);
+        const scopedSpecialEvents = selectedYear === 'all'
+            ? medalDollarInsights.specialEvents
+            : (medalDollarInsights.specialEventsByYear.get(selectedYearNumber) || []);
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
 
@@ -2158,10 +2970,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + (medal.count || 0), 0);
+        scopedSpecialEvents.forEach(event => {
+            const descriptionParts = [event.description];
+            if (event.dateLabel) {
+                descriptionParts.push(`Awarded ${event.dateLabel}`);
+            }
+            descriptionParts.push(`Adds ${currencyFormatter.format(SPECIAL_MEDAL_VALUE)}`);
+
+            medalsEarned.push({
+                name: event.name,
+                emoji: event.emoji,
+                description: descriptionParts.join(' • '),
+                count: 1,
+                isDayBased: false,
+                isSpecial: true
+            });
+        });
+
+        const totalRegularMedals = medalsEarned
+            .filter(medal => !medal.isSpecial)
+            .reduce((sum, medal) => sum + (medal.count || 0), 0);
+        const totalSpecialMedals = medalsEarned
+            .filter(medal => medal.isSpecial)
+            .reduce((sum, medal) => sum + (medal.count || 0), 0);
+        const totalMedalCount = totalRegularMedals + totalSpecialMedals;
         const medalSummary = {
             count: totalMedalCount,
-            value: totalMedalCount * MEDAL_DOLLAR_VALUE
+            value: (totalRegularMedals * MEDAL_DOLLAR_VALUE) + (totalSpecialMedals * SPECIAL_MEDAL_VALUE)
         };
 
         updateCoinSummaryFromWallet(categories, medalSummary);

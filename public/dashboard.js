@@ -1426,16 +1426,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             ...datasetConfig
         }];
 
-        chart.options.scales.y.ticks = medalDollarChartMode === 'medals'
-            ? {
-                color: '#64748b',
-                precision: 0,
-                callback: (value) => `${value}`
-            }
-            : {
-                color: '#64748b',
-                callback: (value) => formatCompactCurrency(value)
-            };
+        const yScale = chart.options.scales && chart.options.scales.y
+            ? chart.options.scales.y
+            : (chart.options.scales.y = {});
+        const yTickOptions = yScale.ticks || (yScale.ticks = {});
+
+        yTickOptions.color = '#64748b';
+
+        if (medalDollarChartMode === 'medals') {
+            yTickOptions.precision = 0;
+            yTickOptions.callback = (value) => `${value}`;
+        } else {
+            yTickOptions.precision = undefined;
+            yTickOptions.callback = (value) => formatCompactCurrency(value);
+        }
 
         chart.options.plugins.tooltip = chart.options.plugins.tooltip || {};
         chart.options.plugins.tooltip.callbacks = {

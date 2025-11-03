@@ -81,6 +81,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
+    const walletSummaryElements = {
+        coinsCount: document.getElementById('wallet-summary-coins-count'),
+        coinsValue: document.getElementById('wallet-summary-coins-value'),
+        medalCount: document.getElementById('wallet-summary-medal-count'),
+        medalValue: document.getElementById('wallet-summary-medal-value'),
+        totalValue: document.getElementById('wallet-summary-total-value'),
+        totalDetail: document.getElementById('wallet-summary-total-detail')
+    };
     const achievementWallet = document.getElementById('achievement-wallet');
     const medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
@@ -337,7 +345,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isDarkMode = document.body.classList.contains('dark');
         const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
-        const legendColor = isDarkMode ? '#e2e8f0' : '#1f2937';
 
         if (availableKey === 'coins') {
             const datasets = [];
@@ -351,6 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     data: values,
                     backgroundColor: COIN_COLOR_MAP[emoji] || '#2563eb',
                     stack: 'coins',
+                    yAxisID: 'yCoins',
                     borderRadius: 6,
                     borderSkipped: false,
                     maxBarThickness: 44
@@ -366,6 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     data: entry.data,
                     backgroundColor: entry.color || getMedalColor(entry.label, { isOther: entry.isOther }),
                     stack: 'medals',
+                    yAxisID: 'yMedals',
                     borderRadius: 6,
                     borderSkipped: false,
                     maxBarThickness: 44
@@ -383,10 +392,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            labels: {
-                                color: legendColor,
-                                font: { size: 12 }
-                            }
+                            display: false
                         },
                         tooltip: {
                             callbacks: {
@@ -408,15 +414,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 color: gridColor
                             }
                         },
-                        y: {
+                        yCoins: {
                             stacked: true,
                             beginAtZero: true,
+                            type: 'linear',
+                            position: 'left',
                             ticks: {
                                 color: axisColor,
                                 precision: 0
                             },
                             grid: {
                                 color: gridColor
+                            }
+                        },
+                        yMedals: {
+                            stacked: true,
+                            beginAtZero: true,
+                            type: 'linear',
+                            position: 'right',
+                            ticks: {
+                                color: axisColor,
+                                precision: 0
+                            },
+                            grid: {
+                                color: gridColor,
+                                drawOnChartArea: false
                             }
                         }
                     }
@@ -445,10 +467,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            labels: {
-                                color: legendColor,
-                                font: { size: 12 }
-                            }
+                            display: false
                         },
                         tooltip: {
                             callbacks: {
@@ -576,32 +595,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const medalTotalsSorted = Array.from(medalTotalsAcrossYears.entries()).sort((a, b) => b[1] - a[1]);
-        const prominentMedalLabels = medalTotalsSorted.filter(([, total]) => total >= 5).map(([label]) => label);
-        const otherMedalLabels = medalTotalsSorted.filter(([, total]) => total < 5).map(([label]) => label);
 
-        const medalBreakdown = prominentMedalLabels.map(label => ({
+        const medalBreakdown = medalTotalsSorted.map(([label]) => ({
             label,
             data: sortedYears.map(year => yearlyAggregation.get(year)?.medalCounts?.get(label) ?? 0),
             color: getMedalColor(label)
         }));
-
-        if (otherMedalLabels.length > 0) {
-            const otherData = sortedYears.map(year => {
-                const medalCounts = yearlyAggregation.get(year)?.medalCounts;
-                if (!medalCounts) {
-                    return 0;
-                }
-                return otherMedalLabels.reduce((sum, label) => sum + (medalCounts.get(label) || 0), 0);
-            });
-            if (otherData.some(value => value > 0)) {
-                medalBreakdown.push({
-                    label: 'Other medals (<5)',
-                    data: otherData,
-                    color: getMedalColor('Other medals (<5)', { isOther: true }),
-                    isOther: true
-                });
-            }
-        }
 
         walletChartData.coins = {
             labels: sortedYears.map(year => String(year)),
@@ -1176,8 +1175,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        renderCoinMixChart(totals);
-
         const totalCoinValue = Object.entries(totals).reduce((sum, [emoji, count]) => {
             const coinValue = COIN_VALUE_MAP[emoji] || 0;
             return sum + (coinValue * count);
@@ -1186,6 +1183,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalValue = Number.isFinite(medalSummary?.value) ? medalSummary.value : 0;
         const medalCount = Number.isFinite(medalSummary?.count) ? medalSummary.count : 0;
         const combinedValue = totalCoinValue + medalValue;
+
+        const totalCoinCount = Object.values(totals).reduce((sum, count) => sum + count, 0);
+
+        if (walletSummaryElements.coinsCount) {
+            walletSummaryElements.coinsCount.textContent = totalCoinCount.toLocaleString();
+        }
+        if (walletSummaryElements.coinsValue) {
+            walletSummaryElements.coinsValue.textContent = currencyFormatter.format(totalCoinValue);
+        }
+        if (walletSummaryElements.medalCount) {
+            walletSummaryElements.medalCount.textContent = medalCount.toLocaleString();
+        }
+        if (walletSummaryElements.medalValue) {
+            walletSummaryElements.medalValue.textContent = currencyFormatter.format(medalValue);
+        }
+        if (walletSummaryElements.totalValue) {
+            walletSummaryElements.totalValue.textContent = currencyFormatter.format(combinedValue);
+        }
+        if (walletSummaryElements.totalDetail) {
+            walletSummaryElements.totalDetail.textContent = `Coins ${currencyFormatter.format(totalCoinValue)} + medals ${currencyFormatter.format(medalValue)}`;
+        }
 
         const aggregatedMedals = new Map();
         if (Array.isArray(medalBreakdown)) {
@@ -1202,22 +1220,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const medalEntries = Array.from(aggregatedMedals.entries()).sort((a, b) => b[1] - a[1]);
-        const prominentMedals = medalEntries.filter(([, count]) => count >= 5);
-        const otherMedals = medalEntries.filter(([, count]) => count < 5);
-        const medalSegments = prominentMedals.map(([label, count]) => ({
+        const medalSegments = medalEntries.map(([label, count]) => ({
             label,
             value: count,
             color: getMedalColor(label)
         }));
-        const otherTotal = otherMedals.reduce((sum, [, count]) => sum + count, 0);
-        if (otherTotal > 0) {
-            medalSegments.push({
-                label: 'Other medals (<5)',
-                value: otherTotal,
-                color: getMedalColor('Other medals (<5)', { isOther: true }),
-                isOther: true
-            });
-        }
 
         renderMedalMixChart(medalSegments);
 
@@ -1548,29 +1555,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const coinsBadge = createBadge({
                     icon: '💲',
                     valueText: currencyFormatterNoDecimals.format(totalCoinValueDollars),
-                    subtitleText: `${totalCoinsMinted.toLocaleString()} coins`,
                     tooltipText: tooltipLines.join('\n'),
                     className: 'bg-yellow-50 dark:bg-yellow-900/40 text-amber-700 dark:text-amber-200',
                     ariaLabel: `Coins minted value ${currencyFormatterNoDecimals.format(totalCoinValueDollars)}`
                 });
                 smallStatsGroup.appendChild(coinsBadge);
-
-                ['💲', '💰'].forEach(emoji => {
-                    const mintedCount = coinCounts[emoji] || 0;
-                    if (mintedCount <= 0) {
-                        return;
-                    }
-                    const mintedBadge = document.createElement('button');
-                    mintedBadge.type = 'button';
-                    mintedBadge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-sm font-semibold text-amber-700 shadow-sm dark:bg-amber-900/40 dark:text-amber-200';
-                    mintedBadge.innerHTML = `
-                        <span class="leading-none">${emoji}</span>
-                        <span class="text-xs font-bold leading-none">${mintedCount}</span>
-                    `;
-                    mintedBadge.setAttribute('aria-label', `${emoji} minted ${mintedCount}×`);
-                    attachTooltip(mintedBadge, `${emoji} minted ${mintedCount}× • ${currencyFormatter.format(mintedCount * (COIN_VALUE_MAP[emoji] || 0))}`);
-                    smallStatsGroup.appendChild(mintedBadge);
-                });
             }
 
             if (medalRewards.length > 0) {
@@ -2513,12 +2502,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             rankDetailsElement.innerHTML = '';
 
             if (hasActivities) {
-                const summary = document.createElement('div');
-                summary.textContent = nextRank
-                    ? `Next milestone ${nextRank.emoji} ${nextRank.name}`
-                    : 'Max rank achieved!';
-                rankDetailsElement.appendChild(summary);
-
                 const oldestActivityDate = activities.reduce((oldest, activity) => {
                     const activityDate = new Date(activity.start_date);
                     if (!Number.isNaN(activityDate.getTime()) && activityDate < oldest) {

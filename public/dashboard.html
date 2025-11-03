@@ -147,13 +147,35 @@
                             <span id="current-rank" class="flex items-center gap-1"></span>
                             <span id="next-rank" class="flex items-center gap-1 text-right"></span>
                         </div>
-                        <div class="relative mt-3 w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
-                            <div id="ranking-progress" class="bg-blue-600 h-3 rounded-full" style="width: 0%"></div>
-                            <div id="ranking-progress-label" class="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-slate-700 dark:text-slate-200"></div>
+                        <div class="relative mt-3 w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700">
+                            <div id="ranking-progress" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
+                            <div id="ranking-progress-label" class="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200"></div>
                         </div>
                         <div id="rank-details" class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-3"></div>
                     </div>
-                    <div class="space-y-2">
+                    <div class="space-y-3">
+                        <div id="coin-summary" class="flex flex-wrap items-center gap-2">
+                            <button type="button" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700/70 text-sm font-semibold shadow-sm">
+                                <span class="text-xl leading-none">💲</span>
+                                <span id="coin-dollar" class="text-base font-bold text-green-700 dark:text-green-300">0</span>
+                            </button>
+                            <button type="button" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700/70 text-sm font-semibold shadow-sm">
+                                <span class="text-xl leading-none">💰</span>
+                                <span id="coin-money" class="text-base font-bold text-blue-700 dark:text-blue-300">0</span>
+                            </button>
+                            <button type="button" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700/70 text-sm font-semibold shadow-sm">
+                                <span class="text-xl leading-none">🧈</span>
+                                <span id="coin-butter" class="text-base font-bold text-amber-700 dark:text-amber-300">0</span>
+                            </button>
+                            <button type="button" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700/70 text-sm font-semibold shadow-sm">
+                                <span class="text-xl leading-none">💎</span>
+                                <span id="coin-diamond" class="text-base font-bold text-purple-700 dark:text-purple-300">0</span>
+                            </button>
+                            <button type="button" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700/70 text-sm font-semibold shadow-sm">
+                                <span class="text-xl leading-none">👑</span>
+                                <span id="coin-king" class="text-base font-bold text-red-700 dark:text-red-300">0</span>
+                            </button>
+                        </div>
                         <div class="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
                             <div id="premium-achievements" class="flex flex-wrap items-center gap-1"></div>
                             <span id="level-progress" class="text-sm font-semibold text-gray-700 dark:text-gray-200"></span>
@@ -184,54 +206,24 @@
                         <h3 class="text-xl font-bold">Wallet Overview</h3>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Track your haul and how it's composed.</p>
                     </div>
-                    <div class="flex flex-col items-end text-sm text-gray-500 dark:text-gray-300 gap-1" data-wallet-balance-container>
-                        <span class="uppercase tracking-wide text-xs font-semibold">Wallet total</span>
-                        <span id="wallet-insights-total" data-wallet-balance-value class="text-lg font-bold text-gray-900 dark:text-white">$0.00M</span>
-                    </div>
                 </div>
-                <div class="grid gap-4 sm:grid-cols-2">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div class="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-slate-50/80 dark:bg-slate-800/60 p-4">
-                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Coin mix</div>
-                        <div class="relative mt-4 min-h-[160px]">
-                            <canvas id="coin-mix-chart" class="w-full h-full"></canvas>
-                            <p id="coin-mix-empty" class="hidden absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-gray-500 dark:text-gray-400">No coin data yet. Collect more coins to unlock insights.</p>
-                        </div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Coins minted</div>
+                        <p id="wallet-summary-coins-count" class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                        <p id="wallet-summary-coins-value" class="text-sm text-gray-600 dark:text-gray-300">$0</p>
                     </div>
                     <div class="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-slate-50/80 dark:bg-slate-800/60 p-4">
-                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Medal mix</div>
-                        <div class="relative mt-4 min-h-[160px]">
-                            <canvas id="medal-mix-chart" class="w-full h-full"></canvas>
-                            <p id="medal-mix-empty" class="hidden absolute inset-0 flex items-center justify-center px-3 text-center text-sm text-gray-500 dark:text-gray-400">No medal data yet. Earn more medals to fill this chart.</p>
-                        </div>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Medals collected</div>
+                        <p id="wallet-summary-medal-count" class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">0</p>
+                        <p id="wallet-summary-medal-value" class="text-sm text-gray-600 dark:text-gray-300">$0</p>
+                    </div>
+                    <div class="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-slate-50/80 dark:bg-slate-800/60 p-4 sm:col-span-2 lg:col-span-1">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Combined haul</div>
+                        <p id="wallet-summary-total-value" class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">$0</p>
+                        <p id="wallet-summary-total-detail" class="text-sm text-gray-600 dark:text-gray-300">Includes medal valuations.</p>
                     </div>
                 </div>
-                <div>
-                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Coin counts</div>
-                    <div class="flex gap-2 overflow-x-auto pb-1" id="coin-summary">
-                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                        <span class="text-2xl sm:text-3xl leading-none">💲</span>
-                        <span id="coin-dollar" class="text-sm sm:text-base font-bold text-green-700 dark:text-green-300">0</span>
-                    </button>
-                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                        <span class="text-2xl sm:text-3xl leading-none">💰</span>
-                        <span id="coin-money" class="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-300">0</span>
-                    </button>
-                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                        <span class="text-2xl sm:text-3xl leading-none">🧈</span>
-                        <span id="coin-butter" class="text-sm sm:text-base font-bold text-amber-700 dark:text-amber-300">0</span>
-                    </button>
-                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                        <span class="text-2xl sm:text-3xl leading-none">💎</span>
-                        <span id="coin-diamond" class="text-sm sm:text-base font-bold text-purple-700 dark:text-purple-300">0</span>
-                    </button>
-                    <button type="button" class="flex flex-col items-center justify-center gap-1 px-3 py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                        <span class="text-2xl sm:text-3xl leading-none">👑</span>
-                        <span id="coin-king" class="text-sm sm:text-base font-bold text-red-700 dark:text-red-300">0</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <!-- Wallet Visualizations -->
         <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -247,45 +239,41 @@
             </div>
         </div>
 
-        <!-- Achievement Wallet -->
-        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
-            <div id="achievement-wallet" class="overflow-x-auto">
-                <!-- Achievements will be dynamically populated -->
-            </div>
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 space-y-10">
+            <section>
+                <h3 class="text-xl font-bold mb-4">Achievement Wallet</h3>
+                <div id="achievement-wallet" class="overflow-x-auto">
+                    <!-- Achievements will be dynamically populated -->
+                </div>
+            </section>
+            <section>
+                <h3 class="text-xl font-bold mb-4">Medals</h3>
+                <div id="medals-section" class="flex gap-3 sm:gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                    <!-- Medals will be dynamically populated -->
+                </div>
+            </section>
+            <section>
+                <h3 class="text-xl font-bold mb-4">Top Performances</h3>
+                <div id="best-activities" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Best activities will be dynamically populated -->
+                </div>
+            </section>
+            <section id="activities-section">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">Recent Activities</h3>
+                    <span id="activities-empty" class="hidden text-sm text-gray-500">No activities match your filters.</span>
+                </div>
+                <div id="activities-container" class="space-y-3"></div>
+                <button id="load-more-btn" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-6 ml-auto hidden">Load More Activities</button>
+            </section>
         </div>
 
-        <!-- Medals Section -->
-        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mb-8">
-            <h3 class="text-xl font-bold mb-4">Medals</h3>
-            <div id="medals-section" class="flex gap-3 sm:gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
-                <!-- Medals will be dynamically populated -->
-            </div>
-        </div>
-
-        <!-- Segment Completions Section -->
         <div id="segment-completions" class="mt-6 hidden">
             <h2 class="text-xl font-bold mb-4">Segment Completions</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <!-- Multiple segments will be populated here -->
             </div>
         </div>
-
-        <!-- Best Activities -->
-        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
-            <h3 class="text-xl font-bold mb-4">Top Performances</h3>
-            <div id="best-activities" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Best activities will be dynamically populated -->
-            </div>
-        </div>
-        <div id="activities-section" class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 mt-8">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-bold">Recent Activities</h3>
-                <span id="activities-empty" class="hidden text-sm text-gray-500">No activities match your filters.</span>
-            </div>
-            <div id="activities-container" class="space-y-3"></div>
-            <button id="load-more-btn" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-6 ml-auto hidden">Load More Activities</button>
-        </div>
-    </div>
 
     <script src="/dashboard.js"></script>
 </body>

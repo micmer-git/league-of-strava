@@ -13,6 +13,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const MEDAL_DOLLAR_VALUE = 5000;
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
+    const COIN_COLOR_MAP = {
+        '💲': '#0ea5e9',
+        '💰': '#6366f1',
+        '🧈': '#f59e0b',
+        '💎': '#8b5cf6',
+        '👑': '#ec4899'
+    };
+    const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
+    const MEDAL_OTHER_COLOR = '#94a3b8';
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const COIN_LABEL_OVERRIDES = {
         Run: {
@@ -46,6 +55,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const CALORIE_SCALE_FACTOR = 0.65;
     const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
+    const currencyFormatterNoDecimals = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
 
     // === DOM Elements ===
     const loadingSpinner = document.getElementById('loading-spinner');
@@ -65,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const globeTotalElement = document.getElementById('globe-total');
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
-    const coinTotalValueElement = document.getElementById('coin-total-value');
+    const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const achievementWallet = document.getElementById('achievement-wallet');
     const medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
@@ -87,6 +102,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         coins: chartToggleCoinsButton,
         balance: chartToggleBalanceButton
     };
+    const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
+    const coinMixCanvas = document.getElementById('coin-mix-chart');
+    const coinMixEmptyState = document.getElementById('coin-mix-empty');
+    const medalMixCanvas = document.getElementById('medal-mix-chart');
+    const medalMixEmptyState = document.getElementById('medal-mix-empty');
 
     if (walletChartCanvas) {
         walletChartCanvas.classList.add('hidden');
@@ -98,10 +118,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    const medalColorAssignments = new Map();
+    let medalColorIndex = 0;
+
     let activeChartKey = 'coins';
     let walletChartInstance = null;
+    let coinMixChartInstance = null;
+    let medalMixChartInstance = null;
     const walletChartData = {
-        coins: { labels: [], coins: [], medals: [] },
+        coins: { labels: [], coinBreakdown: {}, medalBreakdown: [] },
         balance: { labels: [], values: [] }
     };
 
@@ -192,6 +217,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         return formatted || rawName;
     };
 
+    const getMedalColor = (label, { isOther = false } = {}) => {
+        if (isOther) {
+            return MEDAL_OTHER_COLOR;
+        }
+
+        const key = label || 'medal';
+        if (!medalColorAssignments.has(key)) {
+            const color = MEDAL_COLOR_PALETTE[medalColorIndex % MEDAL_COLOR_PALETTE.length];
+            medalColorAssignments.set(key, color);
+            medalColorIndex += 1;
+        }
+
+        return medalColorAssignments.get(key);
+    };
+
     const hasWalletChartData = (key) => {
         const dataset = walletChartData[key];
         if (!dataset || !Array.isArray(dataset.labels) || dataset.labels.length === 0) {
@@ -199,14 +239,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (key === 'coins') {
-            const coinValues = Array.isArray(dataset.coins) ? dataset.coins : [];
-            const medalValues = Array.isArray(dataset.medals) ? dataset.medals : [];
-            return coinValues.some(value => value > 0) || medalValues.some(value => value > 0);
+            const coinBreakdown = dataset.coinBreakdown || {};
+            const medalBreakdown = dataset.medalBreakdown || [];
+
+            const hasCoinValues = Object.values(coinBreakdown).some(values =>
+                Array.isArray(values) && values.some(value => value > 0)
+            );
+            const hasMedalValues = Array.isArray(medalBreakdown) && medalBreakdown.some(entry =>
+                Array.isArray(entry?.data) && entry.data.some(value => value > 0)
+            );
+
+            return hasCoinValues || hasMedalValues;
         }
 
         if (key === 'balance') {
-            const balanceValues = Array.isArray(dataset.values) ? dataset.values : [];
-            return balanceValues.some(value => value > 0);
+            return Array.isArray(dataset.values) && dataset.values.some(value => value > 0);
         }
 
         return false;
@@ -293,26 +340,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         const legendColor = isDarkMode ? '#e2e8f0' : '#1f2937';
 
         if (availableKey === 'coins') {
+            const datasets = [];
+
+            COIN_EMOJIS.forEach(emoji => {
+                const values = Array.isArray(dataset.coinBreakdown?.[emoji])
+                    ? dataset.coinBreakdown[emoji]
+                    : [];
+                datasets.push({
+                    label: `${emoji} Coins`,
+                    data: values,
+                    backgroundColor: COIN_COLOR_MAP[emoji] || '#2563eb',
+                    stack: 'coins',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 44
+                });
+            });
+
+            (dataset.medalBreakdown || []).forEach(entry => {
+                if (!entry || !Array.isArray(entry.data)) {
+                    return;
+                }
+                datasets.push({
+                    label: entry.label,
+                    data: entry.data,
+                    backgroundColor: entry.color || getMedalColor(entry.label, { isOther: entry.isOther }),
+                    stack: 'medals',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 44
+                });
+            });
+
             walletChartInstance = new Chart(walletChartCanvas, {
                 type: 'bar',
                 data: {
                     labels: dataset.labels,
-                    datasets: [
-                        {
-                            label: 'Coins',
-                            data: dataset.coins,
-                            backgroundColor: '#2563eb',
-                            borderRadius: 6,
-                            maxBarThickness: 48
-                        },
-                        {
-                            label: 'Medals',
-                            data: dataset.medals,
-                            backgroundColor: '#f59e0b',
-                            borderRadius: 6,
-                            maxBarThickness: 48
-                        }
-                    ]
+                    datasets
                 },
                 options: {
                     responsive: true,
@@ -336,6 +400,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     },
                     scales: {
                         x: {
+                            stacked: true,
                             ticks: {
                                 color: axisColor
                             },
@@ -344,6 +409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                         },
                         y: {
+                            stacked: true,
                             beginAtZero: true,
                             ticks: {
                                 color: axisColor,
@@ -455,23 +521,92 @@ document.addEventListener('DOMContentLoaded', async () => {
             : buildWalletMetrics(lifetimeActivities);
 
         const yearlyAggregation = new Map();
+        const createYearEntry = () => ({
+            coins: 0,
+            medals: 0,
+            coinCounts: COIN_EMOJIS.reduce((acc, emoji) => {
+                acc[emoji] = 0;
+                return acc;
+            }, {}),
+            medalCounts: new Map()
+        });
         metricsForYearly.forEach(metric => {
             const year = metric.date.getFullYear();
             if (!Number.isFinite(year)) {
                 return;
             }
 
-            const entry = yearlyAggregation.get(year) || { coins: 0, medals: 0 };
+            const entry = yearlyAggregation.get(year) || createYearEntry();
             entry.coins += metric.coins.length;
             entry.medals += metric.medals.length;
+            metric.coins.forEach(emoji => {
+                if (!Object.prototype.hasOwnProperty.call(entry.coinCounts, emoji)) {
+                    entry.coinCounts[emoji] = 0;
+                }
+                entry.coinCounts[emoji] += 1;
+            });
+            metric.medals.forEach(medal => {
+                if (!medal) {
+                    return;
+                }
+                const label = medal.emoji ? `${medal.emoji} ${medal.name}` : (medal.name || 'Medal');
+                entry.medalCounts.set(label, (entry.medalCounts.get(label) || 0) + 1);
+            });
             yearlyAggregation.set(year, entry);
         });
 
         const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
+        const coinBreakdown = COIN_EMOJIS.reduce((acc, emoji) => {
+            acc[emoji] = sortedYears.map(year => {
+                const entry = yearlyAggregation.get(year);
+                return entry?.coinCounts?.[emoji] ?? 0;
+            });
+            return acc;
+        }, {});
+
+        const medalTotalsAcrossYears = new Map();
+        sortedYears.forEach(year => {
+            const medalCounts = yearlyAggregation.get(year)?.medalCounts;
+            if (!medalCounts) {
+                return;
+            }
+            medalCounts.forEach((count, label) => {
+                medalTotalsAcrossYears.set(label, (medalTotalsAcrossYears.get(label) || 0) + count);
+            });
+        });
+
+        const medalTotalsSorted = Array.from(medalTotalsAcrossYears.entries()).sort((a, b) => b[1] - a[1]);
+        const prominentMedalLabels = medalTotalsSorted.filter(([, total]) => total >= 5).map(([label]) => label);
+        const otherMedalLabels = medalTotalsSorted.filter(([, total]) => total < 5).map(([label]) => label);
+
+        const medalBreakdown = prominentMedalLabels.map(label => ({
+            label,
+            data: sortedYears.map(year => yearlyAggregation.get(year)?.medalCounts?.get(label) ?? 0),
+            color: getMedalColor(label)
+        }));
+
+        if (otherMedalLabels.length > 0) {
+            const otherData = sortedYears.map(year => {
+                const medalCounts = yearlyAggregation.get(year)?.medalCounts;
+                if (!medalCounts) {
+                    return 0;
+                }
+                return otherMedalLabels.reduce((sum, label) => sum + (medalCounts.get(label) || 0), 0);
+            });
+            if (otherData.some(value => value > 0)) {
+                medalBreakdown.push({
+                    label: 'Other medals (<5)',
+                    data: otherData,
+                    color: getMedalColor('Other medals (<5)', { isOther: true }),
+                    isOther: true
+                });
+            }
+        }
+
         walletChartData.coins = {
             labels: sortedYears.map(year => String(year)),
-            coins: sortedYears.map(year => yearlyAggregation.get(year)?.coins ?? 0),
-            medals: sortedYears.map(year => yearlyAggregation.get(year)?.medals ?? 0)
+            coinBreakdown,
+            medalBreakdown
         };
 
         const monthlyAggregation = new Map();
@@ -837,6 +972,163 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const destroyCoinMixChart = () => {
+        if (coinMixChartInstance) {
+            coinMixChartInstance.destroy();
+            coinMixChartInstance = null;
+        }
+    };
+
+    const destroyMedalMixChart = () => {
+        if (medalMixChartInstance) {
+            medalMixChartInstance.destroy();
+            medalMixChartInstance = null;
+        }
+    };
+
+    const renderCoinMixChart = (totals = {}) => {
+        if (!coinMixCanvas) {
+            return;
+        }
+
+        const segments = COIN_EMOJIS.map(emoji => ({
+            label: emoji,
+            value: Number.isFinite(totals[emoji]) ? totals[emoji] : 0,
+            color: COIN_COLOR_MAP[emoji] || '#4f46e5'
+        })).filter(segment => segment.value > 0);
+
+        const hasChartLibrary = typeof Chart !== 'undefined';
+
+        if (!hasChartLibrary || segments.length === 0) {
+            destroyCoinMixChart();
+            coinMixCanvas.classList.add('hidden');
+            if (coinMixEmptyState) {
+                coinMixEmptyState.textContent = hasChartLibrary
+                    ? 'No coin data yet. Collect more coins to unlock insights.'
+                    : 'Charts unavailable.';
+                coinMixEmptyState.classList.remove('hidden');
+            }
+            return;
+        }
+
+        coinMixCanvas.classList.remove('hidden');
+        if (coinMixEmptyState) {
+            coinMixEmptyState.classList.add('hidden');
+        }
+
+        const isDarkMode = document.body.classList.contains('dark');
+        const legendColor = isDarkMode ? '#e2e8f0' : '#1f2937';
+
+        destroyCoinMixChart();
+        coinMixChartInstance = new Chart(coinMixCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: segments.map(segment => segment.label),
+                datasets: [
+                    {
+                        data: segments.map(segment => segment.value),
+                        backgroundColor: segments.map(segment => segment.color),
+                        borderWidth: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '55%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: legendColor,
+                            boxWidth: 12,
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const value = context.parsed || 0;
+                                const label = context.label || '';
+                                return `${label}: ${value.toLocaleString()}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    const renderMedalMixChart = (segments = []) => {
+        if (!medalMixCanvas) {
+            return;
+        }
+
+        const normalized = Array.isArray(segments)
+            ? segments.filter(segment => Number.isFinite(segment?.value) && segment.value > 0)
+            : [];
+        const hasChartLibrary = typeof Chart !== 'undefined';
+
+        if (!hasChartLibrary || normalized.length === 0) {
+            destroyMedalMixChart();
+            medalMixCanvas.classList.add('hidden');
+            if (medalMixEmptyState) {
+                medalMixEmptyState.textContent = hasChartLibrary
+                    ? 'No medal data yet. Earn more medals to fill this chart.'
+                    : 'Charts unavailable.';
+                medalMixEmptyState.classList.remove('hidden');
+            }
+            return;
+        }
+
+        medalMixCanvas.classList.remove('hidden');
+        if (medalMixEmptyState) {
+            medalMixEmptyState.classList.add('hidden');
+        }
+
+        const isDarkMode = document.body.classList.contains('dark');
+        const legendColor = isDarkMode ? '#e2e8f0' : '#1f2937';
+
+        destroyMedalMixChart();
+        medalMixChartInstance = new Chart(medalMixCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: normalized.map(segment => segment.label),
+                datasets: [
+                    {
+                        data: normalized.map(segment => segment.value),
+                        backgroundColor: normalized.map(segment => segment.color || getMedalColor(segment.label, { isOther: segment.isOther })),
+                        borderWidth: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '55%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: legendColor,
+                            boxWidth: 12,
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const value = context.parsed || 0;
+                                const label = context.label || '';
+                                return `${label}: ${value.toLocaleString()}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    };
+
     // Function to animate coin counts
     const animateCount = (elementId, start, end, duration) => {
         const element = document.getElementById(elementId);
@@ -860,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, stepTime);
     };
 
-    const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }) => {
+    const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }, medalBreakdown = []) => {
         const totals = computeWalletCoinTotals(achievementCategories);
         const elementMap = {
             '💲': 'coin-dollar',
@@ -884,6 +1176,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        renderCoinMixChart(totals);
+
         const totalCoinValue = Object.entries(totals).reduce((sum, [emoji, count]) => {
             const coinValue = COIN_VALUE_MAP[emoji] || 0;
             return sum + (coinValue * count);
@@ -893,20 +1187,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalCount = Number.isFinite(medalSummary?.count) ? medalSummary.count : 0;
         const combinedValue = totalCoinValue + medalValue;
 
-        if (coinTotalValueElement) {
-            coinTotalValueElement.textContent = formatMillions(combinedValue);
-            const coinSummaryContainer = coinTotalValueElement.parentElement;
-            if (coinSummaryContainer) {
-                const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=${currencyFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`).join(', ');
-                const medalLine = medalCount > 0
-                    ? `Medals ×${medalCount} add ${currencyFormatter.format(medalValue)}.`
-                    : 'No medals collected in this view.';
-                attachTooltip(
-                    coinSummaryContainer,
-                    `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). ${medalLine} Combined haul: ${currencyFormatter.format(combinedValue)}.`
-                );
-            }
+        const aggregatedMedals = new Map();
+        if (Array.isArray(medalBreakdown)) {
+            medalBreakdown.forEach(medal => {
+                const count = Number.isFinite(medal?.count) ? medal.count : 0;
+                if (count <= 0) {
+                    return;
+                }
+                const label = medal?.emoji
+                    ? `${medal.emoji} ${medal.name}`
+                    : (medal?.name || 'Medal');
+                aggregatedMedals.set(label, (aggregatedMedals.get(label) || 0) + count);
+            });
         }
+
+        const medalEntries = Array.from(aggregatedMedals.entries()).sort((a, b) => b[1] - a[1]);
+        const prominentMedals = medalEntries.filter(([, count]) => count >= 5);
+        const otherMedals = medalEntries.filter(([, count]) => count < 5);
+        const medalSegments = prominentMedals.map(([label, count]) => ({
+            label,
+            value: count,
+            color: getMedalColor(label)
+        }));
+        const otherTotal = otherMedals.reduce((sum, [, count]) => sum + count, 0);
+        if (otherTotal > 0) {
+            medalSegments.push({
+                label: 'Other medals (<5)',
+                value: otherTotal,
+                color: getMedalColor('Other medals (<5)', { isOther: true }),
+                isOther: true
+            });
+        }
+
+        renderMedalMixChart(medalSegments);
+
+        const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=${currencyFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`).join(', ');
+        const medalLine = medalCount > 0
+            ? `Medals ×${medalCount} add ${currencyFormatter.format(medalValue)}.`
+            : 'No medals collected in this view.';
+        const walletTooltip = `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). ${medalLine} Combined haul: ${currencyFormatter.format(combinedValue)}.`;
+
+        walletBalanceValueElements.forEach(element => {
+            if (!element) {
+                return;
+            }
+            element.textContent = formatMillions(combinedValue);
+            const container = element.closest('[data-wallet-balance-container]') || element.parentElement;
+            if (container) {
+                attachTooltip(container, walletTooltip);
+            }
+        });
 
         return totals;
     };
@@ -1216,13 +1546,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tooltipLines.push(`Total value: ${currencyFormatter.format(totalValueDollars)}.`);
 
                 const coinsBadge = createBadge({
-                    icon: '🪙',
-                    valueText: totalCoinsMinted.toLocaleString(),
+                    icon: '💲',
+                    valueText: currencyFormatterNoDecimals.format(totalCoinValueDollars),
+                    subtitleText: `${totalCoinsMinted.toLocaleString()} coins`,
                     tooltipText: tooltipLines.join('\n'),
                     className: 'bg-yellow-50 dark:bg-yellow-900/40 text-amber-700 dark:text-amber-200',
-                    ariaLabel: `Coins minted: ${totalCoinsMinted.toLocaleString()}`
+                    ariaLabel: `Coins minted value ${currencyFormatterNoDecimals.format(totalCoinValueDollars)}`
                 });
                 smallStatsGroup.appendChild(coinsBadge);
+
+                ['💲', '💰'].forEach(emoji => {
+                    const mintedCount = coinCounts[emoji] || 0;
+                    if (mintedCount <= 0) {
+                        return;
+                    }
+                    const mintedBadge = document.createElement('button');
+                    mintedBadge.type = 'button';
+                    mintedBadge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-sm font-semibold text-amber-700 shadow-sm dark:bg-amber-900/40 dark:text-amber-200';
+                    mintedBadge.innerHTML = `
+                        <span class="leading-none">${emoji}</span>
+                        <span class="text-xs font-bold leading-none">${mintedCount}</span>
+                    `;
+                    mintedBadge.setAttribute('aria-label', `${emoji} minted ${mintedCount}×`);
+                    attachTooltip(mintedBadge, `${emoji} minted ${mintedCount}× • ${currencyFormatter.format(mintedCount * (COIN_VALUE_MAP[emoji] || 0))}`);
+                    smallStatsGroup.appendChild(mintedBadge);
+                });
             }
 
             if (medalRewards.length > 0) {
@@ -2135,15 +2483,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Update the ranking progress bar
         if (currentRankElement) {
-            currentRankElement.textContent = `Current: ${currentRank.emoji} ${currentRank.name}`;
+            currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
         } else {
             console.warn("'current-rank' element not found in the DOM.");
         }
 
         if (nextRankElement) {
             nextRankElement.textContent = nextRank
-                ? `Next: ${nextRank.emoji} ${nextRank.name}`
-                : 'Next: Max rank reached';
+                ? `→ ${nextRank.emoji} ${nextRank.name}`
+                : 'Max rank achieved';
         } else {
             console.warn("'next-rank' element not found in the DOM.");
         }
@@ -2154,14 +2502,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'ranking-progress' element not found in the DOM.");
         }
 
+        if (rankingProgressLabelElement) {
+            const progressLabel = hasActivities
+                ? (nextRank ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs` : `${totalHours.toFixed(1)} hrs`)
+                : 'No activity yet';
+            rankingProgressLabelElement.textContent = progressLabel;
+        }
+
         if (rankDetailsElement) {
             rankDetailsElement.innerHTML = '';
 
             if (hasActivities) {
                 const summary = document.createElement('div');
                 summary.textContent = nextRank
-                    ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs | Next: ${nextRank.name}`
-                    : `${totalHours.toFixed(1)} hrs | Max Rank Achieved!`;
+                    ? `Next milestone ${nextRank.emoji} ${nextRank.name}`
+                    : 'Max rank achieved!';
                 rankDetailsElement.appendChild(summary);
 
                 const oldestActivityDate = activities.reduce((oldest, activity) => {
@@ -2563,7 +2918,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             value: totalMedalCount * MEDAL_DOLLAR_VALUE
         };
 
-        updateCoinSummaryFromWallet(categories, medalSummary);
+        updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
 
         // === Update Achievement Wallet ===
         if (achievementWallet) {

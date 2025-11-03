@@ -55,9 +55,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const CALORIE_SCALE_FACTOR = 0.65;
     const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
-    const currencyFormatterNoDecimals = new Intl.NumberFormat(undefined, {
+    const usdCodeFormatter = new Intl.NumberFormat(undefined, {
         style: 'currency',
         currency: 'USD',
+        currencyDisplay: 'code',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     });
@@ -175,8 +176,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const formatMillions = (value) => {
+        if (!Number.isFinite(value) || value <= 0) {
+            return '0.0M USD';
+        }
         const millions = value / 1_000_000;
-        return `$${millions.toFixed(2)}M`;
+        return `${millions.toFixed(1)}M USD`;
     };
 
     const formatDistance = (km) => {
@@ -223,6 +227,66 @@ document.addEventListener('DOMContentLoaded', async () => {
             .trim();
 
         return formatted || rawName;
+    };
+
+    const normalizeSeriesLength = (labels = [], values = [], targetLength = 15) => {
+        const usableLength = Math.min(labels.length, values.length);
+        if (!Number.isInteger(targetLength) || targetLength <= 0 || usableLength === 0) {
+            return { labels: [], values: [] };
+        }
+
+        if (usableLength === 1) {
+            return {
+                labels: Array.from({ length: targetLength }, () => labels[0]),
+                values: Array.from({ length: targetLength }, () => values[0] ?? 0)
+            };
+        }
+
+        const step = (usableLength - 1) / (targetLength - 1);
+        const adjustedLabels = [];
+        const adjustedValues = [];
+
+        for (let index = 0; index < targetLength; index += 1) {
+            const rawIndex = step * index;
+            const lowerIndex = Math.floor(rawIndex);
+            const upperIndex = Math.min(Math.ceil(rawIndex), usableLength - 1);
+            const fraction = rawIndex - lowerIndex;
+
+            const lowerValue = values[lowerIndex] ?? 0;
+            const upperValue = values[upperIndex] ?? lowerValue;
+            const interpolated = lowerValue + ((upperValue - lowerValue) * fraction);
+
+            const labelIndex = Math.min(Math.round(rawIndex), usableLength - 1);
+            adjustedLabels.push(labels[labelIndex]);
+            adjustedValues.push(Number.isFinite(interpolated) ? interpolated : 0);
+        }
+
+        return { labels: adjustedLabels, values: adjustedValues };
+    };
+
+    const applyAdaptiveNameSizing = (element, name) => {
+        if (!element) {
+            return;
+        }
+
+        const text = typeof name === 'string' ? name.trim() : '';
+        element.textContent = text;
+        if (text) {
+            element.setAttribute('title', text);
+        }
+
+        element.style.fontSize = '';
+        const length = text.length;
+
+        if (length > 32) {
+            element.style.fontSize = '1.25rem';
+        } else if (length > 26) {
+            element.style.fontSize = '1.35rem';
+        } else if (length > 22) {
+            element.style.fontSize = '1.5rem';
+        } else if (length > 18) {
+            element.style.fontSize = '1.65rem';
+        }
     };
 
     const getMedalColor = (label, { isOther = false } = {}) => {
@@ -473,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             callbacks: {
                                 label: (context) => {
                                     const value = context.parsed.y || 0;
-                                    return `Balance: ${currencyFormatter.format(value)}`;
+                                    return `Balance: ${formatMillions(value)}`;
                                 }
                             }
                         }
@@ -491,7 +555,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             beginAtZero: true,
                             ticks: {
                                 color: axisColor,
-                                callback: (value) => currencyFormatter.format(value)
+                                callback: (value) => {
+                                    if (!Number.isFinite(value)) {
+                                        return '0.0M';
+                                    }
+                                    return `${(value / 1_000_000).toFixed(1)}M`;
+                                }
                             },
                             grid: {
                                 color: gridColor
@@ -634,10 +703,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
         });
-        walletChartData.balance = {
-            labels: monthLabels,
-            values: balanceValues
-        };
+        const normalizedBalance = normalizeSeriesLength(monthLabels, balanceValues, 15);
+        walletChartData.balance = normalizedBalance;
 
         const nextChartKey = hasWalletChartData(activeChartKey)
             ? activeChartKey
@@ -1190,19 +1257,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletSummaryElements.coinsCount.textContent = totalCoinCount.toLocaleString();
         }
         if (walletSummaryElements.coinsValue) {
-            walletSummaryElements.coinsValue.textContent = currencyFormatter.format(totalCoinValue);
+            walletSummaryElements.coinsValue.textContent = usdCodeFormatter.format(totalCoinValue);
         }
         if (walletSummaryElements.medalCount) {
             walletSummaryElements.medalCount.textContent = medalCount.toLocaleString();
         }
         if (walletSummaryElements.medalValue) {
-            walletSummaryElements.medalValue.textContent = currencyFormatter.format(medalValue);
+            walletSummaryElements.medalValue.textContent = usdCodeFormatter.format(medalValue);
         }
         if (walletSummaryElements.totalValue) {
-            walletSummaryElements.totalValue.textContent = currencyFormatter.format(combinedValue);
+            walletSummaryElements.totalValue.textContent = usdCodeFormatter.format(combinedValue);
         }
         if (walletSummaryElements.totalDetail) {
-            walletSummaryElements.totalDetail.textContent = `Coins ${currencyFormatter.format(totalCoinValue)} + medals ${currencyFormatter.format(medalValue)}`;
+            walletSummaryElements.totalDetail.textContent = `Coins ${usdCodeFormatter.format(totalCoinValue)} + medals ${usdCodeFormatter.format(medalValue)}`;
         }
 
         const aggregatedMedals = new Map();
@@ -1228,11 +1295,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         renderMedalMixChart(medalSegments);
 
-        const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=${currencyFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`).join(', ');
+        const valueBreakdown = COIN_EMOJIS.map(emoji => `${emoji}=${usdCodeFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`).join(', ');
         const medalLine = medalCount > 0
-            ? `Medals ×${medalCount} add ${currencyFormatter.format(medalValue)}.`
+            ? `Medals ×${medalCount} add ${usdCodeFormatter.format(medalValue)}.`
             : 'No medals collected in this view.';
-        const walletTooltip = `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). ${medalLine} Combined haul: ${currencyFormatter.format(combinedValue)}.`;
+        const walletTooltip = `${COIN_SUMMARY_LABEL} totals multiplied by coin values (${valueBreakdown}). ${medalLine} Combined haul: ${usdCodeFormatter.format(combinedValue)}.`;
 
         walletBalanceValueElements.forEach(element => {
             if (!element) {
@@ -1539,7 +1606,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (totalValueDollars > 0 && totalCoinsMinted > 0) {
                 const breakdownLines = Object.entries(coinCounts)
                     .filter(([, count]) => count > 0)
-                    .map(([emoji, count]) => `${emoji} ×${count} = ${currencyFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
+                    .map(([emoji, count]) => `${emoji} ×${count} = ${usdCodeFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
                 const tooltipLines = [];
 
                 if (breakdownLines.length > 0) {
@@ -1547,17 +1614,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 if (medalRewards.length > 0) {
-                    tooltipLines.push(`Medals ×${medalRewards.length} = ${currencyFormatter.format(medalValue)}`);
+                    tooltipLines.push(`Medals ×${medalRewards.length} = ${usdCodeFormatter.format(medalValue)}`);
                 }
 
-                tooltipLines.push(`Total value: ${currencyFormatter.format(totalValueDollars)}.`);
+                tooltipLines.push(`Total value: ${usdCodeFormatter.format(totalValueDollars)}.`);
 
                 const coinsBadge = createBadge({
                     icon: '💲',
-                    valueText: currencyFormatterNoDecimals.format(totalCoinValueDollars),
+                    valueText: usdCodeFormatter.format(totalCoinValueDollars),
                     tooltipText: tooltipLines.join('\n'),
                     className: 'bg-yellow-50 dark:bg-yellow-900/40 text-amber-700 dark:text-amber-200',
-                    ariaLabel: `Coins minted value ${currencyFormatterNoDecimals.format(totalCoinValueDollars)}`
+                    ariaLabel: `Coins minted value ${usdCodeFormatter.format(totalCoinValueDollars)}`
                 });
                 smallStatsGroup.appendChild(coinsBadge);
             }
@@ -1797,7 +1864,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return hour >= 22 || hour < 5;
             }
         },
-        {
+        { 
             name: 'Early Riser',
             emoji: '☀️',
             description: 'Completed an activity before 6 AM',
@@ -1805,6 +1872,232 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const hour = new Date(activity.start_date).getHours();
                 return hour < 6;
             }
+        },
+        {
+            name: 'Summit Strider',
+            emoji: '⛰️',
+            description: 'Ran an activity that climbed at least 3,000 m',
+            criteria: (activity) => (activity.type || '').toUpperCase() === 'RUN' && (activity.total_elevation_gain || 0) >= 3000
+        },
+        {
+            name: 'Skyward Cyclist',
+            emoji: '🚵‍♀️',
+            description: 'Rode an activity that climbed at least 3,000 m',
+            criteria: (activity) => (activity.type || '').toUpperCase() === 'RIDE' && (activity.total_elevation_gain || 0) >= 3000
+        },
+        {
+            name: 'Vertical Velocity',
+            emoji: '🛗',
+            description: 'Ran 1,000 m of ascent within a run shorter than 15 km',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RUN') {
+                    return false;
+                }
+                const elevation = activity.total_elevation_gain || 0;
+                const distance = activity.distance || 0;
+                return elevation >= 1000 && distance > 0 && distance <= 15000;
+            }
+        },
+        {
+            name: 'Alpine Sprinter',
+            emoji: '🧊',
+            description: 'Crushed 1,500 m of gain on a ride shorter than 60 km',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const elevation = activity.total_elevation_gain || 0;
+                const distance = activity.distance || 0;
+                return elevation >= 1500 && distance > 0 && distance <= 60000;
+            }
+        },
+        {
+            name: 'Urban Ladder',
+            emoji: '🏙️',
+            description: 'Logged a sub-10 km city run with more than 500 m of gain',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RUN') {
+                    return false;
+                }
+                const elevation = activity.total_elevation_gain || 0;
+                const distance = activity.distance || 0;
+                return distance > 0 && distance <= 10000 && elevation >= 500;
+            }
+        },
+        {
+            name: 'Coastal Century',
+            emoji: '🌊',
+            description: 'Rode 160 km or more with less than 1,000 m of climbing',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const elevation = activity.total_elevation_gain || 0;
+                const distance = activity.distance || 0;
+                return distance >= 160000 && elevation <= 1000;
+            }
+        },
+        {
+            name: 'Ultra Voyager',
+            emoji: '🧭',
+            description: 'Completed any activity of at least 200 km',
+            criteria: (activity) => (activity.distance || 0) >= 200000
+        },
+        {
+            name: 'Evergreen Endurance',
+            emoji: '🌲',
+            description: 'Spent 6 hours riding and covered more than 180 km',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const movingTime = activity.moving_time || 0;
+                const distance = activity.distance || 0;
+                return movingTime >= 21600 && distance >= 180000;
+            }
+        },
+        {
+            name: 'Skyline Charge',
+            emoji: '⚡',
+            description: 'Climbed 800 m per hour or faster in a run',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RUN') {
+                    return false;
+                }
+                const movingTime = activity.moving_time || 0;
+                const elevation = activity.total_elevation_gain || 0;
+                const hours = movingTime / 3600;
+                return hours > 0 && (elevation / hours) >= 800;
+            }
+        },
+        {
+            name: 'Power Pedaler',
+            emoji: '🔋',
+            description: 'A ride holding 250 W average for at least an hour',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const watts = activity.average_watts || 0;
+                const movingTime = activity.moving_time || 0;
+                return watts >= 250 && movingTime >= 3600;
+            }
+        },
+        {
+            name: 'Tempo Trailblazer',
+            emoji: '🚀',
+            description: 'Held sub 4:30 min/km pace on a 15 km run',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RUN') {
+                    return false;
+                }
+                const distance = activity.distance || 0;
+                const speed = activity.average_speed || 0;
+                return distance >= 15000 && speed >= (1000 / 270);
+            }
+        },
+        {
+            name: 'Sprinting Comet',
+            emoji: '☄️',
+            description: 'Hit 65 km/h on a ride over 30 km',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const maxSpeed = activity.max_speed || 0;
+                const distance = activity.distance || 0;
+                return maxSpeed >= 18 && distance >= 30000;
+            }
+        },
+        {
+            name: 'Mountain Marathoner',
+            emoji: '🥾',
+            description: 'Finished a marathon with over 1,200 m of gain',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RUN') {
+                    return false;
+                }
+                const distance = activity.distance || 0;
+                const elevation = activity.total_elevation_gain || 0;
+                return distance >= 42195 && elevation >= 1200;
+            }
+        },
+        {
+            name: 'Ridge Explorer',
+            emoji: '🛰️',
+            description: 'Balanced a 80–160 km ride with 2,000–4,500 m of gain',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const distance = activity.distance || 0;
+                const elevation = activity.total_elevation_gain || 0;
+                return distance >= 80000 && distance <= 160000 && elevation >= 2000 && elevation <= 4500;
+            }
+        },
+        {
+            name: 'Gradient Guru',
+            emoji: '📈',
+            description: 'Tackled a run averaging at least 6% grade over 8 km',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RUN') {
+                    return false;
+                }
+                const distance = activity.distance || 0;
+                const elevation = activity.total_elevation_gain || 0;
+                return distance >= 8000 && distance > 0 && (elevation / distance) >= 0.06;
+            }
+        },
+        {
+            name: 'Switchback Cyclist',
+            emoji: '🔄',
+            description: 'A ride averaging 4.5% grade over at least 60 km',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const distance = activity.distance || 0;
+                const elevation = activity.total_elevation_gain || 0;
+                return distance >= 60000 && distance > 0 && (elevation / distance) >= 0.045;
+            }
+        },
+        {
+            name: 'Sky Sprint',
+            emoji: '💨',
+            description: 'Clocked 21 km/h in a run longer than 5 km',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RUN') {
+                    return false;
+                }
+                const distance = activity.distance || 0;
+                const maxSpeed = activity.max_speed || 0;
+                return distance >= 5000 && maxSpeed >= 5.83;
+            }
+        },
+        {
+            name: 'Peak Fueler',
+            emoji: '🍲',
+            description: 'Burned at least 4,000 kcal in a single activity',
+            criteria: (activity) => (activity.calories || 0) >= 4000
+        },
+        {
+            name: 'Hefty Haul',
+            emoji: '🎒',
+            description: 'Logged a ride over 4 hours burning 6,000 kcal',
+            criteria: (activity) => {
+                if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                    return false;
+                }
+                const calories = activity.calories || 0;
+                const movingTime = activity.moving_time || 0;
+                return calories >= 6000 && movingTime >= 14400;
+            }
+        },
+        {
+            name: 'Volcanic Vertical',
+            emoji: '🌋',
+            description: 'Reached 4,000 m of climbing in a single activity',
+            criteria: (activity) => (activity.total_elevation_gain || 0) >= 4000
         },
         {
             name: 'Marathon Finisher',
@@ -2442,7 +2735,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
-            athleteNameElement.textContent = `${data.athlete.firstname} ${data.athlete.lastname}`;
+            const firstName = data.athlete?.firstname || '';
+            const lastName = data.athlete?.lastname || '';
+            const fullName = `${firstName} ${lastName}`.trim();
+            applyAdaptiveNameSizing(athleteNameElement, fullName);
             athleteAvatarElement.src = data.athlete.profile || '/default-avatar.png';
         } else {
             console.warn("'athlete-name' or 'athlete-avatar' element not found in the DOM.");
@@ -3045,7 +3341,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sortedMedals.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
-                    medalButton.className = 'tooltip-target shrink-0 snap-center rounded-xl bg-gray-100 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3 py-2 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
                     medalButton.innerHTML = `
                         <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
                         <span class="text-2xl leading-none">${medal.emoji}</span>
@@ -3055,6 +3351,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ? `${medal.name} • ${medal.description} • Earned ${medal.count}×`
                         : `${medal.name} • ${medal.description}`;
                     attachTooltip(medalButton, medalTooltip);
+                    const randomDelay = (Math.random() * 4).toFixed(2);
+                    const randomDuration = (6 + Math.random() * 5).toFixed(2);
+                    medalButton.style.setProperty('--medal-drift-delay', `${randomDelay}s`);
+                    medalButton.style.setProperty('--medal-drift-duration', `${randomDuration}s`);
+                    medalButton.style.marginTop = `${Math.random() * 12}px`;
                     medalsSection.appendChild(medalButton);
                 });
             }

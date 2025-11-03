@@ -14,34 +14,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     const MEDAL_DOLLAR_VALUE = 5000;
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
-    const COIN_CELL_DESCRIPTIONS = {
+    const COIN_LABEL_OVERRIDES = {
         Run: {
-            '💲': '10 km run',
-            '💰': '30 km week',
-            '🧈': '21 km run',
-            '💎': '42 km run',
-            '👑': '65 km week'
+            '10km Run': '10 km run',
+            '21km Run': 'Half marathon (21 km)',
+            '42km Run': 'Marathon (42 km)',
+            '50km Run/Week': '50 km run week',
+            '100km Run/Week': '100 km run week'
         },
         Ride: {
-            '💲': '100 km ride',
-            '💰': '300 km week',
-            '🧈': '200 km ride',
-            '💎': '250 km ride',
-            '👑': '600 km week'
+            '100km Ride': '100 km ride',
+            '150km Ride': '150 km ride',
+            '200km Ride': 'Double century (200 km)',
+            '300km Ride/Week': '300 km ride week',
+            '600km Ride/Week': '600 km ride week'
         },
         Elevation: {
-            '💲': '1k m climb',
-            '💰': '5k m week',
-            '🧈': '10k m climb',
-            '💎': '25k m climb',
-            '👑': '50k m climb'
+            '1000m Elevation': '1,000 m climb',
+            '2000m Elevation': '2,000 m climb',
+            'Half Everest': 'Half Everest (4,424 m)',
+            '10k Elevation/Week': '10k m elevation week',
+            '25k Elevation/Month': '25k m elevation month'
         },
         Calories: {
-            '💲': '1k kcal burn',
-            '💰': '6k kcal week',
-            '🧈': '3k kcal burn',
-            '💎': '7.5k kcal burn',
-            '👑': '12k kcal week'
+            '1000 kcal Activity': '1,000 kcal activity',
+            '2000 kcal Activity': '2,000 kcal activity',
+            '4000 kcal Activity': '4,000 kcal activity',
+            '12000 kcal Week': '12,000 kcal week',
+            '24000 kcal Week': '24,000 kcal week'
         }
     };
     const CALORIE_SCALE_FACTOR = 0.65;
@@ -79,6 +79,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activitiesEmptyState = document.getElementById('activities-empty');
     const loadMoreButton = document.getElementById('load-more-btn');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
+    const walletChartCanvas = document.getElementById('wallet-chart');
+    const walletChartEmptyState = document.getElementById('wallet-chart-empty');
+    const chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
+    const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
+    const chartToggleButtons = {
+        coins: chartToggleCoinsButton,
+        balance: chartToggleBalanceButton
+    };
+
+    if (walletChartCanvas) {
+        walletChartCanvas.classList.add('hidden');
+    }
+
+    Object.values(chartToggleButtons).forEach(button => {
+        if (button && !button.dataset.baseClass) {
+            button.dataset.baseClass = button.className;
+        }
+    });
+
+    let activeChartKey = 'coins';
+    let walletChartInstance = null;
+    const walletChartData = {
+        coins: { labels: [], coins: [], medals: [] },
+        balance: { labels: [], values: [] }
+    };
 
     // === Data Storage ===
     let allData = {}; // To store all fetched data
@@ -136,6 +161,355 @@ document.addEventListener('DOMContentLoaded', async () => {
     const formatPizzas = (pizzas) => {
         if (!Number.isFinite(pizzas)) return '0.00 pizzas';
         return `${pizzas.toFixed(2)} pizzas`;
+    };
+
+    const formatCoinCellLabel = (rowLabel, rawName) => {
+        if (!rawName || typeof rawName !== 'string') {
+            return null;
+        }
+        const overrides = COIN_LABEL_OVERRIDES[rowLabel];
+        if (overrides && overrides[rawName]) {
+            return overrides[rawName];
+        }
+
+        const formatted = rawName
+            .replace(/(\d+)(km|m|kcal)/gi, (_, value, unit) => {
+                const numericValue = Number(value);
+                const formattedValue = Number.isFinite(numericValue)
+                    ? numericValue.toLocaleString()
+                    : value;
+                const unitLower = unit.toLowerCase();
+                return `${formattedValue} ${unitLower}`;
+            })
+            .replace(/\/week/gi, ' week')
+            .replace(/\/month/gi, ' month')
+            .replace(/Activity/gi, 'activity')
+            .replace(/Run\b/gi, 'run')
+            .replace(/Ride\b/gi, 'ride')
+            .replace(/Elevation/gi, 'elevation')
+            .trim();
+
+        return formatted || rawName;
+    };
+
+    const hasWalletChartData = (key) => {
+        const dataset = walletChartData[key];
+        if (!dataset || !Array.isArray(dataset.labels) || dataset.labels.length === 0) {
+            return false;
+        }
+
+        if (key === 'coins') {
+            const coinValues = Array.isArray(dataset.coins) ? dataset.coins : [];
+            const medalValues = Array.isArray(dataset.medals) ? dataset.medals : [];
+            return coinValues.some(value => value > 0) || medalValues.some(value => value > 0);
+        }
+
+        if (key === 'balance') {
+            const balanceValues = Array.isArray(dataset.values) ? dataset.values : [];
+            return balanceValues.some(value => value > 0);
+        }
+
+        return false;
+    };
+
+    const updateToggleStates = (activeKey) => {
+        const activeClasses = 'border-blue-500 bg-blue-600 text-white shadow-sm';
+        const inactiveClasses = 'border-transparent bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-gray-700';
+        const disabledClasses = 'border-dashed border-gray-300 bg-gray-100 text-gray-400 opacity-60 cursor-not-allowed dark:border-gray-600/60 dark:bg-gray-700/40 dark:text-gray-500';
+
+        Object.entries(chartToggleButtons).forEach(([key, button]) => {
+            if (!button) {
+                return;
+            }
+
+            const baseClass = button.dataset.baseClass || '';
+            const hasData = hasWalletChartData(key);
+
+            if (!hasData) {
+                button.disabled = true;
+                button.setAttribute('aria-pressed', 'false');
+                button.className = `${baseClass} ${disabledClasses}`.trim();
+                return;
+            }
+
+            button.disabled = false;
+            const isActive = key === activeKey;
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            const stateClasses = isActive ? activeClasses : inactiveClasses;
+            button.className = `${baseClass} ${stateClasses}`.trim();
+        });
+    };
+
+    const destroyWalletChart = () => {
+        if (walletChartInstance) {
+            walletChartInstance.destroy();
+            walletChartInstance = null;
+        }
+    };
+
+    const renderWalletChart = (preferredKey = activeChartKey) => {
+        if (!walletChartCanvas) {
+            return;
+        }
+
+        if (typeof Chart === 'undefined') {
+            walletChartCanvas.classList.add('hidden');
+            if (walletChartEmptyState) {
+                walletChartEmptyState.textContent = 'Charts unavailable.';
+                walletChartEmptyState.classList.remove('hidden');
+            }
+            updateToggleStates(null);
+            return;
+        }
+
+        const availableKey = hasWalletChartData(preferredKey)
+            ? preferredKey
+            : (hasWalletChartData('coins') ? 'coins' : (hasWalletChartData('balance') ? 'balance' : null));
+
+        if (!availableKey) {
+            destroyWalletChart();
+            walletChartCanvas.classList.add('hidden');
+            if (walletChartEmptyState) {
+                walletChartEmptyState.classList.remove('hidden');
+                walletChartEmptyState.textContent = 'No wallet data available for this view.';
+            }
+            updateToggleStates(null);
+            return;
+        }
+
+        activeChartKey = availableKey;
+        const dataset = walletChartData[availableKey];
+
+        walletChartCanvas.classList.remove('hidden');
+        if (walletChartEmptyState) {
+            walletChartEmptyState.classList.add('hidden');
+        }
+
+        destroyWalletChart();
+
+        const isDarkMode = document.body.classList.contains('dark');
+        const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
+        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
+        const legendColor = isDarkMode ? '#e2e8f0' : '#1f2937';
+
+        if (availableKey === 'coins') {
+            walletChartInstance = new Chart(walletChartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: dataset.labels,
+                    datasets: [
+                        {
+                            label: 'Coins',
+                            data: dataset.coins,
+                            backgroundColor: '#2563eb',
+                            borderRadius: 6,
+                            maxBarThickness: 48
+                        },
+                        {
+                            label: 'Medals',
+                            data: dataset.medals,
+                            backgroundColor: '#f59e0b',
+                            borderRadius: 6,
+                            maxBarThickness: 48
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: legendColor,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const value = context.parsed.y || 0;
+                                    const label = context.dataset.label || '';
+                                    return `${label}: ${value.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: axisColor
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: axisColor,
+                                precision: 0
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            walletChartInstance = new Chart(walletChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: dataset.labels,
+                    datasets: [
+                        {
+                            label: 'Cumulative balance',
+                            data: dataset.values,
+                            borderColor: '#16a34a',
+                            backgroundColor: 'rgba(22, 163, 74, 0.2)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 3,
+                            pointHoverRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: legendColor,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const value = context.parsed.y || 0;
+                                    return `Balance: ${currencyFormatter.format(value)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: axisColor
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: axisColor,
+                                callback: (value) => currencyFormatter.format(value)
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        updateToggleStates(activeChartKey);
+    };
+
+    const buildWalletMetrics = (activities = []) => {
+        return activities.map(activity => {
+            if (!activity) {
+                return null;
+            }
+            const date = new Date(activity.start_date);
+            if (Number.isNaN(date.getTime())) {
+                return null;
+            }
+
+            const stats = computeActivitySmallStats(activity);
+            const coins = getActivityCoinRewards(activity, stats);
+            const medals = getActivityMedals(activity);
+            const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
+            const medalValue = medals.length * MEDAL_DOLLAR_VALUE;
+
+            return {
+                date,
+                coins,
+                medals,
+                coinValue,
+                medalValue
+            };
+        }).filter(Boolean);
+    };
+
+    const updateWalletChartData = ({ activities = [], lifetimeActivities = [], selectedYear = 'all' } = {}) => {
+        const metricsForFiltered = buildWalletMetrics(activities);
+        const isAllYearsSelected = !selectedYear || selectedYear === 'all';
+        const shouldReuseFilteredMetrics = isAllYearsSelected && activities.length === lifetimeActivities.length;
+        const metricsForYearly = shouldReuseFilteredMetrics
+            ? metricsForFiltered
+            : buildWalletMetrics(lifetimeActivities);
+
+        const yearlyAggregation = new Map();
+        metricsForYearly.forEach(metric => {
+            const year = metric.date.getFullYear();
+            if (!Number.isFinite(year)) {
+                return;
+            }
+
+            const entry = yearlyAggregation.get(year) || { coins: 0, medals: 0 };
+            entry.coins += metric.coins.length;
+            entry.medals += metric.medals.length;
+            yearlyAggregation.set(year, entry);
+        });
+
+        const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
+        walletChartData.coins = {
+            labels: sortedYears.map(year => String(year)),
+            coins: sortedYears.map(year => yearlyAggregation.get(year)?.coins ?? 0),
+            medals: sortedYears.map(year => yearlyAggregation.get(year)?.medals ?? 0)
+        };
+
+        const monthlyAggregation = new Map();
+        metricsForFiltered.forEach(metric => {
+            const year = metric.date.getFullYear();
+            const month = metric.date.getMonth() + 1;
+            if (!Number.isFinite(year) || !Number.isFinite(month)) {
+                return;
+            }
+
+            const key = `${year}-${String(month).padStart(2, '0')}`;
+            monthlyAggregation.set(key, (monthlyAggregation.get(key) || 0) + metric.coinValue + metric.medalValue);
+        });
+
+        const sortedMonths = Array.from(monthlyAggregation.keys()).sort();
+        let runningTotal = 0;
+        const balanceValues = sortedMonths.map(key => {
+            runningTotal += monthlyAggregation.get(key) || 0;
+            return runningTotal;
+        });
+        const monthLabels = sortedMonths.map(key => {
+            const [yearStr, monthStr] = key.split('-');
+            const date = new Date(Number(yearStr), Number(monthStr) - 1, 1);
+            if (Number.isNaN(date.getTime())) {
+                return key;
+            }
+            return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+        });
+        walletChartData.balance = {
+            labels: monthLabels,
+            values: balanceValues
+        };
+
+        const nextChartKey = hasWalletChartData(activeChartKey)
+            ? activeChartKey
+            : (hasWalletChartData('coins') ? 'coins' : (hasWalletChartData('balance') ? 'balance' : null));
+        activeChartKey = nextChartKey || activeChartKey;
+        renderWalletChart(activeChartKey);
     };
 
     function calculateActivityCalories(activity = {}) {
@@ -723,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const activitiesToRender = sortedActivities.slice(0, visibleActivitiesCount);
 
-        const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className }) => {
+        const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className, ariaLabel = null }) => {
             const badge = document.createElement('button');
             badge.type = 'button';
             badge.className = `tooltip-target inline-flex flex-col items-center justify-center px-2.5 py-1.5 rounded-full font-semibold text-xs sm:text-sm text-center gap-0.5 ${className}`;
@@ -745,6 +1119,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 subtitle.className = 'text-[10px] font-medium opacity-80';
                 subtitle.textContent = subtitleText;
                 badge.appendChild(subtitle);
+            }
+
+            if (ariaLabel) {
+                badge.setAttribute('aria-label', ariaLabel);
             }
 
             attachTooltip(badge, tooltipText);
@@ -821,39 +1199,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             const medalValue = medalRewards.length * MEDAL_DOLLAR_VALUE;
             const totalValueDollars = totalCoinValueDollars + medalValue;
 
-            if (totalValueDollars > 0) {
+            if (totalValueDollars > 0 && totalCoinsMinted > 0) {
                 const breakdownLines = Object.entries(coinCounts)
                     .filter(([, count]) => count > 0)
                     .map(([emoji, count]) => `${emoji} ×${count} = ${currencyFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
-                if (medalRewards.length > 0) {
-                    breakdownLines.push(`Medals ×${medalRewards.length} = ${currencyFormatter.format(medalValue)}`);
-                }
-
-                const mintedParts = [];
-                if (totalCoinsMinted > 0) {
-                    mintedParts.push(`${totalCoinsMinted} coin${totalCoinsMinted === 1 ? '' : 's'}`);
-                }
-                if (medalRewards.length > 0) {
-                    mintedParts.push(`${medalRewards.length} medal${medalRewards.length === 1 ? '' : 's'}`);
-                }
-
                 const tooltipLines = [];
-                if (mintedParts.length > 0) {
-                    tooltipLines.push(`Minted ${mintedParts.join(' and ')}.`);
-                }
+
                 if (breakdownLines.length > 0) {
-                    tooltipLines.push(breakdownLines.join('\n'));
+                    tooltipLines.push(...breakdownLines);
                 }
+
+                if (medalRewards.length > 0) {
+                    tooltipLines.push(`Medals ×${medalRewards.length} = ${currencyFormatter.format(medalValue)}`);
+                }
+
                 tooltipLines.push(`Total value: ${currencyFormatter.format(totalValueDollars)}.`);
 
-                const mintedBadge = createBadge({
-                    icon: '💰',
-                    valueText: currencyFormatter.format(totalValueDollars),
-                    subtitleText: mintedParts.length > 0 ? mintedParts.join(' • ') : null,
+                const coinsBadge = createBadge({
+                    icon: '🪙',
+                    valueText: totalCoinsMinted.toLocaleString(),
                     tooltipText: tooltipLines.join('\n'),
-                    className: 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-200'
+                    className: 'bg-yellow-50 dark:bg-yellow-900/40 text-amber-700 dark:text-amber-200',
+                    ariaLabel: `Coins minted: ${totalCoinsMinted.toLocaleString()}`
                 });
-                smallStatsGroup.appendChild(mintedBadge);
+                smallStatsGroup.appendChild(coinsBadge);
             }
 
             if (medalRewards.length > 0) {
@@ -917,7 +1286,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             linkButton.target = '_blank';
             linkButton.rel = 'noopener noreferrer';
             linkButton.className = 'inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
-            linkButton.textContent = 'View Activity';
+            linkButton.textContent = '🔗';
+            linkButton.setAttribute('aria-label', 'Open activity on Strava');
 
             actionWrapper.appendChild(linkButton);
 
@@ -1841,6 +2211,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
 
+        updateWalletChartData({
+            activities,
+            lifetimeActivities,
+            selectedYear
+        });
+
         // === Achievement Wallet ===
 
         // Initialize Achievement Counts
@@ -2246,8 +2622,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const count = Number.isFinite(achievement.count) ? achievement.count : 0;
                     countsByEmoji[emoji] += count;
                     if (count > 0) {
-                        const label = achievement.name || achievement.description || 'Achievement';
-                        detailsByEmoji[emoji].push(`${label} • ${count}×`);
+                        detailsByEmoji[emoji].push({
+                            name: achievement.name || '',
+                            description: achievement.description || '',
+                            count
+                        });
                     }
                 });
 
@@ -2272,17 +2651,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const cellWrapper = document.createElement('div');
                     cellWrapper.className = 'flex min-w-[3.75rem] flex-col items-center gap-0.5 px-1.5 py-1 text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-100';
                     const countValue = countsByEmoji[emoji].toLocaleString();
-                    const description = (COIN_CELL_DESCRIPTIONS[rowConfig.label] || {})[emoji] || '—';
+                    const descriptionCandidates = detailsByEmoji[emoji]
+                        .map(detail => formatCoinCellLabel(rowConfig.label, detail.name))
+                        .filter(Boolean);
+                    const descriptionText = descriptionCandidates.length > 0
+                        ? descriptionCandidates.join(' • ')
+                        : '—';
                     cellWrapper.innerHTML = `
                         <span class="leading-none">${countValue}</span>
-                        <span class="text-[10px] sm:text-[11px] font-medium text-gray-500 dark:text-gray-300">${description}</span>
+                        <span class="text-[10px] sm:text-[11px] font-medium text-gray-500 dark:text-gray-300">${descriptionText}</span>
                     `;
 
                     const tooltipDetails = detailsByEmoji[emoji];
-                    const tooltipText = tooltipDetails.length > 0
-                        ? `${rowConfig.label} ${emoji} coins:\n${tooltipDetails.join('\n')}`
-                        : `${rowConfig.label} has not minted ${emoji} coins yet.`;
-                    attachTooltip(cellWrapper, tooltipText);
+                    const tooltipLines = tooltipDetails.length > 0
+                        ? tooltipDetails.map(detail => {
+                            const displayName = formatCoinCellLabel(rowConfig.label, detail.name) || detail.name || 'Achievement';
+                            const countText = Number.isFinite(detail.count) ? detail.count : 0;
+                            const extra = detail.description ? ` — ${detail.description}` : '';
+                            return `${displayName} • ${countText.toLocaleString()}×${extra}`;
+                        })
+                        : [`${rowConfig.label} has not minted ${emoji} coins yet.`];
+                    attachTooltip(cellWrapper, tooltipLines.join('\n'));
 
                     cell.appendChild(cellWrapper);
                     row.appendChild(cell);
@@ -2425,7 +2814,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     actionButton.target = '_blank';
                     actionButton.rel = 'noopener noreferrer';
                     actionButton.className = 'inline-flex items-center gap-2 rounded-full bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
-                    actionButton.textContent = 'View Activity';
+                    actionButton.textContent = '🔗';
+                    actionButton.setAttribute('aria-label', 'Open activity on Strava');
 
                     card.appendChild(infoWrapper);
                     card.appendChild(actionButton);
@@ -2516,6 +2906,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             applyFilters();
         });
     }
+
+    Object.entries(chartToggleButtons).forEach(([key, button]) => {
+        if (!button) {
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            if (button.disabled) {
+                return;
+            }
+            activeChartKey = key;
+            renderWalletChart(activeChartKey);
+        });
+    });
+
+    updateToggleStates(null);
 
     if (loadMoreButton) {
         loadMoreButton.addEventListener('click', async () => {

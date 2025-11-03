@@ -8,6 +8,7 @@
     <title>Strava Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Include a date picker library (optional) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -131,7 +132,7 @@
                             <h2 id="athlete-name" class="text-2xl font-bold"></h2>
                             <button id="fetch-more-data" type="button" class="mt-2 sm:mt-0 inline-flex items-center gap-2 bg-amber-500/90 hover:bg-amber-500 text-white text-sm sm:text-base font-semibold px-3 py-1.5 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-amber-300">
                                 <span aria-hidden="true">🔁</span>
-                                <span>Fetch more data</span>
+                                <span class="sr-only">Fetch more data</span>
                             </button>
                         </div>
                     </div>
@@ -196,6 +197,21 @@
                         <span id="coin-king" class="text-sm sm:text-base font-bold text-red-700 dark:text-red-300">0</span>
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Wallet Visualizations -->
+        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <h3 class="text-xl font-bold">Wallet Insights</h3>
+                <div class="flex items-center gap-2">
+                    <button id="chart-toggle-coins" type="button" class="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900" aria-pressed="false">Coins &amp; Medals</button>
+                    <button id="chart-toggle-balance" type="button" class="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900" aria-pressed="false">Balance</button>
+                </div>
+            </div>
+            <div id="wallet-chart-wrapper" class="relative mt-4 min-h-[18rem]">
+                <canvas id="wallet-chart" class="w-full h-full"></canvas>
+                <p id="wallet-chart-empty" class="hidden absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-gray-500 dark:text-gray-400">No wallet data available for this view.</p>
             </div>
         </div>
 

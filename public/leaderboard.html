@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>League of Strava - Leaderboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/leaderboard.js" defer></script>
+</head>
+<body>
+  <header class="leaderboard-header">
+    <div class="logo">
+      <a href="/"><img src="/static/league-of-strava.png" alt="League of Strava"></a>
+    </div>
+    <nav class="leaderboard-nav">
+      <a href="/">Home</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/leaderboard" aria-current="page">Leaderboard</a>
+    </nav>
+  </header>
+
+  <main class="leaderboard-main">
+    <section class="leaderboard-intro">
+      <h1>Global Leaderboard</h1>
+      <p>Track the latest progress from every athlete. The table below shows the most recent level, dollar rewards, emojis, and coins submitted for each user.</p>
+    </section>
+
+    <section class="leaderboard-container">
+      <div id="leaderboard-status" class="leaderboard-status">Loading leaderboard…</div>
+      <table class="leaderboard-table" aria-live="polite">
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Athlete</th>
+            <th scope="col">Level</th>
+            <th scope="col">Coins</th>
+            <th scope="col">Dollars</th>
+            <th scope="col">Emoji</th>
+            <th scope="col">Updated</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

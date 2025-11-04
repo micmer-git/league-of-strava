@@ -76,6 +76,7 @@ const LEADERBOARD_HEADER = ['timestamp', 'userId', 'displayName', 'level', 'doll
 const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
+const SNAPSHOT_CHUNK_PREFIX = '__CHUNK__';
 
 function sanitizeSheetTitle(value) {
   const fallback = 'user';
@@ -227,7 +228,24 @@ async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
 
   const sheetName = await ensureUserSnapshotSheet(userId);
   const timestamp = new Date().toISOString();
-  const { storedValue: serializedPayload, metadata: payloadMetadata } = serializeSnapshotPayload(payload);
+  const {
+    storedValue: serializedPayload,
+    metadata: payloadMetadata,
+    chunks: payloadChunks = [],
+  } = serializeSnapshotPayload(payload);
+
+  const rowsToAppend = [
+    [
+      timestamp,
+      source ?? 'strava',
+      serializedPayload,
+    ],
+    ...payloadChunks.map(chunkValue => [
+      timestamp,
+      `${source ?? 'strava'}:chunk`,
+      chunkValue,
+    ]),
+  ];
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -235,13 +253,7 @@ async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     resource: {
-      values: [
-        [
-          timestamp,
-          source ?? 'strava',
-          serializedPayload,
-        ],
-      ],
+      values: rowsToAppend,
     },
   });
 
@@ -274,16 +286,97 @@ async function getLatestUserSnapshot(userId) {
     return null;
   }
 
-  const [timestamp = '', source = 'strava', payloadRaw = '{}'] = values[values.length - 1];
+  const chunkAccumulator = [];
 
-  const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(payloadRaw);
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const [timestamp = '', source = 'strava', payloadRaw = '{}'] = values[index];
 
-  return {
-    timestamp,
-    source,
-    payload: decodedPayload,
-    payloadMetadata: metadata,
-  };
+    if (typeof payloadRaw === 'string' && payloadRaw.startsWith(`${SNAPSHOT_CHUNK_PREFIX}|`)) {
+      const [prefix, chunkIndex = '-1', chunkTotal = '0', ...rest] = payloadRaw.split('|');
+
+      if (prefix === SNAPSHOT_CHUNK_PREFIX) {
+        chunkAccumulator.push({
+          index: Number.parseInt(chunkIndex, 10),
+          chunkCount: Number.parseInt(chunkTotal, 10),
+          data: rest.join('|'),
+        });
+        continue;
+      }
+    }
+
+    const parsed = safeJsonParse(payloadRaw);
+
+    if (parsed.ok && parsed.value && parsed.value.__chunked === true) {
+      const chunkCount = parsed.value.chunkCount || 0;
+
+      if (chunkCount === 0) {
+        return {
+          timestamp,
+          source,
+          payload: {
+            error: 'Chunked payload metadata missing chunk count',
+          },
+          payloadMetadata: {
+            serialized: true,
+            compressed: true,
+            chunked: true,
+            valid: false,
+          },
+        };
+      }
+
+      if (chunkAccumulator.length < chunkCount) {
+        return {
+          timestamp,
+          source,
+          payload: {
+            error: 'Incomplete chunked payload data',
+            expectedChunks: chunkCount,
+            receivedChunks: chunkAccumulator.length,
+          },
+          payloadMetadata: {
+            serialized: true,
+            compressed: true,
+            chunked: true,
+            valid: false,
+            chunkCount,
+          },
+        };
+      }
+
+      const chunkSet = chunkAccumulator.splice(0, chunkCount);
+      const sortedChunks = chunkSet
+        .filter(chunk => typeof chunk.data === 'string')
+        .sort((a, b) => (a.index || 0) - (b.index || 0));
+      const reconstructedPayload = sortedChunks.map(chunk => chunk.data || '').join('');
+
+      const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(reconstructedPayload);
+
+      return {
+        timestamp,
+        source,
+        payload: decodedPayload,
+        payloadMetadata: {
+          ...metadata,
+          chunked: true,
+          chunkCount,
+          encodedLength: parsed.value.encodedLength || reconstructedPayload.length,
+          originalLength: parsed.value.originalLength || (metadata ? metadata.originalLength : undefined),
+        },
+      };
+    }
+
+    const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(payloadRaw);
+
+    return {
+      timestamp,
+      source,
+      payload: decodedPayload,
+      payloadMetadata: metadata,
+    };
+  }
+
+  return null;
 }
 
 async function appendLeaderboardEntry({ userId, displayName = '', level = 0, dollars = 0, emoji = '', coins = 0 }) {
@@ -399,6 +492,18 @@ async function getLeaderboardLatestEntries() {
   return leaderboard.map(({ parsedTimestamp, ...rest }) => rest);
 }
 
+function safeJsonParse(value) {
+  if (typeof value !== 'string') {
+    return { ok: false, error: 'Value is not a string.' };
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(value) };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
 function serializeSnapshotPayload(payload) {
   let raw;
 
@@ -436,18 +541,62 @@ function serializeSnapshotPayload(payload) {
     });
 
     if (encodedPayload.length > GOOGLE_SHEETS_CELL_LIMIT) {
+      const chunkSize = Math.max(1, GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH - 200);
+      const chunkCount = Math.ceil(encodedPayload.length / chunkSize);
+      const chunkRows = [];
+
+      for (let index = 0; index < chunkCount; index += 1) {
+        const start = index * chunkSize;
+        const end = start + chunkSize;
+        const chunkData = encodedPayload.slice(start, end);
+        const chunkPayload = [
+          SNAPSHOT_CHUNK_PREFIX,
+          String(index),
+          String(chunkCount),
+          chunkData,
+        ].join('|');
+
+        if (chunkPayload.length > GOOGLE_SHEETS_CELL_LIMIT) {
+          return {
+            storedValue: JSON.stringify({
+              error: 'Payload chunk exceeds storage limit',
+              truncated: true,
+              originalLength: raw.length,
+            }),
+            metadata: {
+              serialized: true,
+              compressed: true,
+              truncated: true,
+              chunked: true,
+              originalLength: raw.length,
+              storedLength: encodedPayload.length,
+              chunkSize,
+              chunkCount,
+            },
+          };
+        }
+
+        chunkRows.push(chunkPayload);
+      }
+
       return {
         storedValue: JSON.stringify({
-          error: 'Payload exceeds storage limit even after compression',
-          truncated: true,
+          __chunked: true,
+          chunkCount,
           originalLength: raw.length,
+          encodedLength: encodedPayload.length,
+          algorithm: 'gzip',
+          encoding: 'base64',
         }),
+        chunks: chunkRows,
         metadata: {
           serialized: true,
           compressed: true,
-          truncated: true,
+          chunked: true,
+          chunkCount,
           originalLength: raw.length,
           storedLength: encodedPayload.length,
+          chunkSize,
         },
       };
     }

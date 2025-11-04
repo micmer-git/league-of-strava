@@ -10,6 +10,8 @@ const {
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
   getUserEntries,
+  appendUserSnapshot,
+  getLatestUserSnapshot,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 
 const app = express();
@@ -160,6 +162,7 @@ app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   const accessToken = req.cookies.strava_token;
   const forceRefresh = req.query.refresh === 'true';
+  const loadStored = req.query.loadStored === 'true';
   const startPage = Math.max(Number.parseInt(req.query.startPage, 10) || 1, 1);
   const requestedPageCount = Math.max(Number.parseInt(req.query.pageCount, 10) || 3, 1);
   const perPage = Math.min(Math.max(Number.parseInt(req.query.perPage, 10) || 200, 1), 200);
@@ -181,7 +184,42 @@ app.get('/api/strava-data', async (req, res) => {
 
     userId = athleteResponse.data.id.toString(); // Using Strava athlete ID as the sheet name
 
+    const athleteNameParts = [athleteResponse.data.firstname, athleteResponse.data.lastname]
+      .filter(part => Boolean(part && String(part).trim()));
+    const resolvedAthleteName = athleteNameParts.join(' ').trim()
+      || athleteResponse.data.username
+      || `Athlete ${userId}`;
+
+    console.log(`Identified athlete ${userId} (${resolvedAthleteName})`);
+
     cacheKey = `${userId}:${startPage}:${requestedPageCount}:${perPage}`;
+
+    if (loadStored) {
+      console.log(`loadStored flag received for athlete ${userId}; attempting to return stored snapshot.`);
+      const storedSnapshot = await getLatestUserSnapshot(userId);
+      if (storedSnapshot?.payload) {
+        console.log(`Stored snapshot located for athlete ${userId} from ${storedSnapshot.timestamp}.`);
+        userDataCache.set(cacheKey, {
+          timestamp: Date.now(),
+          data: storedSnapshot.payload,
+        });
+
+        return res.json({
+          ...storedSnapshot.payload,
+          cached: true,
+          stale: false,
+          stored: true,
+          storedTimestamp: storedSnapshot.timestamp,
+        });
+      }
+
+      console.log(`No stored snapshot found for athlete ${userId}; responding with not-found status.`);
+      return res.status(404).json({
+        error: 'No stored snapshot available yet.',
+        stored: false,
+        cached: false,
+      });
+    }
 
     const existingCache = userDataCache.get(cacheKey);
     const now = Date.now();
@@ -242,6 +280,25 @@ app.get('/api/strava-data', async (req, res) => {
       },
     };
 
+    try {
+      console.log(`Persisting snapshot for athlete ${userId} to Google Sheets.`);
+      await appendUserSnapshot({
+        userId,
+        payload: responsePayload,
+        source: forceRefresh ? 'force-refresh' : 'live-fetch',
+      });
+
+      const leaderboardEntry = buildLeaderboardSummary(responsePayload);
+      if (leaderboardEntry.userId) {
+        console.log(`Updating leaderboard entry for athlete ${userId}.`);
+        await appendLeaderboardEntry(leaderboardEntry);
+      } else {
+        console.warn(`Skipping leaderboard update because athlete ID is missing from payload.`);
+      }
+    } catch (storageError) {
+      console.error(`Failed to persist snapshot for athlete ${userId}:`, storageError.message);
+    }
+
     userDataCache.set(cacheKey, {
       timestamp: now,
       data: responsePayload,
@@ -281,6 +338,25 @@ app.get('/api/strava-data', async (req, res) => {
         error: 'Strava temporarily unavailable due to rate limiting. Please try again later.',
         retryAfter,
       });
+    }
+
+    if (userId) {
+      try {
+        const storedSnapshot = await getLatestUserSnapshot(userId);
+        if (storedSnapshot?.payload) {
+          console.log(`Returning stored snapshot for athlete ${userId} after live fetch failure.`);
+          return res.status(200).json({
+            ...storedSnapshot.payload,
+            cached: true,
+            stale: true,
+            stored: true,
+            storedTimestamp: storedSnapshot.timestamp,
+            message: 'Live Strava fetch failed. Returning stored snapshot.',
+          });
+        }
+      } catch (snapshotError) {
+        console.error(`Failed to retrieve stored snapshot for athlete ${userId}:`, snapshotError.message);
+      }
     }
 
     res.status(500).json({ error: 'Failed to fetch data' });
@@ -511,6 +587,47 @@ function calculateTotals(activities) {
   });
 
   return totals;
+}
+
+function buildLeaderboardSummary(payload = {}) {
+  const athlete = payload.athlete || {};
+  const totals = payload.totals || {};
+  const userId = athlete.id !== undefined && athlete.id !== null ? String(athlete.id) : '';
+
+  const nameParts = [athlete.firstname, athlete.lastname]
+    .map(part => (part && String(part).trim()) || '')
+    .filter(Boolean);
+  const displayName = nameParts.join(' ') || athlete.username || userId || 'Unknown Athlete';
+
+  const totalHours = Number.isFinite(Number(totals.hours)) ? Number(totals.hours) : 0;
+  const totalDistanceKm = Number.isFinite(Number(totals.distance)) ? Number(totals.distance) / 1000 : 0;
+
+  const levelCap = 1000;
+  const maxRankHours = 20000;
+  const hoursPerLevel = levelCap > 0 ? maxRankHours / levelCap : maxRankHours;
+  const level = hoursPerLevel > 0 ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap) : 0;
+
+  const coins = Math.max(0, Math.round(totalDistanceKm / 50));
+  const dollars = Math.max(0, Math.round(totalHours * 10));
+
+  const emojiBands = [
+    { threshold: 200, emoji: '👑' },
+    { threshold: 100, emoji: '💎' },
+    { threshold: 50, emoji: '🧈' },
+    { threshold: 25, emoji: '💰' },
+    { threshold: 0, emoji: '💲' },
+  ];
+
+  const emoji = emojiBands.find(band => coins >= band.threshold)?.emoji || '💲';
+
+  return {
+    userId,
+    displayName,
+    level,
+    dollars,
+    coins,
+    emoji,
+  };
 }
 
 app.listen(PORT, () => {

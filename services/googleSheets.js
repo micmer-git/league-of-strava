@@ -3,6 +3,7 @@
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
+const zlib = require('zlib');
 
 const SERVICE_ACCOUNT_FILE = process.env.GOOGLE_SERVICE_ACCOUNT_FILE
   ? path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_FILE)
@@ -73,6 +74,8 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const DEFAULT_LEADERBOARD_SHEET_NAME = process.env.LEADERBOARD_SHEET_NAME || 'Leaderboard';
 const LEADERBOARD_HEADER = ['timestamp', 'userId', 'displayName', 'level', 'dollars', 'emoji', 'coins'];
 const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
+const GOOGLE_SHEETS_CELL_LIMIT = 50000;
+const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
 
 function sanitizeSheetTitle(value) {
   const fallback = 'user';
@@ -224,13 +227,7 @@ async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
 
   const sheetName = await ensureUserSnapshotSheet(userId);
   const timestamp = new Date().toISOString();
-  const serializedPayload = (() => {
-    try {
-      return JSON.stringify(payload);
-    } catch (error) {
-      return JSON.stringify({ error: 'Failed to serialize payload', reason: error.message });
-    }
-  })();
+  const { storedValue: serializedPayload, metadata: payloadMetadata } = serializeSnapshotPayload(payload);
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -251,6 +248,7 @@ async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
   return {
     timestamp,
     sheetName,
+    payloadMetadata,
   };
 }
 
@@ -278,17 +276,13 @@ async function getLatestUserSnapshot(userId) {
 
   const [timestamp = '', source = 'strava', payloadRaw = '{}'] = values[values.length - 1];
 
-  let parsedPayload = null;
-  try {
-    parsedPayload = JSON.parse(payloadRaw);
-  } catch (error) {
-    parsedPayload = { error: 'Failed to parse stored payload', reason: error.message };
-  }
+  const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(payloadRaw);
 
   return {
     timestamp,
     source,
-    payload: parsedPayload,
+    payload: decodedPayload,
+    payloadMetadata: metadata,
   };
 }
 
@@ -403,6 +397,158 @@ async function getLeaderboardLatestEntries() {
   });
 
   return leaderboard.map(({ parsedTimestamp, ...rest }) => rest);
+}
+
+function serializeSnapshotPayload(payload) {
+  let raw;
+
+  try {
+    raw = JSON.stringify(payload ?? {});
+  } catch (error) {
+    return {
+      storedValue: JSON.stringify({ error: 'Failed to serialize payload', reason: error.message }),
+      metadata: {
+        serialized: false,
+        error: error.message,
+      },
+    };
+  }
+
+  if (raw.length <= GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH) {
+    return {
+      storedValue: raw,
+      metadata: {
+        serialized: true,
+        compressed: false,
+        originalLength: raw.length,
+      },
+    };
+  }
+
+  try {
+    const compressedBuffer = zlib.gzipSync(Buffer.from(raw, 'utf8'));
+    const encodedPayload = JSON.stringify({
+      __compressed: true,
+      algorithm: 'gzip',
+      encoding: 'base64',
+      data: compressedBuffer.toString('base64'),
+      originalLength: raw.length,
+    });
+
+    if (encodedPayload.length > GOOGLE_SHEETS_CELL_LIMIT) {
+      return {
+        storedValue: JSON.stringify({
+          error: 'Payload exceeds storage limit even after compression',
+          truncated: true,
+          originalLength: raw.length,
+        }),
+        metadata: {
+          serialized: true,
+          compressed: true,
+          truncated: true,
+          originalLength: raw.length,
+          storedLength: encodedPayload.length,
+        },
+      };
+    }
+
+    return {
+      storedValue: encodedPayload,
+      metadata: {
+        serialized: true,
+        compressed: true,
+        originalLength: raw.length,
+        storedLength: encodedPayload.length,
+      },
+    };
+  } catch (error) {
+    return {
+      storedValue: JSON.stringify({
+        error: 'Failed to compress payload',
+        reason: error.message,
+        originalLength: raw.length,
+      }),
+      metadata: {
+        serialized: true,
+        compressed: false,
+        compressionError: error.message,
+        originalLength: raw.length,
+      },
+    };
+  }
+}
+
+function deserializeSnapshotPayload(rawValue) {
+  if (typeof rawValue !== 'string') {
+    return {
+      payload: rawValue,
+      metadata: {
+        serialized: false,
+        compressed: false,
+        valid: false,
+        reason: 'Stored payload is not a string.',
+      },
+    };
+  }
+
+  let parsed;
+
+  try {
+    parsed = JSON.parse(rawValue);
+  } catch (error) {
+    return {
+      payload: {
+        error: 'Failed to parse stored payload',
+        reason: error.message,
+      },
+      metadata: {
+        serialized: false,
+        compressed: false,
+        valid: false,
+        error: error.message,
+      },
+    };
+  }
+
+  if (parsed && parsed.__compressed === true && parsed.algorithm === 'gzip' && parsed.encoding === 'base64') {
+    try {
+      const buffer = Buffer.from(parsed.data || '', 'base64');
+      const decompressed = zlib.gunzipSync(buffer).toString('utf8');
+      const decoded = JSON.parse(decompressed);
+
+      return {
+        payload: decoded,
+        metadata: {
+          serialized: true,
+          compressed: true,
+          valid: true,
+          originalLength: parsed.originalLength,
+        },
+      };
+    } catch (error) {
+      return {
+        payload: {
+          error: 'Failed to decompress stored payload',
+          reason: error.message,
+        },
+        metadata: {
+          serialized: true,
+          compressed: true,
+          valid: false,
+          error: error.message,
+        },
+      };
+    }
+  }
+
+  return {
+    payload: parsed,
+    metadata: {
+      serialized: true,
+      compressed: false,
+      valid: true,
+    },
+  };
 }
 
 async function getUserEntries(userId) {

@@ -28,6 +28,10 @@ const stravaApi = axios.create({
 const CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_CACHE_TTL_MS, 10) || 5 * 60 * 1000; // 5 minutes default
 const MAX_ACTIVITY_PAGES = Number.parseInt(process.env.STRAVA_MAX_ACTIVITY_PAGES, 10) || 0; // 0 = unlimited
 
+const PIZZA_KCAL = 800;
+const MEDAL_DOLLAR_VALUE = 5000;
+const BASE_COIN_VALUE = 20;
+
 const userDataCache = new Map();
 
 // *** Updated: Define Multiple Segment Tracking Variables ***
@@ -118,14 +122,34 @@ app.get('/leaderboard', (req, res) => {
 
 // API endpoint to store user progression/leaderboard data
 app.post('/api/user-data', async (req, res) => {
-  const { userId, displayName, level, dollars, emoji, coins } = req.body || {};
+  const {
+    userId,
+    displayName,
+    level,
+    dollars,
+    emoji,
+    coins,
+    totalHaulValue,
+    pizzaCoins,
+    medals,
+  } = req.body || {};
 
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
   }
 
   try {
-    const entry = await appendLeaderboardEntry({ userId, displayName, level, dollars, emoji, coins });
+    const entry = await appendLeaderboardEntry({
+      userId,
+      displayName,
+      level,
+      dollars,
+      emoji,
+      coins,
+      totalHaulValue,
+      pizzaCoins,
+      medals,
+    });
     return res.status(201).json({ message: 'User data stored', entry });
   } catch (error) {
     console.error('Error storing user data:', error.message);
@@ -620,6 +644,17 @@ function buildLeaderboardSummary(payload = {}) {
 
   const emoji = emojiBands.find(band => coins >= band.threshold)?.emoji || '💲';
 
+  const totalCalories = Number.isFinite(Number(totals.calories)) ? Number(totals.calories) : 0;
+  const pizzaCoins = Math.max(0, Math.round(totalCalories / PIZZA_KCAL));
+
+  const medalCount = Array.isArray(payload.activities)
+    ? payload.activities.reduce((sum, activity) => sum + (Number(activity?.achievement_count) || 0), 0)
+    : 0;
+
+  const totalCoinValue = coins * BASE_COIN_VALUE;
+  const totalMedalValue = medalCount * MEDAL_DOLLAR_VALUE;
+  const totalHaulValue = dollars + totalCoinValue + totalMedalValue;
+
   return {
     userId,
     displayName,
@@ -627,6 +662,9 @@ function buildLeaderboardSummary(payload = {}) {
     dollars,
     coins,
     emoji,
+    totalHaulValue,
+    pizzaCoins,
+    medals: medalCount,
   };
 }
 

@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const COIN_LABEL_OVERRIDES = {
         Run: {
             '10km Run': '10 km run',
-            '21km Run': 'Half marathon (21 km)',
-            '42km Run': 'Marathon (42 km)',
+            '21km Run': 'Half marathon',
+            '42km Run': 'Marathon',
             '50km Run/Week': '50 km run week',
             '100km Run/Week': '100 km run week'
         },
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         Elevation: {
             '1000m Elevation': '1,000 m climb',
             '2000m Elevation': '2,000 m climb',
-            'Half Everest': 'Half Everest (4,424 m)',
+            'Half Everest': 'Half Everest',
             '10k Elevation/Week': '10k m elevation week',
             '25k Elevation/Month': '25k m elevation month'
         },
@@ -49,6 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             '1000 kcal Activity': '1,000 kcal activity',
             '2000 kcal Activity': '2,000 kcal activity',
             '4000 kcal Activity': '4,000 kcal activity',
+            '7500 kcal Activity': '7,500 kcal activity',
+            '8000 kcal Activity': '8,000 kcal activity',
             '12000 kcal Week': '12,000 kcal week',
             '24000 kcal Week': '24,000 kcal week'
         }
@@ -58,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const usdCodeFormatter = new Intl.NumberFormat(undefined, {
         style: 'currency',
         currency: 'USD',
-        currencyDisplay: 'code',
+        currencyDisplay: 'symbol',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     });
@@ -101,6 +103,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const yearSelect = document.getElementById('year-select');
     const activitiesContainer = document.getElementById('activities-container');
     const activitiesEmptyState = document.getElementById('activities-empty');
+    const medalFilterBanner = document.getElementById('medal-filter-banner');
+    const medalFilterLabel = document.getElementById('medal-filter-label');
+    const medalFilterEmoji = document.getElementById('medal-filter-emoji');
+    const clearMedalFilterButton = document.getElementById('clear-medal-filter');
+    const activitiesSectionElement = document.getElementById('activities-section');
     const loadMoreButton = document.getElementById('load-more-btn');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
     const walletChartCanvas = document.getElementById('wallet-chart');
@@ -119,6 +126,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (walletChartCanvas) {
         walletChartCanvas.classList.add('hidden');
+    }
+
+    if (typeof Chart !== 'undefined') {
+        const defaultFontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";
+        Chart.defaults.font.family = defaultFontFamily;
+        Chart.defaults.font.size = 13;
+        if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
+            Chart.defaults.plugins.tooltip.bodyFont = {
+                family: defaultFontFamily,
+                size: 13
+            };
+            Chart.defaults.plugins.tooltip.titleFont = {
+                family: defaultFontFamily,
+                size: 12,
+                weight: '600'
+            };
+        }
     }
 
     Object.values(chartToggleButtons).forEach(button => {
@@ -149,6 +173,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let visibleActivitiesCount = 0;
     let sortedActivities = [];
+    const MEDAL_FILTER_PAGE_SIZE = 10;
+    let activeMedalFilter = null;
+    let activeMedalMeta = null;
+    let medalFilteredActivities = [];
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
@@ -177,10 +205,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const formatMillions = (value) => {
         if (!Number.isFinite(value) || value <= 0) {
-            return '0.0M USD';
+            return '$0.0M';
         }
         const millions = value / 1_000_000;
-        return `${millions.toFixed(1)}M USD`;
+        return `$${millions.toFixed(1)}M`;
     };
 
     const formatDistance = (km) => {
@@ -227,6 +255,73 @@ document.addEventListener('DOMContentLoaded', async () => {
             .trim();
 
         return formatted || rawName;
+    };
+
+    const updateMedalFilterBanner = () => {
+        if (!medalFilterBanner) {
+            return;
+        }
+
+        if (activeMedalFilter) {
+            medalFilterBanner.classList.remove('hidden');
+            if (medalFilterLabel) {
+                const countText = Number.isFinite(activeMedalMeta?.count)
+                    ? ` • Earned ${activeMedalMeta.count.toLocaleString()}×`
+                    : '';
+                medalFilterLabel.textContent = `${activeMedalFilter}${countText}`;
+            }
+            if (medalFilterEmoji) {
+                const emojiValue = activeMedalMeta?.emoji || '';
+                medalFilterEmoji.textContent = emojiValue;
+                medalFilterEmoji.classList.toggle('hidden', !emojiValue);
+            }
+        } else {
+            medalFilterBanner.classList.add('hidden');
+            if (medalFilterLabel) {
+                medalFilterLabel.textContent = '';
+            }
+            if (medalFilterEmoji) {
+                medalFilterEmoji.textContent = '';
+                medalFilterEmoji.classList.add('hidden');
+            }
+        }
+    };
+
+    const updateMedalButtonStates = () => {
+        if (!medalsSection) {
+            return;
+        }
+
+        const buttons = medalsSection.querySelectorAll('button[data-medal-name]');
+        buttons.forEach(button => {
+            if (button.dataset.medalName === activeMedalFilter) {
+                button.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
+            } else {
+                button.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
+            }
+        });
+    };
+
+    const rebuildMedalFilteredActivities = () => {
+        if (!activeMedalFilter) {
+            medalFilteredActivities = [];
+            return;
+        }
+
+        medalFilteredActivities = sortedActivities.filter(activity => {
+            const medalsForActivity = getActivityMedals(activity);
+            return medalsForActivity.some(medal => medal.name === activeMedalFilter);
+        });
+    };
+
+    const resetMedalFilterState = () => {
+        const wasActive = Boolean(activeMedalFilter);
+        activeMedalFilter = null;
+        activeMedalMeta = null;
+        medalFilteredActivities = [];
+        updateMedalFilterBanner();
+        updateMedalButtonStates();
+        return wasActive;
     };
 
     const normalizeSeriesLength = (labels = [], values = [], targetLength = 15) => {
@@ -409,6 +504,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isDarkMode = document.body.classList.contains('dark');
         const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
+        const fontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";
+        const tickFont = { family: fontFamily, size: 13, weight: '600' };
+        const tooltipBodyFont = { family: fontFamily, size: 13 };
+        const tooltipTitleFont = { family: fontFamily, size: 12, weight: '600' };
 
         if (availableKey === 'coins') {
             const datasets = [];
@@ -454,11 +553,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 18, right: 16, bottom: 12, left: 16 }
+                    },
                     plugins: {
                         legend: {
                             display: false
                         },
                         tooltip: {
+                            bodyFont: tooltipBodyFont,
+                            titleFont: tooltipTitleFont,
                             callbacks: {
                                 label: (context) => {
                                     const value = context.parsed.y || 0;
@@ -472,7 +576,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         x: {
                             stacked: true,
                             ticks: {
-                                color: axisColor
+                                color: axisColor,
+                                font: tickFont,
+                                padding: 8
                             },
                             grid: {
                                 color: gridColor
@@ -485,7 +591,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             position: 'left',
                             ticks: {
                                 color: axisColor,
-                                precision: 0
+                                precision: 0,
+                                font: tickFont,
+                                padding: 6
                             },
                             grid: {
                                 color: gridColor
@@ -498,7 +606,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             position: 'right',
                             ticks: {
                                 color: axisColor,
-                                precision: 0
+                                precision: 0,
+                                font: tickFont,
+                                padding: 6
                             },
                             grid: {
                                 color: gridColor,
@@ -529,11 +639,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 18, right: 16, bottom: 12, left: 16 }
+                    },
                     plugins: {
                         legend: {
                             display: false
                         },
                         tooltip: {
+                            bodyFont: tooltipBodyFont,
+                            titleFont: tooltipTitleFont,
                             callbacks: {
                                 label: (context) => {
                                     const value = context.parsed.y || 0;
@@ -545,7 +660,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     scales: {
                         x: {
                             ticks: {
-                                color: axisColor
+                                color: axisColor,
+                                font: tickFont,
+                                padding: 8
                             },
                             grid: {
                                 color: gridColor
@@ -555,11 +672,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                             beginAtZero: true,
                             ticks: {
                                 color: axisColor,
+                                font: tickFont,
+                                padding: 6,
                                 callback: (value) => {
                                     if (!Number.isFinite(value)) {
-                                        return '0.0M';
+                                        return '$0.0M';
                                     }
-                                    return `${(value / 1_000_000).toFixed(1)}M`;
+                                    return `$${(value / 1_000_000).toFixed(1)}M`;
                                 }
                             },
                             grid: {
@@ -1483,14 +1602,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        updateMedalFilterBanner();
+
+        const sourceActivities = activeMedalFilter ? medalFilteredActivities : sortedActivities;
+
         activitiesContainer.innerHTML = '';
 
-        if (!sortedActivities.length) {
+        if (!sourceActivities.length) {
             if (activitiesEmptyState) {
+                activitiesEmptyState.textContent = activeMedalFilter
+                    ? 'No activities found for this medal yet.'
+                    : 'No activities match your filters.';
                 activitiesEmptyState.classList.remove('hidden');
             }
             if (loadMoreButton) {
                 loadMoreButton.classList.add('hidden');
+                loadMoreButton.disabled = true;
             }
             return;
         }
@@ -1499,7 +1626,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             activitiesEmptyState.classList.add('hidden');
         }
 
-        const activitiesToRender = sortedActivities.slice(0, visibleActivitiesCount);
+        const limit = activeMedalFilter
+            ? Math.min(MEDAL_FILTER_PAGE_SIZE, sourceActivities.length)
+            : visibleActivitiesCount;
+
+        const activitiesToRender = sourceActivities.slice(0, limit);
 
         const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className, ariaLabel = null }) => {
             const badge = document.createElement('button');
@@ -1702,13 +1833,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (loadMoreButton) {
-            if (visibleActivitiesCount >= sortedActivities.length && !hasMoreActivities) {
+            if (activeMedalFilter) {
                 loadMoreButton.classList.add('hidden');
+                loadMoreButton.disabled = true;
             } else {
-                loadMoreButton.classList.remove('hidden');
-            }
+                if (visibleActivitiesCount >= sortedActivities.length && !hasMoreActivities) {
+                    loadMoreButton.classList.add('hidden');
+                } else {
+                    loadMoreButton.classList.remove('hidden');
+                }
 
-            loadMoreButton.disabled = isFetchingActivities;
+                loadMoreButton.disabled = isFetchingActivities;
+            }
+        }
+    };
+
+    const toggleMedalFilter = (medal = {}) => {
+        if (!medal || !medal.name) {
+            return;
+        }
+
+        hideTooltip();
+
+        if (activeMedalFilter === medal.name) {
+            if (resetMedalFilterState()) {
+                renderActivitiesList();
+            }
+            return;
+        }
+
+        activeMedalFilter = medal.name;
+        activeMedalMeta = {
+            name: medal.name,
+            emoji: medal.emoji || '',
+            count: Number.isFinite(medal.count) ? medal.count : null
+        };
+
+        rebuildMedalFilteredActivities();
+        updateMedalFilterBanner();
+        updateMedalButtonStates();
+        renderActivitiesList();
+
+        if (activitiesSectionElement) {
+            activitiesSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     };
 
@@ -2062,19 +2229,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         },
         {
-            name: 'Sky Sprint',
-            emoji: '💨',
-            description: 'Clocked 21 km/h in a run longer than 5 km',
-            criteria: (activity) => {
-                if ((activity.type || '').toUpperCase() !== 'RUN') {
-                    return false;
-                }
-                const distance = activity.distance || 0;
-                const maxSpeed = activity.max_speed || 0;
-                return distance >= 5000 && maxSpeed >= 5.83;
-            }
-        },
-        {
             name: 'Peak Fueler',
             emoji: '🍲',
             description: 'Burned at least 4,000 kcal in a single activity',
@@ -2220,7 +2374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 { metric: 'calories', threshold: 3000, emoji: '🧈', name: 'Metabolism Boost' },
                 { metric: 'calories', threshold: 7500, emoji: '💎', name: 'Metabolic Master' }
             ],
-            ultraWeekly: { metric: 'calories', threshold: 12000, emoji: '👑' }
+            ultraWeekly: { metric: 'calories', threshold: 8000, emoji: '👑' }
         },
         'Segment': { // New category for Segment Completions
             lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
@@ -2390,8 +2544,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const calorieThresholds = [1000, 2000, 4000];
-        const calorieEmojis = ['💲', '💰', '🧈'];
+        const calorieThresholds = [1000, 2000, 4000, 7500, 8000];
+        const calorieEmojis = ['💲', '💰', '🧈', '💎', '👑'];
         calorieThresholds.forEach((threshold, idx) => {
             if (stats.calories >= threshold) {
                 pushHighlight(calorieEmojis[idx] || '🏅', `Burned ${threshold}+ kcal in this activity.`);
@@ -2510,6 +2664,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     } else {
         console.warn("'close-spinner' element not found in the DOM.");
+    }
+
+    if (clearMedalFilterButton) {
+        clearMedalFilterButton.addEventListener('click', () => {
+            if (resetMedalFilterState()) {
+                renderActivitiesList();
+            }
+        });
     }
 
     // === Fetch and Process Data ===
@@ -3018,8 +3180,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // === KCal Badges ===
         const kcalBadges = {
             'Per Activity': {
-                thresholds: [1000, 2000, 4000],
-                emojis: ['💲', '💰', '🧈'],
+                thresholds: [1000, 2000, 4000, 7500, 8000],
+                emojis: ['💲', '💰', '🧈', '💎', '👑'],
                 description: 'Burned at least {} kcal in an activity'
             },
             'Weekly': {
@@ -3338,10 +3500,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return a.name.localeCompare(b.name);
                 });
 
+                let activeMedalExists = false;
                 sortedMedals.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
-                    medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
+                    medalButton.className = 'tooltip-target medal-badge shrink-0 snap-start rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400';
                     medalButton.innerHTML = `
                         <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
                         <span class="text-2xl leading-none">${medal.emoji}</span>
@@ -3351,6 +3514,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ? `${medal.name} • ${medal.description} • Earned ${medal.count}×`
                         : `${medal.name} • ${medal.description}`;
                     attachTooltip(medalButton, medalTooltip);
+                    medalButton.dataset.medalName = medal.name;
+                    medalButton.dataset.medalEmoji = medal.emoji || '';
+                    if (activeMedalFilter === medal.name) {
+                        activeMedalExists = true;
+                        activeMedalMeta = {
+                            name: medal.name,
+                            emoji: medal.emoji || '',
+                            count: Number.isFinite(medal.count) ? medal.count : null
+                        };
+                    }
+                    medalButton.addEventListener('click', () => {
+                        toggleMedalFilter(medal);
+                    });
                     const randomDelay = (Math.random() * 4).toFixed(2);
                     const randomDuration = (6 + Math.random() * 5).toFixed(2);
                     medalButton.style.setProperty('--medal-drift-delay', `${randomDelay}s`);
@@ -3358,6 +3534,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     medalButton.style.marginTop = `${Math.random() * 12}px`;
                     medalsSection.appendChild(medalButton);
                 });
+
+                if (activeMedalFilter && !activeMedalExists) {
+                    resetMedalFilterState();
+                } else {
+                    updateMedalButtonStates();
+                    updateMedalFilterBanner();
+                }
             }
         } else {
             console.warn("'medals-section' element not found in the DOM.");
@@ -3478,6 +3661,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return dateB - dateA;
             });
 
+        rebuildMedalFilteredActivities();
+
         if (sortedActivities.length === 0) {
             visibleActivitiesCount = 0;
         } else if (preserveVisibleCount) {
@@ -3564,6 +3749,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (loadMoreButton) {
         loadMoreButton.addEventListener('click', async () => {
+            if (activeMedalFilter) {
+                return;
+            }
             const previousVisibleCount = visibleActivitiesCount;
 
             visibleActivitiesCount = Math.min(sortedActivities.length, visibleActivitiesCount + ACTIVITIES_PAGE_SIZE);

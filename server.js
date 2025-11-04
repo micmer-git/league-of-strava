@@ -6,10 +6,15 @@ const express = require('express');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const { appendUserData, getUserData } = require('./services/googleSheets'); // Import the Google Sheets functions
+const {
+  appendLeaderboardEntry,
+  getLeaderboardLatestEntries,
+  getUserEntries,
+} = require('./services/googleSheets'); // Import the Google Sheets functions
 
 const app = express();
 app.use(cookieParser());
+app.use(express.json());
 app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
@@ -101,6 +106,53 @@ app.get('/auth/strava/callback', async (req, res) => {
 app.get('/dashboard', (req, res) => {
   console.log('Serving dashboard page');
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// Serve the leaderboard page
+app.get('/leaderboard', (req, res) => {
+  console.log('Serving leaderboard page');
+  res.sendFile(path.join(__dirname, 'public', 'leaderboard.html'));
+});
+
+// API endpoint to store user progression/leaderboard data
+app.post('/api/user-data', async (req, res) => {
+  const { userId, displayName, level, dollars, emoji, coins } = req.body || {};
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const entry = await appendLeaderboardEntry({ userId, displayName, level, dollars, emoji, coins });
+    return res.status(201).json({ message: 'User data stored', entry });
+  } catch (error) {
+    console.error('Error storing user data:', error.message);
+    return res.status(500).json({ error: 'Failed to store user data' });
+  }
+});
+
+// API endpoint to fetch stored entries for a specific user
+app.get('/api/user-data/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const entries = await getUserEntries(userId);
+    return res.json({ userId, entries });
+  } catch (error) {
+    console.error(`Error retrieving data for user ${userId}:`, error.message);
+    return res.status(500).json({ error: 'Failed to retrieve user data' });
+  }
+});
+
+// API endpoint to fetch the latest leaderboard entries
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const leaderboard = await getLeaderboardLatestEntries();
+    return res.json({ leaderboard });
+  } catch (error) {
+    console.error('Error retrieving leaderboard data:', error.message);
+    return res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
+  }
 });
 
 // API endpoint to fetch all Strava activities and segment completions

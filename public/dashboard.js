@@ -191,6 +191,71 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === Utility Functions ===
 
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const isValidStravaPayload = (data) => {
+        if (!data || typeof data !== 'object') {
+            return false;
+        }
+
+        if ('activities' in data && !Array.isArray(data.activities)) {
+            return false;
+        }
+
+        if ('segments' in data && !Array.isArray(data.segments)) {
+            return false;
+        }
+
+        if ('totals' in data && (data.totals === null || typeof data.totals !== 'object')) {
+            return false;
+        }
+
+        return true;
+    };
+
+    const fetchAndValidateJson = async (requestFactory, {
+        attempts = 3,
+        retryDelay = 500,
+        allowNotFound = false,
+        validate,
+    } = {}) => {
+        let lastError;
+
+        for (let attempt = 1; attempt <= attempts; attempt += 1) {
+            try {
+                const response = await requestFactory();
+
+                if (allowNotFound && response.status === 404) {
+                    return null;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseError) {
+                    throw new Error(`Invalid JSON response: ${parseError.message}`);
+                }
+
+                if (typeof validate === 'function' && !validate(data)) {
+                    throw new Error('Response validation failed');
+                }
+
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (attempt < attempts) {
+                    await wait(retryDelay * attempt);
+                }
+            }
+        }
+
+        throw lastError;
+    };
+
     const formatStatValue = (value) => {
         if (!Number.isFinite(value) || value <= 0) {
             return '0';
@@ -2767,17 +2832,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         hasAttemptedStoredSnapshot = true;
 
         try {
-            const response = await fetch('/api/strava-data?loadStored=true');
-            if (!response.ok) {
-                if (response.status === 404) {
-                    hasAttemptedStoredSnapshot = false;
-                } else {
-                    console.info('Stored snapshot request did not succeed:', response.status);
+            const storedData = await fetchAndValidateJson(
+                () => fetch('/api/strava-data?loadStored=true', { cache: 'no-store' }),
+                {
+                    attempts: 2,
+                    retryDelay: 750,
+                    allowNotFound: true,
+                    validate: isValidStravaPayload,
                 }
+            );
+
+            if (!storedData) {
+                hasAttemptedStoredSnapshot = false;
                 return false;
             }
 
-            const storedData = await response.json();
             ingestResponseData(storedData, { isLoadMore: false });
             applyFilters({ preserveVisibleCount: false });
             console.log('Loaded stored snapshot from Google Sheets.');
@@ -2810,20 +2879,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             params.set('pageCount', String(ACTIVITIES_BATCH_PAGES));
             params.set('perPage', String(ACTIVITIES_PER_PAGE));
 
-            const response = await fetch(`/api/strava-data?${params.toString()}`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await fetchAndValidateJson(
+                () => fetch(`/api/strava-data?${params.toString()}`, { cache: 'no-store' }),
+                {
+                    attempts: 3,
+                    retryDelay: 750,
+                    validate: isValidStravaPayload,
+                }
+            );
 
             ingestResponseData(data, { isLoadMore });
             applyFilters({ preserveVisibleCount: isLoadMore });
+            if (errorMessage) {
+                errorMessage.classList.add('hidden');
+                errorMessage.textContent = '';
+            }
         } catch (error) {
             console.error('Error fetching Strava data:', error);
             if (errorMessage) {
                 errorMessage.classList.remove('hidden');
-                errorMessage.textContent = 'Error fetching Strava data. Please try again later.';
+                const friendlyMessage = error?.message
+                    ? `Error fetching Strava data: ${error.message}. Retrying may help.`
+                    : 'Error fetching Strava data. Please try again later.';
+                errorMessage.textContent = friendlyMessage;
             }
         } finally {
             isFetchingActivities = false;

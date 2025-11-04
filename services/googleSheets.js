@@ -72,7 +72,18 @@ const sheets = google.sheets({ version: 'v4', auth: jwtClient });
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 const DEFAULT_LEADERBOARD_SHEET_NAME = process.env.LEADERBOARD_SHEET_NAME || 'Leaderboard';
-const LEADERBOARD_HEADER = ['timestamp', 'userId', 'displayName', 'level', 'dollars', 'emoji', 'coins'];
+const LEADERBOARD_HEADER = [
+  'timestamp',
+  'userId',
+  'displayName',
+  'level',
+  'totalHaulValue',
+  'coins',
+  'dollars',
+  'pizzaCoins',
+  'medals',
+  'emoji',
+];
 const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
@@ -108,8 +119,9 @@ async function listSheetTitles() {
 
 async function ensureSheetExists(sheetName, headerRow = []) {
   const sheetTitles = await listSheetTitles();
+  const sheetAlreadyExists = sheetTitles.includes(sheetName);
 
-  if (!sheetTitles.includes(sheetName)) {
+  if (!sheetAlreadyExists) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -125,16 +137,17 @@ async function ensureSheetExists(sheetName, headerRow = []) {
       },
     });
 
-    if (headerRow.length > 0) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${sheetName}!A1`,
-        valueInputOption: 'RAW',
-        resource: {
-          values: [headerRow],
-        },
-      });
-    }
+  }
+
+  if (headerRow.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      resource: {
+        values: [headerRow],
+      },
+    });
   }
 
   return sheetName;
@@ -379,7 +392,17 @@ async function getLatestUserSnapshot(userId) {
   return null;
 }
 
-async function appendLeaderboardEntry({ userId, displayName = '', level = 0, dollars = 0, emoji = '', coins = 0 }) {
+async function appendLeaderboardEntry({
+  userId,
+  displayName = '',
+  level = 0,
+  dollars = 0,
+  emoji = '',
+  coins = 0,
+  totalHaulValue = 0,
+  pizzaCoins = 0,
+  medals = 0,
+}) {
   if (!SPREADSHEET_ID) {
     throw new Error('SPREADSHEET_ID environment variable is not set.');
   }
@@ -399,9 +422,12 @@ async function appendLeaderboardEntry({ userId, displayName = '', level = 0, dol
           userId ?? '',
           displayName ?? '',
           level !== undefined && level !== null ? Number(level) : '',
-          dollars !== undefined && dollars !== null ? Number(dollars) : '',
-          emoji ?? '',
+          totalHaulValue !== undefined && totalHaulValue !== null ? Number(totalHaulValue) : '',
           coins !== undefined && coins !== null ? Number(coins) : '',
+          dollars !== undefined && dollars !== null ? Number(dollars) : '',
+          pizzaCoins !== undefined && pizzaCoins !== null ? Number(pizzaCoins) : '',
+          medals !== undefined && medals !== null ? Number(medals) : '',
+          emoji ?? '',
         ],
       ],
     },
@@ -415,6 +441,9 @@ async function appendLeaderboardEntry({ userId, displayName = '', level = 0, dol
     dollars: Number(dollars) || 0,
     emoji,
     coins: Number(coins) || 0,
+    totalHaulValue: Number(totalHaulValue) || 0,
+    pizzaCoins: Number(pizzaCoins) || 0,
+    medals: Number(medals) || 0,
   };
 }
 
@@ -464,9 +493,12 @@ async function getLeaderboardLatestEntries() {
         userId,
         displayName: row.displayName || '',
         level: Number(row.level) || 0,
+        totalHaulValue: Number(row.totalHaulValue) || 0,
         dollars: Number(row.dollars) || 0,
         emoji: row.emoji || '',
         coins: Number(row.coins) || 0,
+        pizzaCoins: Number(row.pizzaCoins) || 0,
+        medals: Number(row.medals) || 0,
         timestamp: row.timestamp || '',
         parsedTimestamp: Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY,
       });
@@ -474,6 +506,10 @@ async function getLeaderboardLatestEntries() {
   }
 
   const leaderboard = Array.from(latestByUser.values()).sort((a, b) => {
+    if (b.totalHaulValue !== a.totalHaulValue) {
+      return b.totalHaulValue - a.totalHaulValue;
+    }
+
     if (b.level !== a.level) {
       return b.level - a.level;
     }

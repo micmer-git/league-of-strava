@@ -1,16 +1,67 @@
 document.addEventListener('DOMContentLoaded', () => {
   const statusEl = document.getElementById('leaderboard-status');
   const tableBody = document.getElementById('leaderboard-body');
+  const usdFormatter = new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const isValidLeaderboardPayload = (data) => {
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+
+    if (!Array.isArray(data.leaderboard)) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const fetchAndValidateJson = async (requestFactory, { attempts = 3, retryDelay = 500, validate } = {}) => {
+    let lastError;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        const response = await requestFactory();
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          throw new Error(`Invalid JSON response: ${parseError.message}`);
+        }
+
+        if (typeof validate === 'function' && !validate(data)) {
+          throw new Error('Leaderboard payload validation failed');
+        }
+
+        return data;
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts) {
+          await wait(retryDelay * attempt);
+        }
+      }
+    }
+
+    throw lastError;
+  };
 
   async function loadLeaderboard() {
     try {
-      const response = await fetch('/api/leaderboard');
-
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await fetchAndValidateJson(
+        () => fetch('/api/leaderboard', { cache: 'no-store' }),
+        { attempts: 3, retryDelay: 750, validate: isValidLeaderboardPayload },
+      );
       const entries = Array.isArray(data.leaderboard) ? data.leaderboard : [];
 
       if (entries.length === 0) {
@@ -26,9 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
         row.innerHTML = `
           <td class="rank-cell">${index + 1}</td>
           <td class="name-cell">${escapeHtml(entry.displayName || entry.userId || 'Unknown')}</td>
-          <td>${Number(entry.level ?? 0)}</td>
+          <td>${Number(entry.level ?? 0).toLocaleString()}</td>
+          <td>${formatCurrency(entry.totalHaulValue)}</td>
           <td>${Number(entry.coins ?? 0).toLocaleString()}</td>
-          <td>$${Number(entry.dollars ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+          <td>${formatCurrency(entry.dollars)}</td>
+          <td>${Number(entry.pizzaCoins ?? 0).toLocaleString()}</td>
+          <td>${Number(entry.medals ?? 0).toLocaleString()}</td>
           <td class="emoji-cell">${escapeHtml(entry.emoji || '')}</td>
           <td>${formatRelativeTime(entry.timestamp)}</td>
         `;
@@ -36,8 +90,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     } catch (error) {
       console.error('Failed to load leaderboard', error);
-      statusEl.textContent = 'Failed to load the leaderboard. Please try again later.';
+      statusEl.textContent = error?.message
+        ? `Failed to load the leaderboard: ${error.message}.`
+        : 'Failed to load the leaderboard. Please try again later.';
     }
+  }
+
+  function formatCurrency(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      return usdFormatter.format(0);
+    }
+
+    return usdFormatter.format(numericValue);
   }
 
   function escapeHtml(value) {

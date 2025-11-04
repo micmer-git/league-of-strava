@@ -72,6 +72,23 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 const DEFAULT_LEADERBOARD_SHEET_NAME = process.env.LEADERBOARD_SHEET_NAME || 'Leaderboard';
 const LEADERBOARD_HEADER = ['timestamp', 'userId', 'displayName', 'level', 'dollars', 'emoji', 'coins'];
+const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
+
+function sanitizeSheetTitle(value) {
+  const fallback = 'user';
+  const raw = typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
+
+  return raw
+    .trim()
+    .replace(/[\[\]\/?*]/g, '_')
+    .replace(/^'|'/g, '_')
+    .slice(0, 90) || fallback;
+}
+
+function getUserSnapshotSheetTitle(userId) {
+  const sanitizedId = sanitizeSheetTitle(userId ?? 'user');
+  return `user_${sanitizedId}`;
+}
 
 async function listSheetTitles() {
   if (!SPREADSHEET_ID) {
@@ -117,6 +134,11 @@ async function ensureSheetExists(sheetName, headerRow = []) {
   }
 
   return sheetName;
+}
+
+async function sheetExists(sheetName) {
+  const sheetTitles = await listSheetTitles();
+  return sheetTitles.includes(sheetName);
 }
 /**
  * Get or create a sheet for a user.
@@ -183,6 +205,91 @@ async function getUserData(userId) {
     range: `${sheetName}!A1:Z1000`, // Adjust the range as needed
   });
   return res.data.values || [];
+}
+
+async function ensureUserSnapshotSheet(userId) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = getUserSnapshotSheetTitle(userId);
+  await ensureSheetExists(sheetName, USER_SNAPSHOT_HEADER);
+  return sheetName;
+}
+
+async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = await ensureUserSnapshotSheet(userId);
+  const timestamp = new Date().toISOString();
+  const serializedPayload = (() => {
+    try {
+      return JSON.stringify(payload);
+    } catch (error) {
+      return JSON.stringify({ error: 'Failed to serialize payload', reason: error.message });
+    }
+  })();
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    resource: {
+      values: [
+        [
+          timestamp,
+          source ?? 'strava',
+          serializedPayload,
+        ],
+      ],
+    },
+  });
+
+  return {
+    timestamp,
+    sheetName,
+  };
+}
+
+async function getLatestUserSnapshot(userId) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = getUserSnapshotSheetTitle(userId);
+  const exists = await sheetExists(sheetName);
+
+  if (!exists) {
+    return null;
+  }
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A2:C100000`,
+  });
+
+  const values = res.data.values || [];
+  if (values.length === 0) {
+    return null;
+  }
+
+  const [timestamp = '', source = 'strava', payloadRaw = '{}'] = values[values.length - 1];
+
+  let parsedPayload = null;
+  try {
+    parsedPayload = JSON.parse(payloadRaw);
+  } catch (error) {
+    parsedPayload = { error: 'Failed to parse stored payload', reason: error.message };
+  }
+
+  return {
+    timestamp,
+    source,
+    payload: parsedPayload,
+  };
 }
 
 async function appendLeaderboardEntry({ userId, displayName = '', level = 0, dollars = 0, emoji = '', coins = 0 }) {
@@ -325,6 +432,8 @@ async function getUserEntries(userId) {
 module.exports = {
   appendUserData,
   getUserData,
+  appendUserSnapshot,
+  getLatestUserSnapshot,
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
   getUserEntries,

@@ -180,6 +180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
+    let hasAttemptedStoredSnapshot = false;
 
     let tooltipHideTimeout = null;
     let spinnerHideTimeout = null;
@@ -2674,6 +2675,120 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    const ingestResponseData = (data, { isLoadMore = false } = {}) => {
+        if (!data || !data.athlete || !data.activities || !data.totals) {
+            throw new Error('Incomplete data received from API.');
+        }
+
+        const activitiesFromResponse = Array.isArray(data.activities) ? data.activities : [];
+        const segmentsFromResponse = Array.isArray(data.segments) ? data.segments : [];
+        const athlete = data.athlete || {};
+
+        if (!isLoadMore || !Array.isArray(allData.activities)) {
+            allData = {
+                ...data,
+                activities: [...activitiesFromResponse],
+                segments: [...segmentsFromResponse],
+                athlete,
+            };
+        } else {
+            const existingActivities = Array.isArray(allData.activities) ? allData.activities : [];
+            const existingKeys = new Set(existingActivities
+                .map(existingActivity => getActivityKey(existingActivity))
+                .filter(Boolean));
+
+            const dedupedActivities = activitiesFromResponse.filter(activity => {
+                const key = getActivityKey(activity);
+                if (!key) {
+                    return true;
+                }
+                if (existingKeys.has(key)) {
+                    return false;
+                }
+                existingKeys.add(key);
+                return true;
+            });
+
+            allData.activities = existingActivities.concat(dedupedActivities);
+            allData.athlete = Object.keys(athlete).length ? athlete : allData.athlete;
+
+            const currentSegments = Array.isArray(allData.segments) ? allData.segments : [];
+            allData.segments = segmentsFromResponse.length > 0 ? segmentsFromResponse : currentSegments;
+        }
+
+        allData.cached = data.cached;
+        allData.stale = data.stale;
+        allData.hasMore = data.hasMore;
+        allData.pageInfo = data.pageInfo;
+
+        const aggregatedTotals = calculateTotals(allData.activities || []);
+        allData.totals = {
+            ...(allData.totals || {}),
+            hours: aggregatedTotals.hours,
+            distance: aggregatedTotals.distance,
+            elevation: aggregatedTotals.elevation,
+            calories: aggregatedTotals.calories
+        };
+
+        const effectiveSegments = Array.isArray(allData.segments)
+            ? allData.segments
+            : segmentsFromResponse;
+        allData.segments = effectiveSegments;
+        allData.athlete = allData.athlete || athlete;
+
+        hasMoreActivities = Boolean(allData.pageInfo?.hasMore ?? allData.hasMore);
+
+        const nextStartFromResponse = allData.pageInfo?.nextPageStart;
+        if (Number.isFinite(nextStartFromResponse)) {
+            nextActivitiesPageStart = nextStartFromResponse;
+        } else if (!hasMoreActivities) {
+            nextActivitiesPageStart = null;
+        } else if (Number.isFinite(nextActivitiesPageStart)) {
+            nextActivitiesPageStart += ACTIVITIES_BATCH_PAGES;
+        }
+
+        const previousYearSelection = yearSelect ? yearSelect.value : 'all';
+        populateYearSelect(allData.activities || []);
+        if (yearSelect) {
+            const options = Array.from(yearSelect.options || []);
+            if (options.some(option => option.value === previousYearSelection)) {
+                yearSelect.value = previousYearSelection;
+            } else {
+                yearSelect.value = 'all';
+            }
+        }
+    };
+
+    const loadStoredSnapshotIfAvailable = async () => {
+        if (hasAttemptedStoredSnapshot) {
+            return false;
+        }
+
+        hasAttemptedStoredSnapshot = true;
+
+        try {
+            const response = await fetch('/api/strava-data?loadStored=true');
+            if (!response.ok) {
+                if (response.status === 404) {
+                    hasAttemptedStoredSnapshot = false;
+                } else {
+                    console.info('Stored snapshot request did not succeed:', response.status);
+                }
+                return false;
+            }
+
+            const storedData = await response.json();
+            ingestResponseData(storedData, { isLoadMore: false });
+            applyFilters({ preserveVisibleCount: false });
+            console.log('Loaded stored snapshot from Google Sheets.');
+            return true;
+        } catch (error) {
+            hasAttemptedStoredSnapshot = false;
+            console.info('No stored snapshot available yet:', error.message || error);
+            return false;
+        }
+    };
+
     // === Fetch and Process Data ===
     const fetchData = async ({ isLoadMore = false } = {}) => {
         if (isFetchingActivities) {
@@ -2684,6 +2799,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!isLoadMore) {
             nextActivitiesPageStart = 1;
+            await loadStoredSnapshotIfAvailable();
         }
 
         try {
@@ -2701,88 +2817,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const data = await response.json();
 
-            if (!data.athlete || !data.activities || !data.totals) {
-                throw new Error('Incomplete data received from API.');
-            }
-
-            const activitiesFromResponse = Array.isArray(data.activities) ? data.activities : [];
-            const segmentsFromResponse = Array.isArray(data.segments) ? data.segments : [];
-            const athlete = data.athlete || {};
-
-            if (!isLoadMore || !Array.isArray(allData.activities)) {
-                allData = {
-                    ...data,
-                    activities: [...activitiesFromResponse],
-                    segments: [...segmentsFromResponse],
-                    athlete,
-                };
-            } else {
-                const existingActivities = Array.isArray(allData.activities) ? allData.activities : [];
-                const existingKeys = new Set(existingActivities
-                    .map(existingActivity => getActivityKey(existingActivity))
-                    .filter(Boolean));
-
-                const dedupedActivities = activitiesFromResponse.filter(activity => {
-                    const key = getActivityKey(activity);
-                    if (!key) {
-                        return true;
-                    }
-                    if (existingKeys.has(key)) {
-                        return false;
-                    }
-                    existingKeys.add(key);
-                    return true;
-                });
-
-                allData.activities = existingActivities.concat(dedupedActivities);
-                allData.athlete = Object.keys(athlete).length ? athlete : allData.athlete;
-
-                const currentSegments = Array.isArray(allData.segments) ? allData.segments : [];
-                allData.segments = segmentsFromResponse.length > 0 ? segmentsFromResponse : currentSegments;
-            }
-
-            allData.cached = data.cached;
-            allData.stale = data.stale;
-            allData.hasMore = data.hasMore;
-            allData.pageInfo = data.pageInfo;
-
-            const aggregatedTotals = calculateTotals(allData.activities || []);
-            allData.totals = {
-                ...(allData.totals || {}),
-                hours: aggregatedTotals.hours,
-                distance: aggregatedTotals.distance,
-                elevation: aggregatedTotals.elevation,
-                calories: aggregatedTotals.calories
-            };
-
-            const effectiveSegments = Array.isArray(allData.segments)
-                ? allData.segments
-                : segmentsFromResponse;
-            allData.segments = effectiveSegments;
-            allData.athlete = allData.athlete || athlete;
-
-            hasMoreActivities = Boolean(allData.pageInfo?.hasMore ?? allData.hasMore);
-
-            const nextStartFromResponse = allData.pageInfo?.nextPageStart;
-            if (Number.isFinite(nextStartFromResponse)) {
-                nextActivitiesPageStart = nextStartFromResponse;
-            } else if (!hasMoreActivities) {
-                nextActivitiesPageStart = null;
-            } else if (Number.isFinite(nextActivitiesPageStart)) {
-                nextActivitiesPageStart += ACTIVITIES_BATCH_PAGES;
-            }
-
-            const previousYearSelection = yearSelect ? yearSelect.value : 'all';
-            populateYearSelect(allData.activities || []);
-            if (yearSelect) {
-                const options = Array.from(yearSelect.options || []);
-                if (options.some(option => option.value === previousYearSelection)) {
-                    yearSelect.value = previousYearSelection;
-                } else {
-                    yearSelect.value = 'all';
-                }
-            }
-
+            ingestResponseData(data, { isLoadMore });
             applyFilters({ preserveVisibleCount: isLoadMore });
         } catch (error) {
             console.error('Error fetching Strava data:', error);

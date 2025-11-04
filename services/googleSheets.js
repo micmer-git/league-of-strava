@@ -4,17 +4,61 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 
-// Path to your service account credentials
-const SERVICE_ACCOUNT_FILE = path.join(__dirname, '..', 'credentials.json'); // Update the path as needed
+const SERVICE_ACCOUNT_FILE = process.env.GOOGLE_SERVICE_ACCOUNT_FILE
+  ? path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_FILE)
+  : path.join(__dirname, '..', 'credentials.json');
 
-// Load the service account credentials
-const credentials = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE, 'utf8'));
+function loadCredentials() {
+  const inlineCredentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+
+  if (inlineCredentials) {
+    try {
+      return JSON.parse(inlineCredentials);
+    } catch (error) {
+      try {
+        const decoded = Buffer.from(inlineCredentials, 'base64').toString('utf8');
+        return JSON.parse(decoded);
+      } catch (decodeError) {
+        throw new Error('Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON. Ensure it is valid JSON or base64-encoded JSON.');
+      }
+    }
+  }
+
+  if (fs.existsSync(SERVICE_ACCOUNT_FILE)) {
+    return JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE, 'utf8'));
+  }
+
+  throw new Error('Service account credentials not found. Provide GOOGLE_SERVICE_ACCOUNT_JSON or a credentials file.');
+}
+
+const credentials = (() => {
+  const baseCredentials = loadCredentials();
+
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL || baseCredentials.client_email;
+  const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || baseCredentials.private_key;
+
+  const resolvedCredentials = {
+    ...baseCredentials,
+    client_email: clientEmail,
+    private_key: privateKey,
+  };
+
+  if (!resolvedCredentials.client_email || !resolvedCredentials.private_key) {
+    throw new Error('Service account credentials must include client_email and private_key fields.');
+  }
+
+  return resolvedCredentials;
+})();
+
+const normalizedPrivateKey = credentials.private_key
+  .replace(/\r\n/g, '\n')
+  .replace(/\\n/g, '\n');
 
 // Initialize the JWT client
 const jwtClient = new google.auth.JWT(
   credentials.client_email,
   null,
-  credentials.private_key,
+  normalizedPrivateKey,
   ['https://www.googleapis.com/auth/spreadsheets'],
   null
 );

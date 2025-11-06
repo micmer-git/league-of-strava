@@ -130,6 +130,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const medalFilterEmoji = document.getElementById('medal-filter-emoji');
     const clearMedalFilterButton = document.getElementById('clear-medal-filter');
     const activitiesSectionElement = document.getElementById('activities-section');
+    const activityFilterSummary = document.getElementById('activity-filter-summary');
+    const activityFilterActive = document.getElementById('activity-filter-active');
+    const activityTypeFilter = document.getElementById('activity-type-filter');
+    const activityCountryFilter = document.getElementById('activity-country-filter');
+    const activityHoursMinInput = document.getElementById('activity-hours-min');
+    const activityHoursMaxInput = document.getElementById('activity-hours-max');
+    const activityDistanceMinInput = document.getElementById('activity-distance-min');
+    const activityDistanceMaxInput = document.getElementById('activity-distance-max');
+    const activityElevationMinInput = document.getElementById('activity-elevation-min');
+    const activityElevationMaxInput = document.getElementById('activity-elevation-max');
+    const applyActivityFiltersButton = document.getElementById('apply-activity-filters');
+    const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
     const loadMoreButton = document.getElementById('load-more-btn');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
     const walletChartCanvas = document.getElementById('wallet-chart');
@@ -197,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let allData = {}; // To store all fetched data
     let filteredData = {}; // To store filtered data based on date
 
-    const ACTIVITIES_PAGE_SIZE = 5;
+    const ACTIVITIES_PAGE_SIZE = 20;
     const ACTIVITIES_PER_PAGE = 200;
     const ACTIVITIES_BATCH_PAGES = 3;
 
@@ -211,6 +223,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
     let hasAttemptedStoredSnapshot = false;
+
+    const DEFAULT_COUNTRY_LABEL = 'Unknown location';
+    const DEFAULT_ACTIVITY_FILTERS = {
+        type: 'all',
+        country: 'all',
+        minHours: null,
+        maxHours: null,
+        minDistance: null,
+        maxDistance: null,
+        minElevation: null,
+        maxElevation: null,
+    };
+    let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
+    let activityFilterUniverseCount = 0;
 
     let tooltipHideTimeout = null;
     let spinnerHideTimeout = null;
@@ -422,6 +448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         medalFilteredActivities = [];
         updateMedalFilterBanner();
         updateMedalButtonStates();
+        updateActivityFilterActiveText();
         return wasActive;
     };
 
@@ -1898,6 +1925,349 @@ document.addEventListener('DOMContentLoaded', async () => {
         attachTooltip(element, element.dataset.tooltip);
     });
 
+    const parseNumberInputValue = (inputElement) => {
+        if (!inputElement) {
+            return null;
+        }
+
+        const rawValue = typeof inputElement.value === 'string'
+            ? inputElement.value.trim()
+            : '';
+
+        if (rawValue === '') {
+            return null;
+        }
+
+        const parsed = Number.parseFloat(rawValue.replace(',', '.'));
+        if (!Number.isFinite(parsed)) {
+            return null;
+        }
+
+        return Math.max(0, parsed);
+    };
+
+    const formatNumberWithDecimals = (value, decimals = 0) => {
+        if (!Number.isFinite(value)) {
+            return '';
+        }
+
+        return value.toLocaleString(undefined, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+        });
+    };
+
+    const formatActivityTypeLabel = (type = '') => {
+        if (typeof type !== 'string' || type.trim() === '') {
+            return '';
+        }
+
+        return type
+            .replace(/_/g, ' ')
+            .toLowerCase()
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const extractActivityCountry = (activity = {}) => {
+        if (!activity || typeof activity !== 'object') {
+            return DEFAULT_COUNTRY_LABEL;
+        }
+
+        const rawCountry = (activity.location_country || activity.country || '').trim();
+        if (rawCountry) {
+            return rawCountry;
+        }
+
+        return DEFAULT_COUNTRY_LABEL;
+    };
+
+    const getActivityFilterValues = () => {
+        const filters = { ...DEFAULT_ACTIVITY_FILTERS };
+
+        if (activityTypeFilter) {
+            const typeValue = (activityTypeFilter.value || '').trim();
+            filters.type = typeValue.length > 0 ? typeValue : 'all';
+        }
+
+        if (activityCountryFilter) {
+            const countryValue = (activityCountryFilter.value || '').trim();
+            filters.country = countryValue.length > 0 ? countryValue : 'all';
+        }
+
+        filters.minHours = parseNumberInputValue(activityHoursMinInput);
+        filters.maxHours = parseNumberInputValue(activityHoursMaxInput);
+        if (filters.minHours !== null && filters.maxHours !== null && filters.maxHours < filters.minHours) {
+            [filters.minHours, filters.maxHours] = [filters.maxHours, filters.minHours];
+        }
+
+        filters.minDistance = parseNumberInputValue(activityDistanceMinInput);
+        filters.maxDistance = parseNumberInputValue(activityDistanceMaxInput);
+        if (filters.minDistance !== null && filters.maxDistance !== null && filters.maxDistance < filters.minDistance) {
+            [filters.minDistance, filters.maxDistance] = [filters.maxDistance, filters.minDistance];
+        }
+
+        filters.minElevation = parseNumberInputValue(activityElevationMinInput);
+        filters.maxElevation = parseNumberInputValue(activityElevationMaxInput);
+        if (filters.minElevation !== null && filters.maxElevation !== null && filters.maxElevation < filters.minElevation) {
+            [filters.minElevation, filters.maxElevation] = [filters.maxElevation, filters.minElevation];
+        }
+
+        return filters;
+    };
+
+    const updateActivityFilterOptions = (activities = []) => {
+        const availableTypes = new Set();
+        const availableCountries = new Set();
+
+        activities.forEach((activity) => {
+            const typeValue = typeof activity?.type === 'string' ? activity.type.trim() : '';
+            if (typeValue) {
+                availableTypes.add(typeValue);
+            }
+
+            const countryValue = extractActivityCountry(activity);
+            if (countryValue) {
+                availableCountries.add(countryValue);
+            }
+        });
+
+        if (activityTypeFilter) {
+            const currentTypeValue = (activityTypeFilter.value || '').trim() || 'all';
+            if (currentTypeValue !== 'all' && !availableTypes.has(currentTypeValue)) {
+                availableTypes.add(currentTypeValue);
+            }
+
+            const sortedTypes = Array.from(availableTypes).sort((a, b) => {
+                return formatActivityTypeLabel(a).localeCompare(formatActivityTypeLabel(b));
+            });
+
+            const typeFragment = document.createDocumentFragment();
+            const allTypesOption = document.createElement('option');
+            allTypesOption.value = 'all';
+            allTypesOption.textContent = 'All types';
+            typeFragment.appendChild(allTypesOption);
+
+            sortedTypes.forEach((type) => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = formatActivityTypeLabel(type);
+                typeFragment.appendChild(option);
+            });
+
+            activityTypeFilter.innerHTML = '';
+            activityTypeFilter.appendChild(typeFragment);
+
+            if (currentTypeValue === 'all' || sortedTypes.includes(currentTypeValue)) {
+                activityTypeFilter.value = currentTypeValue;
+            } else {
+                activityTypeFilter.value = 'all';
+            }
+        }
+
+        if (activityCountryFilter) {
+            const currentCountryValue = (activityCountryFilter.value || '').trim() || 'all';
+            if (currentCountryValue !== 'all' && !availableCountries.has(currentCountryValue)) {
+                availableCountries.add(currentCountryValue);
+            }
+
+            const sortedCountries = Array.from(availableCountries).sort((a, b) => a.localeCompare(b));
+
+            const countryFragment = document.createDocumentFragment();
+            const allCountriesOption = document.createElement('option');
+            allCountriesOption.value = 'all';
+            allCountriesOption.textContent = 'All nations';
+            countryFragment.appendChild(allCountriesOption);
+
+            sortedCountries.forEach((country) => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                countryFragment.appendChild(option);
+            });
+
+            activityCountryFilter.innerHTML = '';
+            activityCountryFilter.appendChild(countryFragment);
+
+            if (currentCountryValue === 'all' || sortedCountries.includes(currentCountryValue)) {
+                activityCountryFilter.value = currentCountryValue;
+            } else {
+                activityCountryFilter.value = 'all';
+            }
+        }
+    };
+
+    const formatRangeDescription = (minValue = null, maxValue = null, label = '', decimals = 0, unitSuffix = '') => {
+        if (minValue === null && maxValue === null) {
+            return null;
+        }
+
+        const formatValue = (value) => formatNumberWithDecimals(value, decimals) + unitSuffix;
+
+        if (minValue !== null && maxValue !== null) {
+            return `${label}: ${formatValue(minValue)}–${formatValue(maxValue)}`;
+        }
+
+        if (minValue !== null) {
+            return `${label}: ≥ ${formatValue(minValue)}`;
+        }
+
+        return `${label}: ≤ ${formatValue(maxValue)}`;
+    };
+
+    const describeActivityFilters = (filters = DEFAULT_ACTIVITY_FILTERS) => {
+        const descriptions = [];
+
+        if (filters.type && filters.type !== 'all') {
+            descriptions.push(`Type: ${formatActivityTypeLabel(filters.type)}`);
+        }
+
+        if (filters.country && filters.country !== 'all') {
+            descriptions.push(`Nation: ${filters.country}`);
+        }
+
+        const hoursDescription = formatRangeDescription(filters.minHours, filters.maxHours, 'Hours', 1, 'h');
+        if (hoursDescription) {
+            descriptions.push(hoursDescription);
+        }
+
+        const distanceDescription = formatRangeDescription(filters.minDistance, filters.maxDistance, 'Distance', 0, ' km');
+        if (distanceDescription) {
+            descriptions.push(distanceDescription);
+        }
+
+        const elevationDescription = formatRangeDescription(filters.minElevation, filters.maxElevation, 'Elevation', 0, ' m');
+        if (elevationDescription) {
+            descriptions.push(elevationDescription);
+        }
+
+        return descriptions;
+    };
+
+    const updateActivityFilterActiveText = () => {
+        if (!activityFilterActive) {
+            return;
+        }
+
+        const descriptions = describeActivityFilters(currentActivityFilters);
+
+        if (activeMedalFilter) {
+            const medalDescription = activeMedalMeta?.emoji
+                ? `Medal: ${activeMedalMeta.emoji} ${activeMedalFilter}`
+                : `Medal: ${activeMedalFilter}`;
+            descriptions.push(medalDescription);
+        }
+
+        if (descriptions.length === 0) {
+            activityFilterActive.textContent = 'No additional filters applied.';
+        } else {
+            activityFilterActive.textContent = `Filters active · ${descriptions.join(' · ')}`;
+        }
+    };
+
+    const updateActivityFilterSummary = (displayedCount = 0, totalCount = 0) => {
+        if (!activityFilterSummary) {
+            return;
+        }
+
+        if (totalCount === 0) {
+            activityFilterSummary.textContent = 'No activities match your current filters.';
+            return;
+        }
+
+        const baseSummary = activeMedalFilter
+            ? `Showing ${displayedCount.toLocaleString()} of ${totalCount.toLocaleString()} medal-matching activities.`
+            : `Showing ${displayedCount.toLocaleString()} of ${totalCount.toLocaleString()} matching activities.`;
+
+        if (activityFilterUniverseCount > totalCount) {
+            const hiddenCount = activityFilterUniverseCount - totalCount;
+            const hiddenSuffix = hiddenCount > 0
+                ? ` ${hiddenCount.toLocaleString()} additional activities are hidden by filters.`
+                : '';
+            activityFilterSummary.textContent = `${baseSummary}${hiddenSuffix}`;
+        } else {
+            activityFilterSummary.textContent = baseSummary;
+        }
+    };
+
+    const resetActivityFilterInputs = () => {
+        if (activityTypeFilter) {
+            activityTypeFilter.value = 'all';
+        }
+        if (activityCountryFilter) {
+            activityCountryFilter.value = 'all';
+        }
+        [
+            activityHoursMinInput,
+            activityHoursMaxInput,
+            activityDistanceMinInput,
+            activityDistanceMaxInput,
+            activityElevationMinInput,
+            activityElevationMaxInput,
+        ].forEach((input) => {
+            if (input) {
+                input.value = '';
+            }
+        });
+        currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
+    };
+
+    const activityMatchesFilters = (activity = {}, filters = DEFAULT_ACTIVITY_FILTERS) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const normalizedType = typeof activity.type === 'string' ? activity.type.toLowerCase() : '';
+        if (filters.type && filters.type !== 'all') {
+            if (normalizedType !== filters.type.toLowerCase()) {
+                return false;
+            }
+        }
+
+        if (filters.country && filters.country !== 'all') {
+            const activityCountry = extractActivityCountry(activity);
+            if (activityCountry !== filters.country) {
+                return false;
+            }
+        }
+
+        const movingTimeValue = Number(activity?.moving_time);
+        const movingTimeSeconds = Number.isFinite(movingTimeValue)
+            ? movingTimeValue
+            : 0;
+        const movingHours = movingTimeSeconds / 3600;
+        if (filters.minHours !== null && movingHours < filters.minHours) {
+            return false;
+        }
+        if (filters.maxHours !== null && movingHours > filters.maxHours) {
+            return false;
+        }
+
+        const distanceValue = Number(activity?.distance);
+        const distanceMeters = Number.isFinite(distanceValue)
+            ? distanceValue
+            : 0;
+        const distanceKm = distanceMeters / 1000;
+        if (filters.minDistance !== null && distanceKm < filters.minDistance) {
+            return false;
+        }
+        if (filters.maxDistance !== null && distanceKm > filters.maxDistance) {
+            return false;
+        }
+
+        const elevationValue = Number(activity?.total_elevation_gain);
+        const elevationGain = Number.isFinite(elevationValue)
+            ? elevationValue
+            : 0;
+        if (filters.minElevation !== null && elevationGain < filters.minElevation) {
+            return false;
+        }
+        if (filters.maxElevation !== null && elevationGain > filters.maxElevation) {
+            return false;
+        }
+
+        return true;
+    };
+
     const calculateTotals = (activities = []) => {
         return activities.reduce((acc, activity) => {
             acc.hours += ((activity?.moving_time) || 0) / 3600;
@@ -1949,8 +2319,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         updateMedalFilterBanner();
+        updateActivityFilterActiveText();
 
         const sourceActivities = activeMedalFilter ? medalFilteredActivities : sortedActivities;
+        const totalMatches = sourceActivities.length;
 
         activitiesContainer.innerHTML = '';
 
@@ -1965,6 +2337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loadMoreButton.classList.add('hidden');
                 loadMoreButton.disabled = true;
             }
+            updateActivityFilterSummary(0, 0);
             return;
         }
 
@@ -1977,6 +2350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : visibleActivitiesCount;
 
         const activitiesToRender = sourceActivities.slice(0, limit);
+        updateActivityFilterSummary(activitiesToRender.length, totalMatches);
 
         const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className, ariaLabel = null }) => {
             const badge = document.createElement('button');
@@ -4175,13 +4549,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function applyFilters(options = {}) {
         const { preserveVisibleCount = false } = options;
-        if (!allData.activities) {
+        if (!Array.isArray(allData.activities)) {
             return;
         }
 
         const selectedYear = yearSelect ? yearSelect.value : 'all';
+        const filters = getActivityFilterValues();
+        currentActivityFilters = filters;
 
-        const filteredActivities = allData.activities.filter(activity => {
+        const yearFilteredActivities = allData.activities.filter(activity => {
             const activityDate = new Date(activity.start_date);
             if (Number.isNaN(activityDate.getTime())) {
                 return false;
@@ -4191,6 +4567,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             return true;
         });
+
+        activityFilterUniverseCount = yearFilteredActivities.length;
+
+        const filteredActivities = yearFilteredActivities.filter(activity => activityMatchesFilters(activity, filters));
 
         const computedTotals = calculateTotals(filteredActivities);
 
@@ -4205,6 +4585,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 calories: computedTotals.calories
             }
         };
+
+        updateActivityFilterOptions(yearFilteredActivities);
+        updateActivityFilterActiveText();
 
         try {
             processAndDisplayData(filteredData, { preserveVisibleCount });
@@ -4224,6 +4607,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (yearSelect) {
         yearSelect.addEventListener('change', () => {
             applyFilters();
+        });
+    }
+
+    if (applyActivityFiltersButton) {
+        applyActivityFiltersButton.addEventListener('click', () => {
+            applyFilters({ preserveVisibleCount: false });
+        });
+    }
+
+    if (resetActivityFiltersButton) {
+        resetActivityFiltersButton.addEventListener('click', () => {
+            resetActivityFilterInputs();
+            resetMedalFilterState();
+            applyFilters({ preserveVisibleCount: false });
         });
     }
 

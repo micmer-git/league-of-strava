@@ -22,6 +22,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
     const MEDAL_OTHER_COLOR = '#94a3b8';
+    const BALANCE_YEAR_COLOR_PALETTE = [
+        { border: '#2563eb', background: 'rgba(37, 99, 235, 0.18)' },
+        { border: '#16a34a', background: 'rgba(22, 163, 74, 0.18)' },
+        { border: '#f97316', background: 'rgba(249, 115, 22, 0.18)' },
+        { border: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)' },
+        { border: '#14b8a6', background: 'rgba(20, 184, 166, 0.18)' },
+        { border: '#ef4444', background: 'rgba(239, 68, 68, 0.18)' },
+        { border: '#f59e0b', background: 'rgba(245, 158, 11, 0.18)' },
+        { border: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' }
+    ];
+    const MONTH_COMPARISON_LABELS = Array.from({ length: 12 }, (_, index) => {
+        const date = new Date(2000, index, 1);
+        return date.toLocaleDateString(undefined, { month: 'short' });
+    });
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const COIN_LABEL_OVERRIDES = {
         Run: {
@@ -114,6 +128,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletChartEmptyState = document.getElementById('wallet-chart-empty');
     const chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
     const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
+    const balanceYearToggle = document.getElementById('balance-year-toggle');
+    const balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
     const chartToggleButtons = {
         coins: chartToggleCoinsButton,
         balance: chartToggleBalanceButton
@@ -163,9 +179,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let walletChartInstance = null;
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
+    let balanceCompareYears = false;
     const walletChartData = {
         coins: { labels: [], coinBreakdown: {}, medalBreakdown: [] },
-        balance: { labels: [], values: [] }
+        balance: { labels: [], values: [], compareLabels: MONTH_COMPARISON_LABELS, compareDatasets: [] }
     };
 
     // === Data Storage ===
@@ -229,6 +246,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         for (let attempt = 1; attempt <= attempts; attempt += 1) {
             try {
                 const response = await requestFactory();
+
+                if (response.status === 401) {
+                    window.location.href = '/auth/strava';
+                    return Promise.reject(new Error('Redirecting to Strava for authentication.'));
+                }
 
                 if (allowNotFound && response.status === 404) {
                     return null;
@@ -491,10 +513,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (key === 'balance') {
-            return Array.isArray(dataset.values) && dataset.values.some(value => value > 0);
+            const hasValues = Array.isArray(dataset.values) && dataset.values.some(value => value > 0);
+            const hasCompare = Array.isArray(dataset.compareDatasets)
+                && dataset.compareDatasets.some(entry => Array.isArray(entry?.data) && entry.data.some(value => value > 0));
+            return hasValues || hasCompare;
         }
 
         return false;
+    };
+
+    const updateBalanceCompareToggleState = () => {
+        if (!balanceYearToggle) {
+            return;
+        }
+
+        const dataset = walletChartData.balance || {};
+        const availableCompareDatasets = Array.isArray(dataset.compareDatasets)
+            ? dataset.compareDatasets.filter(entry => Array.isArray(entry?.data) && entry.data.some(value => value > 0))
+            : [];
+        const hasCompareData = availableCompareDatasets.length > 1;
+
+        const shouldEnable = activeChartKey === 'balance' && hasCompareData;
+
+        if (!shouldEnable) {
+            balanceCompareYears = false;
+        }
+
+        balanceYearToggle.disabled = !shouldEnable;
+        balanceYearToggle.checked = shouldEnable && balanceCompareYears;
+        balanceYearToggle.setAttribute('aria-disabled', shouldEnable ? 'false' : 'true');
+
+        if (balanceYearToggleLabel) {
+            balanceYearToggleLabel.classList.toggle('opacity-60', !shouldEnable);
+            balanceYearToggleLabel.classList.toggle('pointer-events-none', !shouldEnable);
+        }
     };
 
     const updateToggleStates = (activeKey) => {
@@ -523,6 +575,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const stateClasses = isActive ? activeClasses : inactiveClasses;
             button.className = `${baseClass} ${stateClasses}`.trim();
         });
+
+        updateBalanceCompareToggleState();
     };
 
     const destroyWalletChart = () => {
@@ -690,22 +744,48 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         } else {
+            const hasCompareData = Array.isArray(dataset.compareDatasets) && dataset.compareDatasets.length > 1;
+            const useComparison = Boolean(balanceCompareYears && hasCompareData);
+
+            const comparisonDatasets = useComparison
+                ? dataset.compareDatasets.map(entry => ({
+                    label: entry.label || 'Balance',
+                    data: Array.isArray(entry.data) ? entry.data : [],
+                    borderColor: entry.borderColor || '#2563eb',
+                    backgroundColor: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointHoverRadius: 4,
+                }))
+                : [];
+
+            const chartLabels = useComparison
+                ? (Array.isArray(dataset.compareLabels) && dataset.compareLabels.length > 0
+                    ? dataset.compareLabels
+                    : MONTH_COMPARISON_LABELS)
+                : dataset.labels;
+
+            const chartDatasets = useComparison
+                ? comparisonDatasets
+                : [
+                    {
+                        label: 'Cumulative balance',
+                        data: dataset.values,
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22, 163, 74, 0.2)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 3,
+                        pointHoverRadius: 4,
+                    }
+                ];
+
             walletChartInstance = new Chart(walletChartCanvas, {
                 type: 'line',
                 data: {
-                    labels: dataset.labels,
-                    datasets: [
-                        {
-                            label: 'Cumulative balance',
-                            data: dataset.values,
-                            borderColor: '#16a34a',
-                            backgroundColor: 'rgba(22, 163, 74, 0.2)',
-                            fill: true,
-                            tension: 0.35,
-                            pointRadius: 3,
-                            pointHoverRadius: 4
-                        }
-                    ]
+                    labels: chartLabels,
+                    datasets: chartDatasets,
                 },
                 options: {
                     responsive: true,
@@ -715,7 +795,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     },
                     plugins: {
                         legend: {
-                            display: false
+                            display: useComparison,
+                            labels: {
+                                usePointStyle: true,
+                                font: tickFont,
+                            }
                         },
                         tooltip: {
                             bodyFont: tooltipBodyFont,
@@ -723,7 +807,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             callbacks: {
                                 label: (context) => {
                                     const value = context.parsed.y || 0;
-                                    return `Balance: ${formatMillions(value)}`;
+                                    const label = context.dataset?.label || 'Balance';
+                                    return useComparison
+                                        ? `${label}: ${formatMillions(value)}`
+                                        : `Balance: ${formatMillions(value)}`;
                                 }
                             }
                         }
@@ -799,6 +886,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : buildWalletMetrics(lifetimeActivities);
 
         const yearlyAggregation = new Map();
+        const monthlyTotalsByYear = new Map();
         const createYearEntry = () => ({
             coins: 0,
             medals: 0,
@@ -831,6 +919,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 entry.medalCounts.set(label, (entry.medalCounts.get(label) || 0) + 1);
             });
             yearlyAggregation.set(year, entry);
+
+            const monthIndex = metric.date.getMonth();
+            if (Number.isInteger(monthIndex) && monthIndex >= 0 && monthIndex < 12) {
+                const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
+                totals[monthIndex] += metric.coinValue + metric.medalValue;
+                monthlyTotalsByYear.set(year, totals);
+            }
         });
 
         const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
@@ -867,6 +962,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalBreakdown
         };
 
+        const compareDatasets = [];
+        sortedYears.forEach((year, index) => {
+            const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
+            let runningTotal = 0;
+            const cumulative = totals.map(value => {
+                const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+                runningTotal += numericValue;
+                return runningTotal;
+            });
+
+            if (!cumulative.some(value => value > 0)) {
+                return;
+            }
+
+            const paletteEntry = BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
+            compareDatasets.push({
+                label: String(year),
+                data: cumulative,
+                borderColor: paletteEntry.border,
+                backgroundColor: paletteEntry.background,
+            });
+        });
+
         const monthlyAggregation = new Map();
         metricsForFiltered.forEach(metric => {
             const year = metric.date.getFullYear();
@@ -894,7 +1012,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
         });
         const normalizedBalance = normalizeSeriesLength(monthLabels, balanceValues, 15);
-        walletChartData.balance = normalizedBalance;
+        walletChartData.balance = {
+            labels: normalizedBalance.labels,
+            values: normalizedBalance.values,
+            compareLabels: MONTH_COMPARISON_LABELS,
+            compareDatasets,
+        };
 
         const nextChartKey = hasWalletChartData(activeChartKey)
             ? activeChartKey
@@ -1042,6 +1165,150 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         return null;
+    };
+
+    const sortActivitiesDescending = (activities = []) => {
+        return activities.slice().sort((a, b) => {
+            const dateA = new Date(a?.start_date || a?.start_date_local || 0);
+            const dateB = new Date(b?.start_date || b?.start_date_local || 0);
+            const timeA = Number.isFinite(dateA.getTime()) ? dateA.getTime() : 0;
+            const timeB = Number.isFinite(dateB.getTime()) ? dateB.getTime() : 0;
+            return timeB - timeA;
+        });
+    };
+
+    const mergeActivityLists = (existingActivities = [], incomingActivities = []) => {
+        const mergedMap = new Map();
+
+        const addActivity = (activity) => {
+            if (!activity || typeof activity !== 'object') {
+                return;
+            }
+
+            let key = getActivityKey(activity);
+            if (!key) {
+                key = `activity-${mergedMap.size}`;
+                while (mergedMap.has(key)) {
+                    key = `activity-${mergedMap.size}-${Math.random().toString(36).slice(2, 8)}`;
+                }
+            }
+
+            const current = mergedMap.get(key) || {};
+            mergedMap.set(key, { ...current, ...activity });
+        };
+
+        existingActivities.forEach(addActivity);
+        incomingActivities.forEach(addActivity);
+
+        return Array.from(mergedMap.values());
+    };
+
+    const mergeSegmentEntries = (existingSegments = [], incomingSegments = []) => {
+        const segmentMap = new Map();
+
+        const addSegment = (segment) => {
+            if (!segment || typeof segment !== 'object') {
+                return;
+            }
+
+            const key = segment.name || String(segment.id ?? segment.segment_id ?? segment.slug ?? segmentMap.size);
+            const existingEntry = segmentMap.get(key) || {
+                name: segment.name || key,
+                completions: [],
+                count: 0,
+                totalCount: 0,
+            };
+
+            const completions = Array.isArray(existingEntry.completions) ? existingEntry.completions : [];
+            const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
+            const combinedCompletions = Array.from(new Set([...completions, ...incomingCompletions]));
+
+            const resolvedCount = Number.isFinite(Number(segment.count)) ? Number(segment.count) : combinedCompletions.length;
+            const resolvedTotalCount = Number.isFinite(Number(segment.totalCount)) ? Number(segment.totalCount) : combinedCompletions.length;
+
+            segmentMap.set(key, {
+                name: existingEntry.name || segment.name || key,
+                completions: combinedCompletions,
+                count: Math.max(existingEntry.count || 0, resolvedCount, combinedCompletions.length),
+                totalCount: Math.max(existingEntry.totalCount || 0, resolvedTotalCount, combinedCompletions.length),
+            });
+        };
+
+        existingSegments.forEach(addSegment);
+        incomingSegments.forEach(addSegment);
+
+        return Array.from(segmentMap.values()).map(segment => ({
+            ...segment,
+            count: Array.isArray(segment.completions) ? segment.completions.length : Number(segment.count) || 0,
+            totalCount: Math.max(Number(segment.totalCount) || 0, Array.isArray(segment.completions) ? segment.completions.length : 0),
+        }));
+    };
+
+    const mergePageInfo = (existingPageInfo = {}, incomingPageInfo = {}) => {
+        const normalizedExisting = existingPageInfo && typeof existingPageInfo === 'object' ? existingPageInfo : {};
+        const normalizedIncoming = incomingPageInfo && typeof incomingPageInfo === 'object' ? incomingPageInfo : {};
+
+        const merged = {
+            ...normalizedExisting,
+            ...normalizedIncoming,
+        };
+
+        const startCandidates = [
+            Number(normalizedExisting.startPage),
+            Number(normalizedIncoming.startPage)
+        ].filter(Number.isFinite);
+        if (startCandidates.length > 0) {
+            merged.startPage = Math.min(...startCandidates);
+        } else {
+            delete merged.startPage;
+        }
+
+        const fetchedCandidates = [
+            Number(normalizedExisting.fetchedPages),
+            Number(normalizedIncoming.fetchedPages)
+        ].filter(Number.isFinite);
+        if (fetchedCandidates.length > 0) {
+            merged.fetchedPages = Math.max(...fetchedCandidates);
+        } else {
+            delete merged.fetchedPages;
+        }
+
+        const perPage = Number.isFinite(Number(normalizedIncoming.perPage))
+            ? Number(normalizedIncoming.perPage)
+            : (Number.isFinite(Number(normalizedExisting.perPage)) ? Number(normalizedExisting.perPage) : undefined);
+        if (Number.isFinite(perPage)) {
+            merged.perPage = perPage;
+        } else {
+            delete merged.perPage;
+        }
+
+        const lastPageSize = Number.isFinite(Number(normalizedIncoming.lastPageSize))
+            ? Number(normalizedIncoming.lastPageSize)
+            : (Number.isFinite(Number(normalizedExisting.lastPageSize)) ? Number(normalizedExisting.lastPageSize) : undefined);
+        if (Number.isFinite(lastPageSize)) {
+            merged.lastPageSize = lastPageSize;
+        } else {
+            delete merged.lastPageSize;
+        }
+
+        if (Number.isFinite(Number(normalizedIncoming.nextPageStart))) {
+            merged.nextPageStart = Number(normalizedIncoming.nextPageStart);
+        } else if (Number.isFinite(Number(normalizedExisting.nextPageStart))) {
+            merged.nextPageStart = Number(normalizedExisting.nextPageStart);
+        } else {
+            delete merged.nextPageStart;
+        }
+
+        const resolvedHasMore = typeof normalizedIncoming.hasMore === 'boolean'
+            ? normalizedIncoming.hasMore
+            : (typeof normalizedExisting.hasMore === 'boolean' ? normalizedExisting.hasMore : undefined);
+        if (typeof resolvedHasMore === 'boolean') {
+            merged.hasMore = resolvedHasMore;
+        } else {
+            delete merged.hasMore;
+        }
+
+        return merged;
     };
 
     const computeWalletCoinTotals = (achievementCategories = []) => {
@@ -2754,42 +3021,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         const segmentsFromResponse = Array.isArray(data.segments) ? data.segments : [];
         const athlete = data.athlete || {};
 
-        if (!isLoadMore || !Array.isArray(allData.activities)) {
-            allData = {
-                ...data,
-                activities: [...activitiesFromResponse],
-                segments: [...segmentsFromResponse],
-                athlete,
-            };
-        } else {
-            const existingActivities = Array.isArray(allData.activities) ? allData.activities : [];
-            const existingKeys = new Set(existingActivities
-                .map(existingActivity => getActivityKey(existingActivity))
-                .filter(Boolean));
+        const existingActivities = Array.isArray(allData.activities) ? allData.activities : [];
+        const existingSegments = Array.isArray(allData.segments) ? allData.segments : [];
+        const existingPageInfo = allData.pageInfo;
 
-            const dedupedActivities = activitiesFromResponse.filter(activity => {
-                const key = getActivityKey(activity);
-                if (!key) {
-                    return true;
-                }
-                if (existingKeys.has(key)) {
-                    return false;
-                }
-                existingKeys.add(key);
-                return true;
-            });
+        const shouldMerge = isLoadMore || existingActivities.length > 0;
 
-            allData.activities = existingActivities.concat(dedupedActivities);
-            allData.athlete = Object.keys(athlete).length ? athlete : allData.athlete;
+        const mergedActivities = shouldMerge
+            ? mergeActivityLists(existingActivities, activitiesFromResponse)
+            : [...activitiesFromResponse];
 
-            const currentSegments = Array.isArray(allData.segments) ? allData.segments : [];
-            allData.segments = segmentsFromResponse.length > 0 ? segmentsFromResponse : currentSegments;
-        }
+        const mergedSegments = shouldMerge
+            ? mergeSegmentEntries(existingSegments, segmentsFromResponse)
+            : [...segmentsFromResponse];
+
+        const mergedAthlete = {
+            ...(allData.athlete || {}),
+            ...athlete,
+        };
+
+        const mergedPageInfo = mergePageInfo(existingPageInfo, data.pageInfo);
+
+        allData = {
+            ...allData,
+            ...data,
+            athlete: mergedAthlete,
+            activities: sortActivitiesDescending(mergedActivities),
+            segments: mergedSegments,
+            pageInfo: mergedPageInfo,
+        };
 
         allData.cached = data.cached;
         allData.stale = data.stale;
-        allData.hasMore = data.hasMore;
-        allData.pageInfo = data.pageInfo;
+        allData.hasMore = typeof data.hasMore === 'boolean'
+            ? data.hasMore
+            : (typeof allData.hasMore === 'boolean' ? allData.hasMore : undefined);
 
         const aggregatedTotals = calculateTotals(allData.activities || []);
         allData.totals = {
@@ -2800,15 +3066,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             calories: aggregatedTotals.calories
         };
 
-        const effectiveSegments = Array.isArray(allData.segments)
-            ? allData.segments
-            : segmentsFromResponse;
-        allData.segments = effectiveSegments;
-        allData.athlete = allData.athlete || athlete;
+        hasMoreActivities = Boolean(
+            allData.pageInfo?.hasMore ??
+            (typeof allData.hasMore === 'boolean' ? allData.hasMore : false)
+        );
 
-        hasMoreActivities = Boolean(allData.pageInfo?.hasMore ?? allData.hasMore);
-
-        const nextStartFromResponse = allData.pageInfo?.nextPageStart;
+        const nextStartFromResponse = Number.isFinite(Number(allData.pageInfo?.nextPageStart))
+            ? Number(allData.pageInfo.nextPageStart)
+            : null;
         if (Number.isFinite(nextStartFromResponse)) {
             nextActivitiesPageStart = nextStartFromResponse;
         } else if (!hasMoreActivities) {
@@ -2981,7 +3246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             fetchMoreDataButton.setAttribute('aria-hidden', 'true');
             fetchMoreDataButton.disabled = true;
         } else {
-            const originalLabel = fetchMoreDataButton.querySelector('span:last-child');
+            const originalLabel = fetchMoreDataButton.querySelector('[data-button-label]');
             const originalText = originalLabel ? originalLabel.textContent : fetchMoreDataButton.textContent;
             fetchMoreDataButton.addEventListener('click', async () => {
                 if (isFetchingActivities) {
@@ -3028,6 +3293,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasActivities = activities.length > 0;
         const totals = calculateTotals(activities);
         const totalHours = totals.hours;
+
+        if (fetchMoreDataButton) {
+            if (isSharedView || !hasMoreActivities) {
+                fetchMoreDataButton.classList.add('hidden');
+                fetchMoreDataButton.setAttribute('aria-hidden', 'true');
+                fetchMoreDataButton.disabled = true;
+            } else {
+                fetchMoreDataButton.classList.remove('hidden');
+                fetchMoreDataButton.setAttribute('aria-hidden', 'false');
+                fetchMoreDataButton.disabled = false;
+            }
+        }
 
         const aggregatedSmallStats = activities.reduce((acc, activity) => {
             const stats = computeActivitySmallStats(activity);
@@ -3925,6 +4202,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderWalletChart(activeChartKey);
         });
     });
+
+    if (balanceYearToggle) {
+        balanceYearToggle.addEventListener('change', () => {
+            if (balanceYearToggle.disabled) {
+                balanceYearToggle.checked = false;
+                return;
+            }
+
+            balanceCompareYears = balanceYearToggle.checked;
+
+            if (balanceCompareYears && activeChartKey !== 'balance') {
+                activeChartKey = 'balance';
+            }
+
+            renderWalletChart(activeChartKey);
+        });
+    }
 
     updateToggleStates(null);
 

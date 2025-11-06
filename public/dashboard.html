@@ -212,7 +212,7 @@
                                 <h2 id="athlete-name" class="min-w-0 text-3xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight whitespace-nowrap truncate"></h2>
                                 <button id="fetch-more-data" type="button" class="inline-flex items-center gap-2 bg-amber-500/90 hover:bg-amber-500 text-white text-sm sm:text-base font-semibold px-3 py-1.5 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-amber-300">
                                     <span aria-hidden="true">🔁</span>
-                                    <span class="sr-only">Fetch more data</span>
+                                    <span data-button-label>Fetch more data</span>
                                 </button>
                             </div>
                             <p class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2" data-wallet-balance-container>
@@ -295,9 +295,13 @@
                 <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 flex-1">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <h3 class="text-xl font-bold">Wallet Insights</h3>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-3">
                             <button id="chart-toggle-coins" type="button" class="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900" aria-pressed="false">Coins &amp; Medals</button>
                             <button id="chart-toggle-balance" type="button" class="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900" aria-pressed="false">Balance</button>
+                            <label data-balance-year-toggle-label class="inline-flex items-center gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm font-semibold text-gray-600 transition-colors focus-within:ring-2 focus-within:ring-blue-300 focus-within:ring-offset-1 dark:text-gray-300 dark:focus-within:ring-offset-gray-900">
+                                <input id="balance-year-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700" />
+                                <span>Compare years</span>
+                            </label>
                         </div>
                     </div>
                     <div id="wallet-chart-wrapper" class="relative mt-4 min-h-[18rem]">

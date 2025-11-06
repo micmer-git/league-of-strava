@@ -80,16 +80,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const nameCellContent = hasUserLink
           ? `<a class="leaderboard-athlete-link" href="${dashboardUrl}">${safeDisplayName}</a>`
           : safeDisplayName;
+        const levelValue = Number(entry.level ?? 0);
+        const levelLabel = Number.isFinite(levelValue) ? levelValue.toLocaleString() : '0';
+        const levelEmoji = escapeHtml(entry.emoji || '');
+        const walletBalance = formatWalletBalance(entry.walletBalance ?? entry.totalHaulValue ?? 0);
+        const worldTrips = formatDecimal(entry.worldTrips ?? entry['🌍']);
+        const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);
+        const pizzaCount = formatDecimal(entry.pizzas ?? entry['🍕']);
+        const coinTotals = getCoinTotals(entry);
+
         row.innerHTML = `
           <td class="rank-cell">${index + 1}</td>
           <td class="name-cell">${nameCellContent}</td>
-          <td>${Number(entry.level ?? 0).toLocaleString()}</td>
+          <td class="level-cell">Level ${levelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}</td>
+          <td class="wallet-cell">${walletBalance}</td>
           <td>${formatCurrency(entry.totalHaulValue)}</td>
-          <td>${Number(entry.coins ?? 0).toLocaleString()}</td>
-          <td>${formatCurrency(entry.dollars)}</td>
-          <td>${Number(entry.pizzaCoins ?? 0).toLocaleString()}</td>
-          <td>${Number(entry.medals ?? 0).toLocaleString()}</td>
-          <td class="emoji-cell">${escapeHtml(entry.emoji || '')}</td>
+          <td class="stat-cell">${worldTrips}</td>
+          <td class="stat-cell">${everestSummits}</td>
+          <td class="stat-cell">${pizzaCount}</td>
+          <td class="stat-cell">${coinTotals['💲']}</td>
+          <td class="stat-cell">${coinTotals['💰']}</td>
+          <td class="stat-cell">${coinTotals['🧈']}</td>
+          <td class="stat-cell">${coinTotals['💎']}</td>
+          <td class="stat-cell">${coinTotals['👑']}</td>
           <td>${formatRelativeTime(entry.timestamp)}</td>
         `;
         tableBody.appendChild(row);
@@ -109,6 +122,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return usdFormatter.format(numericValue);
+  }
+
+  function formatWalletBalance(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      return '$0.0M';
+    }
+
+    const millions = numericValue / 1_000_000;
+    const precision = millions >= 10 ? 1 : 2;
+    return `$${millions.toFixed(precision)}M`;
+  }
+
+  function formatDecimal(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      return '0';
+    }
+
+    if (numericValue >= 100) {
+      return numericValue.toFixed(0);
+    }
+
+    if (numericValue >= 10) {
+      return numericValue.toFixed(1);
+    }
+
+    return numericValue.toFixed(2);
+  }
+
+  function getCoinTotals(entry) {
+    const emojis = ['💲', '💰', '🧈', '💎', '👑'];
+    return emojis.reduce((acc, emoji) => {
+      const value = entry?.coinBreakdown?.[emoji] ?? entry?.[emoji];
+      const numericValue = Number(value);
+      acc[emoji] = Number.isFinite(numericValue) && numericValue > 0
+        ? numericValue.toLocaleString()
+        : '0';
+      return acc;
+    }, {});
   }
 
   function escapeHtml(value) {

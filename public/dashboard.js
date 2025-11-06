@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         segmentSection.classList.add('hidden');
     }
     const bestActivitiesContainer = document.getElementById('best-activities');
+    const topPerformancesEmptyState = document.getElementById('top-performances-empty');
     const yearSelect = document.getElementById('year-select');
     const activitiesContainer = document.getElementById('activities-container');
     const activitiesEmptyState = document.getElementById('activities-empty');
@@ -2363,13 +2364,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Night Owl',
             emoji: '🌙',
-            description: 'Completed an activity between 10 PM and 5 AM',
+            description: 'Completed an activity starting after 9 PM',
             criteria: (activity) => {
                 const hour = new Date(activity.start_date).getHours();
-                return hour >= 22 || hour < 5;
+                return hour >= 21;
             }
         },
-        { 
+        {
             name: 'Early Riser',
             emoji: '☀️',
             description: 'Completed an activity before 6 AM',
@@ -2499,19 +2500,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const distance = activity.distance || 0;
                 const speed = activity.average_speed || 0;
                 return distance >= 15000 && speed >= (1000 / 270);
-            }
-        },
-        {
-            name: 'Sprinting Comet',
-            emoji: '☄️',
-            description: 'Hit 65 km/h on a ride over 30 km',
-            criteria: (activity) => {
-                if ((activity.type || '').toUpperCase() !== 'RIDE') {
-                    return false;
-                }
-                const maxSpeed = activity.max_speed || 0;
-                const distance = activity.distance || 0;
-                return maxSpeed >= 18 && distance >= 30000;
             }
         },
         {
@@ -3824,7 +3812,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             achievementWallet.innerHTML = '';
 
             const table = document.createElement('table');
-            table.className = 'w-full text-xs sm:text-sm border-separate border-spacing-y-1';
+            table.className = 'min-w-[42rem] w-full text-xs sm:text-sm border-separate border-spacing-y-1';
 
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
@@ -4013,9 +4001,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (bestActivitiesContainer) {
             bestActivitiesContainer.innerHTML = '';
 
-            if (!hasActivities) {
-                bestActivitiesContainer.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No top performances available.</p>';
-            } else {
+            if (topPerformancesEmptyState) {
+                topPerformancesEmptyState.classList.toggle('hidden', hasActivities);
+            }
+
+            if (hasActivities) {
                 const metrics = [
                     {
                         title: 'Highest Elevation',
@@ -4103,9 +4093,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     bestActivitiesContainer.appendChild(card);
                 });
 
-                if (!bestActivitiesContainer.hasChildNodes()) {
-                    bestActivitiesContainer.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No top performances available.</p>';
+                if (!bestActivitiesContainer.hasChildNodes() && topPerformancesEmptyState) {
+                    topPerformancesEmptyState.classList.remove('hidden');
                 }
+            } else if (topPerformancesEmptyState) {
+                topPerformancesEmptyState.classList.remove('hidden');
             }
         } else {
             console.warn("'best-activities' element not found in the DOM.");

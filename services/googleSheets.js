@@ -77,13 +77,23 @@ const LEADERBOARD_HEADER = [
   'userId',
   'displayName',
   'level',
+  'emoji',
   'totalHaulValue',
-  'coins',
+  'walletBalance',
   'dollars',
+  'coins',
   'pizzaCoins',
   'medals',
-  'emoji',
+  '🌍',
+  '🏔️',
+  '🍕',
+  '💲',
+  '💰',
+  '🧈',
+  '💎',
+  '👑',
 ];
+const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
 const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
@@ -402,6 +412,11 @@ async function appendLeaderboardEntry({
   totalHaulValue = 0,
   pizzaCoins = 0,
   medals = 0,
+  walletBalance = 0,
+  worldTrips = 0,
+  everestSummits = 0,
+  pizzas = 0,
+  coinBreakdown = {},
 }) {
   if (!SPREADSHEET_ID) {
     throw new Error('SPREADSHEET_ID environment variable is not set.');
@@ -422,16 +437,30 @@ async function appendLeaderboardEntry({
           userId ?? '',
           displayName ?? '',
           level !== undefined && level !== null ? Number(level) : '',
+          emoji ?? '',
           totalHaulValue !== undefined && totalHaulValue !== null ? Number(totalHaulValue) : '',
-          coins !== undefined && coins !== null ? Number(coins) : '',
+          walletBalance !== undefined && walletBalance !== null ? Number(walletBalance) : '',
           dollars !== undefined && dollars !== null ? Number(dollars) : '',
+          coins !== undefined && coins !== null ? Number(coins) : '',
           pizzaCoins !== undefined && pizzaCoins !== null ? Number(pizzaCoins) : '',
           medals !== undefined && medals !== null ? Number(medals) : '',
-          emoji ?? '',
+          worldTrips !== undefined && worldTrips !== null ? Number(worldTrips) : '',
+          everestSummits !== undefined && everestSummits !== null ? Number(everestSummits) : '',
+          pizzas !== undefined && pizzas !== null ? Number(pizzas) : '',
+          ...COIN_EMOJIS.map(emojiKey => {
+            const value = coinBreakdown?.[emojiKey];
+            return value !== undefined && value !== null ? Number(value) : 0;
+          }),
         ],
       ],
     },
   });
+
+  const normalizedCoinBreakdown = COIN_EMOJIS.reduce((acc, emojiKey) => {
+    const numericValue = Number(coinBreakdown?.[emojiKey]);
+    acc[emojiKey] = Number.isFinite(numericValue) ? numericValue : 0;
+    return acc;
+  }, {});
 
   return {
     timestamp,
@@ -444,6 +473,11 @@ async function appendLeaderboardEntry({
     totalHaulValue: Number(totalHaulValue) || 0,
     pizzaCoins: Number(pizzaCoins) || 0,
     medals: Number(medals) || 0,
+    walletBalance: Number(walletBalance) || 0,
+    worldTrips: Number(worldTrips) || 0,
+    everestSummits: Number(everestSummits) || 0,
+    pizzas: Number(pizzas) || 0,
+    coinBreakdown: normalizedCoinBreakdown,
   };
 }
 
@@ -489,19 +523,34 @@ async function getLeaderboardLatestEntries() {
     const current = latestByUser.get(userId);
 
     if (!current || (Number.isFinite(timestamp) && timestamp > (current.parsedTimestamp ?? Number.NEGATIVE_INFINITY))) {
-      latestByUser.set(userId, {
-        userId,
-        displayName: row.displayName || '',
-        level: Number(row.level) || 0,
-        totalHaulValue: Number(row.totalHaulValue) || 0,
-        dollars: Number(row.dollars) || 0,
-        emoji: row.emoji || '',
-        coins: Number(row.coins) || 0,
-        pizzaCoins: Number(row.pizzaCoins) || 0,
-        medals: Number(row.medals) || 0,
-        timestamp: row.timestamp || '',
-        parsedTimestamp: Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY,
-      });
+        const walletBalance = Number(row.walletBalance) || 0;
+        const worldTrips = Number(row['🌍']) || 0;
+        const everestSummits = Number(row['🏔️']) || 0;
+        const pizzas = Number(row['🍕']) || 0;
+        const coinBreakdown = COIN_EMOJIS.reduce((acc, emojiKey) => {
+          const numericValue = Number(row[emojiKey]);
+          acc[emojiKey] = Number.isFinite(numericValue) ? numericValue : 0;
+          return acc;
+        }, {});
+
+        latestByUser.set(userId, {
+          userId,
+          displayName: row.displayName || '',
+          level: Number(row.level) || 0,
+          totalHaulValue: Number(row.totalHaulValue) || 0,
+          dollars: Number(row.dollars) || 0,
+          emoji: row.emoji || '',
+          coins: Number(row.coins) || 0,
+          pizzaCoins: Number(row.pizzaCoins) || 0,
+          medals: Number(row.medals) || 0,
+          walletBalance,
+          worldTrips,
+          everestSummits,
+          pizzas,
+          coinBreakdown,
+          timestamp: row.timestamp || '',
+          parsedTimestamp: Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY,
+        });
     }
   }
 

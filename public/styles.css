@@ -456,8 +456,20 @@ a:hover {
   font-weight: 600;
 }
 
-.emoji-cell {
-  font-size: 1.5rem;
+.stat-cell {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-cell {
+  font-weight: 700;
+  color: #047857;
+  white-space: nowrap;
+}
+
+.level-cell {
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {

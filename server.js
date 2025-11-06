@@ -31,6 +31,17 @@ const MAX_ACTIVITY_PAGES = Number.parseInt(process.env.STRAVA_MAX_ACTIVITY_PAGES
 const PIZZA_KCAL = 800;
 const MEDAL_DOLLAR_VALUE = 5000;
 const BASE_COIN_VALUE = 20;
+const EARTH_CIRCUMFERENCE_KM = 40075;
+const EVEREST_HEIGHT_M = 8849;
+const CALORIE_SCALE_FACTOR = 0.65;
+const COIN_VALUE_MAP = {
+  '💲': 20,
+  '💰': 100,
+  '🧈': 500,
+  '💎': 3000,
+  '👑': 10000,
+};
+const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
 
 const userDataCache = new Map();
 
@@ -837,6 +848,194 @@ function recalculateSnapshotTotals(payload = {}) {
   };
 }
 
+function calculateActivityCalories(activity = {}) {
+  const movingTimeSeconds = Number(activity.moving_time) || 0;
+  const hours = movingTimeSeconds / 3600;
+  const averageHeartRate = activity.average_heartrate
+    ?? activity.avg_heart_rate
+    ?? activity.avg_heartrate
+    ?? null;
+
+  let estimate = 0;
+
+  if (hours > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
+    const calories = (190 / averageHeartRate) * hours * 800;
+    if (Number.isFinite(calories) && calories > 0) {
+      estimate = calories;
+    }
+  }
+
+  const reportedCalories = Number(activity.calories);
+  if (estimate <= 0 && Number.isFinite(reportedCalories) && reportedCalories > 0) {
+    estimate = reportedCalories;
+  }
+
+  const kilojoules = Number(activity.kilojoules);
+  if (estimate <= 0 && Number.isFinite(kilojoules) && kilojoules > 0) {
+    estimate = kilojoules / 4.184;
+  }
+
+  const scaledEstimate = estimate > 0 ? estimate * CALORIE_SCALE_FACTOR : 0;
+  return Number.isFinite(scaledEstimate) && scaledEstimate > 0 ? scaledEstimate : 0;
+}
+
+function getWeekKey(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const weekStart = new Date(date);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  return weekStart.toISOString().slice(0, 10);
+}
+
+function getMonthKey(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+}
+
+function computeLeaderboardMetrics(activities = []) {
+  const totals = {
+    hours: 0,
+    distanceMeters: 0,
+    elevationGain: 0,
+    calories: 0,
+  };
+
+  const runDistances = [];
+  const rideDistances = [];
+  const elevationPerActivity = [];
+  const caloriesPerActivity = [];
+
+  const runWeekly = new Map();
+  const rideWeekly = new Map();
+  const elevationWeekly = new Map();
+  const elevationMonthly = new Map();
+  const weeklyCalories = new Map();
+
+  activities.forEach(activity => {
+    if (!activity || typeof activity !== 'object') {
+      return;
+    }
+
+    const distanceMeters = Number(activity.distance) || 0;
+    const elevationGain = Number(activity.total_elevation_gain) || 0;
+    const movingTime = Number(activity.moving_time) || 0;
+    const calories = calculateActivityCalories(activity);
+
+    if (movingTime > 0) {
+      totals.hours += movingTime / 3600;
+    }
+    if (distanceMeters > 0) {
+      totals.distanceMeters += distanceMeters;
+    }
+    if (elevationGain > 0) {
+      totals.elevationGain += elevationGain;
+      elevationPerActivity.push(elevationGain);
+    }
+    if (calories > 0) {
+      totals.calories += calories;
+      caloriesPerActivity.push(calories);
+    }
+
+    const startDate = activity.start_date || activity.start_date_local;
+    const parsedDate = startDate ? new Date(startDate) : null;
+    const weekKey = parsedDate ? getWeekKey(parsedDate) : null;
+    const monthKey = parsedDate ? getMonthKey(parsedDate) : null;
+    const distanceKm = distanceMeters / 1000;
+    const normalizedType = (activity.type || '').toUpperCase();
+
+    if (normalizedType === 'RUN' && distanceKm > 0) {
+      runDistances.push(distanceKm);
+      if (weekKey) {
+        runWeekly.set(weekKey, (runWeekly.get(weekKey) || 0) + distanceKm);
+      }
+    }
+
+    if (normalizedType === 'RIDE' && distanceKm > 0) {
+      rideDistances.push(distanceKm);
+      if (weekKey) {
+        rideWeekly.set(weekKey, (rideWeekly.get(weekKey) || 0) + distanceKm);
+      }
+    }
+
+    if (elevationGain > 0) {
+      if (weekKey) {
+        elevationWeekly.set(weekKey, (elevationWeekly.get(weekKey) || 0) + elevationGain);
+      }
+      if (monthKey) {
+        elevationMonthly.set(monthKey, (elevationMonthly.get(monthKey) || 0) + elevationGain);
+      }
+    }
+
+    if (calories > 0 && weekKey) {
+      weeklyCalories.set(weekKey, (weeklyCalories.get(weekKey) || 0) + calories);
+    }
+  });
+
+  const coinTotals = COIN_EMOJIS.reduce((acc, emoji) => {
+    acc[emoji] = 0;
+    return acc;
+  }, {});
+
+  const addCoins = (emoji, count) => {
+    if (!Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    coinTotals[emoji] += count;
+  };
+
+  const runWeeklyValues = Array.from(runWeekly.values());
+  addCoins('💲', runDistances.filter(distance => distance >= 10).length);
+  addCoins('💰', runDistances.filter(distance => distance >= 21).length);
+  addCoins('🧈', runDistances.filter(distance => distance >= 42).length);
+  addCoins('💎', runWeeklyValues.filter(total => total >= 50).length);
+  addCoins('👑', runWeeklyValues.filter(total => total >= 100).length);
+
+  const rideWeeklyValues = Array.from(rideWeekly.values());
+  addCoins('💲', rideDistances.filter(distance => distance >= 100).length);
+  addCoins('💰', rideDistances.filter(distance => distance >= 150).length);
+  addCoins('🧈', rideDistances.filter(distance => distance >= 200).length);
+  addCoins('💎', rideWeeklyValues.filter(total => total >= 300).length);
+  addCoins('👑', rideWeeklyValues.filter(total => total >= 600).length);
+
+  const elevationWeeklyValues = Array.from(elevationWeekly.values());
+  const elevationMonthlyValues = Array.from(elevationMonthly.values());
+  addCoins('💲', elevationPerActivity.filter(gain => gain >= 1000).length);
+  addCoins('💰', elevationPerActivity.filter(gain => gain >= 2000).length);
+  addCoins('🧈', elevationPerActivity.filter(gain => gain >= 4424).length);
+  addCoins('👑', elevationWeeklyValues.filter(total => total >= 10000).length);
+  addCoins('💎', elevationMonthlyValues.filter(total => total >= 25000).length);
+
+  const weeklyCaloriesValues = Array.from(weeklyCalories.values());
+  addCoins('💲', caloriesPerActivity.filter(value => value >= 1000).length);
+  addCoins('💰', caloriesPerActivity.filter(value => value >= 2000).length);
+  addCoins('🧈', caloriesPerActivity.filter(value => value >= 4000).length);
+  addCoins('💎', caloriesPerActivity.filter(value => value >= 7500).length);
+  addCoins('👑', caloriesPerActivity.filter(value => value >= 8000).length);
+  addCoins('💎', weeklyCaloriesValues.filter(total => total >= 12000).length);
+  addCoins('👑', weeklyCaloriesValues.filter(total => total >= 24000).length);
+
+  const totalDistanceKm = totals.distanceMeters / 1000;
+  const worldTrips = totalDistanceKm > 0 ? totalDistanceKm / EARTH_CIRCUMFERENCE_KM : 0;
+  const everestSummits = totals.elevationGain > 0 ? totals.elevationGain / EVEREST_HEIGHT_M : 0;
+  const pizzas = totals.calories > 0 ? totals.calories / PIZZA_KCAL : 0;
+
+  return {
+    totals,
+    worldTrips,
+    everestSummits,
+    pizzas,
+    coinTotals,
+  };
+}
+
 function buildLeaderboardSummary(payload = {}) {
   const athlete = payload.athlete || {};
   const totals = payload.totals || {};
@@ -847,15 +1046,26 @@ function buildLeaderboardSummary(payload = {}) {
     .filter(Boolean);
   const displayName = nameParts.join(' ') || athlete.username || userId || 'Unknown Athlete';
 
-  const totalHours = Number.isFinite(Number(totals.hours)) ? Number(totals.hours) : 0;
-  const totalDistanceKm = Number.isFinite(Number(totals.distance)) ? Number(totals.distance) / 1000 : 0;
+  const activities = Array.isArray(payload.activities) ? payload.activities : [];
+  const derivedMetrics = computeLeaderboardMetrics(activities);
 
+  const totalHours = derivedMetrics.totals.hours > 0
+    ? derivedMetrics.totals.hours
+    : (Number.isFinite(Number(totals.hours)) ? Number(totals.hours) : 0);
+  const totalDistanceKm = derivedMetrics.totals.distanceMeters > 0
+    ? derivedMetrics.totals.distanceMeters / 1000
+    : (Number.isFinite(Number(totals.distance)) ? Number(totals.distance) / 1000 : 0);
   const levelCap = 1000;
   const maxRankHours = 20000;
   const hoursPerLevel = levelCap > 0 ? maxRankHours / levelCap : maxRankHours;
   const level = hoursPerLevel > 0 ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap) : 0;
 
-  const coins = Math.max(0, Math.round(totalDistanceKm / 50));
+  const totalCalories = derivedMetrics.totals.calories > 0
+    ? derivedMetrics.totals.calories
+    : (Number.isFinite(Number(totals.calories)) ? Number(totals.calories) : 0);
+
+  const coinTotals = derivedMetrics.coinTotals;
+  const coins = Object.values(coinTotals).reduce((sum, count) => sum + (Number(count) || 0), 0);
   const dollars = Math.max(0, Math.round(totalHours * 10));
 
   const emojiBands = [
@@ -868,16 +1078,19 @@ function buildLeaderboardSummary(payload = {}) {
 
   const emoji = emojiBands.find(band => coins >= band.threshold)?.emoji || '💲';
 
-  const totalCalories = Number.isFinite(Number(totals.calories)) ? Number(totals.calories) : 0;
   const pizzaCoins = Math.max(0, Math.round(totalCalories / PIZZA_KCAL));
 
   const medalCount = Array.isArray(payload.activities)
     ? payload.activities.reduce((sum, activity) => sum + (Number(activity?.achievement_count) || 0), 0)
     : 0;
 
-  const totalCoinValue = coins * BASE_COIN_VALUE;
+  const totalCoinValue = Object.entries(coinTotals).reduce((sum, [emoji, count]) => {
+    const coinValue = COIN_VALUE_MAP[emoji] || BASE_COIN_VALUE;
+    return sum + (coinValue * (Number(count) || 0));
+  }, 0);
   const totalMedalValue = medalCount * MEDAL_DOLLAR_VALUE;
   const totalHaulValue = dollars + totalCoinValue + totalMedalValue;
+  const walletBalance = totalCoinValue + totalMedalValue;
 
   return {
     userId,
@@ -889,6 +1102,11 @@ function buildLeaderboardSummary(payload = {}) {
     totalHaulValue,
     pizzaCoins,
     medals: medalCount,
+    worldTrips: derivedMetrics.worldTrips,
+    everestSummits: derivedMetrics.everestSummits,
+    pizzas: derivedMetrics.pizzas,
+    walletBalance,
+    coinBreakdown: coinTotals,
   };
 }
 

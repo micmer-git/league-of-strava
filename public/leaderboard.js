@@ -74,9 +74,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       entries.forEach((entry, index) => {
         const row = document.createElement('tr');
+        const hasUserLink = typeof entry.userId === 'string' && entry.userId.trim().length > 0;
+        const dashboardUrl = hasUserLink ? `/dashboard?userId=${encodeURIComponent(entry.userId)}` : null;
+        const safeDisplayName = escapeHtml(entry.displayName || entry.userId || 'Unknown');
+        const nameCellContent = hasUserLink
+          ? `<a class="leaderboard-athlete-link" href="${dashboardUrl}">${safeDisplayName}</a>`
+          : safeDisplayName;
         row.innerHTML = `
           <td class="rank-cell">${index + 1}</td>
-          <td class="name-cell">${escapeHtml(entry.displayName || entry.userId || 'Unknown')}</td>
+          <td class="name-cell">${nameCellContent}</td>
           <td>${Number(entry.level ?? 0).toLocaleString()}</td>
           <td>${formatCurrency(entry.totalHaulValue)}</td>
           <td>${Number(entry.coins ?? 0).toLocaleString()}</td>

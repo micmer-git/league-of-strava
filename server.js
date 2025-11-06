@@ -181,6 +181,34 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+app.get('/api/user-snapshot/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const snapshot = await getLatestUserSnapshot(userId);
+
+    if (!snapshot?.payload || !isValidSnapshotPayload(snapshot.payload)) {
+      return res.status(404).json({ error: 'No stored snapshot available for this user.' });
+    }
+
+    const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
+
+    return res.json({
+      ...normalizedPayload,
+      stored: true,
+      storedTimestamp: snapshot.timestamp || null,
+      userId,
+    });
+  } catch (error) {
+    console.error(`Error retrieving stored snapshot for user ${userId}:`, error.message);
+    return res.status(500).json({ error: 'Failed to retrieve stored snapshot' });
+  }
+});
+
 // API endpoint to fetch all Strava activities and segment completions
 app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
@@ -287,7 +315,7 @@ app.get('/api/strava-data', async (req, res) => {
     const hasMore = Boolean(hasMoreFromStrava && !reachedConfiguredLimit);
     const nextPageStart = hasMore ? startPage + fetchedPages : null;
 
-    const responsePayload = {
+    let responsePayload = {
       athlete: athleteResponse.data,
       activities: allActivities,
       totals: totals,
@@ -303,6 +331,19 @@ app.get('/api/strava-data', async (req, res) => {
         nextPageStart,
       },
     };
+
+    let mergedWithStoredSnapshot = false;
+
+    try {
+      const existingSnapshot = await getLatestUserSnapshot(userId);
+
+      if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
+        responsePayload = mergeSnapshotPayload(existingSnapshot.payload, responsePayload);
+        mergedWithStoredSnapshot = true;
+      }
+    } catch (mergeError) {
+      console.warn(`Unable to merge stored snapshot for athlete ${userId}:`, mergeError.message);
+    }
 
     try {
       console.log(`Persisting snapshot for athlete ${userId} to Google Sheets.`);
@@ -332,6 +373,7 @@ app.get('/api/strava-data', async (req, res) => {
       ...responsePayload,
       cached: false,
       stale: false,
+      aggregated: mergedWithStoredSnapshot,
     });
   } catch (error) {
     const statusCode = error.statusCode || error.response?.status || 500;
@@ -611,6 +653,188 @@ function calculateTotals(activities) {
   });
 
   return totals;
+}
+
+function buildActivityKey(activity = {}) {
+  if (activity == null || typeof activity !== 'object') {
+    return null;
+  }
+
+  if (activity.id !== undefined && activity.id !== null) {
+    return `id:${String(activity.id)}`;
+  }
+
+  const type = activity.type || 'unknown';
+  const startDate = activity.start_date || activity.start_date_local || 'unknown';
+  const distance = Number.isFinite(Number(activity.distance)) ? Number(activity.distance).toFixed(2) : '0';
+  const movingTime = Number.isFinite(Number(activity.moving_time)) ? Number(activity.moving_time).toFixed(0) : '0';
+  const name = activity.name || 'activity';
+
+  return `${type}|${name}|${startDate}|${distance}|${movingTime}`;
+}
+
+function mergeActivities(existingActivities = [], incomingActivities = []) {
+  const mergedMap = new Map();
+
+  const addActivity = (activity) => {
+    if (!activity || typeof activity !== 'object') {
+      return;
+    }
+
+    const key = buildActivityKey(activity);
+    const baseActivity = { ...activity };
+
+    if (key) {
+      const current = mergedMap.get(key);
+      mergedMap.set(key, current ? { ...current, ...baseActivity } : baseActivity);
+    } else {
+      mergedMap.set(`fallback-${mergedMap.size}-${Math.random()}`, baseActivity);
+    }
+  };
+
+  existingActivities.forEach(addActivity);
+  incomingActivities.forEach(addActivity);
+
+  return Array.from(mergedMap.values());
+}
+
+function mergeSegments(existingSegments = [], incomingSegments = []) {
+  const segmentMap = new Map();
+
+  const addSegment = (segment) => {
+    if (!segment || typeof segment !== 'object') {
+      return;
+    }
+
+    const key = segment.name || String(segment.id ?? segment.segment_id ?? segment.slug ?? segmentMap.size);
+    const existingEntry = segmentMap.get(key) || {
+      name: segment.name || key,
+      completions: [],
+      count: 0,
+      totalCount: 0,
+    };
+
+    const completions = Array.isArray(existingEntry.completions) ? existingEntry.completions : [];
+    const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
+    const combinedCompletions = Array.from(new Set([...completions, ...incomingCompletions]));
+
+    const resolvedCount = Number.isFinite(Number(segment.count)) ? Number(segment.count) : combinedCompletions.length;
+    const resolvedTotalCount = Number.isFinite(Number(segment.totalCount)) ? Number(segment.totalCount) : combinedCompletions.length;
+
+    segmentMap.set(key, {
+      name: existingEntry.name || segment.name || key,
+      completions: combinedCompletions,
+      count: Math.max(combinedCompletions.length, existingEntry.count || 0, resolvedCount),
+      totalCount: Math.max(resolvedTotalCount, existingEntry.totalCount || 0, combinedCompletions.length),
+    });
+  };
+
+  existingSegments.forEach(addSegment);
+  incomingSegments.forEach(addSegment);
+
+  return Array.from(segmentMap.values()).map(segment => ({
+    ...segment,
+    count: Array.isArray(segment.completions) ? segment.completions.length : Number(segment.count) || 0,
+    totalCount: Math.max(Number(segment.totalCount) || 0, Array.isArray(segment.completions) ? segment.completions.length : 0),
+  }));
+}
+
+function isValidSnapshotPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  if (payload.error) {
+    return false;
+  }
+
+  if ('activities' in payload && !Array.isArray(payload.activities)) {
+    return false;
+  }
+
+  return true;
+}
+
+function mergeSnapshotPayload(existingPayload = {}, incomingPayload = {}) {
+  const existingActivities = Array.isArray(existingPayload.activities) ? existingPayload.activities : [];
+  const incomingActivities = Array.isArray(incomingPayload.activities) ? incomingPayload.activities : [];
+  const mergedActivities = mergeActivities(existingActivities, incomingActivities);
+
+  const mergedSegments = mergeSegments(existingPayload.segments, incomingPayload.segments);
+
+  const mergedTotals = calculateTotals(mergedActivities);
+
+  const existingPageInfo = existingPayload.pageInfo || {};
+  const incomingPageInfo = incomingPayload.pageInfo || {};
+
+  const hasMore = Boolean(
+    incomingPageInfo.hasMore ?? incomingPayload.hasMore ?? existingPageInfo.hasMore ?? existingPayload.hasMore ?? false,
+  );
+
+  const resolvedNextPageStart = Number.isFinite(incomingPageInfo.nextPageStart)
+    ? incomingPageInfo.nextPageStart
+    : (hasMore && Number.isFinite(existingPageInfo.nextPageStart) ? existingPageInfo.nextPageStart : null);
+
+  const mergedPageInfo = {
+    ...existingPageInfo,
+    ...incomingPageInfo,
+    hasMore,
+    nextPageStart: Number.isFinite(resolvedNextPageStart) ? resolvedNextPageStart : null,
+    startPage: Math.min(
+      Number.isFinite(existingPageInfo.startPage) ? existingPageInfo.startPage : Number.POSITIVE_INFINITY,
+      Number.isFinite(incomingPageInfo.startPage) ? incomingPageInfo.startPage : Number.POSITIVE_INFINITY,
+    ),
+    fetchedPages: Math.max(
+      Number(existingPageInfo.fetchedPages) || 0,
+      Number(incomingPageInfo.fetchedPages) || 0,
+    ),
+    perPage: Number.isFinite(incomingPageInfo.perPage)
+      ? incomingPageInfo.perPage
+      : (Number.isFinite(existingPageInfo.perPage) ? existingPageInfo.perPage : undefined),
+  };
+
+  if (!Number.isFinite(mergedPageInfo.startPage)) {
+    delete mergedPageInfo.startPage;
+  }
+
+  const mergedPayload = {
+    ...existingPayload,
+    ...incomingPayload,
+    athlete: {
+      ...(existingPayload.athlete || {}),
+      ...(incomingPayload.athlete || {}),
+    },
+    activities: mergedActivities,
+    segments: mergedSegments,
+    totals: {
+      ...(existingPayload.totals || {}),
+      ...(incomingPayload.totals || {}),
+      ...mergedTotals,
+    },
+    hasMore,
+    pageInfo: mergedPageInfo,
+  };
+
+  mergedPayload.totals.activities = mergedActivities.length;
+
+  return mergedPayload;
+}
+
+function recalculateSnapshotTotals(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  const activities = Array.isArray(payload.activities) ? payload.activities : [];
+  const recalculatedTotals = calculateTotals(activities);
+
+  return {
+    ...payload,
+    totals: {
+      ...(payload.totals || {}),
+      ...recalculatedTotals,
+    },
+  };
 }
 
 function buildLeaderboardSummary(payload = {}) {

@@ -11,15 +11,19 @@
   <script src="/leaderboard.js" defer></script>
 </head>
 <body>
-  <header class="leaderboard-header">
-    <div class="logo">
-      <a href="/"><img src="/static/league-of-strava.png" alt="League of Strava"></a>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a href="/" class="site-header__brand">
+        <img src="/static/league-of-strava.png" alt="League of Strava logo">
+        <span class="site-header__brand-text">League of Strava</span>
+      </a>
+      <nav class="site-header__nav" aria-label="Primary navigation">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/leaderboard" aria-current="page">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">Donate</a>
+      </nav>
     </div>
-    <nav class="leaderboard-nav">
-      <a href="/">Home</a>
-      <a href="/dashboard">Dashboard</a>
-      <a href="/leaderboard" aria-current="page">Leaderboard</a>
-    </nav>
   </header>
 
   <main class="leaderboard-main">

@@ -118,6 +118,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         coins: chartToggleCoinsButton,
         balance: chartToggleBalanceButton
     };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedUserIdParam = (urlParams.get('userId') || '').trim();
+    const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
+    const isSharedView = Boolean(sharedUserId);
     const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
     const coinMixCanvas = document.getElementById('coin-mix-chart');
     const coinMixEmptyState = document.getElementById('coin-mix-empty');
@@ -2825,6 +2830,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const loadStoredSnapshotIfAvailable = async () => {
+        if (isSharedView) {
+            return false;
+        }
+
         if (hasAttemptedStoredSnapshot) {
             return false;
         }
@@ -2858,6 +2867,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const loadSharedSnapshot = async () => {
+        if (!isSharedView || !sharedUserId) {
+            return false;
+        }
+
+        try {
+            const data = await fetchAndValidateJson(
+                () => fetch(`/api/user-snapshot/${encodeURIComponent(sharedUserId)}`, { cache: 'no-store' }),
+                {
+                    attempts: 3,
+                    retryDelay: 750,
+                    allowNotFound: true,
+                    validate: isValidStravaPayload,
+                }
+            );
+
+            if (!data) {
+                if (errorMessage) {
+                    errorMessage.classList.remove('hidden');
+                    errorMessage.textContent = 'No shared dashboard is available for this athlete yet. Check back soon!';
+                }
+                return false;
+            }
+
+            ingestResponseData(data, { isLoadMore: false });
+            hasMoreActivities = false;
+            nextActivitiesPageStart = null;
+            applyFilters({ preserveVisibleCount: false });
+
+            if (errorMessage) {
+                errorMessage.classList.add('hidden');
+                errorMessage.textContent = '';
+            }
+
+            return true;
+        } catch (error) {
+            console.error(`Failed to load shared snapshot for user ${sharedUserId}:`, error);
+            if (errorMessage) {
+                errorMessage.classList.remove('hidden');
+                errorMessage.textContent = 'Unable to load the shared dashboard right now. Please try again later.';
+            }
+            return false;
+        } finally {
+            fadeOutSpinner();
+        }
+    };
+
     // === Fetch and Process Data ===
     const fetchData = async ({ isLoadMore = false } = {}) => {
         if (isFetchingActivities) {
@@ -2865,6 +2921,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         isFetchingActivities = true;
+
+        if (isSharedView) {
+            isFetchingActivities = false;
+            fadeOutSpinner();
+            return;
+        }
 
         if (!isLoadMore) {
             nextActivitiesPageStart = 1;
@@ -2914,32 +2976,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     if (fetchMoreDataButton) {
-        const originalLabel = fetchMoreDataButton.querySelector('span:last-child');
-        const originalText = originalLabel ? originalLabel.textContent : fetchMoreDataButton.textContent;
-        fetchMoreDataButton.addEventListener('click', async () => {
-            if (isFetchingActivities) {
-                return;
-            }
+        if (isSharedView) {
+            fetchMoreDataButton.classList.add('hidden');
+            fetchMoreDataButton.setAttribute('aria-hidden', 'true');
             fetchMoreDataButton.disabled = true;
-            fetchMoreDataButton.classList.add('opacity-75');
-            if (originalLabel) {
-                originalLabel.textContent = 'Fetching...';
-            } else {
-                fetchMoreDataButton.textContent = 'Fetching...';
-            }
-
-            try {
-                await fetchData({ isLoadMore: true });
-            } finally {
-                fetchMoreDataButton.disabled = false;
-                fetchMoreDataButton.classList.remove('opacity-75');
-                if (originalLabel) {
-                    originalLabel.textContent = originalText;
-                } else {
-                    fetchMoreDataButton.textContent = originalText;
+        } else {
+            const originalLabel = fetchMoreDataButton.querySelector('span:last-child');
+            const originalText = originalLabel ? originalLabel.textContent : fetchMoreDataButton.textContent;
+            fetchMoreDataButton.addEventListener('click', async () => {
+                if (isFetchingActivities) {
+                    return;
                 }
-            }
-        });
+                fetchMoreDataButton.disabled = true;
+                fetchMoreDataButton.classList.add('opacity-75');
+                if (originalLabel) {
+                    originalLabel.textContent = 'Fetching...';
+                } else {
+                    fetchMoreDataButton.textContent = 'Fetching...';
+                }
+
+                try {
+                    await fetchData({ isLoadMore: true });
+                } finally {
+                    fetchMoreDataButton.disabled = false;
+                    fetchMoreDataButton.classList.remove('opacity-75');
+                    if (originalLabel) {
+                        originalLabel.textContent = originalText;
+                    } else {
+                        fetchMoreDataButton.textContent = originalText;
+                    }
+                }
+            });
+        }
     }
 
     // === Function to Process and Display Data ===
@@ -3861,31 +3929,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateToggleStates(null);
 
     if (loadMoreButton) {
-        loadMoreButton.addEventListener('click', async () => {
-            if (activeMedalFilter) {
-                return;
-            }
-            const previousVisibleCount = visibleActivitiesCount;
+        if (isSharedView) {
+            loadMoreButton.classList.add('hidden');
+            loadMoreButton.setAttribute('aria-hidden', 'true');
+            loadMoreButton.disabled = true;
+        } else {
+            loadMoreButton.addEventListener('click', async () => {
+                if (activeMedalFilter) {
+                    return;
+                }
+                const previousVisibleCount = visibleActivitiesCount;
 
-            visibleActivitiesCount = Math.min(sortedActivities.length, visibleActivitiesCount + ACTIVITIES_PAGE_SIZE);
-            renderActivitiesList();
-
-            if (!hasMoreActivities) {
-                return;
-            }
-
-            await fetchData({ isLoadMore: true });
-
-            const updatedSortedLength = sortedActivities.length;
-            if (updatedSortedLength > previousVisibleCount) {
-                visibleActivitiesCount = Math.min(updatedSortedLength, previousVisibleCount + ACTIVITIES_PAGE_SIZE);
+                visibleActivitiesCount = Math.min(sortedActivities.length, visibleActivitiesCount + ACTIVITIES_PAGE_SIZE);
                 renderActivitiesList();
-            }
-        });
+
+                if (!hasMoreActivities) {
+                    return;
+                }
+
+                await fetchData({ isLoadMore: true });
+
+                const updatedSortedLength = sortedActivities.length;
+                if (updatedSortedLength > previousVisibleCount) {
+                    visibleActivitiesCount = Math.min(updatedSortedLength, previousVisibleCount + ACTIVITIES_PAGE_SIZE);
+                    renderActivitiesList();
+                }
+            });
+        }
     } else {
         console.warn("'load-more-btn' element not found in the DOM.");
     }
 
     // === Initial Data Fetch ===
-    fetchData();
+    if (isSharedView) {
+        await loadSharedSnapshot();
+    } else {
+        fetchData();
+    }
 });

@@ -106,6 +106,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
     const likesTotalElement = document.getElementById('likes-total');
+    const profileWalletTotalElement = document.getElementById('profile-wallet-total');
+    const shareButton = document.getElementById('share-dashboard');
+    const shareCardPreview = document.getElementById('share-card-preview');
+    const shareCardName = document.getElementById('share-card-athlete');
+    const shareCardRank = document.getElementById('share-card-rank');
+    const shareCardWallet = document.getElementById('share-card-wallet');
+    const shareCardCoins = document.getElementById('share-card-coins');
+    const shareCardMedals = document.getElementById('share-card-medals');
+    const shareWhatsAppButton = document.getElementById('share-whatsapp');
+    const shareCopyButton = document.getElementById('share-copy');
+    const shareFeedbackElement = document.getElementById('share-feedback');
+    const shareCopyButtonLabel = shareCopyButton?.querySelector('span:last-child') || null;
+    const shareCopyOriginalLabel = shareCopyButtonLabel?.textContent ?? '';
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
         month: document.getElementById('profile-wallet-change-month'),
@@ -146,6 +159,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityDistanceMaxInput = document.getElementById('activity-distance-max');
     const activityElevationMinInput = document.getElementById('activity-elevation-min');
     const activityElevationMaxInput = document.getElementById('activity-elevation-max');
+    const activityFilterForm = document.getElementById('activities-filter-form');
+    const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
     const loadMoreButton = document.getElementById('load-more-btn');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
@@ -185,6 +200,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let coinChartMode = 'stacked';
     let medalInventory = [];
     let visibleMedalCount = 0;
+    let activeQuickFilter = null;
+    let lastShareData = null;
+    let shareCopyResetTimeout = null;
 
     let activePanelName = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab
         || (dashboardPanels.keys().next().value ?? null);
@@ -2742,6 +2760,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             .replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
+    const setSelectValue = (selectElement, targetValue) => {
+        if (!selectElement || typeof targetValue !== 'string') {
+            return;
+        }
+
+        const normalizedTarget = targetValue.trim().toLowerCase();
+        const match = Array.from(selectElement.options || []).find(option => option.value.toLowerCase() === normalizedTarget);
+        if (match) {
+            selectElement.value = match.value;
+        }
+    };
+
     const extractActivityCountry = (activity = {}) => {
         if (!activity || typeof activity !== 'object') {
             return DEFAULT_COUNTRY_LABEL;
@@ -2981,6 +3011,73 @@ document.addEventListener('DOMContentLoaded', async () => {
             .join('');
     };
 
+    const setShareFeedback = (message = '') => {
+        if (shareFeedbackElement) {
+            shareFeedbackElement.textContent = message;
+        }
+    };
+
+    const buildShareSummary = () => {
+        const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';
+        const rankText = (currentRankElement?.textContent || '').trim();
+        const levelText = (levelProgressElement?.textContent || '').trim();
+        const walletText = (profileWalletTotalElement?.textContent || '').trim();
+        const coinsCount = (walletSummaryElements.coinsCount?.textContent || '0').trim();
+        const medalsCount = (walletSummaryElements.medalCount?.textContent || '0').trim();
+        const shareUrl = window.location.href.split('#')[0];
+
+        const subtitleParts = [];
+        if (rankText) {
+            subtitleParts.push(rankText);
+        }
+        if (levelText) {
+            subtitleParts.push(levelText);
+        }
+        const subtitle = subtitleParts.join(' · ');
+
+        return {
+            title: `${athleteName} · League of Strava`,
+            text: `${athleteName}${subtitle ? ` — ${subtitle}` : ''}. Wallet: ${walletText || '—'}. Coins minted: ${coinsCount}. Medals unlocked: ${medalsCount}. Explore the full dashboard: ${shareUrl}`,
+            url: shareUrl,
+            metadata: {
+                name: athleteName,
+                subtitle: subtitle || 'League of Strava highlights',
+                walletText: walletText || '—',
+                coinsCount: coinsCount || '0',
+                medalsCount: medalsCount || '0'
+            }
+        };
+    };
+
+    const updateShareCard = (shareData, { reveal = false } = {}) => {
+        if (!shareCardPreview || !shareData) {
+            return;
+        }
+
+        const metadata = shareData.metadata || {};
+        if (shareCardName) {
+            shareCardName.textContent = metadata.name || 'League athlete';
+        }
+        if (shareCardRank) {
+            shareCardRank.textContent = metadata.subtitle || '';
+        }
+        if (shareCardWallet) {
+            shareCardWallet.textContent = metadata.walletText || '—';
+        }
+        if (shareCardCoins) {
+            shareCardCoins.textContent = metadata.coinsCount || '0';
+        }
+        if (shareCardMedals) {
+            shareCardMedals.textContent = metadata.medalsCount || '0';
+        }
+
+        const shouldReveal = reveal || shareCardPreview.classList.contains('is-visible');
+        if (shouldReveal) {
+            shareCardPreview.hidden = false;
+            shareCardPreview.classList.add('is-visible');
+        }
+    };
+
     const resetActivityFilterInputs = () => {
         if (activityTypeFilter) {
             activityTypeFilter.value = 'all';
@@ -3001,6 +3098,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
         currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
+        activeQuickFilter = null;
+        quickFilterButtons.forEach(button => {
+            button.classList.remove('is-active');
+            button.setAttribute('aria-pressed', 'false');
+        });
+    };
+
+    const quickFilterHandlers = {
+        endurance: () => {
+            setSelectValue(activityTypeFilter, 'ride');
+            if (activityHoursMinInput) activityHoursMinInput.value = '3';
+            if (activityDistanceMinInput) activityDistanceMinInput.value = '80';
+            if (activityElevationMinInput) activityElevationMinInput.value = '';
+            if (activityHoursMaxInput) activityHoursMaxInput.value = '';
+            if (activityDistanceMaxInput) activityDistanceMaxInput.value = '';
+            if (activityElevationMaxInput) activityElevationMaxInput.value = '';
+        },
+        'climb-day': () => {
+            setSelectValue(activityTypeFilter, 'ride');
+            if (activityElevationMinInput) activityElevationMinInput.value = '1200';
+            if (activityHoursMinInput) activityHoursMinInput.value = '';
+            if (activityDistanceMinInput) activityDistanceMinInput.value = '';
+            if (activityHoursMaxInput) activityHoursMaxInput.value = '';
+            if (activityDistanceMaxInput) activityDistanceMaxInput.value = '';
+            if (activityElevationMaxInput) activityElevationMaxInput.value = '';
+        },
+        recovery: () => {
+            setSelectValue(activityTypeFilter, 'all');
+            if (activityHoursMinInput) activityHoursMinInput.value = '';
+            if (activityDistanceMinInput) activityDistanceMinInput.value = '';
+            if (activityElevationMinInput) activityElevationMinInput.value = '';
+            if (activityHoursMaxInput) activityHoursMaxInput.value = '1.5';
+            if (activityDistanceMaxInput) activityDistanceMaxInput.value = '40';
+            if (activityElevationMaxInput) activityElevationMaxInput.value = '600';
+        }
     };
 
     const activityMatchesFilters = (activity = {}, filters = DEFAULT_ACTIVITY_FILTERS) => {
@@ -5352,6 +5484,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             visibleActivitiesCount = Math.min(sortedActivities.length, ACTIVITIES_PAGE_SIZE);
         }
 
+        updateShareCard(buildShareSummary(), { reveal: false });
+
         renderActivitiesList();
     };
 
@@ -5467,6 +5601,121 @@ document.addEventListener('DOMContentLoaded', async () => {
             resetActivityFilterInputs();
             resetMedalFilterState();
             applyFilters({ preserveVisibleCount: false });
+        });
+    }
+
+    if (activityFilterForm) {
+        activityFilterForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if (filterApplyTimeout) {
+                clearTimeout(filterApplyTimeout);
+                filterApplyTimeout = null;
+            }
+            applyFilters({ preserveVisibleCount: false });
+        });
+    }
+
+    quickFilterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const filterKey = button?.dataset?.quickFilter;
+            if (!filterKey) {
+                return;
+            }
+
+            if (activeQuickFilter === filterKey) {
+                activeQuickFilter = null;
+                quickFilterButtons.forEach(btn => {
+                    btn.classList.remove('is-active');
+                    btn.setAttribute('aria-pressed', 'false');
+                });
+                resetActivityFilterInputs();
+                applyFilters({ preserveVisibleCount: false });
+                return;
+            }
+
+            activeQuickFilter = filterKey;
+            quickFilterButtons.forEach(btn => {
+                const isActive = btn === button;
+                btn.classList.toggle('is-active', isActive);
+                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+
+            const handler = quickFilterHandlers[filterKey];
+            if (typeof handler === 'function') {
+                handler();
+            }
+
+            scheduleFilterApply({ preserveVisibleCount: false });
+        });
+    });
+
+    if (shareButton) {
+        shareButton.addEventListener('click', async () => {
+            const shareData = buildShareSummary();
+            lastShareData = shareData;
+            updateShareCard(shareData, { reveal: true });
+            setShareFeedback('');
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: shareData.title,
+                        text: shareData.text,
+                        url: shareData.url
+                    });
+                    setShareFeedback('Shared successfully! Keep the momentum going.');
+                } catch (shareError) {
+                    if (shareError?.name !== 'AbortError') {
+                        console.warn('Unable to complete native share:', shareError);
+                        setShareFeedback('Sharing was cancelled. Try WhatsApp or copy the summary below.');
+                    }
+                }
+            } else {
+                setShareFeedback('Use WhatsApp or copy the summary below to share your stats.');
+            }
+        });
+    }
+
+    if (shareWhatsAppButton) {
+        shareWhatsAppButton.addEventListener('click', () => {
+            const shareData = lastShareData || buildShareSummary();
+            lastShareData = shareData;
+            updateShareCard(shareData, { reveal: true });
+
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareData.text)}`;
+            window.open(whatsappUrl, '_blank', 'noopener');
+            setShareFeedback('WhatsApp share opened in a new tab.');
+        });
+    }
+
+    if (shareCopyButton) {
+        shareCopyButton.addEventListener('click', async () => {
+            const shareData = lastShareData || buildShareSummary();
+            lastShareData = shareData;
+            updateShareCard(shareData, { reveal: true });
+
+            try {
+                if (!navigator.clipboard?.writeText) {
+                    throw new Error('Clipboard API unavailable');
+                }
+
+                await navigator.clipboard.writeText(shareData.text);
+                setShareFeedback('Summary copied to your clipboard.');
+
+                if (shareCopyButtonLabel && shareCopyOriginalLabel) {
+                    shareCopyButtonLabel.textContent = 'Copied!';
+                    if (shareCopyResetTimeout) {
+                        clearTimeout(shareCopyResetTimeout);
+                    }
+                    shareCopyResetTimeout = setTimeout(() => {
+                        shareCopyButtonLabel.textContent = shareCopyOriginalLabel;
+                        shareCopyResetTimeout = null;
+                    }, 2500);
+                }
+            } catch (copyError) {
+                console.warn('Unable to copy share summary:', copyError);
+                setShareFeedback('Copy not available. Press and hold to share manually.');
+            }
         });
     }
 

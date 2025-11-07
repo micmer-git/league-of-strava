@@ -299,6 +299,31 @@
             word-break: break-word;
         }
 
+        .profile-card__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-left: auto;
+        }
+
+        .profile-card__action-icon {
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        .profile-card__action--outline {
+            background: rgba(255, 255, 255, 0.75);
+            color: #1f2937;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+        }
+
+        .profile-card__action--outline:hover,
+        .profile-card__action--outline:focus-visible {
+            color: #0f172a;
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
+        }
+
         .profile-card__action {
             display: inline-flex;
             align-items: center;
@@ -500,6 +525,131 @@
             color: #64748b;
         }
 
+        .share-card {
+            display: none;
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(255, 237, 213, 0.9));
+            border: 1px solid rgba(249, 115, 22, 0.22);
+            border-radius: 1.25rem;
+            padding: clamp(1rem, 3vw, 1.35rem);
+            box-shadow: 0 18px 36px rgba(249, 115, 22, 0.15);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .share-card.is-visible {
+            display: grid;
+            gap: 1rem;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .share-card__header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .share-card__badge {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            background: rgba(249, 115, 22, 0.14);
+        }
+
+        .share-card__name {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .share-card__meta {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+
+        .share-card__stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .share-card__stats li {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: 0.75rem;
+            border-radius: 0.9rem;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        .share-card__stats li span:first-child {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #64748b;
+        }
+
+        .share-card__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        .share-card__button {
+            flex: 1 1 9rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            padding: 0.55rem 1rem;
+            border-radius: 9999px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #fff;
+            box-shadow: 0 14px 28px rgba(34, 197, 94, 0.22);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .share-card__button:hover,
+        .share-card__button:focus-visible {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 34px rgba(34, 197, 94, 0.28);
+            outline: none;
+        }
+
+        .share-card__button--ghost {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            color: #0f172a;
+            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+        }
+
+        .share-card__button--ghost:hover,
+        .share-card__button--ghost:focus-visible {
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.16);
+        }
+
+        .share-card__feedback {
+            font-size: 0.8rem;
+            color: #0f172a;
+        }
+
         .top-performances-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -527,6 +677,34 @@
 
         .wallet-table {
             overflow-x: auto;
+        }
+
+        #achievement-wallet {
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 240, 224, 0.92));
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            border: 1px solid rgba(249, 115, 22, 0.2);
+            box-shadow: var(--shadow-soft);
+        }
+
+        #achievement-wallet table {
+            width: 100%;
+        }
+
+        #achievement-wallet th,
+        #achievement-wallet td {
+            color: #0f172a;
+        }
+
+        #achievement-wallet .text-gray-500,
+        #achievement-wallet .text-gray-600 {
+            color: #475569 !important;
+        }
+
+        #achievement-wallet .text-gray-700,
+        #achievement-wallet .text-gray-800,
+        #achievement-wallet .text-gray-900 {
+            color: #0f172a !important;
         }
 
         .wallet-controls {
@@ -581,6 +759,11 @@
             padding: 1rem;
             font-size: 0.9rem;
             color: #94a3b8;
+        }
+
+        .filter-form {
+            display: grid;
+            gap: 1.25rem;
         }
 
         .filter-banner {
@@ -643,6 +826,16 @@
             color: #1f2937;
         }
 
+        .filter-button--primary {
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            color: #fff;
+        }
+
+        .filter-button--primary:hover,
+        .filter-button--primary:focus-visible {
+            box-shadow: 0 16px 32px rgba(14, 165, 233, 0.28);
+        }
+
         .filter-button[disabled] {
             opacity: 0.55;
             cursor: not-allowed;
@@ -650,10 +843,47 @@
             box-shadow: none;
         }
 
-        .filter-grid {
+        .filter-form__grid {
             display: grid;
             gap: 1rem;
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
+
+        .filter-quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .filter-chip:hover,
+        .filter-chip:focus-visible {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.15);
+            border-color: #2563eb;
+            color: #2563eb;
+            outline: none;
+        }
+
+        .filter-chip.is-active {
+            background: rgba(37, 99, 235, 0.12);
+            border-color: rgba(37, 99, 235, 0.3);
+            color: #2563eb;
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
         }
 
         .filter-field {
@@ -697,6 +927,17 @@
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+        }
+
+        #activities-filter-panel {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        #activities-section {
+            background: linear-gradient(170deg, rgba(255, 255, 255, 0.96), rgba(255, 239, 224, 0.95));
+            border: 1px solid rgba(249, 115, 22, 0.22);
+            box-shadow: 0 20px 36px rgba(249, 115, 22, 0.08);
         }
         .medals-section {
             display: flex;
@@ -785,6 +1026,56 @@
             display: inline-flex;
             align-items: center;
             gap: 0.25rem;
+        }
+
+        @media (max-width: 640px) {
+            .dashboard-shell {
+                width: min(1180px, calc(100% - 1.5rem));
+                padding: 1.25rem 0.75rem 2.5rem;
+            }
+
+            .dashboard-tabs {
+                padding: 0.5rem;
+                gap: 0.5rem;
+                margin: 0 -0.25rem;
+            }
+
+            .profile-card__header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .profile-card__actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .profile-card__headline {
+                gap: 1rem;
+            }
+
+            .share-card {
+                padding: 1rem;
+            }
+
+            .share-card__stats {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            }
+
+            .filter-banner {
+                align-items: flex-start;
+            }
+
+            .filter-banner__actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .filter-button,
+            .filter-button--ghost,
+            .filter-button--primary {
+                width: auto;
+            }
         }
 
         .leaderboard-sort::after {
@@ -902,11 +1193,11 @@
 
         .dashboard-shell {
             flex: 1;
-            width: min(1180px, 94vw);
+            width: min(1180px, calc(100% - clamp(1.5rem, 6vw, 3rem)));
             margin: 0 auto;
-            padding: clamp(2rem, 5vw, 4rem) 0 clamp(2.5rem, 6vw, 4.5rem);
+            padding: clamp(1.75rem, 4vw, 3.5rem) clamp(0.75rem, 5vw, 1.75rem) clamp(2.25rem, 6vw, 4.25rem);
             display: grid;
-            gap: clamp(2rem, 4vw, 3.25rem);
+            gap: clamp(1.75rem, 4vw, 3rem);
         }
 
         #error-message {
@@ -947,11 +1238,18 @@
             box-shadow: var(--shadow-elevated);
             border: 1px solid rgba(20, 28, 48, 0.08);
             overflow-x: auto;
+            width: 100%;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .dashboard-tabs::-webkit-scrollbar {
+            display: none;
         }
 
         .dashboard-tab {
             border-radius: 999px;
-            padding: 0.55rem 1.35rem;
+            padding: 0.55rem clamp(1rem, 4vw, 1.35rem);
             background: rgba(255, 255, 255, 0.6);
             border: 1px solid transparent;
             color: var(--color-text-soft);
@@ -1195,7 +1493,13 @@
             box-shadow: -6px -6px 14px rgba(255, 255, 255, 0.6), 6px 6px 14px rgba(17, 24, 39, 0.08);
         }
 
-        .filter-grid {
+        .filter-button--primary {
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            color: #fff;
+            box-shadow: 0 16px 32px rgba(37, 99, 235, 0.25);
+        }
+
+        .filter-form__grid {
             gap: 1.1rem;
         }
 
@@ -1338,6 +1642,12 @@
                                             <span id="current-rank" class="profile-card__rank"></span>
                                             <span id="level-progress" class="profile-card__level"></span>
                                         </div>
+                                        <div class="profile-card__actions">
+                                            <button type="button" id="share-dashboard" class="profile-card__action profile-card__action--outline">
+                                                <span class="profile-card__action-icon" aria-hidden="true">📤</span>
+                                                <span>Share highlight</span>
+                                            </button>
+                                        </div>
                                     </div>
                                     <p class="profile-card__balance" data-wallet-balance-container>
                                         <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
@@ -1368,6 +1678,40 @@
                                     </div>
                                 </div>
                                 <div id="rank-details" class="profile-card__progress-detail"></div>
+                            </div>
+                            <div id="share-card-preview" class="share-card" hidden>
+                                <div class="share-card__header">
+                                    <span class="share-card__badge" aria-hidden="true">⚡</span>
+                                    <div>
+                                        <p id="share-card-athlete" class="share-card__name"></p>
+                                        <p id="share-card-rank" class="share-card__meta"></p>
+                                    </div>
+                                </div>
+                                <ul class="share-card__stats">
+                                    <li>
+                                        <span>Wallet</span>
+                                        <span id="share-card-wallet">—</span>
+                                    </li>
+                                    <li>
+                                        <span>Coins</span>
+                                        <span id="share-card-coins">0</span>
+                                    </li>
+                                    <li>
+                                        <span>Medals</span>
+                                        <span id="share-card-medals">0</span>
+                                    </li>
+                                </ul>
+                                <div class="share-card__actions">
+                                    <button type="button" id="share-whatsapp" class="share-card__button">
+                                        <span aria-hidden="true">🟢</span>
+                                        <span>WhatsApp</span>
+                                    </button>
+                                    <button type="button" id="share-copy" class="share-card__button share-card__button--ghost">
+                                        <span aria-hidden="true">📋</span>
+                                        <span>Copy summary</span>
+                                    </button>
+                                </div>
+                                <p id="share-feedback" class="share-card__feedback" role="status" aria-live="polite"></p>
                             </div>
                         </article>
 
@@ -1413,64 +1757,84 @@
                 <section id="panel-activities" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-activities" data-dashboard-panel="activities">
                     <div class="panel-stack">
                         <section id="activities-filter-panel" class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
-                            <div class="filter-banner">
-                                <div class="filter-banner__label">
-                                    <span aria-hidden="true">🎯</span>
-                                    <span>Activity filters</span>
+                            <form id="activities-filter-form" class="filter-form" novalidate>
+                                <div class="filter-banner">
+                                    <div class="filter-banner__label">
+                                        <span aria-hidden="true">🎯</span>
+                                        <span>Activity filters</span>
+                                    </div>
+                                    <p id="activity-filter-active" class="filter-banner__active"></p>
+                                    <div class="filter-banner__actions">
+                                        <button id="reset-activity-filters" type="button" class="filter-button filter-button--ghost">
+                                            <span aria-hidden="true">↺</span>
+                                            Reset
+                                        </button>
+                                        <button id="apply-activity-filters" type="submit" class="filter-button filter-button--primary">
+                                            <span aria-hidden="true">✓</span>
+                                            Apply
+                                        </button>
+                                    </div>
                                 </div>
-                                <p id="activity-filter-active" class="filter-banner__active"></p>
-                                <div class="filter-banner__actions">
-                                    <button id="reset-activity-filters" type="button" class="filter-button filter-button--ghost">
-                                        <span aria-hidden="true">↺</span>
-                                        Reset
+                                <div class="filter-quick-actions" role="group" aria-label="Quick filter presets">
+                                    <button type="button" class="filter-chip" data-quick-filter="endurance" aria-pressed="false">
+                                        <span aria-hidden="true">🚴</span>
+                                        <span>Long rides</span>
+                                    </button>
+                                    <button type="button" class="filter-chip" data-quick-filter="climb-day" aria-pressed="false">
+                                        <span aria-hidden="true">🧗</span>
+                                        <span>Climb days</span>
+                                    </button>
+                                    <button type="button" class="filter-chip" data-quick-filter="recovery" aria-pressed="false">
+                                        <span aria-hidden="true">🧘</span>
+                                        <span>Recovery spins</span>
                                     </button>
                                 </div>
-                            </div>
-                            <div class="filter-grid">
-                                <label class="filter-field">
-                                    <span>Year</span>
-                                    <select id="year-select"></select>
-                                </label>
-                                <label class="filter-field">
-                                    <span>Type</span>
-                                    <select id="activity-type-filter">
-                                        <option value="all">All types</option>
-                                    </select>
-                                </label>
-                                <label class="filter-field filter-field--range">
-                                    <span>Hours (h)</span>
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-hours-min">Minimum hours</label>
-                                        <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-hours-max">Maximum hours</label>
-                                        <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" />
-                                    </div>
-                                </label>
-                                <label class="filter-field filter-field--range">
-                                    <span>Distance (km)</span>
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-distance-min">Minimum distance</label>
-                                        <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-distance-max">Maximum distance</label>
-                                        <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" />
-                                    </div>
-                                </label>
-                                <label class="filter-field filter-field--range">
-                                    <span>Elevation (m)</span>
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
-                                        <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
-                                        <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" />
-                                    </div>
-                                </label>
-                                <label class="filter-field">
-                                    <span>Nation</span>
-                                    <select id="activity-country-filter">
-                                        <option value="all">All nations</option>
-                                    </select>
-                                </label>
-                            </div>
+                                <div class="filter-form__grid">
+                                    <label class="filter-field">
+                                        <span>Year</span>
+                                        <select id="year-select"></select>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Type</span>
+                                        <select id="activity-type-filter">
+                                            <option value="all">All types</option>
+                                        </select>
+                                    </label>
+                                    <label class="filter-field filter-field--range">
+                                        <span>Hours (h)</span>
+                                        <div class="filter-range">
+                                            <label class="sr-only" for="activity-hours-min">Minimum hours</label>
+                                            <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" />
+                                            <label class="sr-only" for="activity-hours-max">Maximum hours</label>
+                                            <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" />
+                                        </div>
+                                    </label>
+                                    <label class="filter-field filter-field--range">
+                                        <span>Distance (km)</span>
+                                        <div class="filter-range">
+                                            <label class="sr-only" for="activity-distance-min">Minimum distance</label>
+                                            <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" />
+                                            <label class="sr-only" for="activity-distance-max">Maximum distance</label>
+                                            <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" />
+                                        </div>
+                                    </label>
+                                    <label class="filter-field filter-field--range">
+                                        <span>Elevation (m)</span>
+                                        <div class="filter-range">
+                                            <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
+                                            <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" />
+                                            <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
+                                            <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" />
+                                        </div>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Nation</span>
+                                        <select id="activity-country-filter">
+                                            <option value="all">All nations</option>
+                                        </select>
+                                    </label>
+                                </div>
+                            </form>
                         </section>
 
                         <section id="activities-section" class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">

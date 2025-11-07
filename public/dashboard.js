@@ -4,28 +4,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     const EARTH_CIRCUMFERENCE_KM = 40075;
     const EVEREST_HEIGHT_M = 8849;
     const PIZZA_KCAL = 800;
+    const LIKE_COIN_EMOJI = '👍';
+    const BASE_ENTRY_COIN_VALUE = 20;
     const COIN_VALUE_MAP = {
-        '💲': 20,
+        '💲': BASE_ENTRY_COIN_VALUE,
         '💰': 100,
         '🧈': 500,
         '💎': 3000,
-        '👑': 10000
+        '👑': 10000,
+        [LIKE_COIN_EMOJI]: BASE_ENTRY_COIN_VALUE / 10
     };
     const MEDAL_DOLLAR_VALUE = 5000;
-    const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
+    const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑', LIKE_COIN_EMOJI];
     const COIN_COLOR_MAP = {
         '💲': '#0ea5e9',
         '💰': '#6366f1',
         '🧈': '#f59e0b',
         '💎': '#8b5cf6',
-        '👑': '#ec4899'
+        '👑': '#ec4899',
+        [LIKE_COIN_EMOJI]: '#22c55e'
     };
     const COIN_BADGE_CLASS_MAP = {
         '💲': 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
         '💰': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200',
         '🧈': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200',
         '💎': 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200',
-        '👑': 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200'
+        '👑': 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200',
+        [LIKE_COIN_EMOJI]: 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-200'
     };
     const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
     const MEDAL_OTHER_COLOR = '#94a3b8';
@@ -153,6 +158,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletChartEmptyState = document.getElementById('wallet-chart-empty');
     const chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
     const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
+    const coinViewControlsGroup = document.getElementById('coin-view-controls');
+    const coinViewTimelineButton = document.getElementById('coin-view-timeline');
+    const coinViewYearlyButton = document.getElementById('coin-view-yearly');
     const walletControlsContainer = chartToggleCoinsButton?.closest('.wallet-controls')
         || chartToggleBalanceButton?.closest('.wallet-controls')
         || null;
@@ -175,6 +183,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         coins: chartToggleCoinsButton,
         balance: chartToggleBalanceButton
     };
+    const coinViewToggleButtons = {
+        timeline: coinViewTimelineButton,
+        yearly: coinViewYearlyButton
+    };
     const leaderboardState = {
         entries: [],
         rawEntries: [],
@@ -187,6 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let coinChartMode = 'stacked';
     let activeCoinFocus = null;
     let medalInventory = [];
+    let coinTimelineAvailable = false;
 
     let activePanelName = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab
         || (dashboardPanels.keys().next().value ?? null);
@@ -572,6 +585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['🧈', { accessor: entry => entry.coins['🧈'], defaultDirection: 'desc', type: 'number' }],
         ['💎', { accessor: entry => entry.coins['💎'], defaultDirection: 'desc', type: 'number' }],
         ['👑', { accessor: entry => entry.coins['👑'], defaultDirection: 'desc', type: 'number' }],
+        [LIKE_COIN_EMOJI, { accessor: entry => entry.coins[LIKE_COIN_EMOJI], defaultDirection: 'desc', type: 'number' }],
         ['timestamp', { accessor: entry => entry.timestampValue, defaultDirection: 'desc', type: 'number' }],
     ]);
 
@@ -627,6 +641,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td>${entry.coinLabels['🧈']}</td>
                 <td>${entry.coinLabels['💎']}</td>
                 <td>${entry.coinLabels['👑']}</td>
+                <td>${entry.coinLabels[LIKE_COIN_EMOJI]}</td>
                 <td>${entry.timestampLabel}</td>
             `;
 
@@ -1157,6 +1172,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             button.className = `${baseClass} ${stateClasses}`.trim();
         });
 
+        const showCoinControls = activeKey === 'coins' && hasWalletChartData('coins');
+        if (coinViewControlsGroup) {
+            coinViewControlsGroup.classList.toggle('hidden', !showCoinControls);
+        }
+
+        const isTimelineActive = activeKey === 'coins' && coinChartMode === 'timeline';
+        const isYearlyActive = activeKey === 'coins' && coinChartMode !== 'timeline';
+        if (coinViewTimelineButton) {
+            coinViewTimelineButton.disabled = !showCoinControls || !coinTimelineAvailable;
+            coinViewTimelineButton.setAttribute('aria-pressed', isTimelineActive && coinTimelineAvailable ? 'true' : 'false');
+        }
+        if (coinViewYearlyButton) {
+            coinViewYearlyButton.disabled = !showCoinControls;
+            coinViewYearlyButton.setAttribute('aria-pressed', isYearlyActive ? 'true' : 'false');
+        }
+
         updateBalanceCompareToggleState();
     };
 
@@ -1230,6 +1261,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         activeChartKey = availableKey;
         const dataset = walletChartData[availableKey];
+        coinTimelineAvailable = false;
 
         walletChartCanvas.classList.remove('hidden');
         if (walletChartEmptyState) {
@@ -1255,6 +1287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const values = coinTimeline[emoji];
                 return Array.isArray(values) && values.some(value => value > 0);
             });
+            coinTimelineAvailable = hasTimelineData;
 
             if (coinChartMode === 'timeline' && hasTimelineData) {
                 const lineDatasets = activeCoins.map(emoji => {
@@ -1586,7 +1619,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const stats = computeActivitySmallStats(activity);
             const coins = getActivityCoinRewards(activity, stats);
             const medals = getActivityMedals(activity);
-            const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
+            const likeCoinCount = Math.max(0, Math.round(getActivityLikes(activity)));
+            const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0)
+                + likeCoinCount * (COIN_VALUE_MAP[LIKE_COIN_EMOJI] || 0);
             const medalValue = medals.length * MEDAL_DOLLAR_VALUE;
 
             return {
@@ -1594,7 +1629,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 coins,
                 medals,
                 coinValue,
-                medalValue
+                medalValue,
+                likeCoins: likeCoinCount
             };
         }).filter(Boolean);
     };
@@ -1625,7 +1661,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const entry = yearlyAggregation.get(year) || createYearEntry();
-            entry.coins += metric.coins.length;
+            const likeCount = Number.isFinite(metric.likeCoins) ? metric.likeCoins : 0;
+            entry.coins += metric.coins.length + likeCount;
             entry.medals += metric.medals.length;
             metric.coins.forEach(emoji => {
                 if (!Object.prototype.hasOwnProperty.call(entry.coinCounts, emoji)) {
@@ -1633,6 +1670,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 entry.coinCounts[emoji] += 1;
             });
+            if (likeCount > 0) {
+                entry.coinCounts[LIKE_COIN_EMOJI] = (entry.coinCounts[LIKE_COIN_EMOJI] || 0) + likeCount;
+            }
             metric.medals.forEach(medal => {
                 if (!medal) {
                     return;
@@ -1698,6 +1738,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 bucket.counts[emoji] += 1;
             });
+            if (Number.isFinite(metric.likeCoins) && metric.likeCoins > 0) {
+                bucket.counts[LIKE_COIN_EMOJI] = (bucket.counts[LIKE_COIN_EMOJI] || 0) + metric.likeCoins;
+            }
             timelineBuckets.set(key, bucket);
         });
 
@@ -2291,25 +2334,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         container.innerHTML = '';
+        const headingElement = container.previousElementSibling;
 
         if (!achievements || achievements.length === 0) {
             container.classList.add('hidden');
+            if (headingElement) {
+                headingElement.classList.add('hidden');
+            }
             return;
         }
 
         container.classList.remove('hidden');
+        if (headingElement) {
+            const unlockedTypes = achievements.length;
+            const totalEarned = achievements.reduce((sum, achievement) => {
+                const countValue = Number.isFinite(achievement?.count) ? achievement.count : 0;
+                return sum + countValue;
+            }, 0);
+            const headingBase = unlockedTypes === 1 ? 'Super achievement' : 'Super achievements';
+            const countLabel = totalEarned > 0
+                ? `${headingBase} • ${totalEarned.toLocaleString()}`
+                : `${headingBase}${unlockedTypes > 0 ? ` • ${unlockedTypes}` : ''}`;
+            headingElement.textContent = countLabel;
+            headingElement.setAttribute('aria-label', countLabel);
+            headingElement.classList.remove('hidden');
+        }
+        container.scrollLeft = 0;
         achievements.forEach(achievement => {
             const countValue = Number.isFinite(achievement.count) ? achievement.count : 1;
-            const badge = document.createElement('button');
-            badge.type = 'button';
-            badge.className = 'tooltip-target inline-flex h-9 min-w-[3rem] items-center justify-center gap-1 rounded-full bg-amber-500/20 px-2 text-base font-semibold';
-            badge.innerHTML = `
-                <span class="text-xs font-semibold">${countValue.toLocaleString()}</span>
-                <span>${achievement.emoji}</span>
+            const achievementPill = document.createElement('div');
+            achievementPill.className = 'profile-card__achievement tooltip-target';
+            achievementPill.setAttribute('role', 'listitem');
+            achievementPill.tabIndex = 0;
+            achievementPill.innerHTML = `
+                <span class="profile-card__achievement-count">${countValue.toLocaleString()}</span>
+                <span>${achievement.label}</span>
             `;
-            badge.setAttribute('aria-label', `${achievement.label} earned ${countValue.toLocaleString()} times`);
-            attachTooltip(badge, `${achievement.label} — ${achievement.description} — ${countValue.toLocaleString()} earned`);
-            container.appendChild(badge);
+            achievementPill.setAttribute('aria-label', `${achievement.label} earned ${countValue.toLocaleString()} times`);
+            const tooltipParts = [achievement.label, achievement.description, `${countValue.toLocaleString()} earned`]
+                .filter(Boolean);
+            attachTooltip(achievementPill, tooltipParts.join(' — '));
+            container.appendChild(achievementPill);
         });
     };
 
@@ -2493,14 +2558,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, stepTime);
     };
 
-    const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }, medalBreakdown = []) => {
+    const updateCoinSummaryFromWallet = (
+        achievementCategories = [],
+        medalSummary = { count: 0, value: 0 },
+        medalBreakdown = [],
+        options = {}
+    ) => {
         const totals = computeWalletCoinTotals(achievementCategories);
+        const likeCoinTotal = Number.isFinite(options?.likeCoins)
+            ? Math.max(0, Math.round(options.likeCoins))
+            : 0;
+        totals[LIKE_COIN_EMOJI] = likeCoinTotal;
         const elementMap = {
             '💲': 'coin-dollar',
             '💰': 'coin-money',
             '🧈': 'coin-butter',
             '💎': 'coin-diamond',
-            '👑': 'coin-king'
+            '👑': 'coin-king',
+            [LIKE_COIN_EMOJI]: 'coin-like'
         };
 
         Object.entries(elementMap).forEach(([emoji, elementId]) => {
@@ -2517,7 +2592,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             const parentButton = element.closest('button[data-coin-type]');
             if (parentButton) {
-                parentButton.setAttribute('aria-label', `${targetValue.toLocaleString()} ${emoji} minted`);
+                const label = emoji === LIKE_COIN_EMOJI
+                    ? `${targetValue.toLocaleString()} like coin${targetValue === 1 ? '' : 's'} minted`
+                    : `${targetValue.toLocaleString()} ${emoji} minted`;
+                parentButton.setAttribute('aria-label', label);
             }
         });
 
@@ -3270,6 +3348,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 acc[emoji] = (acc[emoji] || 0) + 1;
                 return acc;
             }, {});
+            const likeCoinsForActivity = Math.max(0, Math.round(getActivityLikes(activity)));
+            if (likeCoinsForActivity > 0) {
+                coinCounts[LIKE_COIN_EMOJI] = (coinCounts[LIKE_COIN_EMOJI] || 0) + likeCoinsForActivity;
+            }
             const totalCoinValueDollars = Object.entries(coinCounts).reduce((sum, [emoji, count]) => {
                 return sum + count * (COIN_VALUE_MAP[emoji] || 0);
             }, 0);
@@ -3459,7 +3541,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         setActivePanel('activities', { focusTab: true });
 
-        if (activitiesSectionElement) {
+        if (activitiesSectionElement && typeof activitiesSectionElement.scrollIntoView === 'function') {
             activitiesSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     };
@@ -4345,6 +4427,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Calories (kcal)',
             achievements: []
+        },
+        {
+            name: 'Social Kudos',
+            achievements: []
         }
     ];
 
@@ -4676,6 +4762,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             pizzas: 0,
             likes: 0
         });
+        const likeCoinAchievementCount = Math.max(0, Math.round(aggregatedSmallStats.likes));
 
         if (globeTotalElement) {
             globeTotalElement.textContent = formatStatValue(aggregatedSmallStats.globeTrips);
@@ -5057,6 +5144,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        const socialCategory = categories.find(cat => cat.name === 'Social Kudos');
+        if (socialCategory) {
+            socialCategory.achievements.push({
+                name: 'Like Coins',
+                emoji: LIKE_COIN_EMOJI,
+                description: 'Each kudos you receive mints a like coin.',
+                count: likeCoinAchievementCount
+            });
+        }
+
         // === Medals Calculation ===
         const medalsEarned = [];
         const likesByMonth = new Map();
@@ -5215,7 +5312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             value: totalMedalCount * MEDAL_DOLLAR_VALUE
         };
 
-        updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
+        updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned, { likeCoins: likeCoinAchievementCount });
 
         // === Update Achievement Wallet ===
         if (achievementWallet) {
@@ -5244,13 +5341,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             thead.appendChild(headerRow);
             table.appendChild(thead);
 
-            const tbody = document.createElement('tbody');
-            const walletRows = [
-                { key: 'Distance Run', label: 'Run', icon: '🏃' },
-                { key: 'Distance Ride', label: 'Ride', icon: '🚴' },
-                { key: 'Elevation', label: 'Elevation', icon: '🧗' },
-                { key: 'Calories (kcal)', label: 'Calories', icon: '🔥' }
-            ];
+        const tbody = document.createElement('tbody');
+        const walletRows = [
+            { key: 'Distance Run', label: 'Run', icon: '🏃' },
+            { key: 'Distance Ride', label: 'Ride', icon: '🚴' },
+            { key: 'Elevation', label: 'Elevation', icon: '🧗' },
+            { key: 'Calories (kcal)', label: 'Calories', icon: '🔥' },
+            { key: 'Social Kudos', label: 'Likes', icon: '👍' }
+        ];
 
             walletRows.forEach(rowConfig => {
                 const row = document.createElement('tr');
@@ -5651,6 +5749,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+    Object.entries(coinViewToggleButtons).forEach(([mode, button]) => {
+        if (!button) {
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            if (button.disabled) {
+                return;
+            }
+
+            setActivePanel('wallet');
+            activeChartKey = 'coins';
+
+            if (mode === 'timeline') {
+                if (!coinTimelineAvailable) {
+                    return;
+                }
+                coinChartMode = 'timeline';
+            } else {
+                coinChartMode = 'stacked';
+            }
+
+            if (walletControlsContainer) {
+                scrollControlIntoView(walletControlsContainer, button);
+            }
+
+            renderWalletChart('coins');
+        });
+    });
+
     panelShortcutButtons.forEach(button => {
         button.addEventListener('click', () => {
             const targetPanel = button.dataset.panelTarget;
@@ -5686,6 +5814,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 if (walletControlsContainer && chartToggleCoinsButton) {
                     scrollControlIntoView(walletControlsContainer, chartToggleCoinsButton);
+                }
+                renderWalletChart('coins');
+            }
+        });
+    });
+
+    [
+        [globeStatButton, '💲'],
+        [everestStatButton, '💰'],
+        [pizzaStatButton, '🧈'],
+        [likesStatButton, LIKE_COIN_EMOJI]
+    ].forEach(([button, coinEmoji]) => {
+        if (!button) {
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            setActivePanel('wallet', { focusTab: true });
+            if (chartToggleCoinsButton && !chartToggleCoinsButton.disabled) {
+                activeChartKey = 'coins';
+                if (coinEmoji && COIN_EMOJIS.includes(coinEmoji)) {
+                    if (activeCoinFocus === coinEmoji) {
+                        resetCoinFocus();
+                    } else {
+                        activeCoinFocus = coinEmoji;
+                        updateCoinShortcutState();
+                    }
+                } else {
+                    resetCoinFocus();
+                }
+                coinChartMode = 'timeline';
+                if (walletControlsContainer) {
+                    const targetControl = coinViewTimelineButton || chartToggleCoinsButton;
+                    scrollControlIntoView(walletControlsContainer, targetControl || button);
                 }
                 renderWalletChart('coins');
             }

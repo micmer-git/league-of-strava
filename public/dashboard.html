@@ -241,6 +241,15 @@
             color: #64748b;
         }
 
+        .panel-card__summary-line {
+            display: block;
+            margin-top: 0.2rem;
+        }
+
+        .panel-card__summary-line:first-child {
+            margin-top: 0;
+        }
+
         .panel-card__empty {
             font-size: 0.8rem;
             font-weight: 600;
@@ -353,7 +362,7 @@
         .profile-card__meta {
             display: flex;
             flex-wrap: wrap;
-            justify-content: space-between;
+            align-items: center;
             gap: 0.75rem;
             font-size: 0.85rem;
             color: #475569;
@@ -368,6 +377,31 @@
         .profile-card__level {
             font-weight: 700;
             color: #0f172a;
+        }
+
+        .profile-card__level-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .profile-card__level-stack span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+
+        .profile-card__level-stack .profile-card__rank {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+
+        .profile-card__level-stack .profile-card__level {
+            font-size: 0.85rem;
+            color: #1d4ed8;
         }
 
         .profile-card__coins {
@@ -418,21 +452,8 @@
             gap: 0.75rem;
         }
 
-        .profile-card__progress-top {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #475569;
-        }
-
         .profile-card__rank {
             color: #0f172a;
-        }
-
-        .profile-card__rank--next {
-            text-align: right;
-            color: #475569;
         }
 
         .profile-card__progress-bar {
@@ -450,15 +471,28 @@
             transition: width 0.3s ease;
         }
 
-        .profile-card__progress-label {
+        .profile-card__progress-overlay {
             position: absolute;
             inset: 0;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            padding: 0 0.6rem;
             font-size: 0.75rem;
-            font-weight: 700;
+            font-weight: 600;
             color: #0f172a;
+        }
+
+        .profile-card__progress-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .profile-card__progress-next {
+            margin-left: auto;
+            color: #334155;
+            font-weight: 600;
         }
 
         .profile-card__progress-detail {
@@ -468,14 +502,27 @@
 
         .top-performances-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 0.75rem;
+            align-items: stretch;
         }
 
-        @media (min-width: 768px) {
-            .top-performances-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
+        .top-performance-card {
+            min-width: 0;
+            height: 100%;
+        }
+
+        .top-performance-card__content {
+            min-width: 0;
+        }
+
+        .top-performance-card__title,
+        .top-performance-card__value {
+            overflow-wrap: anywhere;
+        }
+
+        .top-performance-card__action {
+            flex-shrink: 0;
         }
 
         .wallet-table {
@@ -681,19 +728,6 @@
             font-size: 0.75rem;
         }
 
-        .medal-banner__clear {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            padding: 0.3rem 0.75rem;
-            border-radius: 9999px;
-            border: none;
-            background: rgba(37, 99, 235, 0.15);
-            color: #1d4ed8;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
         .medals-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -881,6 +915,7 @@
             <nav id="site-primary-nav" class="site-header__nav" aria-label="Primary navigation">
                 <a href="/">Home</a>
                 <a href="/dashboard" aria-current="page">Dashboard</a>
+                <a href="/leaderboard">Leaderboard</a>
                 <a href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">Donate</a>
             </nav>
         </div>
@@ -955,6 +990,10 @@
                                     </div>
                                     <div class="profile-card__identity">
                                         <h2 id="athlete-name" class="profile-card__name"></h2>
+                                        <div class="profile-card__level-stack">
+                                            <span id="current-rank" class="profile-card__rank"></span>
+                                            <span id="level-progress" class="profile-card__level"></span>
+                                        </div>
                                     </div>
                                     <p class="profile-card__balance" data-wallet-balance-container>
                                         <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
@@ -965,10 +1004,9 @@
                             </div>
                             <div class="profile-card__meta">
                                 <div id="premium-achievements" class="profile-card__badges"></div>
-                                <span id="level-progress" class="profile-card__level"></span>
                             </div>
                             <div class="profile-card__wallet-totals">
-                                <button type="button" class="wallet-total-pill" data-panel-target="wallet" data-wallet-toggle="coins" aria-label="Open wallet coins view">
+                                <button type="button" class="wallet-total-pill" data-panel-target="achievements" aria-label="Open achievements panel">
                                     <span aria-hidden="true" class="wallet-total-pill__icon">🪙</span>
                                     <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
                                 </button>
@@ -978,13 +1016,12 @@
                                 </button>
                             </div>
                             <div class="profile-card__progress">
-                                <div class="profile-card__progress-top">
-                                    <span id="current-rank" class="profile-card__rank"></span>
-                                    <span id="next-rank" class="profile-card__rank profile-card__rank--next"></span>
-                                </div>
                                 <div class="profile-card__progress-bar">
                                     <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
-                                    <div id="ranking-progress-label" class="profile-card__progress-label"></div>
+                                    <div class="profile-card__progress-overlay">
+                                        <span id="ranking-progress-label" class="profile-card__progress-label"></span>
+                                        <span id="next-rank" class="profile-card__progress-next"></span>
+                                    </div>
                                 </div>
                                 <div id="rank-details" class="profile-card__progress-detail"></div>
                             </div>
@@ -1042,9 +1079,6 @@
                                     <button id="reset-activity-filters" type="button" class="filter-button filter-button--ghost">
                                         <span aria-hidden="true">↺</span>
                                         Reset
-                                    </button>
-                                    <button id="apply-activity-filters" type="button" class="filter-button">
-                                        Load 20 matching
                                     </button>
                                 </div>
                             </div>
@@ -1126,16 +1160,12 @@
                                 </div>
                                 <div class="medal-banner__meta">
                                     <span id="medal-filter-description"></span>
-                                    <button id="clear-medal-filter" type="button" class="medal-banner__clear">
-                                        <span aria-hidden="true">✕</span>
-                                        Clear
-                                    </button>
                                 </div>
                             </div>
                         </header>
                         <div id="medals-section" class="medals-grid"></div>
                         <div class="panel-card__footer">
-                            <button id="medals-load-more" type="button" class="filter-button filter-button--ghost">Load more</button>
+                            <button id="medals-load-more" type="button" class="filter-button filter-button--ghost">Load more medals</button>
                         </div>
                     </div>
                 </section>

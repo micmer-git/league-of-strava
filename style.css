@@ -29,37 +29,79 @@ body {
   min-height: 100vh;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--color-text);
-  background: radial-gradient(circle at top, rgba(14, 165, 233, 0.25), transparent 45%),
-    radial-gradient(circle at bottom, rgba(249, 115, 22, 0.25), transparent 50%),
-    linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(10, 12, 25, 0.98) 100%);
-  background-color: var(--bg-base);
+  background: radial-gradient(circle at 15% 20%, rgba(14, 165, 233, 0.28), transparent 45%),
+    radial-gradient(circle at 85% 25%, rgba(244, 114, 182, 0.22), transparent 50%),
+    linear-gradient(160deg, rgba(10, 12, 25, 0.95) 0%, rgba(8, 11, 23, 0.98) 100%);
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.background-ornaments {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(650px circle at 10% -10%, rgba(56, 189, 248, 0.18), transparent 55%),
+    radial-gradient(580px circle at 90% 10%, rgba(248, 113, 113, 0.14), transparent 60%),
+    radial-gradient(420px circle at 50% 105%, rgba(192, 132, 252, 0.12), transparent 60%);
+  filter: blur(0.5px);
+  opacity: 0.8;
+  transform: translateZ(0);
+  z-index: 0;
 }
 
 .app-shell {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding: clamp(1.25rem, 2vw, 2.75rem);
+  padding: clamp(1.25rem, 2vw, 2.75rem) clamp(1rem, 4vw, 3.25rem) clamp(2.5rem, 6vw, 4.5rem);
   gap: clamp(1.25rem, 2vw, 2.5rem);
+  max-width: 1180px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-header {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
   background: var(--bg-panel);
-  padding: clamp(1.5rem, 3vw, 2.25rem);
+  padding: clamp(1.5rem, 3vw, 2.75rem);
   border-radius: var(--radius-lg);
   border: 1px solid rgba(148, 163, 184, 0.15);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(18px);
 }
 
+.header-top {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.header-bottom {
+  max-width: 48ch;
+}
+
+.header-description {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.8);
+  font-size: clamp(0.95rem, 2vw, 1.05rem);
+  line-height: 1.5;
+}
+
+.header-divider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0) 0%, rgba(148, 163, 184, 0.4) 50%, rgba(148, 163, 184, 0) 100%);
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .brand-icon {
@@ -72,6 +114,12 @@ body {
   border-radius: 50%;
   background: rgba(56, 189, 248, 0.15);
   color: var(--color-primary);
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .brand-copy h1 {
@@ -104,7 +152,21 @@ body {
 
 .dashboard {
   display: grid;
+  gap: clamp(1.25rem, 2vw, 2.25rem);
+  align-items: start;
+}
+
+.primary-column,
+.secondary-column {
+  display: grid;
   gap: clamp(1.25rem, 2vw, 2rem);
+}
+
+.secondary-column {
+  position: sticky;
+  top: clamp(1rem, 6vh, 3rem);
+  align-self: start;
+  height: max-content;
 }
 
 .card {
@@ -157,11 +219,17 @@ body {
   z-index: 1;
 }
 
+.rank-overview {
+  display: grid;
+  gap: clamp(1.35rem, 2.5vw, 1.75rem);
+}
+
 .rank-visual {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.1rem;
+  flex-wrap: wrap;
 }
 
 .rank-emoji {
@@ -184,7 +252,8 @@ body {
 .progress-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
+  position: relative;
 }
 
 .progress-labels {
@@ -205,6 +274,7 @@ body {
   cursor: pointer;
   transition: transform var(--transition-base), box-shadow var(--transition-base);
   outline: none;
+  border: 1px solid rgba(148, 163, 184, 0.28);
 }
 
 .progress-container:focus-visible,
@@ -223,13 +293,17 @@ body {
 
 .tooltip {
   display: none;
+  position: absolute;
+  inset: auto 0 0;
+  transform: translateY(110%);
   background: rgba(15, 23, 42, 0.98);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.25);
   padding: 1.2rem;
   box-shadow: var(--shadow-soft);
   color: var(--color-text);
-  max-width: 420px;
+  max-width: clamp(280px, 60vw, 420px);
+  z-index: 5;
 }
 
 .tooltip h3 {
@@ -262,8 +336,8 @@ body {
 
 .lifetime-stats {
   display: grid;
-  gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1.1rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .stat-item {
@@ -276,6 +350,8 @@ body {
   align-items: flex-start;
   gap: 0.5rem;
   transition: transform var(--transition-base), border-color var(--transition-base);
+  position: relative;
+  isolation: isolate;
 }
 
 .stat-item:hover,
@@ -285,7 +361,7 @@ body {
 }
 
 .stat-item .icon {
-  font-size: 1.75rem;
+  font-size: 1.85rem;
 }
 
 .stat-item .value {
@@ -301,7 +377,7 @@ body {
 .stats-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .stat-card {
@@ -349,12 +425,28 @@ body {
 
 @media (min-width: 768px) {
   .dashboard {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+    grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.2fr);
   }
 
-  .rank-card {
-    grid-column: 1 / -1;
+  .rank-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .header-top {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-meta {
+    justify-content: flex-end;
+  }
+}
+
+@media (min-width: 1024px) {
+  .rank-overview {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: center;
   }
 }
 
@@ -369,6 +461,19 @@ body {
 
   .dashboard-header {
     padding: 1.35rem;
+  }
+
+  .header-top {
+    gap: 1rem;
+  }
+
+  .rank-visual {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .secondary-column {
+    position: static;
   }
 }
 

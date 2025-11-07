@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
     const walletChartData = {
-        coins: { labels: [], coinBreakdown: {}, medalBreakdown: [], timelineLabels: [], coinTimeline: {} },
+        coins: { labels: [], coinBreakdown: {}, coinBreakdownCumulative: {}, medalBreakdown: [], timelineLabels: [], coinTimeline: {} },
         balance: { labels: [], values: [], compareLabels: MONTH_COMPARISON_LABELS, compareDatasets: [] }
     };
 
@@ -1373,9 +1373,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             coinChartMode = 'stacked';
             const coinDatasets = activeCoins.map(emoji => {
-                const values = Array.isArray(dataset.coinBreakdown?.[emoji])
+                const rawValues = Array.isArray(dataset.coinBreakdown?.[emoji])
                     ? dataset.coinBreakdown[emoji]
                     : [];
+                const cumulativeValues = Array.isArray(dataset.coinBreakdownCumulative?.[emoji])
+                    ? dataset.coinBreakdownCumulative[emoji]
+                    : rawValues;
+                const values = coinFilter ? cumulativeValues : rawValues;
                 if (!Array.isArray(values) || !values.some(value => value > 0)) {
                     return null;
                 }
@@ -1699,6 +1703,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return acc;
         }, {});
 
+        const coinBreakdownCumulative = COIN_EMOJIS.reduce((acc, emoji) => {
+            let runningTotal = 0;
+            acc[emoji] = sortedYears.map((year, index) => {
+                const yearlyValue = Number.isFinite(coinBreakdown?.[emoji]?.[index])
+                    ? coinBreakdown[emoji][index]
+                    : (yearlyAggregation.get(year)?.coinCounts?.[emoji] ?? 0);
+                runningTotal += Number.isFinite(yearlyValue) ? yearlyValue : 0;
+                return runningTotal;
+            });
+            return acc;
+        }, {});
+
         const medalTotalsAcrossYears = new Map();
         sortedYears.forEach(year => {
             const medalCounts = yearlyAggregation.get(year)?.medalCounts;
@@ -1786,6 +1802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartData.coins = {
             labels: sortedYears.map(year => String(year)),
             coinBreakdown,
+            coinBreakdownCumulative,
             medalBreakdown,
             timelineLabels,
             coinTimeline
@@ -2535,29 +2552,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    // Function to animate coin counts
-    const animateCount = (elementId, start, end, duration) => {
-        const element = document.getElementById(elementId);
-        if (!element) {
-            console.warn(`Element with ID '${elementId}' not found.`);
-            return;
-        }
-        let current = start;
-        const range = end - start;
-        if (range === 0) {
-            element.textContent = end;
-            return;
-        }
-        const stepTime = Math.abs(Math.floor(duration / range));
-        const timer = setInterval(() => {
-            current += range > 0 ? 1 : -1;
-            element.textContent = current;
-            if (current === end) {
-                clearInterval(timer);
-            }
-        }, stepTime);
-    };
-
     const updateCoinSummaryFromWallet = (
         achievementCategories = [],
         medalSummary = { count: 0, value: 0 },
@@ -2584,12 +2578,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             const targetValue = totals[emoji] || 0;
-            const currentValue = Number.parseInt(element.textContent, 10) || 0;
-            if (currentValue === targetValue) {
-                element.textContent = targetValue;
-            } else {
-                animateCount(elementId, currentValue, targetValue, 600);
-            }
+            element.textContent = targetValue.toLocaleString();
             const parentButton = element.closest('button[data-coin-type]');
             if (parentButton) {
                 const label = emoji === LIKE_COIN_EMOJI

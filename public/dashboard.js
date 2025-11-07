@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activePanelName = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab
         || (dashboardPanels.keys().next().value ?? null);
 
-    function setActivePanel(panelName, { focusTab = false } = {}) {
+    function setActivePanel(panelName, { focusTab = false, scrollIntoView = true } = {}) {
         if (!panelName || !dashboardPanels.has(panelName)) {
             return;
         }
@@ -235,13 +235,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         dashboardPanels.forEach((panel, name) => {
             panel.classList.toggle('is-active', name === panelName);
         });
+
+        if (scrollIntoView) {
+            requestAnimationFrame(() => {
+                scrollPanelIntoView(panelName);
+            });
+        }
     }
 
     if (!activePanelName && dashboardPanels.size > 0) {
         activePanelName = dashboardPanels.keys().next().value;
     }
 
-    setActivePanel(activePanelName || 'profile');
+    setActivePanel(activePanelName || 'profile', { scrollIntoView: false });
 
     dashboardTabButtons.forEach((button, index) => {
         if (button.dataset.dashboardTab !== activePanelName) {
@@ -1196,6 +1202,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    };
+
+    const scrollPanelIntoView = (panelName) => {
+        if (!panelName) {
+            return;
+        }
+        const panel = dashboardPanels.get(panelName);
+        if (!panel) {
+            return;
+        }
+
+        const header = document.querySelector('.site-header');
+        const headerRect = header?.getBoundingClientRect();
+        const offset = (headerRect?.height ?? 0) + 16;
+        const targetTop = panel.getBoundingClientRect().top + window.pageYOffset - offset;
+
+        window.scrollTo({
+            top: Math.max(targetTop, 0),
+            behavior: 'smooth'
+        });
     };
 
     const updateCoinShortcutState = () => {

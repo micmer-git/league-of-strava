@@ -1,2 +1,0 @@
-0000000000000000000000000000000000000000 83a26d581617105adc09003511aa4921e5db4a6e mmerelli <michelemerelli.8@gmail.com> 1729859987 +0200	fetch --progress --prune --recurse-submodules=on-demand origin: storing head
-83a26d581617105adc09003511aa4921e5db4a6e 4abc66f7c6add0c9fb59a3a526558af0d4ee01b2 mmerelli <michelemerelli.8@gmail.com> 1730472824 +0100	fetch --progress --prune --recurse-submodules=on-demand origin: fast-forward

@@ -129,69 +129,133 @@
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
         }
 
-        .dashboard-onepage {
+        .dashboard-shell {
+            display: grid;
+            gap: clamp(1.5rem, 3vw, 2.5rem);
+        }
+
+        .dashboard-navigation {
             display: flex;
             flex-direction: column;
-            gap: 1.75rem;
+            gap: clamp(1rem, 2vw, 1.5rem);
+            padding: clamp(0.75rem, 2vw, 1.2rem);
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08));
+            border-radius: 24px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
         }
 
-        .dashboard-tabs {
+        .dashboard-navigation__list {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 0.75rem;
             overflow-x: auto;
-            padding: 0.5rem 0.75rem;
-            border-radius: 9999px;
-            background: rgba(255, 255, 255, 0.8);
-            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-            backdrop-filter: blur(12px);
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            padding: 0.5rem;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(14px);
+            scrollbar-width: thin;
         }
 
-        .dashboard-tabs::-webkit-scrollbar {
-            display: none;
+        .dashboard-navigation__list::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .dashboard-navigation__list::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.4);
+            border-radius: 9999px;
+        }
+
+        .dashboard-navigation__hint {
+            margin: 0;
+            font-size: 0.8rem;
+            color: #475569;
+            line-height: 1.4;
         }
 
         .dashboard-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
             border: 1px solid transparent;
             background: transparent;
-            padding: 0.45rem 1.2rem;
+            padding: 0.55rem 1.2rem;
             border-radius: 9999px;
             font-size: 0.85rem;
             font-weight: 600;
             color: #1f2937;
             white-space: nowrap;
-            transition: all 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .dashboard-tab__icon {
+            font-size: 1.15rem;
+            line-height: 1;
         }
 
         .dashboard-tab.is-active {
             background: linear-gradient(135deg, #2563eb, #0ea5e9);
             color: #fff;
-            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
+            border-color: transparent;
+            box-shadow: 0 18px 32px rgba(37, 99, 235, 0.28);
+        }
+
+        .dashboard-tab:not(.is-active):hover {
+            background: rgba(37, 99, 235, 0.08);
+            border-color: rgba(37, 99, 235, 0.16);
+            transform: translateY(-1px);
         }
 
         .dashboard-tab:focus-visible {
-            outline: 2px solid #2563eb;
-            outline-offset: 2px;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
         }
 
-        .dashboard-panels {
-            position: relative;
+        .dashboard-content {
+            display: grid;
+            gap: clamp(1.5rem, 2.8vw, 2.5rem);
         }
 
         .dashboard-panel {
             display: none;
-            animation: panelFade 0.3s ease;
+            animation: panelFade 0.35s ease;
         }
 
         .dashboard-panel.is-active {
             display: block;
         }
 
+        .dashboard-panel__inner {
+            display: grid;
+            gap: clamp(1.35rem, 2.5vw, 2rem);
+        }
+
+        .dashboard-panel--profile .dashboard-panel__inner {
+            position: relative;
+            padding: clamp(1.25rem, 2.5vw, 2rem);
+            border-radius: 28px;
+            background:
+                radial-gradient(circle at 0% 10%, rgba(37, 99, 235, 0.22), transparent 55%),
+                radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.18), transparent 50%),
+                linear-gradient(160deg, rgba(248, 250, 252, 0.98), rgba(226, 232, 240, 0.92));
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            box-shadow: 0 35px 65px rgba(15, 23, 42, 0.18);
+        }
+
+        .dashboard-panel--profile .panel-stack {
+            gap: clamp(1.5rem, 2.5vw, 2rem);
+        }
+
+        .dashboard-panel--profile .panel-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            box-shadow: 0 24px 40px rgba(15, 23, 42, 0.14);
+        }
+
         @keyframes panelFade {
-            from { opacity: 0; transform: translateY(8px); }
+            from { opacity: 0; transform: translateY(12px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -969,19 +1033,87 @@
         }
 
         @media (min-width: 1024px) {
+            .dashboard-shell {
+                grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+                align-items: start;
+            }
+
+            .dashboard-navigation {
+                position: sticky;
+                top: clamp(1rem, 7vh, 3.5rem);
+            }
+
+            .dashboard-navigation__list {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.55rem;
+                overflow: visible;
+                padding: 0.75rem;
+                box-shadow: none;
+            }
+
+            .dashboard-tab {
+                justify-content: flex-start;
+                width: 100%;
+            }
+
             .panel-stack {
                 gap: 2rem;
             }
         }
 
+        @media (max-width: 1023px) {
+            .dashboard-navigation {
+                position: static;
+                padding: 0;
+                background: transparent;
+                border: none;
+                box-shadow: none;
+            }
+
+            .dashboard-navigation__list {
+                box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+            }
+
+            .dashboard-navigation__hint {
+                display: none;
+            }
+        }
+
         @media (prefers-color-scheme: dark) {
-            .dashboard-tabs {
-                background: rgba(15, 23, 42, 0.75);
-                box-shadow: 0 12px 32px rgba(8, 47, 73, 0.45);
+            .dashboard-navigation {
+                background: linear-gradient(135deg, rgba(30, 64, 175, 0.4), rgba(14, 165, 233, 0.25));
+                border-color: rgba(148, 163, 184, 0.35);
+                box-shadow: 0 24px 48px rgba(8, 47, 73, 0.45);
+            }
+
+            .dashboard-navigation__list {
+                background: rgba(15, 23, 42, 0.88);
+                box-shadow: none;
             }
 
             .dashboard-tab {
                 color: #e2e8f0;
+            }
+
+            .dashboard-tab:not(.is-active):hover {
+                background: rgba(37, 99, 235, 0.25);
+                border-color: rgba(59, 130, 246, 0.35);
+            }
+
+            .dashboard-panel--profile .dashboard-panel__inner {
+                background:
+                    radial-gradient(circle at 0% 10%, rgba(96, 165, 250, 0.28), transparent 55%),
+                    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.3), transparent 55%),
+                    linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.85));
+                border-color: rgba(148, 163, 184, 0.35);
+                box-shadow: 0 35px 70px rgba(2, 6, 23, 0.55);
+            }
+
+            .dashboard-panel--profile .panel-card {
+                background: rgba(15, 23, 42, 0.92);
+                border-color: rgba(148, 163, 184, 0.35);
+                box-shadow: 0 24px 44px rgba(2, 6, 23, 0.55);
             }
 
             .panel-card__title,
@@ -1101,247 +1233,274 @@
     <div class="container mx-auto px-4 py-8">
         <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
 
-        <div class="dashboard-onepage">
-            <div class="dashboard-tabs" role="tablist">
-                <button type="button" id="tab-profile" class="dashboard-tab is-active" role="tab" aria-selected="true" aria-controls="panel-profile" data-dashboard-tab="profile">Profile</button>
-                <button type="button" id="tab-achievements" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-achievements" data-dashboard-tab="achievements">Achievements</button>
-                <button type="button" id="tab-wallet" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-wallet" data-dashboard-tab="wallet">Wallet</button>
-                <button type="button" id="tab-activities" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-activities" data-dashboard-tab="activities">Activities</button>
-                <button type="button" id="tab-medals" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-medals" data-dashboard-tab="medals">Medals</button>
-            </div>
+        <div class="dashboard-shell">
+            <aside class="dashboard-navigation" aria-label="Dashboard sections">
+                <div class="dashboard-navigation__list" role="tablist">
+                    <button type="button" id="tab-profile" class="dashboard-tab is-active" role="tab" aria-selected="true" aria-controls="panel-profile" data-dashboard-tab="profile">
+                        <span class="dashboard-tab__icon" aria-hidden="true">🏁</span>
+                        <span class="dashboard-tab__label">Profile</span>
+                    </button>
+                    <button type="button" id="tab-achievements" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-achievements" data-dashboard-tab="achievements">
+                        <span class="dashboard-tab__icon" aria-hidden="true">🎒</span>
+                        <span class="dashboard-tab__label">Achievements</span>
+                    </button>
+                    <button type="button" id="tab-wallet" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-wallet" data-dashboard-tab="wallet">
+                        <span class="dashboard-tab__icon" aria-hidden="true">💼</span>
+                        <span class="dashboard-tab__label">Wallet</span>
+                    </button>
+                    <button type="button" id="tab-activities" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-activities" data-dashboard-tab="activities">
+                        <span class="dashboard-tab__icon" aria-hidden="true">📈</span>
+                        <span class="dashboard-tab__label">Activities</span>
+                    </button>
+                    <button type="button" id="tab-medals" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-medals" data-dashboard-tab="medals">
+                        <span class="dashboard-tab__icon" aria-hidden="true">🏅</span>
+                        <span class="dashboard-tab__label">Medals</span>
+                    </button>
+                </div>
+                <p class="dashboard-navigation__hint">Quickly jump between your overview, medals, wallet insights, and latest activities.</p>
+            </aside>
 
-            <div class="dashboard-panels" data-dashboard-panels>
-                <section id="panel-profile" class="dashboard-panel is-active" role="tabpanel" aria-labelledby="tab-profile" data-dashboard-panel="profile">
-                    <div class="panel-stack">
-                        <article class="panel-card profile-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <div class="profile-card__header">
-                                <div class="profile-card__metrics profile-metrics" id="profile-metric-pills">
-                                    <div class="profile-metrics__row profile-card__coins" id="coin-summary">
-                                        <button type="button" data-coin-type="💲" aria-pressed="false" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
-                                            <span id="coin-dollar" class="font-semibold">0</span>
-                                        </button>
-                                        <button type="button" data-coin-type="💰" aria-pressed="false" class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                                            <span id="coin-money" class="font-semibold">0</span>
-                                        </button>
-                                        <button type="button" data-coin-type="🧈" aria-pressed="false" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                            <span id="coin-butter" class="font-semibold">0</span>
-                                        </button>
-                                        <button type="button" data-coin-type="💎" aria-pressed="false" class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
-                                            <span id="coin-diamond" class="font-semibold">0</span>
-                                        </button>
-                                        <button type="button" data-coin-type="👑" aria-pressed="false" class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
-                                            <span id="coin-king" class="font-semibold">0</span>
-                                        </button>
-                                        <button type="button" data-coin-type="👍" aria-pressed="false" class="tooltip-target profile-metric-pill bg-lime-50 text-lime-700 dark:bg-lime-900/40 dark:text-lime-200">
-                                            <span id="coin-like" class="font-semibold">0</span>
-                                        </button>
-                                    </div>
-                                    <div class="profile-metrics__row profile-card__highlights">
-                                        <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🌍</span>
-                                            <span id="globe-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
-                                            <span id="everest-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🍕</span>
-                                            <span id="pizza-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">👍</span>
-                                            <span id="likes-total" class="font-semibold">0</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="profile-card__identity-block">
-                                    <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar">
-                                    <div class="profile-card__headline">
-                                        <div class="profile-card__identity">
-                                            <h2 id="athlete-name" class="profile-card__name"></h2>
-                                            <div class="profile-card__level-stack">
-                                                <span id="current-rank" class="profile-card__rank"></span>
-                                                <span id="level-progress" class="profile-card__level"></span>
-                                            </div>
+            <div class="dashboard-content" data-dashboard-panels>
+                <section id="panel-profile" class="dashboard-panel dashboard-panel--profile is-active" role="tabpanel" aria-labelledby="tab-profile" data-dashboard-panel="profile">
+                    <div class="dashboard-panel__inner">
+                        <div class="panel-stack">
+                            <article class="panel-card profile-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                                <div class="profile-card__header">
+                                    <div class="profile-card__metrics profile-metrics" id="profile-metric-pills">
+                                        <div class="profile-metrics__row profile-card__coins" id="coin-summary">
+                                            <button type="button" data-coin-type="💲" aria-pressed="false" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
+                                                <span id="coin-dollar" class="font-semibold">0</span>
+                                            </button>
+                                            <button type="button" data-coin-type="💰" aria-pressed="false" class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                                                <span id="coin-money" class="font-semibold">0</span>
+                                            </button>
+                                            <button type="button" data-coin-type="🧈" aria-pressed="false" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                                <span id="coin-butter" class="font-semibold">0</span>
+                                            </button>
+                                            <button type="button" data-coin-type="💎" aria-pressed="false" class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
+                                                <span id="coin-diamond" class="font-semibold">0</span>
+                                            </button>
+                                            <button type="button" data-coin-type="👑" aria-pressed="false" class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
+                                                <span id="coin-king" class="font-semibold">0</span>
+                                            </button>
+                                            <button type="button" data-coin-type="👍" aria-pressed="false" class="tooltip-target profile-metric-pill bg-lime-50 text-lime-700 dark:bg-lime-900/40 dark:text-lime-200">
+                                                <span id="coin-like" class="font-semibold">0</span>
+                                            </button>
                                         </div>
-                                        <p class="profile-card__balance" data-wallet-balance-container>
-                                            <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
-                                            <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
-                                            <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
-                                        </p>
+                                        <div class="profile-metrics__row profile-card__highlights">
+                                            <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🌍</span>
+                                                <span id="globe-total" class="font-semibold">0</span>
+                                            </button>
+                                            <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
+                                                <span id="everest-total" class="font-semibold">0</span>
+                                            </button>
+                                            <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🍕</span>
+                                                <span id="pizza-total" class="font-semibold">0</span>
+                                            </button>
+                                            <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">👍</span>
+                                                <span id="likes-total" class="font-semibold">0</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="profile-card__identity-block">
+                                        <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar">
+                                        <div class="profile-card__headline">
+                                            <div class="profile-card__identity">
+                                                <h2 id="athlete-name" class="profile-card__name"></h2>
+                                                <div class="profile-card__level-stack">
+                                                    <span id="current-rank" class="profile-card__rank"></span>
+                                                    <span id="level-progress" class="profile-card__level"></span>
+                                                </div>
+                                            </div>
+                                            <p class="profile-card__balance" data-wallet-balance-container>
+                                                <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
+                                                <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
+                                                <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="profile-card__meta">
-                                <h3 class="profile-card__achievements-heading hidden">Super achievements</h3>
-                                <div id="premium-achievements" class="profile-card__achievements" role="list"></div>
-                            </div>
-                            <div class="profile-card__wallet-totals">
-                                <button type="button" class="wallet-total-pill" data-panel-target="achievements" aria-label="Open achievements panel">
-                                    <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
-                                </button>
-                                <button type="button" class="wallet-total-pill" data-panel-target="medals" aria-label="Open medals view">
-                                    <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
-                                    <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
-                                </button>
-                            </div>
-                            <div class="profile-card__progress">
-                                <div class="profile-card__progress-bar">
-                                    <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
-                                    <div class="profile-card__progress-overlay">
-                                        <span id="ranking-progress-label" class="profile-card__progress-label"></span>
-                                        <span id="next-rank" class="profile-card__progress-next"></span>
-                                    </div>
+                                <div class="profile-card__meta">
+                                    <h3 class="profile-card__achievements-heading hidden">Super achievements</h3>
+                                    <div id="premium-achievements" class="profile-card__achievements" role="list"></div>
                                 </div>
-                                <div id="rank-details" class="profile-card__progress-detail"></div>
-                            </div>
-                        </article>
+                                <div class="profile-card__wallet-totals">
+                                    <button type="button" class="wallet-total-pill" data-panel-target="achievements" aria-label="Open achievements panel">
+                                        <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
+                                    </button>
+                                    <button type="button" class="wallet-total-pill" data-panel-target="medals" aria-label="Open medals view">
+                                        <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
+                                        <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
+                                    </button>
+                                </div>
+                                <div class="profile-card__progress">
+                                    <div class="profile-card__progress-bar">
+                                        <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
+                                        <div class="profile-card__progress-overlay">
+                                            <span id="ranking-progress-label" class="profile-card__progress-label"></span>
+                                            <span id="next-rank" class="profile-card__progress-next"></span>
+                                        </div>
+                                    </div>
+                                    <div id="rank-details" class="profile-card__progress-detail"></div>
+                                </div>
+                            </article>
 
-                        <article class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <header class="panel-card__header">
-                                <h3 class="panel-card__title">Top Performances</h3>
-                                <span id="top-performances-empty" class="panel-card__empty hidden">No top performances available.</span>
-                            </header>
-                            <div id="best-activities" class="top-performances-grid"></div>
-                        </article>
+                            <article class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                                <header class="panel-card__header">
+                                    <h3 class="panel-card__title">Top Performances</h3>
+                                    <span id="top-performances-empty" class="panel-card__empty hidden">No top performances available.</span>
+                                </header>
+                                <div id="best-activities" class="top-performances-grid"></div>
+                            </article>
+                        </div>
                     </div>
                 </section>
 
                 <section id="panel-achievements" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-achievements" data-dashboard-panel="achievements">
-                    <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                        <header class="panel-card__header">
-                            <h3 class="panel-card__title">Achievement Wallet</h3>
-                        </header>
-                        <div id="achievement-wallet" class="wallet-table"></div>
+                    <div class="dashboard-panel__inner">
+                        <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                            <header class="panel-card__header">
+                                <h3 class="panel-card__title">Achievement Wallet</h3>
+                            </header>
+                            <div id="achievement-wallet" class="wallet-table"></div>
+                        </div>
                     </div>
                 </section>
 
                 <section id="panel-wallet" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-wallet" data-dashboard-panel="wallet">
-                    <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                        <header class="panel-card__header panel-card__header--stack">
-                            <h3 class="panel-card__title">Wallet Insights</h3>
-                            <div class="wallet-controls">
-                                <button id="chart-toggle-coins" type="button" class="wallet-control" aria-pressed="false">Coins &amp; Medals</button>
-                                <button id="chart-toggle-balance" type="button" class="wallet-control" aria-pressed="false">Balance</button>
-                                <div id="coin-view-controls" class="wallet-control-group hidden" role="group" aria-label="Coin breakdown view">
-                                    <button id="coin-view-timeline" type="button" class="wallet-control wallet-control--secondary" aria-pressed="false">Timeline</button>
-                                    <button id="coin-view-yearly" type="button" class="wallet-control wallet-control--secondary" aria-pressed="true">By Year</button>
+                    <div class="dashboard-panel__inner">
+                        <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                            <header class="panel-card__header panel-card__header--stack">
+                                <h3 class="panel-card__title">Wallet Insights</h3>
+                                <div class="wallet-controls">
+                                    <button id="chart-toggle-coins" type="button" class="wallet-control" aria-pressed="false">Coins &amp; Medals</button>
+                                    <button id="chart-toggle-balance" type="button" class="wallet-control" aria-pressed="false">Balance</button>
+                                    <div id="coin-view-controls" class="wallet-control-group hidden" role="group" aria-label="Coin breakdown view">
+                                        <button id="coin-view-timeline" type="button" class="wallet-control wallet-control--secondary" aria-pressed="false">Timeline</button>
+                                        <button id="coin-view-yearly" type="button" class="wallet-control wallet-control--secondary" aria-pressed="true">By Year</button>
+                                    </div>
+                                    <label data-balance-year-toggle-label class="wallet-control wallet-control--toggle">
+                                        <input id="balance-year-toggle" type="checkbox" class="wallet-control__checkbox" />
+                                        <span>Compare years</span>
+                                    </label>
                                 </div>
-                                <label data-balance-year-toggle-label class="wallet-control wallet-control--toggle">
-                                    <input id="balance-year-toggle" type="checkbox" class="wallet-control__checkbox" />
-                                    <span>Compare years</span>
-                                </label>
+                            </header>
+                            <div id="wallet-chart-wrapper" class="wallet-chart">
+                                <canvas id="wallet-chart" class="w-full h-full"></canvas>
+                                <p id="wallet-chart-empty" class="wallet-chart__empty hidden">No wallet data available for this view.</p>
                             </div>
-                        </header>
-                        <div id="wallet-chart-wrapper" class="wallet-chart">
-                            <canvas id="wallet-chart" class="w-full h-full"></canvas>
-                            <p id="wallet-chart-empty" class="wallet-chart__empty hidden">No wallet data available for this view.</p>
                         </div>
                     </div>
                 </section>
 
                 <section id="panel-activities" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-activities" data-dashboard-panel="activities">
-                    <div class="panel-stack">
-                        <section id="activities-filter-panel" class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
-                            <div class="filter-banner">
-                                <div class="filter-banner__label">
-                                    <span aria-hidden="true">🎯</span>
-                                    <span>Activity filters</span>
+                    <div class="dashboard-panel__inner">
+                        <div class="panel-stack">
+                            <section id="activities-filter-panel" class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
+                                <div class="filter-banner">
+                                    <div class="filter-banner__label">
+                                        <span aria-hidden="true">🎯</span>
+                                        <span>Activity filters</span>
+                                    </div>
+                                    <p id="activity-filter-active" class="filter-banner__active"></p>
+                                    <div class="filter-banner__actions">
+                                        <button id="reset-activity-filters" type="button" class="filter-button filter-button--ghost">
+                                            <span aria-hidden="true">↺</span>
+                                            Reset
+                                        </button>
+                                    </div>
                                 </div>
-                                <p id="activity-filter-active" class="filter-banner__active"></p>
-                                <div class="filter-banner__actions">
-                                    <button id="reset-activity-filters" type="button" class="filter-button filter-button--ghost">
-                                        <span aria-hidden="true">↺</span>
-                                        Reset
-                                    </button>
+                                <div class="filter-grid">
+                                    <label class="filter-field">
+                                        <span>Year</span>
+                                        <select id="year-select"></select>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Type</span>
+                                        <select id="activity-type-filter">
+                                            <option value="all">All types</option>
+                                        </select>
+                                    </label>
+                                    <label class="filter-field filter-field--range">
+                                        <span>Hours (h)</span>
+                                        <div class="filter-range">
+                                            <label class="sr-only" for="activity-hours-min">Minimum hours</label>
+                                            <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" />
+                                            <label class="sr-only" for="activity-hours-max">Maximum hours</label>
+                                            <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" />
+                                        </div>
+                                    </label>
+                                    <label class="filter-field filter-field--range">
+                                        <span>Distance (km)</span>
+                                        <div class="filter-range">
+                                            <label class="sr-only" for="activity-distance-min">Minimum distance</label>
+                                            <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" />
+                                            <label class="sr-only" for="activity-distance-max">Maximum distance</label>
+                                            <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" />
+                                        </div>
+                                    </label>
+                                    <label class="filter-field filter-field--range">
+                                        <span>Elevation (m)</span>
+                                        <div class="filter-range">
+                                            <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
+                                            <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" />
+                                            <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
+                                            <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" />
+                                        </div>
+                                    </label>
+                                    <label class="filter-field">
+                                        <span>Nation</span>
+                                        <select id="activity-country-filter">
+                                            <option value="all">All nations</option>
+                                        </select>
+                                    </label>
                                 </div>
-                            </div>
-                            <div class="filter-grid">
-                                <label class="filter-field">
-                                    <span>Year</span>
-                                    <select id="year-select"></select>
-                                </label>
-                                <label class="filter-field">
-                                    <span>Type</span>
-                                    <select id="activity-type-filter">
-                                        <option value="all">All types</option>
-                                    </select>
-                                </label>
-                                <label class="filter-field filter-field--range">
-                                    <span>Hours (h)</span>
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-hours-min">Minimum hours</label>
-                                        <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-hours-max">Maximum hours</label>
-                                        <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" />
-                                    </div>
-                                </label>
-                                <label class="filter-field filter-field--range">
-                                    <span>Distance (km)</span>
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-distance-min">Minimum distance</label>
-                                        <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-distance-max">Maximum distance</label>
-                                        <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" />
-                                    </div>
-                                </label>
-                                <label class="filter-field filter-field--range">
-                                    <span>Elevation (m)</span>
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
-                                        <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
-                                        <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" />
-                                    </div>
-                                </label>
-                                <label class="filter-field">
-                                    <span>Nation</span>
-                                    <select id="activity-country-filter">
-                                        <option value="all">All nations</option>
-                                    </select>
-                                </label>
-                            </div>
-                        </section>
+                            </section>
 
-                        <section id="activities-section" class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <header class="panel-card__header panel-card__header--split">
-                                <div>
-                                    <h3 class="panel-card__title">Recent Activities</h3>
-                                    <p id="activity-filter-summary" class="panel-card__subtitle"></p>
+                            <section id="activities-section" class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                                <header class="panel-card__header panel-card__header--split">
+                                    <div>
+                                        <h3 class="panel-card__title">Recent Activities</h3>
+                                        <p id="activity-filter-summary" class="panel-card__subtitle"></p>
+                                    </div>
+                                    <span id="activities-empty" class="panel-card__empty hidden">No activities match your filters.</span>
+                                </header>
+                                <div id="activities-container" class="activities-list"></div>
+                                <div class="panel-card__footer">
+                                    <button id="fetch-more-data" type="button" class="filter-button filter-button--ghost" title="Check for new activities and merge them with your current haul" aria-label="Fetch and merge the latest activities">
+                                        <span aria-hidden="true" class="text-lg leading-none">🔄</span>
+                                        <span class="sr-only" data-button-label>Fetch and merge the latest activities</span>
+                                    </button>
+                                    <button id="load-more-btn" type="button" class="filter-button hidden">Load More Activities</button>
                                 </div>
-                                <span id="activities-empty" class="panel-card__empty hidden">No activities match your filters.</span>
-                            </header>
-                            <div id="activities-container" class="activities-list"></div>
-                            <div class="panel-card__footer">
-                                <button id="fetch-more-data" type="button" class="filter-button filter-button--ghost" title="Check for new activities and merge them with your current haul" aria-label="Fetch and merge the latest activities">
-                                    <span aria-hidden="true" class="text-lg leading-none">🔄</span>
-                                    <span class="sr-only" data-button-label>Fetch and merge the latest activities</span>
-                                </button>
-                                <button id="load-more-btn" type="button" class="filter-button hidden">Load More Activities</button>
-                            </div>
-                        </section>
+                            </section>
+                        </div>
                     </div>
                 </section>
 
                 <section id="panel-medals" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-medals" data-dashboard-panel="medals">
-                    <div class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
-                        <header class="panel-card__header panel-card__header--medals">
-                            <h3 class="panel-card__title">Medals</h3>
-                            <div id="medal-filter-banner" class="medal-banner hidden">
-                                <div class="medal-banner__header">
-                                    <span id="medal-filter-emoji" class="medal-banner__emoji"></span>
-                                    <span id="medal-filter-label" class="medal-banner__label"></span>
+                    <div class="dashboard-panel__inner">
+                        <div class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
+                            <header class="panel-card__header panel-card__header--medals">
+                                <h3 class="panel-card__title">Medals</h3>
+                                <div id="medal-filter-banner" class="medal-banner hidden">
+                                    <div class="medal-banner__header">
+                                        <span id="medal-filter-emoji" class="medal-banner__emoji"></span>
+                                        <span id="medal-filter-label" class="medal-banner__label"></span>
+                                    </div>
+                                    <div class="medal-banner__meta">
+                                        <span id="medal-filter-description"></span>
+                                    </div>
                                 </div>
-                                <div class="medal-banner__meta">
-                                    <span id="medal-filter-description"></span>
-                                </div>
-                            </div>
-                        </header>
-                        <div id="medals-section" class="medals-grid"></div>
+                            </header>
+                            <div id="medals-section" class="medals-grid"></div>
+                        </div>
                     </div>
                 </section>
-
             </div>
         </div>
         <div id="segment-completions" class="mt-6 hidden">

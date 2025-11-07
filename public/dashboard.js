@@ -150,10 +150,89 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
     const balanceYearToggle = document.getElementById('balance-year-toggle');
     const balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
+    const medalsLoadMoreButton = document.getElementById('medals-load-more');
+    const leaderboardStatus = document.getElementById('leaderboard-status');
+    const leaderboardBody = document.getElementById('leaderboard-body');
+    const leaderboardSortButtons = Array.from(document.querySelectorAll('.leaderboard-sort'));
+    const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
+    const dashboardPanels = new Map();
+    document.querySelectorAll('[data-dashboard-panel]').forEach(panel => {
+        const name = panel?.dataset?.dashboardPanel;
+        if (name) {
+            dashboardPanels.set(name, panel);
+        }
+    });
     const chartToggleButtons = {
         coins: chartToggleCoinsButton,
         balance: chartToggleBalanceButton
     };
+    const leaderboardState = {
+        entries: [],
+        rawEntries: [],
+        sortKey: 'rank',
+        direction: 'asc'
+    };
+
+    let activePanelName = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab
+        || (dashboardPanels.keys().next().value ?? null);
+
+    function setActivePanel(panelName, { focusTab = false } = {}) {
+        if (!panelName || !dashboardPanels.has(panelName)) {
+            return;
+        }
+
+        if (activePanelName === panelName) {
+            if (focusTab) {
+                const activeButton = dashboardTabButtons.find(button => button.dataset.dashboardTab === panelName);
+                activeButton?.focus();
+            }
+            return;
+        }
+
+        activePanelName = panelName;
+
+        dashboardTabButtons.forEach(button => {
+            const isActive = button.dataset.dashboardTab === panelName;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            button.setAttribute('tabindex', isActive ? '0' : '-1');
+            if (isActive && focusTab) {
+                button.focus();
+            }
+        });
+
+        dashboardPanels.forEach((panel, name) => {
+            panel.classList.toggle('is-active', name === panelName);
+        });
+    }
+
+    if (!activePanelName && dashboardPanels.size > 0) {
+        activePanelName = dashboardPanels.keys().next().value;
+    }
+
+    setActivePanel(activePanelName || 'profile');
+
+    dashboardTabButtons.forEach((button, index) => {
+        if (button.dataset.dashboardTab !== activePanelName) {
+            button.setAttribute('tabindex', '-1');
+        }
+
+        button.addEventListener('click', () => {
+            setActivePanel(button.dataset.dashboardTab, { focusTab: true });
+        });
+
+        button.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
+                return;
+            }
+
+            event.preventDefault();
+            const direction = event.key === 'ArrowRight' ? 1 : -1;
+            let newIndex = (index + direction + dashboardTabButtons.length) % dashboardTabButtons.length;
+            const targetButton = dashboardTabButtons[newIndex];
+            setActivePanel(targetButton.dataset.dashboardTab, { focusTab: true });
+        });
+    });
 
     const urlParams = new URLSearchParams(window.location.search);
     const sharedUserIdParam = (urlParams.get('userId') || '').trim();
@@ -217,6 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let sortedActivities = [];
     const MEDAL_FILTER_PAGE_SIZE = 10;
     let activeMedalFilter = null;
+    let medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
     let activeMedalMeta = null;
     let medalFilteredActivities = [];
     let hasMoreActivities = false;
@@ -315,6 +395,299 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         throw lastError;
+    };
+
+    const escapeHtml = (unsafe = '') => {
+        const value = typeof unsafe === 'string' ? unsafe : String(unsafe ?? '');
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;',
+        };
+        return value.replace(/[&<>"']/g, char => map[char] || char);
+    };
+
+    const formatRelativeTime = (timestamp) => {
+        if (!timestamp) {
+            return '—';
+        }
+        const date = new Date(timestamp);
+        if (Number.isNaN(date.getTime()) || date.getTime() <= 0) {
+            return '—';
+        }
+
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSeconds = Math.floor(diffMs / 1000);
+        if (diffSeconds < 60) {
+            return 'Just now';
+        }
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        if (diffMinutes < 60) {
+            return `${diffMinutes}m ago`;
+        }
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) {
+            return `${diffHours}h ago`;
+        }
+        const diffDays = Math.floor(diffHours / 24);
+        if (diffDays < 7) {
+            return `${diffDays}d ago`;
+        }
+
+        return date.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        });
+    };
+
+    const isValidLeaderboardPayload = (data) => {
+        if (!data || typeof data !== 'object') {
+            return false;
+        }
+
+        if (!Array.isArray(data.leaderboard)) {
+            return false;
+        }
+
+        return true;
+    };
+
+    const formatWalletBalanceLabel = (value) => {
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue) || numericValue <= 0) {
+            return '$0.0M';
+        }
+
+        const millions = numericValue / 1_000_000;
+        const precision = millions >= 10 ? 1 : 2;
+        return `$${millions.toFixed(precision)}M`;
+    };
+
+    const formatLeaderboardDecimal = (value) => {
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue) || numericValue <= 0) {
+            return '0';
+        }
+
+        if (numericValue >= 100) {
+            return numericValue.toFixed(0);
+        }
+
+        if (numericValue >= 10) {
+            return numericValue.toFixed(1);
+        }
+
+        return numericValue.toFixed(2);
+    };
+
+    const getCoinTotals = (entry) => {
+        return COIN_EMOJIS.reduce((acc, emoji) => {
+            const value = entry?.coinBreakdown?.[emoji] ?? entry?.[emoji];
+            const numericValue = Number(value);
+            acc[emoji] = Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
+            return acc;
+        }, {});
+    };
+
+    const parseLeaderboardEntries = (entries = []) => {
+        return entries.map((entry, index) => {
+            const rawUserId = typeof entry?.userId === 'string' ? entry.userId.trim() : '';
+            const hasUserLink = rawUserId.length > 0;
+            const baseName = typeof entry?.displayName === 'string' && entry.displayName.trim().length > 0
+                ? entry.displayName.trim()
+                : (rawUserId || 'Unknown');
+            const safeDisplayName = escapeHtml(baseName);
+            const dashboardUrl = hasUserLink ? `/dashboard?userId=${encodeURIComponent(rawUserId)}` : null;
+            const levelValue = Number(entry?.level ?? 0);
+            const walletBalanceValue = Number(entry?.walletBalance ?? entry?.totalHaulValue ?? 0);
+            const worldTripsValue = Number(entry?.worldTrips ?? entry?.['🌍'] ?? 0);
+            const everestSummitsValue = Number(entry?.everestSummits ?? entry?.['🏔️'] ?? 0);
+            const pizzasValue = Number(entry?.pizzas ?? entry?.['🍕'] ?? 0);
+            const coinTotals = getCoinTotals(entry);
+            const coinLabels = {};
+            COIN_EMOJIS.forEach(emoji => {
+                coinLabels[emoji] = formatLeaderboardDecimal(coinTotals[emoji]);
+            });
+            const timestampValue = Date.parse(entry?.timestamp ?? entry?.updatedAt ?? entry?.updated_at ?? entry?.lastUpdated ?? entry?.last_updated ?? '');
+
+            return {
+                baseRank: index + 1,
+                displayName: safeDisplayName,
+                displayNameSortable: baseName.toLocaleLowerCase(),
+                hasUserLink,
+                dashboardUrl,
+                levelValue: Number.isFinite(levelValue) ? levelValue : 0,
+                levelLabel: Number.isFinite(levelValue) ? levelValue.toLocaleString() : '0',
+                levelEmoji: typeof entry?.emoji === 'string' ? escapeHtml(entry.emoji) : '',
+                walletBalanceValue: Number.isFinite(walletBalanceValue) ? walletBalanceValue : 0,
+                walletBalanceLabel: formatWalletBalanceLabel(walletBalanceValue),
+                worldTrips: Number.isFinite(worldTripsValue) ? worldTripsValue : 0,
+                worldTripsLabel: formatLeaderboardDecimal(worldTripsValue),
+                everestSummits: Number.isFinite(everestSummitsValue) ? everestSummitsValue : 0,
+                everestSummitsLabel: formatLeaderboardDecimal(everestSummitsValue),
+                pizzas: Number.isFinite(pizzasValue) ? pizzasValue : 0,
+                pizzasLabel: formatLeaderboardDecimal(pizzasValue),
+                coins: coinTotals,
+                coinLabels,
+                timestampValue: Number.isFinite(timestampValue) ? timestampValue : 0,
+                timestampLabel: formatRelativeTime(timestampValue),
+            };
+        });
+    };
+
+    const leaderboardSortConfig = new Map([
+        ['rank', { accessor: entry => entry.baseRank, defaultDirection: 'asc', type: 'number' }],
+        ['name', { accessor: entry => entry.displayNameSortable, defaultDirection: 'asc', type: 'string' }],
+        ['level', { accessor: entry => entry.levelValue, defaultDirection: 'desc', type: 'number' }],
+        ['walletBalance', { accessor: entry => entry.walletBalanceValue, defaultDirection: 'desc', type: 'number' }],
+        ['worldTrips', { accessor: entry => entry.worldTrips, defaultDirection: 'desc', type: 'number' }],
+        ['everestSummits', { accessor: entry => entry.everestSummits, defaultDirection: 'desc', type: 'number' }],
+        ['pizzas', { accessor: entry => entry.pizzas, defaultDirection: 'desc', type: 'number' }],
+        ['💲', { accessor: entry => entry.coins['💲'], defaultDirection: 'desc', type: 'number' }],
+        ['💰', { accessor: entry => entry.coins['💰'], defaultDirection: 'desc', type: 'number' }],
+        ['🧈', { accessor: entry => entry.coins['🧈'], defaultDirection: 'desc', type: 'number' }],
+        ['💎', { accessor: entry => entry.coins['💎'], defaultDirection: 'desc', type: 'number' }],
+        ['👑', { accessor: entry => entry.coins['👑'], defaultDirection: 'desc', type: 'number' }],
+        ['timestamp', { accessor: entry => entry.timestampValue, defaultDirection: 'desc', type: 'number' }],
+    ]);
+
+    const updateLeaderboardSortButtons = () => {
+        leaderboardSortButtons.forEach((button) => {
+            const sortKey = button.dataset.sort;
+            const isActive = sortKey === leaderboardState.sortKey;
+            button.classList.toggle('is-active', isActive);
+            if (isActive) {
+                button.dataset.direction = leaderboardState.direction;
+            } else {
+                button.removeAttribute('data-direction');
+            }
+        });
+    };
+
+    const renderLeaderboard = () => {
+        if (!leaderboardBody) {
+            return;
+        }
+
+        leaderboardBody.innerHTML = '';
+        const entries = leaderboardState.entries;
+
+        if (!entries.length) {
+            if (leaderboardStatus) {
+                leaderboardStatus.textContent = 'No leaderboard entries yet. Submit user data to get started!';
+            }
+            return;
+        }
+
+        if (leaderboardStatus) {
+            leaderboardStatus.textContent = '';
+        }
+
+        entries.forEach((entry, index) => {
+            const row = document.createElement('tr');
+            const rankLabel = index + 1;
+            const nameCellContent = entry.hasUserLink && entry.dashboardUrl
+                ? `<a class="leaderboard-athlete-link" href="${entry.dashboardUrl}">${entry.displayName}</a>`
+                : entry.displayName;
+
+            row.innerHTML = `
+                <td class="leaderboard-rank">${rankLabel}</td>
+                <td>${nameCellContent}</td>
+                <td>Level ${entry.levelLabel}${entry.levelEmoji ? ` <span aria-hidden="true">${entry.levelEmoji}</span>` : ''}</td>
+                <td>${entry.walletBalanceLabel}</td>
+                <td>${entry.worldTripsLabel}</td>
+                <td>${entry.everestSummitsLabel}</td>
+                <td>${entry.pizzasLabel}</td>
+                <td>${entry.coinLabels['💲']}</td>
+                <td>${entry.coinLabels['💰']}</td>
+                <td>${entry.coinLabels['🧈']}</td>
+                <td>${entry.coinLabels['💎']}</td>
+                <td>${entry.coinLabels['👑']}</td>
+                <td>${entry.timestampLabel}</td>
+            `;
+
+            leaderboardBody.appendChild(row);
+        });
+    };
+
+    const applyLeaderboardSort = (sortKey = 'rank', direction = null) => {
+        if (!leaderboardState.rawEntries.length) {
+            return;
+        }
+
+        const config = leaderboardSortConfig.get(sortKey) || leaderboardSortConfig.get('rank');
+        const nextDirection = direction
+            || (leaderboardState.sortKey === sortKey
+                ? (leaderboardState.direction === 'desc' ? 'asc' : 'desc')
+                : config.defaultDirection);
+
+        const sortedEntries = leaderboardState.rawEntries.slice().sort((a, b) => {
+            const aValue = config.accessor(a);
+            const bValue = config.accessor(b);
+
+            if (config.type === 'string') {
+                const comparison = aValue.localeCompare(bValue, undefined, { sensitivity: 'base' });
+                if (comparison !== 0) {
+                    return nextDirection === 'asc' ? comparison : -comparison;
+                }
+            } else {
+                if (aValue !== bValue) {
+                    return nextDirection === 'asc' ? aValue - bValue : bValue - aValue;
+                }
+            }
+
+            return a.baseRank - b.baseRank;
+        });
+
+        leaderboardState.sortKey = sortKey;
+        leaderboardState.direction = nextDirection;
+        leaderboardState.entries = sortedEntries;
+        updateLeaderboardSortButtons();
+        renderLeaderboard();
+    };
+
+    const loadLeaderboard = async () => {
+        if (!leaderboardBody || !leaderboardStatus) {
+            return;
+        }
+
+        try {
+            const data = await fetchAndValidateJson(
+                () => fetch('/api/leaderboard', { cache: 'no-store' }),
+                { attempts: 3, retryDelay: 750, validate: isValidLeaderboardPayload }
+            );
+
+            const entries = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
+
+            if (entries.length === 0) {
+                leaderboardState.rawEntries = [];
+                leaderboardState.entries = [];
+                leaderboardState.sortKey = 'rank';
+                leaderboardState.direction = 'asc';
+                updateLeaderboardSortButtons();
+                renderLeaderboard();
+                return;
+            }
+
+            const parsedEntries = parseLeaderboardEntries(entries);
+            leaderboardState.rawEntries = parsedEntries;
+            leaderboardState.entries = parsedEntries.slice();
+            leaderboardState.sortKey = 'rank';
+            leaderboardState.direction = 'asc';
+            updateLeaderboardSortButtons();
+            renderLeaderboard();
+        } catch (error) {
+            console.error('Failed to load leaderboard', error);
+            if (leaderboardStatus) {
+                leaderboardStatus.textContent = error?.message
+                    ? `Failed to load the leaderboard: ${error.message}.`
+                    : 'Failed to load the leaderboard. Please try again later.';
+            }
+        }
     };
 
     const formatStatValue = (value) => {
@@ -446,6 +819,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeMedalFilter = null;
         activeMedalMeta = null;
         medalFilteredActivities = [];
+        medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
         updateMedalFilterBanner();
         updateMedalButtonStates();
         updateActivityFilterActiveText();
@@ -2346,11 +2720,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const limit = activeMedalFilter
-            ? Math.min(MEDAL_FILTER_PAGE_SIZE, sourceActivities.length)
+            ? Math.min(medalFilterVisibleCount, sourceActivities.length)
             : visibleActivitiesCount;
 
         const activitiesToRender = sourceActivities.slice(0, limit);
         updateActivityFilterSummary(activitiesToRender.length, totalMatches);
+
+        if (medalsLoadMoreButton) {
+            if (activeMedalFilter) {
+                medalsLoadMoreButton.disabled = limit >= sourceActivities.length;
+            } else {
+                medalsLoadMoreButton.disabled = sortedActivities.length === 0;
+            }
+        }
 
         const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className, ariaLabel = null }) => {
             const badge = document.createElement('button');
@@ -2627,11 +3009,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: medal.emoji || '',
             count: Number.isFinite(medal.count) ? medal.count : null
         };
+        medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
 
         rebuildMedalFilteredActivities();
         updateMedalFilterBanner();
         updateMedalButtonStates();
         renderActivitiesList();
+
+        setActivePanel('activities', { focusTab: true });
 
         if (activitiesSectionElement) {
             activitiesSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4232,7 +4617,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             achievementWallet.innerHTML = '';
 
             const table = document.createElement('table');
-            table.className = 'min-w-[42rem] w-full text-xs sm:text-sm border-separate border-spacing-y-1';
+            table.className = 'min-w-[36rem] w-full text-xs sm:text-sm border-separate border-spacing-x-2 border-spacing-y-1';
 
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
@@ -4354,6 +4739,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (medalsEarned.length === 0) {
                 medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals earned for the selected filters.</p>';
+                if (medalsLoadMoreButton) {
+                    medalsLoadMoreButton.classList.add('hidden');
+                    medalsLoadMoreButton.disabled = true;
+                }
             } else {
                 const sortedMedals = medalsEarned.slice().sort((a, b) => {
                     const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
@@ -4367,6 +4756,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
                 let activeMedalExists = false;
+                if (medalsLoadMoreButton) {
+                    medalsLoadMoreButton.classList.remove('hidden');
+                }
                 sortedMedals.forEach(medal => {
                     const medalButton = document.createElement('button');
                     medalButton.type = 'button';
@@ -4689,7 +5081,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn("'load-more-btn' element not found in the DOM.");
     }
 
+    if (medalsLoadMoreButton) {
+        medalsLoadMoreButton.addEventListener('click', () => {
+            setActivePanel('activities', { focusTab: true });
+
+            if (activeMedalFilter) {
+                const sourceCount = medalFilteredActivities.length;
+                if (medalFilterVisibleCount < sourceCount) {
+                    medalFilterVisibleCount = Math.min(sourceCount, medalFilterVisibleCount + MEDAL_FILTER_PAGE_SIZE);
+                    renderActivitiesList();
+                }
+                return;
+            }
+
+            if (loadMoreButton && !loadMoreButton.disabled && !loadMoreButton.classList.contains('hidden')) {
+                loadMoreButton.click();
+            }
+        });
+    }
+
+    leaderboardSortButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const sortKey = button.dataset.sort;
+            if (!sortKey) {
+                return;
+            }
+            applyLeaderboardSort(sortKey);
+        });
+    });
+
     // === Initial Data Fetch ===
+    if (leaderboardBody) {
+        loadLeaderboard();
+    }
+
     if (isSharedView) {
         await loadSharedSnapshot();
     } else {

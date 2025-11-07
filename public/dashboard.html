@@ -102,20 +102,21 @@
         .profile-metrics {
             display: flex;
             flex-wrap: nowrap;
-            gap: 0.75rem;
+            gap: 0.5rem;
             overflow-x: auto;
             padding-bottom: 0.25rem;
+            scrollbar-width: thin;
         }
 
         .profile-metric-pill,
         .coin-pill {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.6rem 0.95rem;
+            gap: 0.35rem;
+            padding: 0.45rem 0.7rem;
             border-radius: 9999px;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             flex-shrink: 0;
@@ -125,6 +126,552 @@
         .coin-pill:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+        }
+
+        .dashboard-onepage {
+            display: flex;
+            flex-direction: column;
+            gap: 1.75rem;
+        }
+
+        .dashboard-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding: 0.5rem 0.75rem;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+            backdrop-filter: blur(12px);
+        }
+
+        .dashboard-tab {
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 0.45rem 1.2rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f2937;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .dashboard-tab.is-active {
+            background: linear-gradient(135deg, #2563eb, #0ea5e9);
+            color: #fff;
+            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
+        }
+
+        .dashboard-tab:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
+
+        .dashboard-panels {
+            position: relative;
+        }
+
+        .dashboard-panel {
+            display: none;
+            animation: panelFade 0.3s ease;
+        }
+
+        .dashboard-panel.is-active {
+            display: block;
+        }
+
+        @keyframes panelFade {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .panel-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            padding: 1.5rem;
+        }
+
+        .panel-card--soft {
+            gap: 1.25rem;
+        }
+
+        .panel-card__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .panel-card__header--split {
+            align-items: flex-start;
+        }
+
+        .panel-card__header--stack {
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .panel-card__header--medals {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .panel-card__title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .panel-card__subtitle {
+            margin-top: 0.35rem;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .panel-card__empty {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+
+        .panel-card__footer {
+            margin-top: auto;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .profile-card__header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.25rem;
+        }
+
+        .profile-card__avatar {
+            width: 5rem;
+            height: 5rem;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+        }
+
+        .profile-card__headline {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-card__identity {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .profile-card__name {
+            font-size: clamp(1.65rem, 3vw, 2.1rem);
+            font-weight: 700;
+            margin: 0;
+            color: #0f172a;
+            word-break: break-word;
+        }
+
+        .profile-card__action {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            color: #fff;
+            border: none;
+            border-radius: 0.75rem;
+            padding: 0.45rem 0.95rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 12px 22px rgba(249, 115, 22, 0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .profile-card__action:hover,
+        .profile-card__action:focus-visible {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 32px rgba(249, 115, 22, 0.35);
+            outline: none;
+        }
+
+        .profile-card__balance {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #475569;
+            margin: 0;
+        }
+
+        .profile-card__balance-label {
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 600;
+        }
+
+        .profile-card__balance-value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #0d9488;
+        }
+
+        .profile-card__meta {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.75rem;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+
+        .profile-card__badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .profile-card__level {
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .profile-card__coins {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .profile-card__wallet-totals {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .wallet-total-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.55rem 0.9rem;
+            border-radius: 0.85rem;
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(6, 182, 212, 0.08));
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .wallet-total-pill__icon {
+            font-size: 1.25rem;
+        }
+
+        .wallet-total-pill__value {
+            font-size: 1rem;
+        }
+
+        .profile-card__progress {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .profile-card__progress-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .profile-card__rank {
+            color: #0f172a;
+        }
+
+        .profile-card__rank--next {
+            text-align: right;
+            color: #475569;
+        }
+
+        .profile-card__progress-bar {
+            position: relative;
+            height: 0.9rem;
+            border-radius: 9999px;
+            background: rgba(148, 163, 184, 0.25);
+            overflow: hidden;
+        }
+
+        .profile-card__progress-fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(135deg, #2563eb, #38bdf8);
+            transition: width 0.3s ease;
+        }
+
+        .profile-card__progress-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .profile-card__progress-detail {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .top-performances-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        @media (min-width: 768px) {
+            .top-performances-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        .wallet-table {
+            overflow-x: auto;
+        }
+
+        .wallet-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .wallet-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.9rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f2937;
+            transition: all 0.2s ease;
+        }
+
+        .wallet-control[aria-pressed="true"],
+        .wallet-control:focus-visible {
+            border-color: #2563eb;
+            color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+            outline: none;
+        }
+
+        .wallet-control--toggle {
+            cursor: pointer;
+        }
+
+        .wallet-control__checkbox {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .wallet-chart {
+            position: relative;
+            min-height: 18rem;
+        }
+
+        .wallet-chart__empty {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .filter-banner {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .filter-banner__label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.35rem 0.8rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            background: rgba(37, 99, 235, 0.12);
+            color: #2563eb;
+        }
+
+        .filter-banner__active {
+            margin-left: auto;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .filter-banner__actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .filter-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            padding: 0.45rem 1.1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .filter-button:hover,
+        .filter-button:focus-visible {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 30px rgba(37, 99, 235, 0.25);
+            outline: none;
+        }
+
+        .filter-button--ghost {
+            background: rgba(148, 163, 184, 0.18);
+            color: #1f2937;
+        }
+
+        .filter-button[disabled] {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .filter-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
+
+        .filter-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #475569;
+        }
+
+        .filter-field select,
+        .filter-field input {
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            border-radius: 0.65rem;
+            padding: 0.45rem 0.65rem;
+            font-size: 0.85rem;
+            color: #0f172a;
+            background: rgba(255, 255, 255, 0.85);
+        }
+
+        .filter-field select:focus,
+        .filter-field input:focus {
+            outline: 2px solid #2563eb;
+            outline-offset: 2px;
+        }
+
+        .filter-range {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .filter-field--range input {
+            width: 100%;
+        }
+
+        .activities-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .medal-banner {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 0.9rem;
+            border-radius: 1rem;
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+        }
+
+        .medal-banner__header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+        }
+
+        .medal-banner__emoji {
+            font-size: 1.5rem;
+        }
+
+        .medal-banner__meta {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .medal-banner__clear {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.75rem;
+            border-radius: 9999px;
+            border: none;
+            background: rgba(37, 99, 235, 0.15);
+            color: #1d4ed8;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .medals-grid {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
         }
 
         .medal-badge {
@@ -146,40 +693,154 @@
             50% { transform: translateY(-6px); }
         }
 
-        .quick-filter-fields {
-            display: flex;
-            gap: 0.75rem;
+        .leaderboard-table-wrapper {
             overflow-x: auto;
-            padding-bottom: 0.25rem;
-            min-width: 0;
         }
 
-        .quick-filter-field {
-            flex: 0 0 auto;
-            min-width: 9.5rem;
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 52rem;
+            font-size: 0.75rem;
         }
 
-        .quick-filter-range {
-            min-width: 11.5rem;
+        .leaderboard-table thead th {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.92);
+            font-weight: 700;
+            padding: 0.6rem;
+            text-align: left;
+            color: #0f172a;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.3);
         }
 
-        .quick-filter-field .range-inputs {
-            display: flex;
-            gap: 0.5rem;
+        .leaderboard-table tbody td {
+            padding: 0.55rem 0.6rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            color: #1f2937;
         }
 
-        .quick-filter-field .range-inputs input {
-            flex: 1 1 4.25rem;
+        .leaderboard-table tbody tr:last-child td {
+            border-bottom: none;
         }
 
-        .quick-filter-medals {
-            flex: 0 0 auto;
-            min-width: 13.5rem;
+        .leaderboard-sort {
+            border: none;
+            background: transparent;
+            font: inherit;
+            color: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .leaderboard-sort::after {
+            content: '\25B4';
+            font-size: 0.65rem;
+            opacity: 0;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .leaderboard-sort[data-direction="desc"]::after {
+            transform: rotate(180deg);
+        }
+
+        .leaderboard-sort.is-active::after {
+            opacity: 1;
+        }
+
+        .leaderboard-athlete-link {
+            color: #2563eb;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .leaderboard-athlete-link:hover,
+        .leaderboard-athlete-link:focus-visible {
+            text-decoration: underline;
+            outline: none;
+        }
+
+        .leaderboard-rank {
+            font-weight: 700;
+            color: #475569;
         }
 
         @media (min-width: 1024px) {
-            .quick-filter-fields {
-                padding-bottom: 0;
+            .panel-stack {
+                gap: 2rem;
+            }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .dashboard-tabs {
+                background: rgba(15, 23, 42, 0.75);
+                box-shadow: 0 12px 32px rgba(8, 47, 73, 0.45);
+            }
+
+            .dashboard-tab {
+                color: #e2e8f0;
+            }
+
+            .panel-card__title,
+            .profile-card__name,
+            .profile-card__level,
+            .profile-card__rank {
+                color: #e2e8f0;
+            }
+
+            .panel-card__subtitle,
+            .profile-card__balance,
+            .profile-card__progress-detail,
+            .panel-card__empty {
+                color: #cbd5f5;
+            }
+
+            .profile-card__balance-value {
+                color: #5eead4;
+            }
+
+            .wallet-control {
+                background: rgba(15, 23, 42, 0.75);
+                border-color: rgba(148, 163, 184, 0.3);
+                color: #e2e8f0;
+            }
+
+            .filter-field select,
+            .filter-field input {
+                background: rgba(15, 23, 42, 0.75);
+                color: #e2e8f0;
+                border-color: rgba(148, 163, 184, 0.35);
+            }
+
+            .wallet-total-pill {
+                background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(15, 118, 110, 0.18));
+                color: #e2e8f0;
+            }
+
+            .medal-banner {
+                background: rgba(37, 99, 235, 0.22);
+                color: #bfdbfe;
+            }
+
+            .leaderboard-table thead th {
+                background: rgba(15, 23, 42, 0.92);
+                color: #e2e8f0;
+            }
+
+            .leaderboard-table tbody td {
+                color: #cbd5f5;
+            }
+
+            .leaderboard-athlete-link {
+                color: #60a5fa;
+            }
+
+            .leaderboard-rank {
+                color: #cbd5f5;
             }
         }
     </style>
@@ -216,238 +877,282 @@
     </div>
 
     <div class="container mx-auto px-4 py-8">
-        <!-- Error Message -->
         <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
 
-        <!-- Top Section: Filters, User Info, and Wallet -->
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-            <section id="activities-filter-panel" class="order-first flex flex-col gap-3 rounded-2xl border border-gray-200/70 bg-white/95 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-800/95 xl:col-span-2">
-                <div class="flex flex-wrap items-center gap-2">
-                    <div class="inline-flex items-center gap-2 rounded-full bg-blue-600/10 px-3 py-1 text-xs font-semibold uppercase text-blue-700 dark:bg-blue-500/20 dark:text-blue-100">
-                        <span aria-hidden="true">🎯</span>
-                        <span>Activity filters</span>
-                    </div>
-                    <p id="activity-filter-active" class="ml-auto text-xs text-gray-500 dark:text-gray-300"></p>
-                    <div class="flex items-center gap-2">
-                        <button id="reset-activity-filters" type="button" class="inline-flex items-center gap-1 rounded-full border border-transparent bg-gray-200/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700 transition hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
-                            <span aria-hidden="true">↺</span>
-                            Reset
-                        </button>
-                        <button id="apply-activity-filters" type="button" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
-                            Load 20 matching
-                        </button>
-                    </div>
-                </div>
-                <div class="flex w-full flex-col gap-3 lg:flex-row lg:items-start">
-                    <div class="quick-filter-fields flex-1">
-                        <label class="quick-filter-field flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
-                            <span>Year</span>
-                            <select id="year-select" class="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400"></select>
-                        </label>
-                        <label class="quick-filter-field flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
-                            <span>Type</span>
-                            <select id="activity-type-filter" class="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400">
-                                <option value="all">All types</option>
-                            </select>
-                        </label>
-                        <div class="quick-filter-field quick-filter-range flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
-                            <span>Hours (h)</span>
-                            <div class="range-inputs mt-1">
-                                <label class="sr-only" for="activity-hours-min">Minimum hours</label>
-                                <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                                <label class="sr-only" for="activity-hours-max">Maximum hours</label>
-                                <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </div>
-                        </div>
-                        <div class="quick-filter-field quick-filter-range flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
-                            <span>Distance (km)</span>
-                            <div class="range-inputs mt-1">
-                                <label class="sr-only" for="activity-distance-min">Minimum distance</label>
-                                <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                                <label class="sr-only" for="activity-distance-max">Maximum distance</label>
-                                <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </div>
-                        </div>
-                        <div class="quick-filter-field quick-filter-range flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
-                            <span>Elevation (m)</span>
-                            <div class="range-inputs mt-1">
-                                <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
-                                <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                                <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
-                                <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </div>
-                        </div>
-                        <label class="quick-filter-field flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
-                            <span>Nation</span>
-                            <select id="activity-country-filter" class="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400">
-                                <option value="all">All nations</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div class="quick-filter-medals flex flex-col gap-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Medal quick filter</span>
-                        <div id="medal-filter-banner" class="hidden flex flex-col gap-2 rounded-2xl border border-blue-200 bg-blue-50/80 p-3 text-blue-800 dark:border-blue-900/40 dark:bg-blue-900/30 dark:text-blue-100">
-                            <div class="flex items-center gap-2 text-sm font-semibold">
-                                <span id="medal-filter-emoji" class="text-xl leading-none"></span>
-                                <span id="medal-filter-label" class="leading-tight"></span>
-                            </div>
-                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-blue-700 dark:text-blue-200">
-                                <span>Showing the 10 most recent activities for this medal.</span>
-                                <button id="clear-medal-filter" type="button" class="inline-flex items-center gap-1 rounded-full bg-blue-200/70 px-3 py-1 font-semibold uppercase tracking-wide text-blue-900 transition hover:bg-blue-200 dark:bg-blue-800/60 dark:text-blue-100 dark:hover:bg-blue-800">
-                                    <span aria-hidden="true">✕</span>
-                                    Clear
-                                </button>
-                            </div>
-                        </div>
-                        <div id="medals-section" class="flex flex-nowrap gap-3 overflow-x-auto pb-1 pt-1 snap-x snap-mandatory"></div>
-                    </div>
-                </div>
-            </section>
-            <!-- User Profile -->
-            <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 flex flex-col gap-6">
-                <div class="flex flex-col gap-5">
-                    <div class="flex items-start gap-4">
-                        <img id="athlete-avatar" src="" alt="Athlete Avatar" class="w-20 h-20 rounded-full object-cover shadow-lg">
-                        <div class="flex-1 space-y-3">
-                            <div class="profile-metrics" id="profile-metric-pills">
-                                <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                    <span aria-hidden="true" class="text-xl leading-none">🌍</span>
-                                    <span id="globe-total" class="font-semibold">0</span>
-                                </button>
-                                <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                    <span aria-hidden="true" class="text-xl leading-none">🏔️</span>
-                                    <span id="everest-total" class="font-semibold">0</span>
-                                </button>
-                                <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
-                                    <span aria-hidden="true" class="text-xl leading-none">🍕</span>
-                                    <span id="pizza-total" class="font-semibold">0</span>
-                                </button>
-                            </div>
-                            <div class="flex flex-wrap items-center gap-3">
-                                <h2 id="athlete-name" class="min-w-0 text-3xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight whitespace-nowrap truncate"></h2>
-                                <button id="fetch-more-data" type="button" class="inline-flex items-center gap-2 bg-amber-500/90 hover:bg-amber-500 text-white text-sm sm:text-base font-semibold px-3 py-1.5 rounded-md shadow focus:outline-none focus:ring-2 focus:ring-amber-300" title="Check for new activities and merge them with your current haul" aria-label="Fetch and merge the latest activities">
-                                    <span aria-hidden="true" class="text-lg leading-none">🔄</span>
-                                    <span data-button-label>Fetch &amp; merge activities</span>
-                                </button>
-                            </div>
-                            <p class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2" data-wallet-balance-container>
-                                <span class="uppercase tracking-wide text-xs font-semibold text-gray-500 dark:text-gray-400">Wallet balance</span>
-                                <span id="profile-wallet-total" data-wallet-balance-value class="text-xl font-bold text-emerald-600 dark:text-emerald-300">$0.0M</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-                        <div id="premium-achievements" class="flex flex-wrap items-center gap-1"></div>
-                        <span id="level-progress" class="text-sm font-semibold text-gray-700 dark:text-gray-200"></span>
-                    </div>
-                </div>
-                <div class="space-y-5">
-                    <div id="coin-summary" class="profile-metrics">
-                        <button type="button" data-coin-type="💲" class="coin-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
-                            <span class="text-xl leading-none">💲</span>
-                            <span id="coin-dollar" class="text-lg font-bold">0</span>
-                        </button>
-                        <button type="button" data-coin-type="💰" class="coin-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                            <span class="text-xl leading-none">💰</span>
-                            <span id="coin-money" class="text-lg font-bold">0</span>
-                        </button>
-                        <button type="button" data-coin-type="🧈" class="coin-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                            <span class="text-xl leading-none">🧈</span>
-                            <span id="coin-butter" class="text-lg font-bold">0</span>
-                        </button>
-                        <button type="button" data-coin-type="💎" class="coin-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
-                            <span class="text-xl leading-none">💎</span>
-                            <span id="coin-diamond" class="text-lg font-bold">0</span>
-                        </button>
-                        <button type="button" data-coin-type="👑" class="coin-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
-                            <span class="text-xl leading-none">👑</span>
-                            <span id="coin-king" class="text-lg font-bold">0</span>
-                        </button>
-                    </div>
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between">
-                            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Top Performances</h3>
-                            <span id="top-performances-empty" class="hidden text-xs font-medium text-gray-500 dark:text-gray-400">No top performances available.</span>
-                        </div>
-                        <div id="best-activities" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-                    </div>
-                    <div class="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-slate-50/80 dark:bg-slate-800/60 p-4">
-                        <div class="flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-200">
-                            <span id="current-rank" class="flex items-center gap-1"></span>
-                            <span id="next-rank" class="flex items-center gap-1 text-right"></span>
-                        </div>
-                        <div class="relative mt-3 w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700">
-                            <div id="ranking-progress" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
-                            <div id="ranking-progress-label" class="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200"></div>
-                        </div>
-                        <div id="rank-details" class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-3"></div>
-                    </div>
-                </div>
+        <div class="dashboard-onepage">
+            <div class="dashboard-tabs" role="tablist">
+                <button type="button" id="tab-profile" class="dashboard-tab is-active" role="tab" aria-selected="true" aria-controls="panel-profile" data-dashboard-tab="profile">Profile</button>
+                <button type="button" id="tab-achievements" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-achievements" data-dashboard-tab="achievements">Achievements</button>
+                <button type="button" id="tab-wallet" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-wallet" data-dashboard-tab="wallet">Wallet</button>
+                <button type="button" id="tab-activities" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-activities" data-dashboard-tab="activities">Activities</button>
+                <button type="button" id="tab-medals" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-medals" data-dashboard-tab="medals">Medals</button>
+                <button type="button" id="tab-leaderboard" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-leaderboard" data-dashboard-tab="leaderboard">Leaderboard</button>
             </div>
 
-            <!-- Wallet Overview + Insights -->
-            <div class="flex flex-col gap-6">
-                <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6">
-                    <div class="flex flex-col gap-4">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="dashboard-panels" data-dashboard-panels>
+                <section id="panel-profile" class="dashboard-panel is-active" role="tabpanel" aria-labelledby="tab-profile" data-dashboard-panel="profile">
+                    <div class="panel-stack">
+                        <article class="panel-card profile-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                            <div class="profile-card__header">
+                                <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar">
+                                <div class="profile-card__headline">
+                                    <div class="profile-metrics" id="profile-metric-pills">
+                                        <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                                            <span aria-hidden="true" class="text-lg leading-none">🌍</span>
+                                            <span id="globe-total" class="font-semibold">0</span>
+                                        </button>
+                                        <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                            <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
+                                            <span id="everest-total" class="font-semibold">0</span>
+                                        </button>
+                                        <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
+                                            <span aria-hidden="true" class="text-lg leading-none">🍕</span>
+                                            <span id="pizza-total" class="font-semibold">0</span>
+                                        </button>
+                                    </div>
+                                    <div class="profile-card__identity">
+                                        <h2 id="athlete-name" class="profile-card__name"></h2>
+                                        <button id="fetch-more-data" type="button" class="profile-card__action" title="Check for new activities and merge them with your current haul" aria-label="Fetch and merge the latest activities">
+                                            <span aria-hidden="true" class="text-lg leading-none">🔄</span>
+                                            <span data-button-label>Fetch &amp; merge activities</span>
+                                        </button>
+                                    </div>
+                                    <p class="profile-card__balance" data-wallet-balance-container>
+                                        <span class="profile-card__balance-label">Wallet balance</span>
+                                        <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="profile-card__meta">
+                                <div id="premium-achievements" class="profile-card__badges"></div>
+                                <span id="level-progress" class="profile-card__level"></span>
+                            </div>
+                            <div class="profile-card__coins" id="coin-summary">
+                                <button type="button" data-coin-type="💲" class="coin-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
+                                    <span class="text-base leading-none">💲</span>
+                                    <span id="coin-dollar" class="text-base font-bold">0</span>
+                                </button>
+                                <button type="button" data-coin-type="💰" class="coin-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                                    <span class="text-base leading-none">💰</span>
+                                    <span id="coin-money" class="text-base font-bold">0</span>
+                                </button>
+                                <button type="button" data-coin-type="🧈" class="coin-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                    <span class="text-base leading-none">🧈</span>
+                                    <span id="coin-butter" class="text-base font-bold">0</span>
+                                </button>
+                                <button type="button" data-coin-type="💎" class="coin-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
+                                    <span class="text-base leading-none">💎</span>
+                                    <span id="coin-diamond" class="text-base font-bold">0</span>
+                                </button>
+                                <button type="button" data-coin-type="👑" class="coin-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
+                                    <span class="text-base leading-none">👑</span>
+                                    <span id="coin-king" class="text-base font-bold">0</span>
+                                </button>
+                            </div>
+                            <div class="profile-card__wallet-totals">
+                                <div class="wallet-total-pill">
+                                    <span aria-hidden="true" class="wallet-total-pill__icon">🪙</span>
+                                    <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
+                                </div>
+                                <div class="wallet-total-pill">
+                                    <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
+                                    <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
+                                </div>
+                            </div>
+                            <div class="profile-card__progress">
+                                <div class="profile-card__progress-top">
+                                    <span id="current-rank" class="profile-card__rank"></span>
+                                    <span id="next-rank" class="profile-card__rank profile-card__rank--next"></span>
+                                </div>
+                                <div class="profile-card__progress-bar">
+                                    <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
+                                    <div id="ranking-progress-label" class="profile-card__progress-label"></div>
+                                </div>
+                                <div id="rank-details" class="profile-card__progress-detail"></div>
+                            </div>
+                        </article>
+
+                        <article class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                            <header class="panel-card__header">
+                                <h3 class="panel-card__title">Top Performances</h3>
+                                <span id="top-performances-empty" class="panel-card__empty hidden">No top performances available.</span>
+                            </header>
+                            <div id="best-activities" class="top-performances-grid"></div>
+                        </article>
+                    </div>
+                </section>
+
+                <section id="panel-achievements" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-achievements" data-dashboard-panel="achievements">
+                    <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                        <header class="panel-card__header">
+                            <h3 class="panel-card__title">Achievement Wallet</h3>
+                        </header>
+                        <div id="achievement-wallet" class="wallet-table"></div>
+                    </div>
+                </section>
+
+                <section id="panel-wallet" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-wallet" data-dashboard-panel="wallet">
+                    <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                        <header class="panel-card__header panel-card__header--stack">
+                            <h3 class="panel-card__title">Wallet Insights</h3>
+                            <div class="wallet-controls">
+                                <button id="chart-toggle-coins" type="button" class="wallet-control" aria-pressed="false">Coins &amp; Medals</button>
+                                <button id="chart-toggle-balance" type="button" class="wallet-control" aria-pressed="false">Balance</button>
+                                <label data-balance-year-toggle-label class="wallet-control wallet-control--toggle">
+                                    <input id="balance-year-toggle" type="checkbox" class="wallet-control__checkbox" />
+                                    <span>Compare years</span>
+                                </label>
+                            </div>
+                        </header>
+                        <div id="wallet-chart-wrapper" class="wallet-chart">
+                            <canvas id="wallet-chart" class="w-full h-full"></canvas>
+                            <p id="wallet-chart-empty" class="wallet-chart__empty hidden">No wallet data available for this view.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="panel-activities" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-activities" data-dashboard-panel="activities">
+                    <div class="panel-stack">
+                        <section id="activities-filter-panel" class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
+                            <div class="filter-banner">
+                                <div class="filter-banner__label">
+                                    <span aria-hidden="true">🎯</span>
+                                    <span>Activity filters</span>
+                                </div>
+                                <p id="activity-filter-active" class="filter-banner__active"></p>
+                                <div class="filter-banner__actions">
+                                    <button id="reset-activity-filters" type="button" class="filter-button filter-button--ghost">
+                                        <span aria-hidden="true">↺</span>
+                                        Reset
+                                    </button>
+                                    <button id="apply-activity-filters" type="button" class="filter-button">
+                                        Load 20 matching
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="filter-grid">
+                                <label class="filter-field">
+                                    <span>Year</span>
+                                    <select id="year-select"></select>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Type</span>
+                                    <select id="activity-type-filter">
+                                        <option value="all">All types</option>
+                                    </select>
+                                </label>
+                                <label class="filter-field filter-field--range">
+                                    <span>Hours (h)</span>
+                                    <div class="filter-range">
+                                        <label class="sr-only" for="activity-hours-min">Minimum hours</label>
+                                        <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" />
+                                        <label class="sr-only" for="activity-hours-max">Maximum hours</label>
+                                        <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" />
+                                    </div>
+                                </label>
+                                <label class="filter-field filter-field--range">
+                                    <span>Distance (km)</span>
+                                    <div class="filter-range">
+                                        <label class="sr-only" for="activity-distance-min">Minimum distance</label>
+                                        <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" />
+                                        <label class="sr-only" for="activity-distance-max">Maximum distance</label>
+                                        <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" />
+                                    </div>
+                                </label>
+                                <label class="filter-field filter-field--range">
+                                    <span>Elevation (m)</span>
+                                    <div class="filter-range">
+                                        <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
+                                        <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" />
+                                        <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
+                                        <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" />
+                                    </div>
+                                </label>
+                                <label class="filter-field">
+                                    <span>Nation</span>
+                                    <select id="activity-country-filter">
+                                        <option value="all">All nations</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </section>
+
+                        <section id="activities-section" class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                            <header class="panel-card__header panel-card__header--split">
+                                <div>
+                                    <h3 class="panel-card__title">Recent Activities</h3>
+                                    <p id="activity-filter-summary" class="panel-card__subtitle"></p>
+                                </div>
+                                <span id="activities-empty" class="panel-card__empty hidden">No activities match your filters.</span>
+                            </header>
+                            <div id="activities-container" class="activities-list"></div>
+                            <div class="panel-card__footer">
+                                <button id="load-more-btn" type="button" class="filter-button hidden">Load More Activities</button>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+
+                <section id="panel-medals" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-medals" data-dashboard-panel="medals">
+                    <div class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
+                        <header class="panel-card__header panel-card__header--medals">
+                            <h3 class="panel-card__title">Medals</h3>
+                            <div id="medal-filter-banner" class="medal-banner hidden">
+                                <div class="medal-banner__header">
+                                    <span id="medal-filter-emoji" class="medal-banner__emoji"></span>
+                                    <span id="medal-filter-label" class="medal-banner__label"></span>
+                                </div>
+                                <div class="medal-banner__meta">
+                                    <span>Showing the 10 most recent activities for this medal.</span>
+                                    <button id="clear-medal-filter" type="button" class="medal-banner__clear">
+                                        <span aria-hidden="true">✕</span>
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </header>
+                        <div id="medals-section" class="medals-grid"></div>
+                        <div class="panel-card__footer">
+                            <button id="medals-load-more" type="button" class="filter-button filter-button--ghost">Load more</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="panel-leaderboard" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-leaderboard" data-dashboard-panel="leaderboard">
+                    <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+                        <header class="panel-card__header panel-card__header--split">
                             <div>
-                                <h3 class="text-xl font-bold">Wallet Overview</h3>
+                                <h3 class="panel-card__title">Leaderboard</h3>
+                                <p class="panel-card__subtitle">Compare athletes across every haul.</p>
                             </div>
-                        </div>
-                        <div class="flex flex-nowrap gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:snap-none">
-                            <div class="min-w-[220px] shrink-0 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-slate-50/80 dark:bg-slate-800/60 p-4 md:min-w-0">
-                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Coins minted</div>
-                                <p id="wallet-summary-coins-count" class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">0</p>
-                                <p id="wallet-summary-coins-value" class="text-sm text-gray-600 dark:text-gray-300">$0</p>
-                            </div>
-                            <div class="min-w-[220px] shrink-0 rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-slate-50/80 dark:bg-slate-800/60 p-4 md:min-w-0">
-                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Medals collected</div>
-                                <p id="wallet-summary-medal-count" class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">0</p>
-                                <p id="wallet-summary-medal-value" class="text-sm text-gray-600 dark:text-gray-300">$0</p>
-                            </div>
+                            <p id="leaderboard-status" class="panel-card__empty">Loading leaderboard…</p>
+                        </header>
+                        <div class="leaderboard-table-wrapper">
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">#</th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="name">Athlete</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="level">Level</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="walletBalance">Wallet</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="worldTrips">🌍</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="everestSummits">🏔️</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="pizzas">🍕</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="💲">💲</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="💰">💰</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="🧈">🧈</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="💎">💎</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="👑">👑</button></th>
+                                        <th scope="col"><button type="button" class="leaderboard-sort" data-sort="timestamp">Updated</button></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboard-body"></tbody>
+                            </table>
                         </div>
                     </div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 flex-1">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <h3 class="text-xl font-bold">Wallet Insights</h3>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <button id="chart-toggle-coins" type="button" class="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900" aria-pressed="false">Coins &amp; Medals</button>
-                            <button id="chart-toggle-balance" type="button" class="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900" aria-pressed="false">Balance</button>
-                            <label data-balance-year-toggle-label class="inline-flex items-center gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm font-semibold text-gray-600 transition-colors focus-within:ring-2 focus-within:ring-blue-300 focus-within:ring-offset-1 dark:text-gray-300 dark:focus-within:ring-offset-gray-900">
-                                <input id="balance-year-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700" />
-                                <span>Compare years</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="wallet-chart-wrapper" class="relative mt-4 min-h-[18rem]">
-                        <canvas id="wallet-chart" class="w-full h-full"></canvas>
-                        <p id="wallet-chart-empty" class="hidden absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-gray-500 dark:text-gray-400">No wallet data available for this view.</p>
-                    </div>
-                </div>
+                </section>
             </div>
         </div>
-
-        <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 space-y-10">
-            <section>
-                <h3 class="text-xl font-bold mb-4">Achievement Wallet</h3>
-                <div id="achievement-wallet" class="overflow-x-auto">
-                    <!-- Achievements will be dynamically populated -->
-                </div>
-            </section>
-            <section id="activities-section" class="space-y-6">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                        <h3 class="text-xl font-bold">Recent Activities</h3>
-                        <p id="activity-filter-summary" class="text-sm text-gray-500 dark:text-gray-400"></p>
-                    </div>
-                    <span id="activities-empty" class="hidden text-sm text-gray-500">No activities match your filters.</span>
-                </div>
-                <div id="activities-container" class="space-y-3"></div>
-                <button id="load-more-btn" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-6 ml-auto hidden">Load More Activities</button>
-            </section>
-        </div>
-
         <div id="segment-completions" class="mt-6 hidden">
             <h2 class="text-xl font-bold mb-4">Segment Completions</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

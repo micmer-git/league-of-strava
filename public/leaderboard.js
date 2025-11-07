@@ -103,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="stat-cell">${coinTotals['🧈']}</td>
           <td class="stat-cell">${coinTotals['💎']}</td>
           <td class="stat-cell">${coinTotals['👑']}</td>
-          <td class="stat-cell">${coinTotals['👍']}</td>
           <td>${formatRelativeTime(entry.timestamp)}</td>
         `;
         tableBody.appendChild(row);
@@ -154,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getCoinTotals(entry) {
-    const emojis = ['💲', '💰', '🧈', '💎', '👑', '👍'];
+    const emojis = ['💲', '💰', '🧈', '💎', '👑'];
     return emojis.reduce((acc, emoji) => {
       const value = entry?.coinBreakdown?.[emoji] ?? entry?.[emoji];
       const numericValue = Number(value);

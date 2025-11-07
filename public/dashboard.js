@@ -93,7 +93,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const errorMessage = document.getElementById('error-message');
     const athleteNameElement = document.getElementById('athlete-name');
     const athleteAvatarElement = document.getElementById('athlete-avatar');
-    const fetchMoreDataButton = document.getElementById('fetch-more-data');
     const currentRankElement = document.getElementById('current-rank');
     const nextRankElement = document.getElementById('next-rank');
     const rankingProgressElement = document.getElementById('ranking-progress');
@@ -102,9 +101,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const globeStatButton = document.getElementById('globe-stat');
     const everestStatButton = document.getElementById('everest-stat');
     const pizzaStatButton = document.getElementById('pizza-stat');
+    const likesStatButton = document.getElementById('likes-stat');
     const globeTotalElement = document.getElementById('globe-total');
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
+    const likesTotalElement = document.getElementById('likes-total');
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
         month: document.getElementById('profile-wallet-change-month'),
@@ -781,6 +782,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${pizzas.toFixed(2)} pizzas`;
     };
 
+    const formatCount = (value) => {
+        if (!Number.isFinite(value) || value <= 0) {
+            return '0';
+        }
+        return value.toLocaleString();
+    };
+
+    const getActivityLikesCount = (activity = {}) => {
+        const likesValue = Number(activity?.kudos_count ?? activity?.likes ?? 0);
+        return Number.isFinite(likesValue) ? likesValue : 0;
+    };
+
     const formatCoinCellLabel = (rowLabel, rawName) => {
         if (!rawName || typeof rawName !== 'string') {
             return null;
@@ -842,6 +855,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (summary) {
                         descriptionParts.push(summary);
                     }
+                }
+                const categoryLabel = activeMedalMeta?.category;
+                if (categoryLabel) {
+                    descriptionParts.push(categoryLabel);
                 }
                 const descriptionText = activeMedalMeta?.description?.trim();
                 if (descriptionText) {
@@ -910,31 +927,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const sliceEnd = Math.min(visibleMedalCount, medalInventory.length);
         const medalsToRender = medalInventory.slice(0, sliceEnd);
+        const categoryOrder = [];
+        const medalsByCategory = new Map();
 
         medalsToRender.forEach(medal => {
-            const medalButton = document.createElement('button');
-            medalButton.type = 'button';
-            medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
-            medalButton.innerHTML = `
-                <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
-                <span class="text-2xl leading-none">${medal.emoji}</span>
-            `;
-            const descriptionText = (medal.description || '').trim();
-            const countLabel = medal.count.toLocaleString();
-            const ariaDescription = descriptionText
-                ? `${medal.name}: ${descriptionText} — earned ${countLabel} times`
-                : `${medal.name} — earned ${countLabel} times`;
-            medalButton.setAttribute('aria-label', ariaDescription);
-            const medalTooltip = descriptionText
-                ? `${medal.name} — ${descriptionText} — ${countLabel} earned`
-                : `${medal.name} — ${countLabel} earned`;
-            attachTooltip(medalButton, medalTooltip);
-            medalButton.dataset.medalName = medal.name;
-            medalButton.dataset.medalEmoji = medal.emoji || '';
-            medalButton.addEventListener('click', () => {
-                toggleMedalFilter(medal);
+            const categoryName = medal.category || 'Other Achievements';
+            if (!medalsByCategory.has(categoryName)) {
+                medalsByCategory.set(categoryName, []);
+                categoryOrder.push(categoryName);
+            }
+            medalsByCategory.get(categoryName).push(medal);
+        });
+
+        categoryOrder.forEach(categoryName => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'medals-category';
+            wrapper.dataset.category = categoryName;
+
+            const heading = document.createElement('h4');
+            heading.className = 'medals-category__title';
+            heading.textContent = categoryName;
+            wrapper.appendChild(heading);
+
+            const grid = document.createElement('div');
+            grid.className = 'medals-grid';
+
+            medalsByCategory.get(categoryName).forEach(medal => {
+                const medalButton = document.createElement('button');
+                medalButton.type = 'button';
+                medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
+                medalButton.innerHTML = `
+                    <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
+                    <span class="text-2xl leading-none">${medal.emoji}</span>
+                `;
+                const descriptionText = (medal.description || '').trim();
+                const countLabel = medal.count.toLocaleString();
+                const ariaDescription = descriptionText
+                    ? `${medal.name}: ${descriptionText} — earned ${countLabel} times`
+                    : `${medal.name} — earned ${countLabel} times`;
+                medalButton.setAttribute('aria-label', ariaDescription);
+                const medalTooltip = descriptionText
+                    ? `${medal.name} — ${descriptionText} — ${countLabel} earned`
+                    : `${medal.name} — ${countLabel} earned`;
+                attachTooltip(medalButton, medalTooltip);
+                medalButton.dataset.medalName = medal.name;
+                medalButton.dataset.medalEmoji = medal.emoji || '';
+                medalButton.dataset.medalCategory = medal.category || '';
+                medalButton.addEventListener('click', () => {
+                    toggleMedalFilter(medal);
+                });
+                grid.appendChild(medalButton);
             });
-            medalsSection.appendChild(medalButton);
+
+            wrapper.appendChild(grid);
+            medalsSection.appendChild(wrapper);
         });
 
         updateMedalButtonStates();
@@ -1805,6 +1851,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const globeTrips = distanceKm / EARTH_CIRCUMFERENCE_KM;
         const everestSummits = elevationGain / EVEREST_HEIGHT_M;
         const pizzaCount = calories / PIZZA_KCAL;
+        const likes = getActivityLikesCount(activity);
 
         return {
             distanceKm,
@@ -1812,7 +1859,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             calories,
             globeTrips,
             everestSummits,
-            pizzaCount
+            pizzaCount,
+            likes
         };
     }
 
@@ -3376,7 +3424,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: medal.name,
             emoji: medal.emoji || '',
             count: Number.isFinite(medal.count) ? medal.count : null,
-            description: medal.description || ''
+            description: medal.description || '',
+            category: medal.category || ''
         };
         medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
 
@@ -3422,6 +3471,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         yearSelect.value = 'all';
+    };
+
+    const resolveMedalCategory = (medal = {}) => {
+        if (medal.category) {
+            return medal.category;
+        }
+        if (medal.dates || medal.dynamicDateResolver) {
+            return 'Calendar Moments';
+        }
+
+        const name = (medal.name || '').toLowerCase();
+        if (name.includes('streak')) {
+            return 'Consistency';
+        }
+        if (name.includes('night') || name.includes('early') || name.includes('dawn') || name.includes('sunrise') || name.includes('sunset')) {
+            return 'Time & Routine';
+        }
+        if (name.includes('segment')) {
+            return 'Segments';
+        }
+        if (name.includes('caloric') || name.includes('calorie') || name.includes('kcal')) {
+            return 'Nutrition & Energy';
+        }
+        return 'Performance Challenges';
     };
 
     // === Medals Configuration ===
@@ -3766,6 +3839,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Completed an ultra-distance run (50 km or more)',
             criteria: (activity) => activity.type.toUpperCase() === 'RUN' && (activity.distance / 1000) >= 50
         },
+        // Fan Favorite Medals
+        {
+            name: 'Crowd Pleaser',
+            emoji: '👏',
+            description: 'Earned at least 50 kudos on a single activity',
+            category: 'Fan Favorites',
+            criteria: (activity) => getActivityLikesCount(activity) >= 50
+        },
+        {
+            name: 'Community Star',
+            emoji: '🌟',
+            description: 'Earned at least 100 kudos on a single activity',
+            category: 'Fan Favorites',
+            criteria: (activity) => getActivityLikesCount(activity) >= 100
+        },
+        {
+            name: 'Legend of Kudos',
+            emoji: '🪙',
+            description: 'Earned at least 200 kudos on a single activity',
+            category: 'Fan Favorites',
+            criteria: (activity) => getActivityLikesCount(activity) >= 200
+        },
         {
             name: 'Cycling Streak',
             emoji: '🚴‍♀️🔗',
@@ -3773,6 +3868,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             criteria: null // Special handling
         }
     ];
+
+    const medalOrderMap = new Map(medalsConfig.map((medal, index) => [medal.name, index]));
 
     // === Rank Configuration ===
     const MASTER_PRESTIGE_MAX = 1000;
@@ -3930,7 +4027,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 collected.push({
                     name: medal.name,
                     emoji: medal.emoji,
-                    description: medal.description || ''
+                    description: medal.description || '',
+                    category: resolveMedalCategory(medal)
                 });
             }
         });
@@ -4398,41 +4496,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    if (fetchMoreDataButton) {
-        if (isSharedView) {
-            fetchMoreDataButton.classList.add('hidden');
-            fetchMoreDataButton.setAttribute('aria-hidden', 'true');
-            fetchMoreDataButton.disabled = true;
-        } else {
-            const originalLabel = fetchMoreDataButton.querySelector('[data-button-label]');
-            const originalText = originalLabel ? originalLabel.textContent : fetchMoreDataButton.textContent;
-            fetchMoreDataButton.addEventListener('click', async () => {
-                if (isFetchingActivities) {
-                    return;
-                }
-                fetchMoreDataButton.disabled = true;
-                fetchMoreDataButton.classList.add('opacity-75');
-                if (originalLabel) {
-                    originalLabel.textContent = 'Refreshing…';
-                } else {
-                    fetchMoreDataButton.textContent = 'Refreshing…';
-                }
-
-                try {
-                    await fetchData({ forceRefresh: true });
-                } finally {
-                    fetchMoreDataButton.disabled = false;
-                    fetchMoreDataButton.classList.remove('opacity-75');
-                    if (originalLabel) {
-                        originalLabel.textContent = originalText;
-                    } else {
-                        fetchMoreDataButton.textContent = originalText;
-                    }
-                }
-            });
-        }
-    }
-
     // === Function to Process and Display Data ===
     const processAndDisplayData = (data, options = {}) => {
         const { preserveVisibleCount = false } = options;
@@ -4452,18 +4515,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totals = calculateTotals(activities);
         const totalHours = totals.hours;
 
-        if (fetchMoreDataButton) {
-            if (isSharedView) {
-                fetchMoreDataButton.classList.add('hidden');
-                fetchMoreDataButton.setAttribute('aria-hidden', 'true');
-                fetchMoreDataButton.disabled = true;
-            } else {
-                fetchMoreDataButton.classList.remove('hidden');
-                fetchMoreDataButton.setAttribute('aria-hidden', 'false');
-                fetchMoreDataButton.disabled = false;
-            }
-        }
-
         const aggregatedSmallStats = activities.reduce((acc, activity) => {
             const stats = computeActivitySmallStats(activity);
             acc.distanceKm += stats.distanceKm;
@@ -4472,6 +4523,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             acc.globeTrips += stats.globeTrips;
             acc.everestSummits += stats.everestSummits;
             acc.pizzas += stats.pizzaCount;
+            acc.likes += stats.likes;
             return acc;
         }, {
             distanceKm: 0,
@@ -4479,7 +4531,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             calories: 0,
             globeTrips: 0,
             everestSummits: 0,
-            pizzas: 0
+            pizzas: 0,
+            likes: 0
         });
 
         if (globeTotalElement) {
@@ -4509,6 +4562,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? `Energy burned ${formatCalories(aggregatedSmallStats.calories)} ≈ ${formatPizzas(aggregatedSmallStats.pizzas)}.`
                 : 'No heart rate data to estimate calories for this period.';
             attachTooltip(pizzaStatButton, message);
+        }
+        if (likesTotalElement) {
+            likesTotalElement.textContent = formatCount(aggregatedSmallStats.likes);
+        }
+        if (likesStatButton) {
+            const totalLikes = aggregatedSmallStats.likes;
+            const message = hasActivities
+                ? `${formatCount(totalLikes)} kudos collected across all visible activities.`
+                : 'No kudos recorded for the selected period.';
+            likesStatButton.setAttribute('aria-label', message);
+            attachTooltip(likesStatButton, message);
         }
 
         // === User Profile ===
@@ -4863,6 +4927,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             .filter(year => year !== null)));
 
         medalsConfig.forEach(medal => {
+            const medalCategory = resolveMedalCategory(medal);
             if ((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver) {
                 const resolvedDates = new Set(medal.dates || []);
                 if (medal.dynamicDateResolver && activityYears.length > 0) {
@@ -4890,7 +4955,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         emoji: medal.emoji,
                         description: medal.description,
                         count,
-                        isDayBased: true
+                        isDayBased: true,
+                        category: medalCategory
                     });
                 }
             } else if (medal.criteria) {
@@ -4901,7 +4967,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         emoji: medal.emoji,
                         description: medal.description,
                         count,
-                        isDayBased: false
+                        isDayBased: false,
+                        category: medalCategory
                     });
                 }
             } else {
@@ -4931,7 +4998,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             emoji: medal.emoji,
                             description: medal.description,
                             count: Math.floor(maxStreak / 7),
-                            isDayBased: false
+                            isDayBased: false,
+                            category: medalCategory
                         });
                     }
                 }
@@ -4962,7 +5030,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             emoji: medal.emoji,
                             description: medal.description,
                             count: Math.floor(maxStreak / 5),
-                            isDayBased: false
+                            isDayBased: false,
+                            category: medalCategory
                         });
                     }
                 }
@@ -5099,12 +5168,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const sortedMedals = medalsEarned.slice().sort((a, b) => {
+            const categoryA = a.category || 'Other';
+            const categoryB = b.category || 'Other';
+            if (categoryA !== categoryB) {
+                return categoryA.localeCompare(categoryB);
+            }
             const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
             if (dayComparison !== 0) {
                 return dayComparison;
             }
             if (b.count !== a.count) {
                 return b.count - a.count;
+            }
+            const orderA = medalOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+            const orderB = medalOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) {
+                return orderA - orderB;
             }
             return a.name.localeCompare(b.name);
         });
@@ -5120,7 +5199,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     name: matchedMedal.name,
                     emoji: matchedMedal.emoji || '',
                     count: Number.isFinite(matchedMedal.count) ? matchedMedal.count : null,
-                    description: descriptionText
+                    description: descriptionText,
+                    category: matchedMedal.category || null
                 };
             } else {
                 shouldRenderMedals = false;

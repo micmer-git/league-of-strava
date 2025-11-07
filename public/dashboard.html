@@ -138,6 +138,7 @@
         .dashboard-tabs {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.75rem;
             overflow-x: auto;
             padding: 0.5rem 0.75rem;
@@ -145,6 +146,12 @@
             background: rgba(255, 255, 255, 0.8);
             box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
             backdrop-filter: blur(12px);
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .dashboard-tabs::-webkit-scrollbar {
+            display: none;
         }
 
         .dashboard-tab {
@@ -533,6 +540,14 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
+            justify-content: center;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .wallet-controls::-webkit-scrollbar {
+            display: none;
         }
 
         .wallet-control {
@@ -729,13 +744,45 @@
         }
 
         .medals-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1.75rem;
+        }
+
+        .medal-category {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .medal-category + .medal-category {
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
+            padding-top: 1.25rem;
+        }
+
+        .medal-category__title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .medal-category__title::before {
+            content: '•';
+            color: #2563eb;
+            font-size: 1rem;
+        }
+
+        .medal-category__grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 0.75rem;
         }
 
         @media (min-width: 1024px) {
-            .medals-grid {
+            .medal-category__grid {
                 grid-template-columns: repeat(5, minmax(0, 1fr));
             }
         }
@@ -746,6 +793,19 @@
 
         .medal-badge:hover {
             box-shadow: 0 12px 20px rgba(15, 23, 42, 0.18);
+        }
+
+        .medal-badge--locked {
+            background: rgba(148, 163, 184, 0.2) !important;
+            color: #475569 !important;
+            box-shadow: none !important;
+            opacity: 0.75;
+        }
+
+        .profile-metric-pill--focused {
+            outline: 2px solid rgba(37, 99, 235, 0.45);
+            outline-offset: 2px;
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
         }
 
         .leaderboard-table-wrapper {
@@ -964,6 +1024,10 @@
                                                 <span aria-hidden="true" class="text-lg leading-none">🍕</span>
                                                 <span id="pizza-total" class="font-semibold">0</span>
                                             </button>
+                                            <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">👍</span>
+                                                <span id="likes-total" class="font-semibold">0</span>
+                                            </button>
                                         </div>
                                         <div class="profile-metrics__row profile-card__coins" id="coin-summary">
                                             <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
@@ -1164,9 +1228,6 @@
                             </div>
                         </header>
                         <div id="medals-section" class="medals-grid"></div>
-                        <div class="panel-card__footer">
-                            <button id="medals-load-more" type="button" class="filter-button filter-button--ghost">Load more medals</button>
-                        </div>
                     </div>
                 </section>
 

@@ -1,0 +1,6 @@
+node_modules/
+.env
+app.log
+instance/users.db
+services/credentials.json
+services/credentials.json

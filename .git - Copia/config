@@ -1,0 +1,42 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[lfs]
+	repositoryformatversion = 0
+[remote "origin"]
+	url = https://github.com/micmer-git/league-of-strava.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "v2"]
+	remote = origin
+	merge = refs/heads/v2
+	vscode-merge-base = origin/main
+[branch "v2_separated"]
+	remote = origin
+	merge = refs/heads/v2_separated
+[branch "v3"]
+	remote = origin
+	merge = refs/heads/v3
+[branch "app"]
+	remote = origin
+	merge = refs/heads/app
+[branch "old_implementation_2"]
+	remote = origin
+	merge = refs/heads/old_implementation_2
+[branch "new"]
+	remote = origin
+	merge = refs/heads/new
+	vscode-merge-base = origin/new
+[branch "codex/update-ui-layout-and-styling"]
+	remote = origin
+	merge = refs/heads/codex/update-ui-layout-and-styling
+[branch "codex/implement-ui-improvements-for-leaderboard-and-medals"]
+	remote = origin
+	merge = refs/heads/codex/implement-ui-improvements-for-leaderboard-and-medals

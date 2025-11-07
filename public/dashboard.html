@@ -16,6 +16,7 @@
     <!-- Include a date picker library (optional) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="/site-header.js" defer></script>
     <style>
         body {
             font-family: 'Roboto', sans-serif;
@@ -144,6 +145,43 @@
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-6px); }
         }
+
+        .quick-filter-fields {
+            display: flex;
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+            min-width: 0;
+        }
+
+        .quick-filter-field {
+            flex: 0 0 auto;
+            min-width: 9.5rem;
+        }
+
+        .quick-filter-range {
+            min-width: 11.5rem;
+        }
+
+        .quick-filter-field .range-inputs {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .quick-filter-field .range-inputs input {
+            flex: 1 1 4.25rem;
+        }
+
+        .quick-filter-medals {
+            flex: 0 0 auto;
+            min-width: 13.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .quick-filter-fields {
+                padding-bottom: 0;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
@@ -153,7 +191,12 @@
                 <img src="/static/league-of-strava.png" alt="League of Strava logo">
                 <span class="site-header__brand-text">League of Strava</span>
             </a>
-            <nav class="site-header__nav" aria-label="Primary navigation">
+            <button id="site-nav-toggle" class="site-header__toggle" type="button" aria-expanded="false" aria-controls="site-primary-nav">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="site-header__toggle-bars" aria-hidden="true"></span>
+                <span aria-hidden="true">Menu</span>
+            </button>
+            <nav id="site-primary-nav" class="site-header__nav" aria-label="Primary navigation">
                 <a href="/">Home</a>
                 <a href="/dashboard" aria-current="page">Dashboard</a>
                 <a href="/leaderboard">Leaderboard</a>
@@ -176,21 +219,90 @@
         <!-- Error Message -->
         <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
 
-        <!-- Filter Bar -->
-        <div class="sticky top-0 z-30 mb-6">
-            <div class="bg-white/95 dark:bg-gray-800/95 shadow-xl rounded-lg px-4 sm:px-5 py-3 backdrop-blur supports-backdrop-blur:border border-gray-200/40 dark:border-gray-700/40">
-                <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-                    <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
-                        <span>Year</span>
-                        <select id="year-select" class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[10rem]"></select>
-                    </label>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 sm:text-right">Choose a year or select “All Years” to view your complete history.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Top Section: User Info and Wallet -->
+        <!-- Top Section: Filters, User Info, and Wallet -->
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+            <section id="activities-filter-panel" class="order-first flex flex-col gap-3 rounded-2xl border border-gray-200/70 bg-white/95 p-4 shadow-lg backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-800/95 xl:col-span-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="inline-flex items-center gap-2 rounded-full bg-blue-600/10 px-3 py-1 text-xs font-semibold uppercase text-blue-700 dark:bg-blue-500/20 dark:text-blue-100">
+                        <span aria-hidden="true">🎯</span>
+                        <span>Activity filters</span>
+                    </div>
+                    <p id="activity-filter-active" class="ml-auto text-xs text-gray-500 dark:text-gray-300"></p>
+                    <div class="flex items-center gap-2">
+                        <button id="reset-activity-filters" type="button" class="inline-flex items-center gap-1 rounded-full border border-transparent bg-gray-200/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700 transition hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                            <span aria-hidden="true">↺</span>
+                            Reset
+                        </button>
+                        <button id="apply-activity-filters" type="button" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                            Load 20 matching
+                        </button>
+                    </div>
+                </div>
+                <div class="flex w-full flex-col gap-3 lg:flex-row lg:items-start">
+                    <div class="quick-filter-fields flex-1">
+                        <label class="quick-filter-field flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
+                            <span>Year</span>
+                            <select id="year-select" class="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400"></select>
+                        </label>
+                        <label class="quick-filter-field flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
+                            <span>Type</span>
+                            <select id="activity-type-filter" class="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400">
+                                <option value="all">All types</option>
+                            </select>
+                        </label>
+                        <div class="quick-filter-field quick-filter-range flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
+                            <span>Hours (h)</span>
+                            <div class="range-inputs mt-1">
+                                <label class="sr-only" for="activity-hours-min">Minimum hours</label>
+                                <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
+                                <label class="sr-only" for="activity-hours-max">Maximum hours</label>
+                                <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
+                            </div>
+                        </div>
+                        <div class="quick-filter-field quick-filter-range flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
+                            <span>Distance (km)</span>
+                            <div class="range-inputs mt-1">
+                                <label class="sr-only" for="activity-distance-min">Minimum distance</label>
+                                <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
+                                <label class="sr-only" for="activity-distance-max">Maximum distance</label>
+                                <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
+                            </div>
+                        </div>
+                        <div class="quick-filter-field quick-filter-range flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
+                            <span>Elevation (m)</span>
+                            <div class="range-inputs mt-1">
+                                <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
+                                <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
+                                <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
+                                <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" class="w-20 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
+                            </div>
+                        </div>
+                        <label class="quick-filter-field flex flex-col rounded-xl border border-gray-200/70 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-700/60 dark:bg-gray-900 dark:text-gray-200">
+                            <span>Nation</span>
+                            <select id="activity-country-filter" class="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400">
+                                <option value="all">All nations</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="quick-filter-medals flex flex-col gap-2">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Medal quick filter</span>
+                        <div id="medal-filter-banner" class="hidden flex flex-col gap-2 rounded-2xl border border-blue-200 bg-blue-50/80 p-3 text-blue-800 dark:border-blue-900/40 dark:bg-blue-900/30 dark:text-blue-100">
+                            <div class="flex items-center gap-2 text-sm font-semibold">
+                                <span id="medal-filter-emoji" class="text-xl leading-none"></span>
+                                <span id="medal-filter-label" class="leading-tight"></span>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-blue-700 dark:text-blue-200">
+                                <span>Showing the 10 most recent activities for this medal.</span>
+                                <button id="clear-medal-filter" type="button" class="inline-flex items-center gap-1 rounded-full bg-blue-200/70 px-3 py-1 font-semibold uppercase tracking-wide text-blue-900 transition hover:bg-blue-200 dark:bg-blue-800/60 dark:text-blue-100 dark:hover:bg-blue-800">
+                                    <span aria-hidden="true">✕</span>
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div id="medals-section" class="flex flex-nowrap gap-3 overflow-x-auto pb-1 pt-1 snap-x snap-mandatory"></div>
+                    </div>
+                </div>
+            </section>
             <!-- User Profile -->
             <div class="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-6 flex flex-col gap-6">
                 <div class="flex flex-col gap-5">
@@ -330,90 +442,6 @@
                         <p id="activity-filter-summary" class="text-sm text-gray-500 dark:text-gray-400"></p>
                     </div>
                     <span id="activities-empty" class="hidden text-sm text-gray-500">No activities match your filters.</span>
-                </div>
-                <div class="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900/40" id="activities-filter-panel">
-                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <h4 class="text-lg font-semibold">Filter activities</h4>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <button id="reset-activity-filters" type="button" class="inline-flex items-center gap-2 rounded-full border border-transparent bg-gray-200/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-700 transition hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
-                                <span aria-hidden="true">↺</span>
-                                Reset filters
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            Type
-                            <select id="activity-type-filter" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400">
-                                <option value="all">All types</option>
-                            </select>
-                        </label>
-                        <div class="grid grid-cols-2 gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            <label class="flex flex-col gap-1">
-                                Min hours
-                                <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="0" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </label>
-                            <label class="flex flex-col gap-1">
-                                Max hours
-                                <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="∞" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </label>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            <label class="flex flex-col gap-1">
-                                Min distance (km)
-                                <input id="activity-distance-min" type="number" step="1" min="0" placeholder="0" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </label>
-                            <label class="flex flex-col gap-1">
-                                Max distance (km)
-                                <input id="activity-distance-max" type="number" step="1" min="0" placeholder="∞" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </label>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            <label class="flex flex-col gap-1">
-                                Min elevation (m)
-                                <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="0" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </label>
-                            <label class="flex flex-col gap-1">
-                                Max elevation (m)
-                                <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="∞" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400" />
-                            </label>
-                        </div>
-                        <label class="flex flex-col gap-1 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            Nation
-                            <select id="activity-country-filter" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400">
-                                <option value="all">All nations</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div class="mt-6 space-y-3">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">Medal quick filter</span>
-                            <div id="medal-filter-banner" class="hidden rounded-2xl border border-blue-200 bg-blue-50/80 p-3 text-blue-800 dark:border-blue-900/40 dark:bg-blue-900/30 dark:text-blue-100">
-                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div class="flex items-center gap-2 text-sm font-semibold">
-                                        <span id="medal-filter-emoji" class="text-xl leading-none"></span>
-                                        <span id="medal-filter-label" class="leading-tight"></span>
-                                    </div>
-                                    <div class="flex items-center gap-3 text-xs text-blue-700 dark:text-blue-200">
-                                        <span>Showing the 10 most recent activities for this medal.</span>
-                                        <button id="clear-medal-filter" type="button" class="inline-flex items-center gap-1 rounded-full bg-blue-200/70 px-3 py-1 font-semibold text-blue-900 transition hover:bg-blue-200 dark:bg-blue-800/60 dark:text-blue-100 dark:hover:bg-blue-800">
-                                            <span aria-hidden="true">✕</span>
-                                            <span class="uppercase tracking-wide">Clear</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="medals-section" class="flex flex-nowrap gap-4 overflow-x-auto pb-2 pt-1 snap-x snap-mandatory">
-                            <!-- Medals will be dynamically populated -->
-                        </div>
-                    </div>
-                    <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <button id="apply-activity-filters" type="button" class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
-                            Load 20 matching
-                        </button>
-                        <p id="activity-filter-active" class="text-xs text-gray-500 dark:text-gray-400"></p>
-                    </div>
                 </div>
                 <div id="activities-container" class="space-y-3"></div>
                 <button id="load-more-btn" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mt-6 ml-auto hidden">Load More Activities</button>

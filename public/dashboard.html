@@ -728,6 +728,31 @@
             font-size: 0.75rem;
         }
 
+        .medals-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .medals-category {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .medals-category__title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #475569;
+        }
+
+        .dark .medals-category__title,
+        body.dark .medals-category__title {
+            color: rgba(226, 232, 240, 0.85);
+        }
+
         .medals-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -964,6 +989,10 @@
                                                 <span aria-hidden="true" class="text-lg leading-none">🍕</span>
                                                 <span id="pizza-total" class="font-semibold">0</span>
                                             </button>
+                                            <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🪙</span>
+                                                <span id="likes-total" class="font-semibold">0</span>
+                                            </button>
                                         </div>
                                         <div class="profile-metrics__row profile-card__coins" id="coin-summary">
                                             <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
@@ -1139,10 +1168,6 @@
                             </header>
                             <div id="activities-container" class="activities-list"></div>
                             <div class="panel-card__footer">
-                                <button id="fetch-more-data" type="button" class="filter-button filter-button--ghost" title="Check for new activities and merge them with your current haul" aria-label="Fetch and merge the latest activities">
-                                    <span aria-hidden="true" class="text-lg leading-none">🔄</span>
-                                    <span class="sr-only" data-button-label>Fetch and merge the latest activities</span>
-                                </button>
                                 <button id="load-more-btn" type="button" class="filter-button hidden">Load More Activities</button>
                             </div>
                         </section>
@@ -1163,7 +1188,7 @@
                                 </div>
                             </div>
                         </header>
-                        <div id="medals-section" class="medals-grid"></div>
+                        <div id="medals-section" class="medals-section"></div>
                         <div class="panel-card__footer">
                             <button id="medals-load-more" type="button" class="filter-button filter-button--ghost">Load more medals</button>
                         </div>

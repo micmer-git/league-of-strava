@@ -593,7 +593,7 @@ button,
 .lifetime-stats {
   display: grid;
   gap: 1.1rem;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(12.5rem, 100%), 1fr));
 }
 
 .medals-card {
@@ -642,7 +642,7 @@ button,
 
 .medal-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(13.75rem, 100%), 1fr));
   gap: 0.85rem;
   margin: 0;
   padding: 0;
@@ -853,7 +853,7 @@ button,
 .stats-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
   min-width: 0;
 }
 

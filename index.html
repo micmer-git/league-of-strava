@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Strava Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="scritp.js"></script>
   <link rel="stylesheet" href="style.css" data-n-g="">
 
 </head>
@@ -33,7 +32,7 @@
     <main class="dashboard" role="main">
       <div class="primary-column">
         <!-- Rank Section -->
-        <section class="card rank-card" aria-labelledby="rank-heading">
+        <section class="card rank-card" aria-labelledby="rank-heading" id="section-rank" data-section="rank">
           <div class="card-header">
             <h2 class="card-title" id="rank-heading">Current Rank</h2>
             <span class="card-subtitle" id="current-rank"></span>
@@ -62,7 +61,7 @@
         </section>
 
         <!-- Weekly Stats -->
-        <section class="card weekly-card" aria-labelledby="weekly-heading">
+        <section class="card weekly-card" aria-labelledby="weekly-heading" id="section-weekly" data-section="weekly">
           <div class="card-header">
             <h2 class="card-title" id="weekly-heading">Weekly Stats</h2>
             <p class="card-subtitle">A quick glance at what you’ve earned this week.</p>
@@ -90,7 +89,7 @@
 
       <!-- Lifetime Stats -->
       <aside class="secondary-column" aria-label="Lifetime achievements">
-        <section class="card lifetime-card" aria-labelledby="lifetime-heading">
+        <section class="card lifetime-card" aria-labelledby="lifetime-heading" id="section-lifetime" data-section="lifetime">
           <div class="card-header">
             <h2 class="card-title" id="lifetime-heading">Lifetime Medals</h2>
             <p class="card-subtitle">Keep stacking the stats that define your legacy.</p>
@@ -113,12 +112,190 @@
             </div>
           </div>
         </section>
+
+        <section class="card medals-card" aria-labelledby="medals-heading" id="section-medals" data-section="medals">
+          <div class="card-header">
+            <h2 class="card-title" id="medals-heading">Signature Medals</h2>
+            <p class="card-subtitle">Track every themed challenge — earned medals glow, future targets stay in view.</p>
+          </div>
+          <div class="medal-categories" id="medal-categories" role="list">
+            <!-- Medals will be populated here -->
+          </div>
+        </section>
       </aside>
     </main>
+
+    <nav class="mobile-bottom-nav" aria-label="Dashboard sections">
+      <button type="button" class="mobile-nav-button is-active" data-section-target="rank">
+        <span aria-hidden="true">🏆</span>
+        <span>Rank</span>
+      </button>
+      <button type="button" class="mobile-nav-button" data-section-target="weekly">
+        <span aria-hidden="true">📈</span>
+        <span>Weekly</span>
+      </button>
+      <button type="button" class="mobile-nav-button" data-section-target="lifetime">
+        <span aria-hidden="true">♾️</span>
+        <span>Lifetime</span>
+      </button>
+      <button type="button" class="mobile-nav-button" data-section-target="medals">
+        <span aria-hidden="true">🎖️</span>
+        <span>Medals</span>
+      </button>
+    </nav>
 
     <footer class="dashboard-footer">
       <p>Powered by Strava data — stay consistent and keep climbing.</p>
     </footer>
   </div>
+
+  <script>
+    const medalDefinitions = [
+      {
+        title: 'Season Chronicles',
+        description: 'Celebrate every month you kept the streak alive.',
+        emoji: '🗓️',
+        medals: [
+          { name: 'January Full Send', detail: 'Logged activity all 31 days.', achieved: true },
+          { name: 'February Flow', detail: 'No skipped sessions in February.', achieved: true },
+          { name: 'Spring Surge', detail: 'March, April & May complete participation.', achieved: false },
+          { name: 'Solstice Sprint', detail: 'Trained on the longest day.', achieved: true },
+          { name: 'Summer Marathon', detail: 'June + July + August all active.', achieved: false },
+          { name: 'Harvest Hustle', detail: 'September streak unbroken.', achieved: true },
+          { name: 'Avvento All-In', detail: 'Advent season daily activities.', achieved: false },
+          { name: 'Frostbite Free', detail: 'Outdoor workout below freezing.', achieved: true },
+          { name: 'Holiday Hustler', detail: 'Logged every day between Dec 24–31.', achieved: false },
+          { name: 'Yearbook Hero', detail: 'Finished the year with 52 weekly check-ins.', achieved: false }
+        ]
+      },
+      {
+        title: 'Combo Mastery',
+        description: 'Layer disciplines for multi-sport dominance.',
+        emoji: '🧩',
+        medals: [
+          { name: 'Brick Builder', detail: 'Back-to-back ride + run weekend.', achieved: true },
+          { name: 'Tri Day Legend', detail: 'Swim, bike & run in one day.', achieved: false },
+          { name: 'Duathlon Dash', detail: 'Run-bike-run combo within 6 hours.', achieved: true },
+          { name: 'Sunrise Stretch', detail: 'Yoga + tempo run dawn combo.', achieved: true },
+          { name: 'Night Owl', detail: 'Late ride followed by midnight recovery jog.', achieved: false },
+          { name: 'Mountain Mixer', detail: 'Trail run & gravel ride double.', achieved: false },
+          { name: 'City Sprint Relay', detail: 'Commute ride + lunch HIIT + commute run.', achieved: true },
+          { name: 'Weekend Warrior', detail: 'Three sport sessions Fri–Sun.', achieved: false },
+          { name: 'Endurance Espresso', detail: 'Long ride capped with coffee walk.', achieved: true },
+          { name: 'Ultra Tri Builder', detail: 'Triathlon distances 70.3 or more.', achieved: false }
+        ]
+      },
+      {
+        title: 'Community Spotlight',
+        description: 'Moments where consistency inspired the crew.',
+        emoji: '🌟',
+        medals: [
+          { name: 'Group Ride Captain', detail: 'Hosted a community ride with 10+ athletes.', achieved: true },
+          { name: 'Kudos Magnet', detail: 'Single activity with 100 kudos.', achieved: false },
+          { name: 'Local Legend', detail: 'Owned a segment for 90 straight days.', achieved: true },
+          { name: 'Team Player', detail: 'Joined every club challenge for a month.', achieved: false },
+          { name: 'Charity Champion', detail: 'Completed a fundraiser endurance event.', achieved: true },
+          { name: 'Coach on Call', detail: 'Shared five training plans with friends.', achieved: false },
+          { name: 'Photo Finish', detail: 'Uploaded an epic activity gallery.', achieved: true },
+          { name: 'Community DJ', detail: 'Published 10 motivational playlists.', achieved: false },
+          { name: 'Encourager', detail: 'Left 200 kudos in a month.', achieved: true },
+          { name: 'Club Founder', detail: 'Launched a new Strava club.', achieved: false }
+        ]
+      }
+    ];
+
+    const medalCategoriesContainer = document.getElementById('medal-categories');
+    if (medalCategoriesContainer) {
+      const fragment = document.createDocumentFragment();
+      medalDefinitions.forEach(({ title, description, emoji, medals }) => {
+        const categorySection = document.createElement('section');
+        categorySection.className = 'medal-category';
+        categorySection.setAttribute('role', 'listitem');
+
+        const header = document.createElement('header');
+        header.className = 'medal-category__header';
+        header.innerHTML = `
+          <div class="medal-category__title">
+            <span class="medal-category__emoji" aria-hidden="true">${emoji}</span>
+            <h3>${title}</h3>
+          </div>
+          <p>${description}</p>
+        `;
+        categorySection.appendChild(header);
+
+        const medalList = document.createElement('ul');
+        medalList.className = 'medal-list';
+        medalList.setAttribute('role', 'list');
+
+        medals.forEach(({ name, detail, achieved }) => {
+          const listItem = document.createElement('li');
+          listItem.className = `medal ${achieved ? 'medal--achieved' : 'medal--locked'}`;
+          listItem.innerHTML = `
+            <div class="medal__icon" aria-hidden="true">${achieved ? '🏅' : '⚪'}</div>
+            <div class="medal__copy">
+              <span class="medal__name">${name}</span>
+              <span class="medal__detail">${detail}</span>
+            </div>
+          `;
+          medalList.appendChild(listItem);
+        });
+
+        categorySection.appendChild(medalList);
+        fragment.appendChild(categorySection);
+      });
+
+      medalCategoriesContainer.appendChild(fragment);
+    }
+
+    const sectionButtons = Array.from(document.querySelectorAll('[data-section-target]'));
+    const sections = Array.from(document.querySelectorAll('[data-section]'));
+    const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
+    let activeSection = 'rank';
+
+    const setSectionVisibility = (sectionName) => {
+      activeSection = sectionName;
+      const isMobile = mobileMediaQuery.matches;
+      sections.forEach((section) => {
+        if (!isMobile) {
+          section.removeAttribute('hidden');
+          return;
+        }
+        if (section.dataset.section === sectionName) {
+          section.removeAttribute('hidden');
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          section.setAttribute('hidden', '');
+        }
+      });
+
+      sectionButtons.forEach((button) => {
+        button.classList.toggle('is-active', button.dataset.sectionTarget === sectionName);
+        button.setAttribute('aria-pressed', String(button.dataset.sectionTarget === sectionName));
+      });
+    };
+
+    sectionButtons.forEach((button) => {
+      button.addEventListener('click', () => setSectionVisibility(button.dataset.sectionTarget));
+    });
+
+    const handleViewportChange = () => {
+      if (!mobileMediaQuery.matches) {
+        sections.forEach((section) => section.removeAttribute('hidden'));
+        sectionButtons.forEach((button) => {
+          button.classList.remove('is-active');
+          button.setAttribute('aria-pressed', 'false');
+        });
+        return;
+      }
+      setSectionVisibility(activeSection);
+    };
+
+    if (typeof mobileMediaQuery.addEventListener === 'function') {
+      mobileMediaQuery.addEventListener('change', handleViewportChange);
+    } else if (typeof mobileMediaQuery.addListener === 'function') {
+      mobileMediaQuery.addListener(handleViewportChange);
+    }
+    handleViewportChange();
+  </script>
 </body>
 </html>

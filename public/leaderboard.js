@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const statusEl = document.getElementById('leaderboard-status');
   const tableBody = document.getElementById('leaderboard-body');
+  const cardsContainer = document.getElementById('leaderboard-cards');
   const usdFormatter = new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency: 'USD',
@@ -66,11 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (entries.length === 0) {
         statusEl.textContent = 'No leaderboard entries yet. Submit user data to get started!';
+        renderLeaderboardCards([]);
         return;
       }
 
       statusEl.textContent = '';
       tableBody.innerHTML = '';
+      const cardViewModels = [];
 
       entries.forEach((entry, index) => {
         const row = document.createElement('tr');
@@ -88,13 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);
         const pizzaCount = formatDecimal(entry.pizzas ?? entry['🍕']);
         const coinTotals = getCoinTotals(entry);
+        const totalHaulValue = formatCurrency(entry.totalHaulValue);
+        const relativeUpdated = formatRelativeTime(entry.timestamp);
 
         row.innerHTML = `
           <td class="rank-cell">${index + 1}</td>
           <td class="name-cell">${nameCellContent}</td>
           <td class="level-cell">Level ${levelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}</td>
           <td class="wallet-cell">${walletBalance}</td>
-          <td>${formatCurrency(entry.totalHaulValue)}</td>
+          <td>${totalHaulValue}</td>
           <td class="stat-cell">${worldTrips}</td>
           <td class="stat-cell">${everestSummits}</td>
           <td class="stat-cell">${pizzaCount}</td>
@@ -103,16 +108,95 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="stat-cell">${coinTotals['🧈']}</td>
           <td class="stat-cell">${coinTotals['💎']}</td>
           <td class="stat-cell">${coinTotals['👑']}</td>
-          <td>${formatRelativeTime(entry.timestamp)}</td>
+          <td>${relativeUpdated}</td>
         `;
         tableBody.appendChild(row);
+
+        cardViewModels.push({
+          rank: index + 1,
+          safeDisplayName,
+          hasUserLink,
+          dashboardUrl,
+          levelLabel,
+          levelEmoji,
+          walletBalance,
+          totalHaulValue,
+          worldTrips,
+          everestSummits,
+          pizzaCount,
+          coinTotals,
+          relativeUpdated,
+        });
       });
+
+      renderLeaderboardCards(cardViewModels);
     } catch (error) {
       console.error('Failed to load leaderboard', error);
       statusEl.textContent = error?.message
         ? `Failed to load the leaderboard: ${error.message}.`
         : 'Failed to load the leaderboard. Please try again later.';
+      renderLeaderboardCards([]);
     }
+  }
+
+  function renderLeaderboardCards(viewModels) {
+    if (!cardsContainer) {
+      return;
+    }
+
+    if (!Array.isArray(viewModels) || viewModels.length === 0) {
+      cardsContainer.hidden = true;
+      cardsContainer.innerHTML = '';
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    viewModels.forEach((view) => {
+      const card = document.createElement('article');
+      card.className = 'leaderboard-card';
+      const nameMarkup = view.hasUserLink
+        ? `<a class="leaderboard-card__name" href="${view.dashboardUrl}">${view.safeDisplayName}</a>`
+        : `<span class="leaderboard-card__name">${view.safeDisplayName}</span>`;
+
+      card.innerHTML = `
+        <header class="leaderboard-card__header">
+          <span class="leaderboard-card__rank">#${view.rank}</span>
+          ${nameMarkup}
+        </header>
+        <div class="leaderboard-card__meta">
+          <span>Level ${escapeHtml(view.levelLabel)}${view.levelEmoji ? ` <span aria-hidden="true">${view.levelEmoji}</span>` : ''}</span>
+          <span>Wallet ${escapeHtml(view.walletBalance)}</span>
+          <span>Total ${escapeHtml(view.totalHaulValue)}</span>
+          <span>Updated ${escapeHtml(view.relativeUpdated)}</span>
+        </div>
+        <div class="leaderboard-card__stats">
+          ${buildCardStat('🌍 World trips', view.worldTrips)}
+          ${buildCardStat('🏔️ Everests', view.everestSummits)}
+          ${buildCardStat('🍕 Pizzas', view.pizzaCount)}
+          ${buildCardStat('💲 Coins', view.coinTotals['💲'])}
+          ${buildCardStat('💰 Coins', view.coinTotals['💰'])}
+          ${buildCardStat('🧈 Coins', view.coinTotals['🧈'])}
+          ${buildCardStat('💎 Coins', view.coinTotals['💎'])}
+          ${buildCardStat('👑 Crowns', view.coinTotals['👑'])}
+        </div>
+      `;
+
+      fragment.appendChild(card);
+    });
+
+    cardsContainer.innerHTML = '';
+    cardsContainer.appendChild(fragment);
+    cardsContainer.hidden = false;
+  }
+
+  function buildCardStat(label, value) {
+    return `
+      <div class="leaderboard-card__stat">
+        <span class="leaderboard-card__stat-label">${escapeHtml(label)}</span>
+        <span class="leaderboard-card__stat-value">${escapeHtml(String(value))}</span>
+      </div>
+    `;
   }
 
   function formatCurrency(value) {

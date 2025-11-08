@@ -34,33 +34,36 @@
 
   <main class="leaderboard-main">
     <section class="leaderboard-intro">
-      <h1>Global Leaderboard</h1>
-      <p>Track the latest progress from every athlete. The table below shows the most recent level, total haul, pizza coins, medals, and other wallet stats submitted for each user.</p>
+      <h1 id="leaderboard-heading">Global Leaderboard</h1>
+      <p id="leaderboard-summary">Track the latest progress from every athlete. The table below shows the most recent level, total haul, pizza coins, medals, and other wallet stats submitted for each user.</p>
     </section>
 
     <section class="leaderboard-container">
-      <div id="leaderboard-status" class="leaderboard-status">Loading leaderboard…</div>
-      <table class="leaderboard-table" aria-live="polite">
-        <thead>
-          <tr>
-            <th scope="col">Rank</th>
-            <th scope="col">Athlete</th>
-            <th scope="col">Level</th>
-            <th scope="col">Wallet</th>
-            <th scope="col">Total Haul</th>
-            <th scope="col" class="stat-cell">🌍</th>
-            <th scope="col" class="stat-cell">🏔️</th>
-            <th scope="col" class="stat-cell">🍕</th>
-            <th scope="col" class="stat-cell">💲</th>
-            <th scope="col" class="stat-cell">💰</th>
-            <th scope="col" class="stat-cell">🧈</th>
-            <th scope="col" class="stat-cell">💎</th>
-            <th scope="col" class="stat-cell">👑</th>
-            <th scope="col">Updated</th>
-          </tr>
-        </thead>
-        <tbody id="leaderboard-body"></tbody>
-      </table>
+      <div id="leaderboard-status" class="leaderboard-status" role="status" aria-live="polite">Loading leaderboard…</div>
+      <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
+        <table class="leaderboard-table" aria-describedby="leaderboard-summary">
+          <thead>
+            <tr>
+              <th scope="col">Rank</th>
+              <th scope="col">Athlete</th>
+              <th scope="col">Level</th>
+              <th scope="col">Wallet</th>
+              <th scope="col">Total Haul</th>
+              <th scope="col" class="stat-cell">🌍</th>
+              <th scope="col" class="stat-cell">🏔️</th>
+              <th scope="col" class="stat-cell">🍕</th>
+              <th scope="col" class="stat-cell">💲</th>
+              <th scope="col" class="stat-cell">💰</th>
+              <th scope="col" class="stat-cell">🧈</th>
+              <th scope="col" class="stat-cell">💎</th>
+              <th scope="col" class="stat-cell">👑</th>
+              <th scope="col">Updated</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+      <div id="leaderboard-cards" class="leaderboard-cards" hidden></div>
     </section>
   </main>
 </body>

@@ -2837,12 +2837,27 @@
         <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
 
         <div class="dashboard-onepage">
-            <div class="dashboard-tabs" role="tablist">
-                <button type="button" id="tab-profile" class="dashboard-tab is-active" role="tab" aria-selected="true" aria-controls="panel-profile" data-dashboard-tab="profile">Profile</button>
-                <button type="button" id="tab-achievements" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-achievements" data-dashboard-tab="achievements">Achievements</button>
-                <button type="button" id="tab-wallet" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-wallet" data-dashboard-tab="wallet">Wallet</button>
-                <button type="button" id="tab-activities" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-activities" data-dashboard-tab="activities">Activities</button>
-                <button type="button" id="tab-medals" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-medals" data-dashboard-tab="medals">Medals</button>
+            <div class="dashboard-tabs" role="tablist" aria-orientation="horizontal">
+                <button type="button" id="tab-profile" class="dashboard-tab is-active" role="tab" aria-selected="true" aria-controls="panel-profile" data-dashboard-tab="profile">
+                    <span class="dashboard-tab__icon fa-solid fa-user" aria-hidden="true"></span>
+                    <span class="dashboard-tab__label">Profile</span>
+                </button>
+                <button type="button" id="tab-achievements" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-achievements" data-dashboard-tab="achievements">
+                    <span class="dashboard-tab__icon fa-solid fa-flag-checkered" aria-hidden="true"></span>
+                    <span class="dashboard-tab__label">Achievements</span>
+                </button>
+                <button type="button" id="tab-wallet" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-wallet" data-dashboard-tab="wallet">
+                    <span class="dashboard-tab__icon fa-solid fa-wallet" aria-hidden="true"></span>
+                    <span class="dashboard-tab__label">Wallet</span>
+                </button>
+                <button type="button" id="tab-activities" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-activities" data-dashboard-tab="activities">
+                    <span class="dashboard-tab__icon fa-solid fa-chart-line" aria-hidden="true"></span>
+                    <span class="dashboard-tab__label">Activities</span>
+                </button>
+                <button type="button" id="tab-medals" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-medals" data-dashboard-tab="medals">
+                    <span class="dashboard-tab__icon fa-solid fa-medal" aria-hidden="true"></span>
+                    <span class="dashboard-tab__label">Medals</span>
+                </button>
             </div>
 
             <div class="dashboard-panels" data-dashboard-panels>
@@ -3157,6 +3172,30 @@
             </div>
         </div>
 
+        <nav class="dashboard-bottom-nav" aria-label="Dashboard navigation">
+            <div class="dashboard-bottom-nav__list">
+                <button type="button" class="dashboard-bottom-nav__button is-active" data-dashboard-nav="profile" aria-pressed="true">
+                    <span class="dashboard-bottom-nav__icon fa-solid fa-user" aria-hidden="true"></span>
+                    <span class="dashboard-bottom-nav__label">Profile</span>
+                </button>
+                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="achievements" aria-pressed="false">
+                    <span class="dashboard-bottom-nav__icon fa-solid fa-flag-checkered" aria-hidden="true"></span>
+                    <span class="dashboard-bottom-nav__label">Wins</span>
+                </button>
+                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="wallet" aria-pressed="false">
+                    <span class="dashboard-bottom-nav__icon fa-solid fa-wallet" aria-hidden="true"></span>
+                    <span class="dashboard-bottom-nav__label">Wallet</span>
+                </button>
+                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="activities" aria-pressed="false">
+                    <span class="dashboard-bottom-nav__icon fa-solid fa-chart-line" aria-hidden="true"></span>
+                    <span class="dashboard-bottom-nav__label">Log</span>
+                </button>
+                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="medals" aria-pressed="false">
+                    <span class="dashboard-bottom-nav__icon fa-solid fa-medal" aria-hidden="true"></span>
+                    <span class="dashboard-bottom-nav__label">Medals</span>
+                </button>
+            </div>
+        </nav>
     </main>
     <script src="/dashboard.js"></script>
 </body>

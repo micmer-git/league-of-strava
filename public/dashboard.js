@@ -228,6 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
     const coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
+    const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
     const dashboardPanels = new Map();
     document.querySelectorAll('[data-dashboard-panel]').forEach(panel => {
         const name = panel?.dataset?.dashboardPanel;
@@ -325,12 +326,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? storedPanelName
         : (initialPanelFromMarkup || (dashboardPanels.keys().next().value ?? null));
 
+    function updateMobileNavigation(panelName) {
+        if (mobileDashboardNavButtons.length === 0) {
+            return;
+        }
+
+        mobileDashboardNavButtons.forEach((button) => {
+            const isActive = button.dataset.dashboardNav === panelName;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
     function setActivePanel(panelName, { focusTab = false } = {}) {
         if (!panelName || !dashboardPanels.has(panelName)) {
             return;
         }
 
         if (activePanelName === panelName) {
+            updateMobileNavigation(panelName);
             if (focusTab) {
                 const activeButton = dashboardTabButtons.find(button => button.dataset.dashboardTab === panelName);
                 if (window.innerWidth < 768) {
@@ -348,6 +362,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         activePanelName = panelName;
         persistActivePanel(panelName);
+
+        updateMobileNavigation(panelName);
 
         dashboardTabButtons.forEach(button => {
             const isActive = button.dataset.dashboardTab === panelName;
@@ -426,6 +442,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             event.preventDefault();
             const direction = event.key === 'ArrowRight' ? 1 : -1;
             moveToRelativePanel(direction);
+        });
+    });
+
+    mobileDashboardNavButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            setActivePanel(button.dataset.dashboardNav, { focusTab: false });
         });
     });
 

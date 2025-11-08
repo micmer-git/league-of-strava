@@ -208,6 +208,69 @@ document.addEventListener('DOMContentLoaded', async () => {
             dashboardPanels.set(name, panel);
         }
     });
+    const dashboardPanelsContainer = document.querySelector('[data-dashboard-panels]');
+    const pullToRefreshIndicator = document.getElementById('pull-to-refresh-indicator');
+    const pullToRefreshLabel = pullToRefreshIndicator?.querySelector('[data-pull-label]');
+    const mobilePanelChangeCallbacks = new Set();
+    const DASHBOARD_PANEL_STORAGE_KEY = 'los:dashboard:active-panel';
+    let canPersistPanelState = true;
+
+    const updateViewportHeightVar = () => {
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight;
+        if (Number.isFinite(viewportHeight)) {
+            document.documentElement.style.setProperty('--app-viewport-height', `${viewportHeight}px`);
+        }
+    };
+
+    updateViewportHeightVar();
+    window.addEventListener('resize', updateViewportHeightVar, { passive: true });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateViewportHeightVar);
+        window.visualViewport.addEventListener('scroll', updateViewportHeightVar);
+    }
+    window.addEventListener('orientationchange', () => {
+        window.setTimeout(updateViewportHeightVar, 180);
+    });
+
+    document.documentElement.style.overflowX = 'hidden';
+
+    const readStoredPanelName = () => {
+        if (!canPersistPanelState) {
+            return null;
+        }
+
+        try {
+            const storedName = localStorage.getItem(DASHBOARD_PANEL_STORAGE_KEY);
+            return typeof storedName === 'string' ? storedName : null;
+        } catch (error) {
+            console.warn('Unable to access localStorage for dashboard panel state:', error);
+            canPersistPanelState = false;
+            return null;
+        }
+    };
+
+    const persistActivePanel = (panelName) => {
+        if (!canPersistPanelState || !panelName) {
+            return;
+        }
+
+        try {
+            localStorage.setItem(DASHBOARD_PANEL_STORAGE_KEY, panelName);
+        } catch (error) {
+            console.warn('Unable to persist dashboard panel state:', error);
+            canPersistPanelState = false;
+        }
+    };
+
+    const notifyPanelChange = (panelName) => {
+        mobilePanelChangeCallbacks.forEach((callback) => {
+            try {
+                callback(panelName);
+            } catch (error) {
+                console.error('dashboardMobile panel listener error:', error);
+            }
+        });
+    };
     const chartToggleButtons = {
         coins: chartToggleCoinsButton,
         balance: chartToggleBalanceButton
@@ -228,8 +291,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     let lastShareData = null;
     let shareCopyResetTimeout = null;
 
-    let activePanelName = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab
-        || (dashboardPanels.keys().next().value ?? null);
+    let activePanelName = null;
+    const initialPanelFromMarkup = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab ?? null;
+    const storedPanelName = readStoredPanelName();
+    const initialPanelName = (storedPanelName && dashboardPanels.has(storedPanelName))
+        ? storedPanelName
+        : (initialPanelFromMarkup || (dashboardPanels.keys().next().value ?? null));
 
     function setActivePanel(panelName, { focusTab = false } = {}) {
         if (!panelName || !dashboardPanels.has(panelName)) {
@@ -239,12 +306,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activePanelName === panelName) {
             if (focusTab) {
                 const activeButton = dashboardTabButtons.find(button => button.dataset.dashboardTab === panelName);
-                activeButton?.focus();
+                if (typeof activeButton?.focus === 'function') {
+                    try {
+                        activeButton.focus({ preventScroll: true });
+                    } catch (error) {
+                        activeButton.focus();
+                    }
+                }
             }
             return;
         }
 
         activePanelName = panelName;
+        persistActivePanel(panelName);
 
         dashboardTabButtons.forEach(button => {
             const isActive = button.dataset.dashboardTab === panelName;
@@ -252,22 +326,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             button.setAttribute('aria-selected', isActive ? 'true' : 'false');
             button.setAttribute('tabindex', isActive ? '0' : '-1');
             if (isActive && focusTab) {
-                button.focus();
+                if (typeof button.focus === 'function') {
+                    try {
+                        button.focus({ preventScroll: true });
+                    } catch (error) {
+                        button.focus();
+                    }
+                }
             }
         });
 
         dashboardPanels.forEach((panel, name) => {
             panel.classList.toggle('is-active', name === panelName);
         });
+
+        notifyPanelChange(panelName);
     }
 
-    if (!activePanelName && dashboardPanels.size > 0) {
-        activePanelName = dashboardPanels.keys().next().value;
-    }
+    setActivePanel(initialPanelName || 'profile');
 
-    setActivePanel(activePanelName || 'profile');
+    const moveToRelativePanel = (direction) => {
+        if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {
+            return;
+        }
 
-    dashboardTabButtons.forEach((button, index) => {
+        const currentIndex = dashboardTabButtons.findIndex(button => button.dataset.dashboardTab === activePanelName);
+        const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+        const targetIndex = (safeIndex + direction + dashboardTabButtons.length) % dashboardTabButtons.length;
+        const targetButton = dashboardTabButtons[targetIndex];
+        if (!targetButton) {
+            return;
+        }
+
+        setActivePanel(targetButton.dataset.dashboardTab, { focusTab: false });
+        if (typeof targetButton.focus === 'function') {
+            try {
+                targetButton.focus({ preventScroll: true });
+            } catch (error) {
+                targetButton.focus();
+            }
+        }
+    };
+
+    dashboardTabButtons.forEach((button) => {
         if (button.dataset.dashboardTab !== activePanelName) {
             button.setAttribute('tabindex', '-1');
         }
@@ -283,11 +384,191 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             event.preventDefault();
             const direction = event.key === 'ArrowRight' ? 1 : -1;
-            let newIndex = (index + direction + dashboardTabButtons.length) % dashboardTabButtons.length;
-            const targetButton = dashboardTabButtons[newIndex];
-            setActivePanel(targetButton.dataset.dashboardTab, { focusTab: true });
+            moveToRelativePanel(direction);
         });
     });
+
+    if (dashboardPanelsContainer) {
+        const SWIPE_THRESHOLD_PX = 56;
+        const SWIPE_MAX_OFF_AXIS_PX = 72;
+        let swipePointerId = null;
+        let swipeStartX = 0;
+        let swipeStartY = 0;
+        let isTrackingSwipe = false;
+
+        const resetSwipeTracking = () => {
+            if (swipePointerId !== null && typeof dashboardPanelsContainer.releasePointerCapture === 'function' && dashboardPanelsContainer.hasPointerCapture?.(swipePointerId)) {
+                dashboardPanelsContainer.releasePointerCapture(swipePointerId);
+            }
+            swipePointerId = null;
+            swipeStartX = 0;
+            swipeStartY = 0;
+            isTrackingSwipe = false;
+        };
+
+        dashboardPanelsContainer.addEventListener('pointerdown', (event) => {
+            if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
+                return;
+            }
+            swipePointerId = event.pointerId;
+            swipeStartX = event.clientX;
+            swipeStartY = event.clientY;
+            isTrackingSwipe = true;
+            if (typeof dashboardPanelsContainer.setPointerCapture === 'function') {
+                try {
+                    dashboardPanelsContainer.setPointerCapture(event.pointerId);
+                } catch (error) {
+                    // Ignore setPointerCapture failures
+                }
+            }
+        });
+
+        dashboardPanelsContainer.addEventListener('pointermove', (event) => {
+            if (!isTrackingSwipe || event.pointerId !== swipePointerId) {
+                return;
+            }
+
+            const deltaX = event.clientX - swipeStartX;
+            const deltaY = event.clientY - swipeStartY;
+
+            if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > SWIPE_MAX_OFF_AXIS_PX) {
+                resetSwipeTracking();
+                return;
+            }
+
+            if (Math.abs(deltaX) > SWIPE_THRESHOLD_PX && Math.abs(deltaY) < SWIPE_MAX_OFF_AXIS_PX) {
+                event.preventDefault();
+                resetSwipeTracking();
+                moveToRelativePanel(deltaX < 0 ? 1 : -1);
+            }
+        });
+
+        const cancelSwipeTracking = () => {
+            resetSwipeTracking();
+        };
+
+        dashboardPanelsContainer.addEventListener('pointerup', cancelSwipeTracking);
+        dashboardPanelsContainer.addEventListener('pointercancel', cancelSwipeTracking);
+        dashboardPanelsContainer.addEventListener('lostpointercapture', cancelSwipeTracking);
+    }
+
+    const isTouchCapable = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+
+    if (isTouchCapable && pullToRefreshIndicator) {
+        const PULL_READY_THRESHOLD_PX = 72;
+        const PULL_REFRESH_THRESHOLD_PX = 120;
+        let pullStartY = 0;
+        let isPulling = false;
+        let lastPullDistance = 0;
+        let isPullRefreshing = false;
+
+        const resetPullIndicator = (force = false) => {
+            if (isPullRefreshing && !force) {
+                return;
+            }
+
+            isPulling = false;
+            lastPullDistance = 0;
+            pullToRefreshIndicator.classList.remove('is-visible', 'is-ready', 'is-refreshing');
+            pullToRefreshIndicator.style.setProperty('--pull-indicator-offset', '0px');
+            if (pullToRefreshLabel) {
+                pullToRefreshLabel.textContent = 'Pull to refresh';
+            }
+            isPullRefreshing = false;
+        };
+
+        const updatePullIndicator = (distance) => {
+            const normalized = Math.max(0, distance);
+            const clamped = Math.min(normalized, 160);
+            if (normalized > 0) {
+                pullToRefreshIndicator.classList.add('is-visible');
+            } else {
+                pullToRefreshIndicator.classList.remove('is-visible');
+            }
+            pullToRefreshIndicator.style.setProperty('--pull-indicator-offset', `${clamped}px`);
+            if (pullToRefreshLabel) {
+                pullToRefreshLabel.textContent = normalized > PULL_REFRESH_THRESHOLD_PX ? 'Release to refresh' : 'Pull to refresh';
+            }
+            if (normalized > PULL_READY_THRESHOLD_PX) {
+                pullToRefreshIndicator.classList.add('is-ready');
+            } else {
+                pullToRefreshIndicator.classList.remove('is-ready');
+            }
+        };
+
+        const getScrollContainer = () => document.scrollingElement || document.documentElement || document.body;
+
+        const handleTouchStart = (event) => {
+            if (event.touches.length !== 1 || isPullRefreshing) {
+                return;
+            }
+
+            const scrollTop = getScrollContainer()?.scrollTop ?? window.pageYOffset;
+            if (scrollTop > 0) {
+                return;
+            }
+
+            pullStartY = event.touches[0].clientY;
+            lastPullDistance = 0;
+            isPulling = true;
+        };
+
+        const handleTouchMove = (event) => {
+            if (!isPulling || isPullRefreshing) {
+                return;
+            }
+
+            const currentY = event.touches[0].clientY;
+            const distance = currentY - pullStartY;
+            if (distance <= 0) {
+                lastPullDistance = 0;
+                updatePullIndicator(0);
+                return;
+            }
+
+            lastPullDistance = distance;
+            updatePullIndicator(distance);
+            if (distance > 0) {
+                event.preventDefault();
+            }
+        };
+
+        const triggerRefresh = () => {
+            if (isPullRefreshing || typeof window.dashboardMobile?.refresh !== 'function') {
+                resetPullIndicator(true);
+                return;
+            }
+
+            isPullRefreshing = true;
+            pullToRefreshIndicator.classList.add('is-refreshing');
+            pullToRefreshIndicator.classList.remove('is-ready');
+            if (pullToRefreshLabel) {
+                pullToRefreshLabel.textContent = 'Refreshing…';
+            }
+
+            Promise.resolve(window.dashboardMobile.refresh({ showLoading: true })).finally(() => {
+                window.setTimeout(() => resetPullIndicator(true), 150);
+            });
+        };
+
+        const handleTouchEnd = () => {
+            if (!isPulling) {
+                return;
+            }
+
+            isPulling = false;
+            if (lastPullDistance > PULL_REFRESH_THRESHOLD_PX && !isSharedView) {
+                triggerRefresh();
+            } else {
+                resetPullIndicator();
+            }
+        };
+
+        window.addEventListener('touchstart', handleTouchStart, { passive: true });
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+        window.addEventListener('touchend', handleTouchEnd);
+        window.addEventListener('touchcancel', () => resetPullIndicator(true));
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const sharedUserIdParam = (urlParams.get('userId') || '').trim();
@@ -4868,6 +5149,52 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     };
+
+    const dashboardMobileApi = {
+        getActivePanel: () => activePanelName,
+        setActivePanel: (panelName) => {
+            if (!panelName || !dashboardPanels.has(panelName)) {
+                return false;
+            }
+            setActivePanel(panelName, { focusTab: false });
+            return true;
+        },
+        refresh: async ({ showLoading = true } = {}) => {
+            if (isSharedView) {
+                return false;
+            }
+            if (showLoading) {
+                showSpinner();
+            }
+            await fetchData({ forceRefresh: true });
+            return true;
+        },
+        onPanelChange: (callback) => {
+            if (typeof callback !== 'function') {
+                return () => {};
+            }
+            mobilePanelChangeCallbacks.add(callback);
+            if (activePanelName) {
+                try {
+                    callback(activePanelName);
+                } catch (error) {
+                    console.error('dashboardMobile panel listener error:', error);
+                }
+            }
+            return () => {
+                mobilePanelChangeCallbacks.delete(callback);
+            };
+        },
+        offPanelChange: (callback) => {
+            if (typeof callback === 'function') {
+                mobilePanelChangeCallbacks.delete(callback);
+            }
+        },
+        showLoading: showSpinner,
+        hideLoading: fadeOutSpinner,
+    };
+
+    window.dashboardMobile = dashboardMobileApi;
 
     // === Function to Process and Display Data ===
     const processAndDisplayData = (data, options = {}) => {

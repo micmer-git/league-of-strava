@@ -14,6 +14,17 @@
   --radius-sm: 12px;
   --transition-base: 200ms ease;
   --bottom-nav-height: 5rem;
+  --app-viewport-height: 100vh;
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
+  --app-safe-area-right: env(safe-area-inset-right, 0px);
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-area-left: env(safe-area-inset-left, 0px);
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-viewport-height: 100dvh;
+  }
 }
 
 /* Reset */
@@ -24,12 +35,14 @@
 html {
   font-size: 16px;
   width: 100%;
+  height: 100%;
   overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: var(--app-viewport-height);
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--color-text);
   background: radial-gradient(circle at 15% 20%, rgba(14, 165, 233, 0.28), transparent 45%),
@@ -38,6 +51,14 @@ body {
   -webkit-font-smoothing: antialiased;
   position: relative;
   overflow-x: hidden;
+  padding: 0 max(var(--app-safe-area-right), 0px) var(--app-safe-area-bottom) max(var(--app-safe-area-left), 0px);
+  touch-action: manipulation;
+  overscroll-behavior-y: contain;
+}
+
+button,
+[role="button"] {
+  touch-action: manipulation;
 }
 
 .background-ornaments {
@@ -57,8 +78,8 @@ body {
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  padding: clamp(1.25rem, 2vw, 2.75rem) clamp(1rem, 4vw, 3.25rem) clamp(2.5rem, 6vw, 4.5rem);
+  min-height: calc(var(--app-viewport-height) - var(--app-safe-area-top) - var(--app-safe-area-bottom));
+  padding: calc(var(--app-safe-area-top) + clamp(1.25rem, 2vw, 2.75rem)) clamp(max(var(--app-safe-area-right), 1rem), 4vw, 3.25rem) calc(var(--app-safe-area-bottom) + clamp(2.5rem, 6vw, 4.5rem)) clamp(max(var(--app-safe-area-left), 1rem), 4vw, 3.25rem);
   gap: clamp(1.25rem, 2vw, 2.5rem);
   width: min(100%, 1180px);
   margin: 0 auto;
@@ -67,7 +88,7 @@ body {
 }
 
 .app-shell {
-  padding-bottom: calc(clamp(2.5rem, 6vw, 4.5rem) + var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: calc(clamp(2.5rem, 6vw, 4.5rem) + var(--bottom-nav-height) + var(--app-safe-area-bottom));
 }
 
 .dashboard-header {

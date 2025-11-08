@@ -192,6 +192,214 @@ body {
   width: 100%;
 }
 
+.profile-card {
+  position: relative;
+  overflow: hidden;
+  gap: 1.75rem;
+  padding: clamp(1.75rem, 3vw, 2.85rem);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.75) 0%, rgba(8, 11, 23, 0.92) 100%);
+  isolation: isolate;
+}
+
+.profile-card::before {
+  content: '';
+  position: absolute;
+  inset: -40% -5% auto -5%;
+  height: 80%;
+  background: radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.35), transparent 55%),
+    radial-gradient(circle at 120% 30%, rgba(249, 115, 22, 0.32), transparent 58%);
+  opacity: 0.6;
+  filter: blur(0.5px);
+  z-index: -1;
+}
+
+.profile-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: clamp(1rem, 2vw, 1.75rem);
+}
+
+.profile-card__identity {
+  display: flex;
+  align-items: center;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  min-width: 0;
+}
+
+.profile-card__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(3.4rem, 7vw, 4.2rem);
+  height: clamp(3.4rem, 7vw, 4.2rem);
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(56, 189, 248, 0.22), rgba(14, 165, 233, 0.08));
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  font-size: clamp(1.85rem, 4vw, 2.4rem);
+  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.25);
+}
+
+.profile-card__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.profile-card__handle {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.profile-card__name {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+}
+
+.profile-card__location {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.9rem;
+}
+
+.profile-card__class {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.profile-card__class-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.profile-card__class-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.profile-card__class-crest {
+  font-size: 1.6rem;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.35));
+}
+
+.profile-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--color-primary);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+.profile-card__metrics {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.profile-metric {
+  position: relative;
+  overflow: hidden;
+  padding: 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  isolation: isolate;
+}
+
+.profile-metric::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(14, 165, 233, 0));
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  z-index: -1;
+}
+
+.profile-metric:hover::before,
+.profile-metric:focus-within::before {
+  opacity: 1;
+}
+
+.profile-metric__label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.profile-metric__value {
+  font-size: 1.45rem;
+  font-weight: 600;
+}
+
+.profile-metric__detail {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.profile-card__class-description {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.profile-card__reasons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.profile-card__reasons li {
+  position: relative;
+  padding-left: 1.55rem;
+  font-size: 0.9rem;
+  color: rgba(226, 232, 240, 0.9);
+  line-height: 1.45;
+}
+
+.profile-card__reasons li::before {
+  content: '✨';
+  position: absolute;
+  left: 0;
+  top: -0.05rem;
+  font-size: 1.1rem;
+  color: var(--color-primary);
+}
+
 [data-section] {
   scroll-margin-bottom: calc(var(--bottom-nav-height) + 1.5rem);
 }
@@ -283,7 +491,7 @@ body {
   position: relative;
   width: 100%;
   height: 18px;
-  background: rgba(148, 163, 184, 0.18);
+  background: linear-gradient(90deg, rgba(15, 118, 110, 0.18) 0%, rgba(56, 189, 248, 0.08) 100%);
   border-radius: 999px;
   overflow: hidden;
   cursor: pointer;
@@ -299,11 +507,22 @@ body {
 }
 
 .progress-bar {
+  position: relative;
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-strong) 100%);
+  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-primary) 48%, var(--color-primary-strong) 100%);
   border-radius: inherit;
   transition: width 0.5s ease;
+  box-shadow: 0 0 18px rgba(14, 165, 233, 0.4);
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+  mix-blend-mode: screen;
+  opacity: 0.6;
 }
 
 .tooltip {
@@ -417,8 +636,8 @@ body {
   padding: 0.85rem 1rem;
   border-radius: var(--radius-md);
   border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(15, 23, 42, 0.55);
-  transition: transform var(--transition-base), border-color var(--transition-base);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(8, 11, 23, 0.78));
+  transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .medal__icon {
@@ -471,6 +690,53 @@ body {
 .medal:focus-within {
   transform: translateY(-2px);
   border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.45);
+}
+
+.rank-tier {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.55);
+  margin: 0 0 0.55rem;
+}
+
+.rank-tier:last-child {
+  margin-bottom: 0;
+}
+
+.rank-tier__icon {
+  font-size: 1.25rem;
+}
+
+.rank-tier__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.rank-tier__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.rank-tier__points {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+}
+
+.rank-tier--current {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(14, 165, 233, 0.12));
+  box-shadow: 0 16px 35px rgba(14, 165, 233, 0.22);
+}
+
+.rank-tier--current .rank-tier__name {
+  color: var(--color-primary);
 }
 
 .mobile-bottom-nav {
@@ -571,6 +837,7 @@ body {
 }
 
 .stat-card {
+  position: relative;
   background: rgba(15, 23, 42, 0.65);
   border-radius: var(--radius-md);
   padding: 1.25rem;
@@ -579,7 +846,20 @@ body {
   flex-direction: column;
   gap: 0.6rem;
   text-align: left;
-  transition: transform var(--transition-base), border-color var(--transition-base);
+  transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: -30% -20% auto -20%;
+  height: 65%;
+  background: radial-gradient(circle at top, rgba(56, 189, 248, 0.28), transparent 60%);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  z-index: -1;
 }
 
 .stat-card h3 {
@@ -600,6 +880,12 @@ body {
 .stat-card:focus-within {
   transform: translateY(-2px);
   border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
+}
+
+.stat-card:hover::before,
+.stat-card:focus-within::before {
+  opacity: 1;
 }
 
 .dashboard-footer {
@@ -691,6 +977,19 @@ body {
   .primary-column,
   .secondary-column {
     gap: 1.1rem;
+  }
+
+  .profile-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-card__class {
+    align-items: flex-start;
+  }
+
+  .profile-card__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .lifetime-stats {

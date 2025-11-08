@@ -4984,7 +4984,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Update the ranking progress bar
         if (currentRankElement) {
-            currentRankElement.textContent = `Current: ${currentRank.emoji} ${currentRank.name}`;
+            currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
         } else {
             console.warn("'current-rank' element not found in the DOM.");
         }
@@ -5425,7 +5425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             achievementWallet.innerHTML = '';
 
             const table = document.createElement('table');
-            table.className = 'min-w-[36rem] w-full text-xs sm:text-sm border-separate border-spacing-x-2 border-spacing-y-1';
+            table.className = 'w-full text-xs sm:text-sm border-separate border-spacing-x-2 border-spacing-y-1';
 
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
@@ -5485,18 +5485,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
 
-                const rowTotal = Object.values(countsByEmoji).reduce((sum, value) => sum + value, 0);
-
                 const labelCell = document.createElement('th');
                 labelCell.scope = 'row';
                 labelCell.className = 'px-3 py-2 text-center align-middle';
                 const labelWrapper = document.createElement('div');
                 labelWrapper.className = 'flex flex-col items-center gap-1 px-2 py-1 text-center font-semibold text-gray-700 dark:text-gray-200';
                 labelWrapper.innerHTML = `<span class="text-xl leading-none">${rowConfig.icon}</span><span class="text-sm">${rowConfig.label}</span>`;
-                const rowTooltip = rowTotal > 0
-                    ? `${rowConfig.label} minted ${rowTotal} coin${rowTotal === 1 ? '' : 's'} across the wallet.`
-                    : `${rowConfig.label} has not minted any coins yet.`;
-                attachTooltip(labelWrapper, rowTooltip);
                 labelCell.appendChild(labelWrapper);
                 row.appendChild(labelCell);
 
@@ -5516,17 +5510,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="leading-none">${countValue}</span>
                         <span class="text-[10px] sm:text-[11px] font-medium text-gray-500 dark:text-gray-300">${descriptionText}</span>
                     `;
-
-                    const tooltipDetails = detailsByEmoji[emoji];
-                    const tooltipLines = tooltipDetails.length > 0
-                        ? tooltipDetails.map(detail => {
-                            const displayName = formatCoinCellLabel(rowConfig.label, detail.name) || detail.name || 'Achievement';
-                            const countText = Number.isFinite(detail.count) ? detail.count : 0;
-                            const extra = detail.description ? ` — ${detail.description}` : '';
-                            return `${countText.toLocaleString()} ${emoji} — ${displayName}${extra}`;
-                        })
-                        : [`${rowConfig.label} has not minted ${emoji} coins yet.`];
-                    attachTooltip(cellWrapper, tooltipLines.join('\n'));
 
                     cell.appendChild(cellWrapper);
                     row.appendChild(cell);

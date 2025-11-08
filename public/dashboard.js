@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // === DOM Elements ===
+    const bodyElement = document.body;
     const loadingSpinner = document.getElementById('loading-spinner');
     const closeSpinnerButton = document.getElementById('close-spinner');
     const loadingProgressBar = document.getElementById('loading-progress-bar');
@@ -198,6 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const leaderboardStatus = document.getElementById('leaderboard-status');
     const leaderboardBody = document.getElementById('leaderboard-body');
     const leaderboardSortButtons = Array.from(document.querySelectorAll('.leaderboard-sort'));
+    const panelBackButtons = Array.from(document.querySelectorAll('.panel-back-btn'));
     const panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
     const coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
@@ -306,7 +308,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activePanelName === panelName) {
             if (focusTab) {
                 const activeButton = dashboardTabButtons.find(button => button.dataset.dashboardTab === panelName);
-                if (typeof activeButton?.focus === 'function') {
+                if (window.innerWidth < 768) {
+                    activeButton?.blur();
+                } else if (typeof activeButton?.focus === 'function') {
                     try {
                         activeButton.focus({ preventScroll: true });
                     } catch (error) {
@@ -326,7 +330,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             button.setAttribute('aria-selected', isActive ? 'true' : 'false');
             button.setAttribute('tabindex', isActive ? '0' : '-1');
             if (isActive && focusTab) {
-                if (typeof button.focus === 'function') {
+                if (window.innerWidth < 768) {
+                    button.blur();
+                } else if (typeof button.focus === 'function') {
                     try {
                         button.focus({ preventScroll: true });
                     } catch (error) {
@@ -339,6 +345,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         dashboardPanels.forEach((panel, name) => {
             panel.classList.toggle('is-active', name === panelName);
         });
+
+        if (window.innerWidth < 768) {
+            if (panelName !== 'profile') {
+                bodyElement.style.overflow = 'hidden';
+            } else {
+                bodyElement.style.overflow = '';
+            }
+        } else {
+            bodyElement.style.overflow = '';
+        }
 
         notifyPanelChange(panelName);
     }
@@ -386,6 +402,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             const direction = event.key === 'ArrowRight' ? 1 : -1;
             moveToRelativePanel(direction);
         });
+    });
+
+    panelBackButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetPanel = button.dataset.target || 'profile';
+            setActivePanel(targetPanel, { focusTab: true });
+            bodyElement.style.overflow = '';
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 768) {
+            bodyElement.style.overflow = '';
+        }
     });
 
     if (dashboardPanelsContainer) {

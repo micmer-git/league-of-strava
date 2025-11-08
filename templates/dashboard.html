@@ -21,7 +21,7 @@
             background-color: #f4f6f8;
             font-family: 'Montserrat', sans-serif;
             margin: 0px;
-            padding: 5px;
+            padding: 0;
             color: #333;
         }
         /* Footer Styles */
@@ -149,7 +149,7 @@
         #dashboard-container {
             max-width: 1200px;
             margin: 30px auto;
-            padding: 0 20px;
+            padding: 0 10px;
             width: 100%;
             display: flex;
             flex-direction: column;
@@ -263,8 +263,11 @@
             font-size: 1em;
             justify-content: flex-start;
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch; /* For smooth scrolling on iOS */
             padding-bottom: 5px;
             width: 100%;
+            /* Ensure the container itself does not cause overflow */
+            min-width: 0;
         }
 
         .coin-metrics-inline::-webkit-scrollbar {
@@ -567,11 +570,40 @@
             color: #ff6600;
         }
 
-        .achievements-list, .medals-slider {
+        .achievements-list {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
             gap: 15px;
             justify-content: center;
+        }
+
+        .medals-slider {
+            /* Change to flexbox for horizontal scrolling on mobile */
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 10px; /* Space for scrollbar */
+            /* Prevent child elements from forcing container width */
+            min-width: 0;
+        }
+
+        .medal-card {
+            /* Ensure cards have a fixed minimum width and don't shrink too much */
+            flex: 0 0 100px; /* Don't grow, don't shrink, base width 100px */
+            min-width: 100px;
+            max-width: 150px;
+            /* Existing styles */
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
         }
 
         .additional-infos ul {
@@ -704,7 +736,7 @@
             }
 
             .achievement-card, .medal-card {
-                padding: 5px;
+                padding: 0;
                 font-size: 0.95em;
             }
 

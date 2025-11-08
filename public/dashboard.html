@@ -510,25 +510,40 @@
         .dashboard-tabs {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: clamp(0.5rem, 2vw, 0.85rem);
             overflow-x: auto;
-            padding: 0.5rem 0.75rem;
+            padding: clamp(0.4rem, 1.5vw, 0.75rem) clamp(0.6rem, 4vw, 1.25rem);
             border-radius: 9999px;
             background: rgba(255, 255, 255, 0.8);
             box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
             backdrop-filter: blur(12px);
+            width: 100%;
+            max-width: 100%;
+            scroll-snap-type: x proximity;
+            scrollbar-width: thin;
+            overscroll-behavior-x: contain;
+        }
+
+        .dashboard-tabs::-webkit-scrollbar {
+            height: 0.45rem;
+        }
+
+        .dashboard-tabs::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.6);
+            border-radius: 999px;
         }
 
         .dashboard-tab {
             border: 1px solid transparent;
             background: transparent;
-            padding: 0.45rem 1.2rem;
+            padding: clamp(0.4rem, 1.6vw, 0.75rem) clamp(0.9rem, 3vw, 1.4rem);
             border-radius: 9999px;
-            font-size: 0.85rem;
+            font-size: clamp(0.85rem, 2.6vw, 1rem);
             font-weight: 600;
             color: #1f2937;
             white-space: nowrap;
             transition: all 0.2s ease;
+            scroll-snap-align: center;
         }
 
         .dashboard-tab.is-active {
@@ -571,6 +586,10 @@
             flex-direction: column;
             gap: 1.5rem;
             padding: 1.5rem;
+            border: none !important;
+            box-shadow: none !important;
+            width: 100%;
+            max-width: 100%;
         }
 
         .panel-card--soft {
@@ -638,6 +657,7 @@
             display: flex;
             align-items: flex-start;
             gap: 1.25rem;
+            flex-wrap: wrap;
         }
 
         .profile-card__avatar {
@@ -658,13 +678,17 @@
 
         .profile-card__identity {
             display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.75rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.4rem;
+        }
+
+        .profile-card__level-stack {
+            order: -1;
         }
 
         .profile-card__name {
-            font-size: clamp(1.65rem, 3vw, 2.1rem);
+            font-size: clamp(1.4rem, 4vw, 2.05rem);
             font-weight: 700;
             margin: 0;
             color: #0f172a;
@@ -780,6 +804,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+            align-items: flex-start;
         }
 
         .profile-card__level-stack span {
@@ -1061,14 +1086,18 @@
 
         .wallet-table {
             overflow-x: auto;
+            width: 100%;
+            max-width: 100%;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.25rem;
         }
 
         #achievement-wallet {
-            background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 240, 224, 0.92));
             border-radius: var(--radius-lg);
-            padding: 1rem;
-            border: 1px solid rgba(249, 115, 22, 0.2);
-            box-shadow: var(--shadow-soft);
+            padding: clamp(0.75rem, 2vw, 1.25rem);
+            border: none;
+            box-shadow: none;
+            background: transparent;
         }
 
         #achievement-wallet table {
@@ -1427,9 +1456,9 @@
                 max-width: 100%;
             }
 
-            .profile-card__header {
-                flex-direction: column;
-                align-items: stretch;
+            .profile-card__avatar {
+                width: 4.25rem;
+                height: 4.25rem;
             }
 
             .profile-card__actions {
@@ -1438,7 +1467,7 @@
             }
 
             .profile-card__headline {
-                gap: 1rem;
+                gap: 0.85rem;
             }
 
             .share-card {

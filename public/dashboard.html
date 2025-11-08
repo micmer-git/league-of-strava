@@ -20,6 +20,7 @@
     <style>
         body {
             font-family: 'Rubik', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow-x: hidden;
         }
         #loading-spinner {
             position: fixed;
@@ -660,6 +661,22 @@
         .top-performance-card {
             min-width: 0;
             height: 100%;
+            color: inherit;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .top-performance-card--interactive {
+            cursor: pointer;
+        }
+
+        .top-performance-card:focus-visible {
+            outline: none;
+        }
+
+        .top-performance-card--interactive:focus-visible,
+        .top-performance-card--interactive:hover {
+            transform: translateY(-2px);
         }
 
         .top-performance-card__content {
@@ -669,10 +686,6 @@
         .top-performance-card__title,
         .top-performance-card__value {
             overflow-wrap: anywhere;
-        }
-
-        .top-performance-card__action {
-            flex-shrink: 0;
         }
 
         .wallet-table {
@@ -1030,14 +1043,16 @@
 
         @media (max-width: 640px) {
             .dashboard-shell {
-                width: min(1180px, calc(100% - 1.5rem));
+                width: 100%;
                 padding: 1.25rem 0.75rem 2.5rem;
+                box-sizing: border-box;
             }
 
             .dashboard-tabs {
                 padding: 0.5rem;
                 gap: 0.5rem;
-                margin: 0 -0.25rem;
+                margin: 0;
+                max-width: 100%;
             }
 
             .profile-card__header {
@@ -1198,6 +1213,8 @@
             padding: clamp(1.75rem, 4vw, 3.5rem) clamp(0.75rem, 5vw, 1.75rem) clamp(2.25rem, 6vw, 4.25rem);
             display: grid;
             gap: clamp(1.75rem, 4vw, 3rem);
+            max-width: 100%;
+            box-sizing: border-box;
         }
 
         #error-message {
@@ -1400,6 +1417,13 @@
             border-radius: var(--radius-md);
             border: 1px solid rgba(20, 28, 48, 0.08);
             box-shadow: var(--shadow-soft);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-performance-card:hover,
+        .top-performance-card:focus-visible {
+            box-shadow: 0 20px 36px rgba(15, 23, 42, 0.14);
         }
 
         .top-performance-card__title {
@@ -1410,8 +1434,17 @@
             color: var(--color-text-strong);
         }
 
-        .top-performance-card__action {
-            color: var(--color-accent-strong);
+        body.dark .top-performance-card,
+        .dark .top-performance-card {
+            background: rgba(17, 24, 39, 0.72);
+            border-color: rgba(148, 163, 184, 0.28);
+        }
+
+        body.dark .top-performance-card:hover,
+        body.dark .top-performance-card:focus-visible,
+        .dark .top-performance-card:hover,
+        .dark .top-performance-card:focus-visible {
+            box-shadow: 0 20px 36px rgba(2, 6, 23, 0.45);
         }
 
         .wallet-controls {
@@ -1526,19 +1559,59 @@
         }
 
         .activity-card {
-            background: rgba(255, 255, 255, 0.76);
+            background: rgba(255, 255, 255, 0.92);
             border-radius: var(--radius-md);
-            border: 1px solid rgba(20, 28, 48, 0.08);
+            border: 1px solid rgba(20, 28, 48, 0.1);
             box-shadow: var(--shadow-soft);
-            padding: 1.25rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .activity-card h3 {
+        .activity-card--interactive {
+            cursor: pointer;
+        }
+
+        .activity-card:hover,
+        .activity-card--interactive:focus-visible,
+        .activity-card--interactive:focus-within {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
+        }
+
+        .activity-card__title {
             color: var(--color-text-strong);
         }
 
-        .activity-card p {
-            color: var(--color-text-soft);
+        .activity-card__title-link {
+            color: #2563eb;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .activity-card__title-link:hover,
+        .activity-card__title-link:focus-visible {
+            color: #1d4ed8;
+            text-decoration: underline;
+            outline: none;
+        }
+
+        body.dark .activity-card,
+        .dark .activity-card {
+            background: rgba(15, 23, 42, 0.72);
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        body.dark .activity-card__title-link,
+        .dark .activity-card__title-link {
+            color: #93c5fd;
+        }
+
+        body.dark .activity-card__title-link:hover,
+        body.dark .activity-card__title-link:focus-visible,
+        .dark .activity-card__title-link:hover,
+        .dark .activity-card__title-link:focus-visible {
+            color: #bfdbfe;
         }
 
 

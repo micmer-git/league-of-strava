@@ -3318,14 +3318,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         activitiesToRender.forEach(activity => {
             const card = document.createElement('div');
-            card.className = 'bg-gray-100 dark:bg-gray-700/80 p-4 rounded-lg flex flex-col gap-4 shadow-sm sm:flex-row sm:items-start sm:justify-between';
+            card.className = 'activity-card rounded-lg p-4 flex flex-col gap-4 shadow-sm sm:flex-row sm:items-start sm:justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
+
+            const activityId = activity.id || activity.external_id;
+            const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
+            const titleText = activity.name || activity.type || 'Activity';
 
             const infoWrapper = document.createElement('div');
             infoWrapper.className = 'flex-1 space-y-3';
 
-            const title = document.createElement('div');
-            title.className = 'text-lg font-semibold';
-            title.textContent = activity.name || activity.type || 'Activity';
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'activity-card__title text-lg font-semibold';
+
+            if (activityUrl !== '#') {
+                const titleLink = document.createElement('a');
+                titleLink.className = 'activity-card__title-link';
+                titleLink.href = activityUrl;
+                titleLink.target = '_blank';
+                titleLink.rel = 'noopener noreferrer';
+                titleLink.textContent = titleText;
+                titleLink.setAttribute('aria-label', `Open ${titleText} on Strava`);
+                titleContainer.appendChild(titleLink);
+            } else {
+                titleContainer.textContent = titleText;
+            }
 
             const details = document.createElement('div');
             details.className = 'text-sm text-gray-600 dark:text-gray-300 sm:text-right sm:leading-5';
@@ -3349,7 +3365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const headerRow = document.createElement('div');
             headerRow.className = 'flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between';
-            headerRow.appendChild(title);
+            headerRow.appendChild(titleContainer);
             headerRow.appendChild(details);
             infoWrapper.appendChild(headerRow);
 
@@ -3499,24 +3515,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             infoWrapper.appendChild(statsRow);
 
-            const activityId = activity.id || activity.external_id;
-            const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
-
-            const actionWrapper = document.createElement('div');
-            actionWrapper.className = 'flex w-full justify-center sm:w-auto sm:items-center';
-
-            const linkButton = document.createElement('a');
-            linkButton.href = activityUrl;
-            linkButton.target = '_blank';
-            linkButton.rel = 'noopener noreferrer';
-            linkButton.className = 'inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
-            linkButton.textContent = '🔗';
-            linkButton.setAttribute('aria-label', 'Open activity on Strava');
-
-            actionWrapper.appendChild(linkButton);
-
             card.appendChild(infoWrapper);
-            card.appendChild(actionWrapper);
+
+            if (activityUrl !== '#') {
+                const openActivity = () => {
+                    if (typeof window !== 'undefined') {
+                        window.open(activityUrl, '_blank', 'noopener,noreferrer');
+                    }
+                };
+
+                card.classList.add('activity-card--interactive');
+                card.setAttribute('role', 'link');
+                card.setAttribute('aria-label', `Open ${titleText} on Strava`);
+                card.tabIndex = 0;
+
+                card.addEventListener('click', event => {
+                    if (event.target.closest('a, button')) {
+                        return;
+                    }
+                    openActivity();
+                });
+
+                card.addEventListener('keydown', event => {
+                    if ((event.key === 'Enter' || event.key === ' ') && event.target === card) {
+                        event.preventDefault();
+                        openActivity();
+                    }
+                });
+            }
 
             activitiesContainer.appendChild(card);
         });
@@ -5411,9 +5437,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const activityId = bestActivity.id || bestActivity.external_id;
                     const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
 
-                    const card = document.createElement('div');
-                    card.className = 'top-performance-card bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3';
-                    card.classList.add('md:gap-4');
+                    const cardTag = activityUrl !== '#' ? 'a' : 'div';
+                    const card = document.createElement(cardTag);
+                    card.className = 'top-performance-card rounded-lg p-4 shadow-sm flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
+                    if (activityUrl !== '#') {
+                        card.href = activityUrl;
+                        card.target = '_blank';
+                        card.rel = 'noopener noreferrer';
+                        card.setAttribute('aria-label', `${metric.title} — open activity on Strava`);
+                        card.classList.add('top-performance-card--interactive');
+                    }
 
                     const infoWrapper = document.createElement('div');
                     infoWrapper.className = 'top-performance-card__content flex min-w-0 flex-1 items-start gap-3';
@@ -5439,16 +5472,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     infoWrapper.appendChild(iconSpan);
                     infoWrapper.appendChild(titleWrapper);
 
-                    const actionButton = document.createElement('a');
-                    actionButton.href = activityUrl;
-                    actionButton.target = '_blank';
-                    actionButton.rel = 'noopener noreferrer';
-                    actionButton.className = 'top-performance-card__action inline-flex items-center gap-2 rounded-full bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
-                    actionButton.textContent = '🔗';
-                    actionButton.setAttribute('aria-label', 'Open activity on Strava');
-
                     card.appendChild(infoWrapper);
-                    card.appendChild(actionButton);
 
                     bestActivitiesContainer.appendChild(card);
                 });

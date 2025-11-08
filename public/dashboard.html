@@ -28,28 +28,399 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.8);
+            padding: clamp(1rem, 5vw, 2.5rem);
+            background: rgba(241, 244, 255, 0.88);
+            backdrop-filter: blur(18px);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            /* Initial opacity and transition handled by Tailwind */
         }
+
+        .dark #loading-spinner {
+            background: rgba(15, 23, 42, 0.85);
+        }
+
+        .loading-dialog {
+            position: relative;
+            width: min(640px, 100%);
+            border-radius: 28px;
+            padding: clamp(1.75rem, 4vw, 2.75rem);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(229, 240, 255, 0.9));
+            box-shadow: 0 40px 70px rgba(15, 23, 42, 0.18);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .dark .loading-dialog {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.96));
+            border-color: rgba(148, 163, 184, 0.25);
+            box-shadow: 0 40px 70px rgba(8, 11, 18, 0.65);
+        }
+
         #close-spinner {
             position: absolute;
-            top: 20px;
-            right: 30px;
+            top: 1rem;
+            right: 1rem;
             cursor: pointer;
-            font-size: 1.5rem;
-            color: #4a5568;
-            background: transparent;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            transition: background-color 0.2s;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #475569;
+            background: rgba(241, 245, 249, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            padding: 0.3rem 0.85rem;
+            border-radius: 999px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
-        #close-spinner:hover {
-            background-color: rgba(0, 0, 0, 0.1);
+
+        #close-spinner span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        #close-spinner:hover,
+        #close-spinner:focus-visible {
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+        }
+
+        .dark #close-spinner {
+            color: #e2e8f0;
+            background: rgba(51, 65, 85, 0.7);
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        .dark #close-spinner:hover,
+        .dark #close-spinner:focus-visible {
+            background: rgba(59, 130, 246, 0.28);
+            color: #bfdbfe;
+        }
+
+        .loading-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .loading-header__copy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .loading-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 1rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(14, 165, 233, 0.35));
+            color: #1d4ed8;
+            font-size: 1.5rem;
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.25);
+        }
+
+        .dark .loading-icon {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(14, 165, 233, 0.35));
+            color: #e0f2fe;
+            box-shadow: 0 12px 26px rgba(14, 165, 233, 0.45);
+        }
+
+        .loading-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .dark .loading-title {
+            color: #e2e8f0;
+        }
+
+        .loading-status {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+            color: #1d4ed8;
+        }
+
+        .dark .loading-status {
+            color: #93c5fd;
+        }
+
+        .loading-status-detail {
+            margin: 0.25rem 0 0;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+
+        .dark .loading-status-detail {
+            color: #cbd5f5;
+        }
+
+        .loading-progress {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .loading-progress-bar {
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.25);
+            overflow: hidden;
+        }
+
+        .loading-progress-bar__fill {
+            width: 8%;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(135deg, #2563eb, #38bdf8);
+            transition: width 0.45s ease;
+        }
+
+        .dark .loading-progress-bar__fill {
+            background: linear-gradient(135deg, #60a5fa, #22d3ee);
+        }
+
+        .loading-steps {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .loading-step {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: start;
+            gap: 0.85rem;
+            padding: 0.75rem 0.85rem;
+            border-radius: 18px;
+            background: rgba(148, 163, 184, 0.12);
+            border: 1px solid transparent;
+            transition: border-color 0.25s ease, background-color 0.25s ease;
+        }
+
+        .loading-step__indicator {
+            width: 0.9rem;
+            height: 0.9rem;
+            border-radius: 999px;
+            border: 2px solid rgba(59, 130, 246, 0.55);
+            background: rgba(255, 255, 255, 0.85);
+            margin-top: 0.25rem;
+            transition: background-color 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+        }
+
+        .loading-step__body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .loading-step__title {
+            font-weight: 600;
+            margin: 0;
+            color: #0f172a;
+        }
+
+        .loading-step__detail {
+            margin: 0;
+            color: #475569;
+            font-size: 0.9rem;
+        }
+
+        .loading-step.is-active {
+            background: rgba(59, 130, 246, 0.08);
+            border-color: rgba(59, 130, 246, 0.45);
+            box-shadow: 0 12px 28px rgba(59, 130, 246, 0.15);
+        }
+
+        .loading-step.is-active .loading-step__indicator {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, #2563eb, #38bdf8);
+            border-color: transparent;
+            box-shadow: 0 6px 14px rgba(37, 99, 235, 0.28);
+        }
+
+        .loading-step.is-active .loading-step__title {
+            color: #1d4ed8;
+        }
+
+        .loading-step.is-active .loading-step__detail {
+            color: #1e3a8a;
+        }
+
+        .loading-step.is-complete {
+            background: rgba(34, 197, 94, 0.08);
+            border-color: rgba(34, 197, 94, 0.45);
+        }
+
+        .loading-step.is-complete .loading-step__indicator {
+            background: linear-gradient(135deg, #22c55e, #10b981);
+            border-color: transparent;
+            box-shadow: 0 6px 12px rgba(16, 185, 129, 0.32);
+        }
+
+        .loading-step.is-complete .loading-step__title {
+            color: #15803d;
+        }
+
+        .loading-step.is-complete .loading-step__detail {
+            color: #166534;
+        }
+
+        .dark .loading-step {
+            background: rgba(30, 41, 59, 0.55);
+            border-color: rgba(148, 163, 184, 0.18);
+        }
+
+        .dark .loading-step__title {
+            color: #e2e8f0;
+        }
+
+        .dark .loading-step__detail {
+            color: #94a3b8;
+        }
+
+        .dark .loading-step.is-active {
+            background: rgba(37, 99, 235, 0.25);
+            border-color: rgba(96, 165, 250, 0.55);
+        }
+
+        .dark .loading-step.is-active .loading-step__indicator {
+            box-shadow: 0 10px 20px rgba(96, 165, 250, 0.45);
+        }
+
+        .dark .loading-step.is-active .loading-step__detail {
+            color: #bfdbfe;
+        }
+
+        .dark .loading-step.is-complete {
+            background: rgba(22, 163, 74, 0.25);
+            border-color: rgba(134, 239, 172, 0.55);
+        }
+
+        .dark .loading-step.is-complete .loading-step__detail {
+            color: #bbf7d0;
+        }
+
+        .loading-weekly-card {
+            margin-top: 0.5rem;
+            padding: 1.35rem;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            box-shadow: 0 28px 48px rgba(15, 23, 42, 0.12);
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+        }
+
+        .loading-weekly-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .loading-weekly-card.is-ready {
+            transform: translateY(-2px);
+            box-shadow: 0 32px 54px rgba(37, 99, 235, 0.25);
+        }
+
+        .dark .loading-weekly-card {
+            background: rgba(30, 41, 59, 0.75);
+            border-color: rgba(148, 163, 184, 0.25);
+            box-shadow: 0 28px 48px rgba(7, 10, 17, 0.65);
+        }
+
+        .loading-weekly-card h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .loading-weekly-card p {
+            margin: 0.35rem 0 0;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+
+        .dark .loading-weekly-card h3 {
+            color: #f8fafc;
+        }
+
+        .dark .loading-weekly-card p {
+            color: #cbd5f5;
+        }
+
+        .loading-weekly-grid {
+            margin: 1.25rem 0 0;
+            display: grid;
+            gap: 0.9rem;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        }
+
+        .loading-weekly-metric {
+            padding: 0.85rem;
+            border-radius: 16px;
+            background: rgba(241, 245, 249, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .loading-weekly-metric dt {
+            margin: 0 0 0.35rem;
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .loading-weekly-metric dd {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .dark .loading-weekly-metric {
+            background: rgba(30, 41, 59, 0.65);
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        .dark .loading-weekly-metric dt {
+            color: #94a3b8;
+        }
+
+        .dark .loading-weekly-metric dd {
+            color: #e2e8f0;
+        }
+
+        @media (max-width: 640px) {
+            .loading-dialog {
+                padding: 1.5rem;
+                border-radius: 24px;
+            }
+
+            .loading-header {
+                flex-direction: column;
+            }
+
+            .loading-icon {
+                width: 2.75rem;
+                height: 2.75rem;
+            }
+
+            .loading-weekly-grid {
+                grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            }
         }
         /* Tooltip Styling */
         .tooltip {
@@ -1227,8 +1598,13 @@
         }
 
         #loading-spinner {
-            background: rgba(241, 244, 255, 0.82);
-            backdrop-filter: blur(12px);
+            padding: clamp(1rem, 5vw, 2.5rem);
+            background: rgba(241, 244, 255, 0.88);
+            backdrop-filter: blur(18px);
+        }
+
+        .dark #loading-spinner {
+            background: rgba(15, 23, 42, 0.85);
         }
 
         #close-spinner {
@@ -1236,8 +1612,9 @@
             border-radius: var(--radius-sm);
         }
 
-        #close-spinner:hover {
-            background: var(--color-accent-soft);
+        #close-spinner:hover,
+        #close-spinner:focus-visible {
+            background: rgba(59, 130, 246, 0.12);
             color: var(--color-text-strong);
         }
 
@@ -1638,14 +2015,88 @@
         </div>
     </header>
     <!-- Loading Spinner -->
-    <div id="loading-spinner" class="hidden opacity-0 transition-opacity duration-500 ease-in-out">
-        <div class="relative flex flex-col items-center">
-            <button id="close-spinner" aria-label="Close Loading Spinner">×</button>
-            <svg class="animate-spin h-16 w-16 text-blue-600 mt-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-            </svg>
-        </div>
+    <div id="loading-spinner" class="hidden opacity-0 transition-opacity duration-500 ease-in-out" aria-hidden="true">
+        <section class="loading-dialog" role="dialog" aria-modal="true" aria-labelledby="loading-title">
+            <button id="close-spinner" type="button">
+                <span aria-hidden="true">✕</span>
+                <span class="sr-only">Close loading dialog</span>
+            </button>
+            <div class="loading-header">
+                <span class="loading-icon" aria-hidden="true">⚡</span>
+                <div class="loading-header__copy">
+                    <h2 id="loading-title" class="loading-title">Preparing your season overview</h2>
+                    <p id="loading-status" class="loading-status" aria-live="polite">Warming up your dashboard</p>
+                    <p id="loading-status-detail" class="loading-status-detail" aria-live="polite">Loading personalised layout and preferences…</p>
+                </div>
+            </div>
+            <div class="loading-progress">
+                <div id="loading-progress-bar" class="loading-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8">
+                    <div id="loading-progress-bar-fill" class="loading-progress-bar__fill"></div>
+                </div>
+                <ul class="loading-steps" id="loading-progress-steps">
+                    <li class="loading-step" data-loading-step="bootstrap" data-loading-title="Setting up your dashboard" data-loading-detail="Loading layout and preferences">
+                        <span class="loading-step__indicator" aria-hidden="true"></span>
+                        <div class="loading-step__body">
+                            <p class="loading-step__title">Setting up your dashboard</p>
+                            <p class="loading-step__detail" data-loading-step-detail>Loading layout and preferences</p>
+                        </div>
+                    </li>
+                    <li class="loading-step" data-loading-step="snapshot" data-loading-title="Checking your latest snapshot" data-loading-detail="Looking for the most recent saved progress">
+                        <span class="loading-step__indicator" aria-hidden="true"></span>
+                        <div class="loading-step__body">
+                            <p class="loading-step__title">Checking your latest snapshot</p>
+                            <p class="loading-step__detail" data-loading-step-detail>Looking for the most recent saved progress</p>
+                        </div>
+                    </li>
+                    <li class="loading-step" data-loading-step="fetch" data-loading-title="Syncing fresh Strava data" data-loading-detail="Bringing in activities, medals, and wallet gains">
+                        <span class="loading-step__indicator" aria-hidden="true"></span>
+                        <div class="loading-step__body">
+                            <p class="loading-step__title">Syncing fresh Strava data</p>
+                            <p class="loading-step__detail" data-loading-step-detail>Bringing in activities, medals, and wallet gains</p>
+                        </div>
+                    </li>
+                    <li class="loading-step" data-loading-step="finalize" data-loading-title="Polishing insights" data-loading-detail="Curating rankings, achievements, and charts">
+                        <span class="loading-step__indicator" aria-hidden="true"></span>
+                        <div class="loading-step__body">
+                            <p class="loading-step__title">Polishing insights</p>
+                            <p class="loading-step__detail" data-loading-step-detail>Curating rankings, achievements, and charts</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <section id="loading-weekly-card" class="loading-weekly-card" aria-live="polite">
+                <div class="loading-weekly-header">
+                    <h3>Last 7 days snapshot</h3>
+                    <p id="loading-weekly-summary">We’ll surface your freshest progress as soon as the data arrives.</p>
+                </div>
+                <dl class="loading-weekly-grid">
+                    <div class="loading-weekly-metric">
+                        <dt>Activities</dt>
+                        <dd id="loading-weekly-activities">—</dd>
+                    </div>
+                    <div class="loading-weekly-metric">
+                        <dt>Hours</dt>
+                        <dd id="loading-weekly-hours">—</dd>
+                    </div>
+                    <div class="loading-weekly-metric">
+                        <dt>Distance</dt>
+                        <dd id="loading-weekly-distance">—</dd>
+                    </div>
+                    <div class="loading-weekly-metric">
+                        <dt>Elevation</dt>
+                        <dd id="loading-weekly-elevation">—</dd>
+                    </div>
+                    <div class="loading-weekly-metric">
+                        <dt>Calories</dt>
+                        <dd id="loading-weekly-calories">—</dd>
+                    </div>
+                    <div class="loading-weekly-metric">
+                        <dt>Kudos</dt>
+                        <dd id="loading-weekly-kudos">—</dd>
+                    </div>
+                </dl>
+            </section>
+        </section>
     </div>
 
     <main class="dashboard-shell">

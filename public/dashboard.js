@@ -90,6 +90,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     // === DOM Elements ===
     const loadingSpinner = document.getElementById('loading-spinner');
     const closeSpinnerButton = document.getElementById('close-spinner');
+    const loadingProgressBar = document.getElementById('loading-progress-bar');
+    const loadingProgressBarFill = document.getElementById('loading-progress-bar-fill');
+    const loadingStatusLabel = document.getElementById('loading-status');
+    const loadingStatusDetail = document.getElementById('loading-status-detail');
+    const loadingWeeklyCard = document.getElementById('loading-weekly-card');
+    const loadingWeeklySummary = document.getElementById('loading-weekly-summary');
+    const loadingWeeklyMetrics = {
+        activities: document.getElementById('loading-weekly-activities'),
+        hours: document.getElementById('loading-weekly-hours'),
+        distance: document.getElementById('loading-weekly-distance'),
+        elevation: document.getElementById('loading-weekly-elevation'),
+        calories: document.getElementById('loading-weekly-calories'),
+        kudos: document.getElementById('loading-weekly-kudos'),
+    };
+    const loadingStepElements = Array.from(document.querySelectorAll('[data-loading-step]'));
+    const loadingStepLookup = new Map();
+    loadingStepElements.forEach((step, index) => {
+        const stepKey = step?.dataset?.loadingStep;
+        if (!stepKey) {
+            return;
+        }
+        loadingStepLookup.set(stepKey, step);
+        step.dataset.loadingIndex = String(index);
+    });
     const errorMessage = document.getElementById('error-message');
     const athleteNameElement = document.getElementById('athlete-name');
     const athleteAvatarElement = document.getElementById('athlete-avatar');
@@ -352,6 +376,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let tooltipHideTimeout = null;
     let spinnerHideTimeout = null;
+    let hasInitializedLoadingProgress = false;
+    let isInitialLoadComplete = false;
+    let hasCompletedInitialRender = false;
     const tooltipElement = document.createElement('div');
     tooltipElement.id = 'dashboard-tooltip';
     tooltipElement.className = 'tooltip-bubble hidden';
@@ -1882,6 +1909,200 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    const refreshLoadingProgressBar = () => {
+        if (!loadingProgressBarFill || loadingStepElements.length === 0) {
+            return;
+        }
+
+        const totalSteps = loadingStepElements.length;
+        let completedCount = 0;
+        let activeIndex = -1;
+
+        loadingStepElements.forEach((step, index) => {
+            const state = step.dataset.loadingState;
+            if (state === 'complete') {
+                completedCount += 1;
+            } else if (state === 'active') {
+                activeIndex = index;
+            }
+        });
+
+        const rawProgress = completedCount + (activeIndex >= 0 ? 0.5 : 0);
+        const percentage = Math.max(4, Math.min(100, (rawProgress / totalSteps) * 100));
+        loadingProgressBarFill.style.width = `${percentage}%`;
+        if (loadingProgressBar) {
+            loadingProgressBar.setAttribute('aria-valuenow', String(Math.round(percentage)));
+        }
+    };
+
+    const setLoadingStepState = (stepId, state, detailText) => {
+        if (!stepId || !loadingStepLookup.has(stepId)) {
+            return;
+        }
+
+        const normalizedState = state === 'active' || state === 'complete' ? state : 'pending';
+        const stepElement = loadingStepLookup.get(stepId);
+        if (!stepElement) {
+            return;
+        }
+
+        const previousState = stepElement.dataset.loadingState || 'pending';
+        if (previousState === normalizedState && detailText === undefined) {
+            refreshLoadingProgressBar();
+            return;
+        }
+
+        stepElement.dataset.loadingState = normalizedState;
+        stepElement.classList.remove('is-active', 'is-complete');
+        if (normalizedState === 'active') {
+            stepElement.classList.add('is-active');
+        } else if (normalizedState === 'complete') {
+            stepElement.classList.add('is-complete');
+        }
+
+        const detailElement = stepElement.querySelector('[data-loading-step-detail]');
+        if (detailElement) {
+            const detailValue = detailText ?? stepElement.dataset.loadingDetail ?? detailElement.textContent;
+            if (detailValue) {
+                detailElement.textContent = detailValue;
+            }
+        }
+
+        if (normalizedState === 'active') {
+            const title = stepElement.dataset.loadingTitle
+                || stepElement.querySelector('.loading-step__title')?.textContent
+                || '';
+            const detail = detailText
+                ?? stepElement.dataset.loadingDetail
+                ?? detailElement?.textContent
+                ?? '';
+            if (loadingStatusLabel && title) {
+                loadingStatusLabel.textContent = title;
+            }
+            if (loadingStatusDetail && detail) {
+                loadingStatusDetail.textContent = detail;
+            }
+        }
+
+        refreshLoadingProgressBar();
+    };
+
+    const initializeLoadingProgress = () => {
+        if (hasInitializedLoadingProgress || loadingStepElements.length === 0) {
+            return;
+        }
+
+        loadingStepElements.forEach(step => {
+            step.dataset.loadingState = 'pending';
+            step.classList.remove('is-active', 'is-complete');
+            const detailElement = step.querySelector('[data-loading-step-detail]');
+            if (detailElement && !detailElement.textContent.trim() && step.dataset.loadingDetail) {
+                detailElement.textContent = step.dataset.loadingDetail;
+            }
+        });
+
+        hasInitializedLoadingProgress = true;
+        const firstStep = loadingStepElements[0];
+        if (firstStep?.dataset?.loadingStep) {
+            setLoadingStepState(firstStep.dataset.loadingStep, 'active');
+        } else {
+            refreshLoadingProgressBar();
+        }
+    };
+
+    const updateInitialLoadingState = (stepId, state, detailText) => {
+        if (isInitialLoadComplete || !stepId) {
+            return;
+        }
+        setLoadingStepState(stepId, state, detailText);
+    };
+
+    const completeInitialLoading = (detailText) => {
+        if (isInitialLoadComplete) {
+            return;
+        }
+        setLoadingStepState('finalize', 'complete', detailText);
+        if (loadingStatusLabel) {
+            loadingStatusLabel.textContent = 'Dashboard ready';
+        }
+        if (loadingStatusDetail) {
+            loadingStatusDetail.textContent = detailText || 'Your insights are fresh and ready to explore.';
+        }
+        isInitialLoadComplete = true;
+    };
+
+    const formatWeeklyMetric = (value, { decimals = 0, suffix = '' } = {}) => {
+        if (!Number.isFinite(value) || value <= 0) {
+            return '—';
+        }
+        const options = { minimumFractionDigits: decimals, maximumFractionDigits: decimals };
+        const formatted = value.toLocaleString(undefined, options);
+        return suffix ? `${formatted} ${suffix}` : formatted;
+    };
+
+    const updateLoadingWeeklyOverview = (activities = []) => {
+        if (!Array.isArray(activities) || !loadingWeeklySummary) {
+            return;
+        }
+
+        const now = new Date();
+        const windowStart = new Date(now);
+        windowStart.setHours(0, 0, 0, 0);
+        windowStart.setDate(windowStart.getDate() - 6);
+
+        const weeklyStats = activities.reduce((acc, activity) => {
+            const rawDate = activity?.start_date_local || activity?.start_date;
+            if (!rawDate) {
+                return acc;
+            }
+            const activityDate = new Date(rawDate);
+            if (Number.isNaN(activityDate.getTime())) {
+                return acc;
+            }
+            if (activityDate < windowStart || activityDate > now) {
+                return acc;
+            }
+
+            acc.activities += 1;
+            const movingTimeSeconds = Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
+            acc.hours += movingTimeSeconds / 3600;
+            const distanceMeters = Number.isFinite(activity.distance) ? activity.distance : 0;
+            acc.distance += distanceMeters;
+            const elevationGain = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+            acc.elevation += elevationGain;
+            acc.calories += calculateActivityCalories(activity);
+            acc.kudos += getActivityLikesCount(activity);
+            return acc;
+        }, { activities: 0, hours: 0, distance: 0, elevation: 0, calories: 0, kudos: 0 });
+
+        const summaryText = weeklyStats.activities > 0
+            ? `You logged ${weeklyStats.activities.toLocaleString()} activit${weeklyStats.activities === 1 ? 'y' : 'ies'} in the last 7 days.`
+            : 'No activities logged in the last 7 days — your next session will show up here.';
+        loadingWeeklySummary.textContent = summaryText;
+
+        const setMetric = (key, value) => {
+            const element = loadingWeeklyMetrics[key];
+            if (element) {
+                element.textContent = value;
+            }
+        };
+
+        setMetric('activities', weeklyStats.activities > 0 ? weeklyStats.activities.toLocaleString() : '—');
+        setMetric('hours', formatWeeklyMetric(weeklyStats.hours, { decimals: 1, suffix: 'h' }));
+        setMetric('distance', formatWeeklyMetric(weeklyStats.distance / 1000, { decimals: 1, suffix: 'km' }));
+        setMetric('elevation', formatWeeklyMetric(Math.round(weeklyStats.elevation), { suffix: 'm' }));
+        setMetric('calories', formatWeeklyMetric(Math.round(weeklyStats.calories), { suffix: 'kcal' }));
+        setMetric('kudos', weeklyStats.kudos > 0 ? weeklyStats.kudos.toLocaleString() : '—');
+
+        if (loadingWeeklyCard) {
+            if (weeklyStats.activities > 0) {
+                loadingWeeklyCard.classList.add('is-ready');
+            } else {
+                loadingWeeklyCard.classList.remove('is-ready');
+            }
+        }
+    };
+
     // Function to fade out the spinner
     const fadeOutSpinner = () => {
         if (loadingSpinner) {
@@ -1930,6 +2151,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             void loadingSpinner.offsetWidth;
             loadingSpinner.classList.add('opacity-100');
             loadingSpinner.setAttribute('aria-hidden', 'false');
+            if (!hasInitializedLoadingProgress) {
+                initializeLoadingProgress();
+            }
         }
     };
 
@@ -2462,29 +2686,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    // Function to animate coin counts
-    const animateCount = (elementId, start, end, duration) => {
-        const element = document.getElementById(elementId);
-        if (!element) {
-            console.warn(`Element with ID '${elementId}' not found.`);
-            return;
-        }
-        let current = start;
-        const range = end - start;
-        if (range === 0) {
-            element.textContent = end;
-            return;
-        }
-        const stepTime = Math.abs(Math.floor(duration / range));
-        const timer = setInterval(() => {
-            current += range > 0 ? 1 : -1;
-            element.textContent = current;
-            if (current === end) {
-                clearInterval(timer);
-            }
-        }, stepTime);
-    };
-
     const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }, medalBreakdown = []) => {
         const totals = computeWalletCoinTotals(achievementCategories);
         const elementMap = {
@@ -2502,10 +2703,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             const targetValue = totals[emoji] || 0;
             const currentValue = Number.parseInt(element.textContent, 10) || 0;
-            if (currentValue === targetValue) {
+            if (currentValue !== targetValue) {
                 element.textContent = targetValue;
-            } else {
-                animateCount(elementId, currentValue, targetValue, 600);
             }
             const parentButton = element.closest('button[data-coin-type]');
             if (parentButton) {
@@ -4515,6 +4714,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         hasAttemptedStoredSnapshot = true;
+        updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
+        updateInitialLoadingState('snapshot', 'active', 'Checking for your latest saved snapshot');
 
         try {
             const storedData = await fetchAndValidateJson(
@@ -4529,16 +4730,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!storedData) {
                 hasAttemptedStoredSnapshot = false;
+                updateInitialLoadingState('snapshot', 'complete', 'No saved snapshot found — fetching live data next');
                 return false;
             }
 
             ingestResponseData(storedData, { isLoadMore: false });
             applyFilters({ preserveVisibleCount: false });
             console.log('Loaded stored snapshot from Google Sheets.');
+            updateInitialLoadingState('snapshot', 'complete', 'Synced your latest saved snapshot');
             return true;
         } catch (error) {
             hasAttemptedStoredSnapshot = false;
             console.info('No stored snapshot available yet:', error.message || error);
+            updateInitialLoadingState('snapshot', 'complete', 'No saved snapshot available — moving to live sync');
             return false;
         }
     };
@@ -4547,6 +4751,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!isSharedView || !sharedUserId) {
             return false;
         }
+
+        updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
+        updateInitialLoadingState('fetch', 'active', 'Fetching shared highlight');
 
         try {
             const data = await fetchAndValidateJson(
@@ -4564,6 +4771,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     errorMessage.classList.remove('hidden');
                     errorMessage.textContent = 'No shared dashboard is available for this athlete yet. Check back soon!';
                 }
+                updateInitialLoadingState('fetch', 'complete', 'No shared snapshot is available just yet.');
                 return false;
             }
 
@@ -4571,6 +4779,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             hasMoreActivities = false;
             nextActivitiesPageStart = null;
             applyFilters({ preserveVisibleCount: false });
+            updateInitialLoadingState('fetch', 'complete', 'Shared snapshot synced');
+            updateInitialLoadingState('finalize', 'active', 'Polishing the shared experience');
 
             if (errorMessage) {
                 errorMessage.classList.add('hidden');
@@ -4584,6 +4794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 errorMessage.classList.remove('hidden');
                 errorMessage.textContent = 'Unable to load the shared dashboard right now. Please try again later.';
             }
+            updateInitialLoadingState('fetch', 'complete', 'We could not reach the shared snapshot. Please try again later.');
             return false;
         } finally {
             fadeOutSpinner();
@@ -4620,6 +4831,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 params.set('refresh', 'true');
             }
 
+            updateInitialLoadingState('fetch', 'active', 'Syncing the freshest Strava data…');
             const data = await fetchAndValidateJson(
                 () => fetch(`/api/strava-data?${params.toString()}`, { cache: 'no-store' }),
                 {
@@ -4631,6 +4843,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             ingestResponseData(data, { isLoadMore });
             applyFilters({ preserveVisibleCount: isLoadMore });
+            updateInitialLoadingState('fetch', 'complete', 'Live Strava data synced');
+            updateInitialLoadingState('finalize', 'active', 'Curating achievements and leaderboards');
             if (errorMessage) {
                 errorMessage.classList.add('hidden');
                 errorMessage.textContent = '';
@@ -4644,6 +4858,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : 'Error fetching Strava data. Please try again later.';
                 errorMessage.textContent = friendlyMessage;
             }
+            updateInitialLoadingState('fetch', 'complete', 'We hit a snag reaching Strava — give it another try in a moment.');
         } finally {
             isFetchingActivities = false;
             // Fade out the spinner after all operations are complete
@@ -4671,6 +4886,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const segments = Array.isArray(data.segments) ? data.segments : [];
         const hasActivities = activities.length > 0;
         const totals = calculateTotals(activities);
+        updateLoadingWeeklyOverview(activities);
         const totalHours = totals.hours;
 
         const aggregatedSmallStats = activities.reduce((acc, activity) => {
@@ -5511,6 +5727,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateShareCard(buildShareSummary(), { reveal: false });
 
         renderActivitiesList();
+
+        const finalizeStep = loadingStepLookup.get('finalize');
+        const finalizeState = finalizeStep?.dataset?.loadingState || null;
+        if (!hasCompletedInitialRender && finalizeState && finalizeState !== 'pending') {
+            hasCompletedInitialRender = true;
+            completeInitialLoading('Dashboard ready — enjoy exploring your progress.');
+        }
     };
 
     function applyFilters(options = {}) {

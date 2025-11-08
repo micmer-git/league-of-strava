@@ -86,6 +86,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     });
+    const DASHBOARD_CACHE_STORAGE_KEY = 'los:dashboard-cache:v1';
+    const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 
     // === DOM Elements ===
     const bodyElement = document.body;
@@ -104,6 +106,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         elevation: document.getElementById('loading-weekly-elevation'),
         calories: document.getElementById('loading-weekly-calories'),
         kudos: document.getElementById('loading-weekly-kudos'),
+    };
+    const weeklySnapshotModal = document.getElementById('weekly-snapshot-modal');
+    const weeklySnapshotCloseButton = document.getElementById('weekly-snapshot-close');
+    const weeklySnapshotElements = {
+        title: document.getElementById('weekly-snapshot-title'),
+        range: document.getElementById('weekly-snapshot-range'),
+        summary: document.getElementById('weekly-snapshot-summary'),
+        activities: document.getElementById('weekly-snapshot-activities'),
+        hours: document.getElementById('weekly-snapshot-hours'),
+        distance: document.getElementById('weekly-snapshot-distance'),
+        elevation: document.getElementById('weekly-snapshot-elevation'),
+        calories: document.getElementById('weekly-snapshot-calories'),
+        kudos: document.getElementById('weekly-snapshot-kudos'),
+        coinsCount: document.getElementById('weekly-snapshot-coins-count'),
+        coinsValue: document.getElementById('weekly-snapshot-coins-value'),
+        coinsBreakdown: document.getElementById('weekly-snapshot-coins-breakdown'),
+        coinsEmpty: document.getElementById('weekly-snapshot-coins-empty'),
+        medalsCount: document.getElementById('weekly-snapshot-medals-count'),
+        medalsValue: document.getElementById('weekly-snapshot-medals-value'),
+        medalsBreakdown: document.getElementById('weekly-snapshot-medals-breakdown'),
+        medalsEmpty: document.getElementById('weekly-snapshot-medals-empty'),
+        totalValue: document.getElementById('weekly-snapshot-total-value'),
+        totalDetail: document.getElementById('weekly-snapshot-total-detail'),
     };
     const loadingStepElements = Array.from(document.querySelectorAll('[data-loading-step]'));
     const loadingStepLookup = new Map();
@@ -670,6 +695,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
     let hasAttemptedStoredSnapshot = false;
+    let weeklySnapshotData = null;
+    let weeklySnapshotModalQueued = false;
+    let weeklySnapshotPreviouslyFocusedElement = null;
+    let hasShownWeeklySnapshot = false;
+    let hasHydratedFromClientCache = false;
 
     const DEFAULT_COUNTRY_LABEL = 'Unknown location';
     const DEFAULT_ACTIVITY_FILTERS = {
@@ -2340,6 +2370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadingStatusDetail.textContent = detailText || 'Your insights are fresh and ready to explore.';
         }
         isInitialLoadComplete = true;
+        queueWeeklySnapshotModal();
     };
 
     const formatWeeklyMetric = (value, { decimals = 0, suffix = '' } = {}) => {
@@ -2351,15 +2382,239 @@ document.addEventListener('DOMContentLoaded', async () => {
         return suffix ? `${formatted} ${suffix}` : formatted;
     };
 
+    const formatWeeklySnapshotRange = (startDate, endDate) => {
+        const hasValidStart = startDate instanceof Date && !Number.isNaN(startDate.getTime());
+        const hasValidEnd = endDate instanceof Date && !Number.isNaN(endDate.getTime());
+
+        if (!hasValidStart && !hasValidEnd) {
+            return 'Last 7 days';
+        }
+
+        const start = hasValidStart ? startDate : endDate;
+        const end = hasValidEnd ? endDate : start;
+
+        if (!start || !end) {
+            return 'Last 7 days';
+        }
+
+        const sameDay = start.toDateString() === end.toDateString();
+        const sameYear = start.getFullYear() === end.getFullYear();
+        const sameMonth = sameYear && start.getMonth() === end.getMonth();
+        const includeYear = !sameYear || start.getFullYear() !== new Date().getFullYear();
+
+        const startOptions = { month: 'short', day: 'numeric' };
+        const endOptions = { month: 'short', day: 'numeric' };
+
+        if (includeYear) {
+            startOptions.year = 'numeric';
+            endOptions.year = 'numeric';
+        } else if (!sameMonth && !sameDay) {
+            endOptions.month = 'short';
+        }
+
+        const startLabel = start.toLocaleDateString(undefined, startOptions);
+        if (sameDay) {
+            return startLabel;
+        }
+
+        const endLabel = end.toLocaleDateString(undefined, endOptions);
+        return `${startLabel} – ${endLabel}`;
+    };
+
+    const updateWeeklySnapshotModalContent = (snapshot) => {
+        if (!snapshot || !weeklySnapshotElements) {
+            return;
+        }
+
+        if (weeklySnapshotElements.summary) {
+            weeklySnapshotElements.summary.textContent = snapshot.summaryText
+                || 'Your latest efforts are ready to review.';
+        }
+        if (weeklySnapshotElements.range) {
+            weeklySnapshotElements.range.textContent = formatWeeklySnapshotRange(snapshot.windowStart, snapshot.windowEnd);
+        }
+
+        const formatCount = (value) => Number.isFinite(value) && value > 0
+            ? value.toLocaleString()
+            : '0';
+
+        if (weeklySnapshotElements.activities) {
+            weeklySnapshotElements.activities.textContent = formatCount(snapshot.activities);
+        }
+        if (weeklySnapshotElements.hours) {
+            weeklySnapshotElements.hours.textContent = formatWeeklyMetric(snapshot.hours, { decimals: 1, suffix: 'h' });
+        }
+        if (weeklySnapshotElements.distance) {
+            weeklySnapshotElements.distance.textContent = formatWeeklyMetric(snapshot.distance / 1000, { decimals: 1, suffix: 'km' });
+        }
+        if (weeklySnapshotElements.elevation) {
+            weeklySnapshotElements.elevation.textContent = formatWeeklyMetric(Math.round(snapshot.elevation), { suffix: 'm' });
+        }
+        if (weeklySnapshotElements.calories) {
+            weeklySnapshotElements.calories.textContent = formatWeeklyMetric(Math.round(snapshot.calories), { suffix: 'kcal' });
+        }
+        if (weeklySnapshotElements.kudos) {
+            weeklySnapshotElements.kudos.textContent = formatCount(snapshot.kudos);
+        }
+
+        if (weeklySnapshotElements.coinsCount) {
+            weeklySnapshotElements.coinsCount.textContent = formatCount(snapshot.coinsTotal);
+        }
+        if (weeklySnapshotElements.coinsValue) {
+            weeklySnapshotElements.coinsValue.textContent = usdCodeFormatter.format(snapshot.coinValue || 0);
+        }
+        if (weeklySnapshotElements.totalValue) {
+            weeklySnapshotElements.totalValue.textContent = usdCodeFormatter.format(snapshot.totalValue || 0);
+        }
+        if (weeklySnapshotElements.totalDetail) {
+            weeklySnapshotElements.totalDetail.textContent = snapshot.totalValue > 0
+                ? `Coins ${usdCodeFormatter.format(snapshot.coinValue || 0)} + medals ${usdCodeFormatter.format(snapshot.medalValue || 0)}`
+                : 'No new rewards minted in the last 7 days.';
+        }
+
+        const coinEntries = Object.entries(snapshot.coinBreakdown || {})
+            .filter(([, count]) => Number.isFinite(count) && count > 0);
+
+        if (weeklySnapshotElements.coinsBreakdown) {
+            weeklySnapshotElements.coinsBreakdown.innerHTML = '';
+            if (coinEntries.length > 0) {
+                weeklySnapshotElements.coinsBreakdown.classList.remove('hidden');
+                coinEntries.forEach(([emoji, count]) => {
+                    const item = document.createElement('li');
+                    item.className = 'weekly-snapshot__breakdown-item';
+                    const coinValue = count * (COIN_VALUE_MAP[emoji] || 0);
+                    item.textContent = `${emoji} × ${count.toLocaleString()} = ${usdCodeFormatter.format(coinValue)}`;
+                    weeklySnapshotElements.coinsBreakdown.appendChild(item);
+                });
+            } else {
+                weeklySnapshotElements.coinsBreakdown.classList.add('hidden');
+            }
+        }
+        if (weeklySnapshotElements.coinsEmpty) {
+            if (coinEntries.length > 0) {
+                weeklySnapshotElements.coinsEmpty.classList.add('hidden');
+            } else {
+                weeklySnapshotElements.coinsEmpty.classList.remove('hidden');
+            }
+        }
+
+        const medalCounts = new Map();
+        (snapshot.medalDetails || []).forEach((medal) => {
+            if (!medal) {
+                return;
+            }
+            const key = medal.name || medal.emoji || 'Medal';
+            const existing = medalCounts.get(key) || { count: 0, emoji: medal.emoji || '🏅' };
+            existing.count += 1;
+            medalCounts.set(key, existing);
+        });
+
+        const medalEntries = Array.from(medalCounts.entries())
+            .sort((a, b) => b[1].count - a[1].count)
+            .slice(0, 4);
+
+        if (weeklySnapshotElements.medalsBreakdown) {
+            weeklySnapshotElements.medalsBreakdown.innerHTML = '';
+            if (medalEntries.length > 0) {
+                weeklySnapshotElements.medalsBreakdown.classList.remove('hidden');
+                medalEntries.forEach(([name, info]) => {
+                    const item = document.createElement('li');
+                    item.className = 'weekly-snapshot__breakdown-item';
+                    item.textContent = `${info.emoji || '🏅'} ${name} × ${info.count.toLocaleString()}`;
+                    weeklySnapshotElements.medalsBreakdown.appendChild(item);
+                });
+            } else {
+                weeklySnapshotElements.medalsBreakdown.classList.add('hidden');
+            }
+        }
+        if (weeklySnapshotElements.medalsEmpty) {
+            if (medalEntries.length > 0) {
+                weeklySnapshotElements.medalsEmpty.classList.add('hidden');
+            } else {
+                weeklySnapshotElements.medalsEmpty.classList.remove('hidden');
+            }
+        }
+        if (weeklySnapshotElements.medalsCount) {
+            weeklySnapshotElements.medalsCount.textContent = formatCount(snapshot.medalCount);
+        }
+        if (weeklySnapshotElements.medalsValue) {
+            weeklySnapshotElements.medalsValue.textContent = usdCodeFormatter.format(snapshot.medalValue || 0);
+        }
+    };
+
+    const hideWeeklySnapshotModal = () => {
+        if (!weeklySnapshotModal || weeklySnapshotModal.classList.contains('hidden')) {
+            return;
+        }
+        weeklySnapshotModal.classList.remove('weekly-snapshot--visible');
+        const finalizeHide = () => {
+            weeklySnapshotModal.classList.add('hidden');
+            weeklySnapshotModal.setAttribute('aria-hidden', 'true');
+            weeklySnapshotModal.removeEventListener('transitionend', finalizeHide);
+            if (weeklySnapshotPreviouslyFocusedElement && typeof weeklySnapshotPreviouslyFocusedElement.focus === 'function') {
+                try {
+                    weeklySnapshotPreviouslyFocusedElement.focus({ preventScroll: true });
+                } catch (focusError) {
+                    console.warn('Unable to restore focus after closing weekly snapshot:', focusError);
+                }
+            }
+            weeklySnapshotPreviouslyFocusedElement = null;
+        };
+        weeklySnapshotModal.addEventListener('transitionend', finalizeHide, { once: true });
+        window.setTimeout(finalizeHide, 260);
+    };
+
+    const showWeeklySnapshotModal = () => {
+        if (!weeklySnapshotModalQueued || hasShownWeeklySnapshot || !weeklySnapshotModal || !weeklySnapshotData) {
+            return;
+        }
+        if (loadingSpinner && !loadingSpinner.classList.contains('hidden') && !loadingSpinner.classList.contains('opacity-0')) {
+            return;
+        }
+
+        updateWeeklySnapshotModalContent(weeklySnapshotData);
+
+        weeklySnapshotPreviouslyFocusedElement = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+
+        weeklySnapshotModal.classList.remove('hidden');
+        weeklySnapshotModal.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => {
+            weeklySnapshotModal.classList.add('weekly-snapshot--visible');
+        });
+        if (weeklySnapshotCloseButton) {
+            weeklySnapshotCloseButton.focus({ preventScroll: true });
+        }
+        hasShownWeeklySnapshot = true;
+        weeklySnapshotModalQueued = false;
+    };
+
+    const queueWeeklySnapshotModal = () => {
+        if (isSharedView || hasShownWeeklySnapshot) {
+            return;
+        }
+        weeklySnapshotModalQueued = true;
+        if (weeklySnapshotData && (!loadingSpinner || loadingSpinner.classList.contains('hidden') || loadingSpinner.classList.contains('opacity-0'))) {
+            showWeeklySnapshotModal();
+        }
+    };
+
     const updateLoadingWeeklyOverview = (activities = []) => {
         if (!Array.isArray(activities) || !loadingWeeklySummary) {
-            return;
+            weeklySnapshotData = null;
+            return null;
         }
 
         const now = new Date();
         const windowStart = new Date(now);
         windowStart.setHours(0, 0, 0, 0);
         windowStart.setDate(windowStart.getDate() - 6);
+
+        const initialCoinCounts = COIN_EMOJIS.reduce((counts, emoji) => {
+            counts[emoji] = 0;
+            return counts;
+        }, {});
 
         const weeklyStats = activities.reduce((acc, activity) => {
             const rawDate = activity?.start_date_local || activity?.start_date;
@@ -2383,8 +2638,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             acc.elevation += elevationGain;
             acc.calories += calculateActivityCalories(activity);
             acc.kudos += getActivityLikesCount(activity);
+
+            const coins = getActivityCoinRewards(activity);
+            if (Array.isArray(coins) && coins.length) {
+                coins.forEach((emoji) => {
+                    if (emoji in acc.coinCounts) {
+                        acc.coinCounts[emoji] += 1;
+                    } else {
+                        acc.coinCounts[emoji] = 1;
+                    }
+                    acc.coinsTotal += 1;
+                    acc.coinValue += COIN_VALUE_MAP[emoji] || 0;
+                });
+            }
+
+            const medals = getActivityMedals(activity);
+            if (Array.isArray(medals) && medals.length) {
+                acc.medalCount += medals.length;
+                acc.medalDetails.push(...medals);
+            }
+
+            const activityTime = activityDate.getTime();
+            if (acc.windowStartTimestamp === null || activityTime < acc.windowStartTimestamp) {
+                acc.windowStartTimestamp = activityTime;
+            }
+            if (acc.windowEndTimestamp === null || activityTime > acc.windowEndTimestamp) {
+                acc.windowEndTimestamp = activityTime;
+            }
+
             return acc;
-        }, { activities: 0, hours: 0, distance: 0, elevation: 0, calories: 0, kudos: 0 });
+        }, {
+            activities: 0,
+            hours: 0,
+            distance: 0,
+            elevation: 0,
+            calories: 0,
+            kudos: 0,
+            coinsTotal: 0,
+            coinValue: 0,
+            coinCounts: initialCoinCounts,
+            medalCount: 0,
+            medalDetails: [],
+            windowStartTimestamp: null,
+            windowEndTimestamp: null,
+        });
 
         const summaryText = weeklyStats.activities > 0
             ? `You logged ${weeklyStats.activities.toLocaleString()} activit${weeklyStats.activities === 1 ? 'y' : 'ies'} in the last 7 days.`
@@ -2405,6 +2702,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         setMetric('calories', formatWeeklyMetric(Math.round(weeklyStats.calories), { suffix: 'kcal' }));
         setMetric('kudos', weeklyStats.kudos > 0 ? weeklyStats.kudos.toLocaleString() : '—');
 
+        const medalValue = weeklyStats.medalCount * MEDAL_DOLLAR_VALUE;
+        const totalValue = weeklyStats.coinValue + medalValue;
+
+        weeklySnapshotData = {
+            activities: weeklyStats.activities,
+            hours: weeklyStats.hours,
+            distance: weeklyStats.distance,
+            elevation: weeklyStats.elevation,
+            calories: weeklyStats.calories,
+            kudos: weeklyStats.kudos,
+            coinsTotal: weeklyStats.coinsTotal,
+            coinValue: weeklyStats.coinValue,
+            coinBreakdown: { ...weeklyStats.coinCounts },
+            medalCount: weeklyStats.medalCount,
+            medalValue,
+            medalDetails: weeklyStats.medalDetails,
+            totalValue,
+            windowStart: weeklyStats.windowStartTimestamp ? new Date(weeklyStats.windowStartTimestamp) : windowStart,
+            windowEnd: weeklyStats.windowEndTimestamp ? new Date(weeklyStats.windowEndTimestamp) : now,
+            summaryText,
+        };
+
         if (loadingWeeklyCard) {
             if (weeklyStats.activities > 0) {
                 loadingWeeklyCard.classList.add('is-ready');
@@ -2412,6 +2731,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loadingWeeklyCard.classList.remove('is-ready');
             }
         }
+
+        if (weeklySnapshotModalQueued && (!loadingSpinner || loadingSpinner.classList.contains('hidden') || loadingSpinner.classList.contains('opacity-0'))) {
+            showWeeklySnapshotModal();
+        }
+
+        return weeklySnapshotData;
     };
 
     // Function to fade out the spinner
@@ -2436,6 +2761,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loadingSpinner.classList.remove('opacity-100');
                 loadingSpinner.setAttribute('aria-hidden', 'true');
                 loadingSpinner.removeEventListener('transitionend', finalizeHide);
+                if (weeklySnapshotModalQueued) {
+                    showWeeklySnapshotModal();
+                }
             };
 
             loadingSpinner.addEventListener('transitionend', finalizeHide, { once: true });
@@ -2465,6 +2793,83 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!hasInitializedLoadingProgress) {
                 initializeLoadingProgress();
             }
+        }
+    };
+
+    const readDashboardCache = () => {
+        if (isSharedView) {
+            return null;
+        }
+
+        try {
+            const raw = sessionStorage.getItem(DASHBOARD_CACHE_STORAGE_KEY);
+            if (!raw) {
+                return null;
+            }
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') {
+                return null;
+            }
+            const { timestamp, data } = parsed;
+            if (!timestamp || !data) {
+                return null;
+            }
+            if ((Date.now() - Number(timestamp)) > DASHBOARD_CACHE_TTL_MS) {
+                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
+                return null;
+            }
+            return data;
+        } catch (error) {
+            console.warn('Unable to read dashboard cache:', error);
+            return null;
+        }
+    };
+
+    const writeDashboardCache = (payload) => {
+        if (isSharedView || !payload) {
+            return;
+        }
+
+        try {
+            sessionStorage.setItem(DASHBOARD_CACHE_STORAGE_KEY, JSON.stringify({
+                timestamp: Date.now(),
+                data: payload,
+            }));
+        } catch (error) {
+            console.warn('Unable to cache dashboard payload:', error);
+        }
+    };
+
+    const clearDashboardCache = () => {
+        try {
+            sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
+        } catch (error) {
+            console.warn('Unable to clear dashboard cache:', error);
+        }
+    };
+
+    const hydrateFromClientCache = () => {
+        if (hasHydratedFromClientCache || isSharedView) {
+            return false;
+        }
+
+        const cachedPayload = readDashboardCache();
+        if (!cachedPayload) {
+            return false;
+        }
+
+        try {
+            ingestResponseData(cachedPayload, { isLoadMore: false });
+            applyFilters({ preserveVisibleCount: false });
+            updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
+            updateInitialLoadingState('snapshot', 'complete', 'Loaded cached dashboard snapshot');
+            hasHydratedFromClientCache = true;
+            hasAttemptedStoredSnapshot = true;
+            return true;
+        } catch (error) {
+            console.warn('Failed to hydrate cached dashboard data:', error);
+            clearDashboardCache();
+            return false;
         }
     };
 
@@ -4933,6 +5338,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn("'close-spinner' element not found in the DOM.");
     }
 
+    if (weeklySnapshotCloseButton) {
+        weeklySnapshotCloseButton.addEventListener('click', () => {
+            hideWeeklySnapshotModal();
+        });
+    }
+    if (weeklySnapshotModal) {
+        weeklySnapshotModal.addEventListener('click', (event) => {
+            if (event.target === weeklySnapshotModal) {
+                hideWeeklySnapshotModal();
+            }
+        });
+    }
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
+            hideWeeklySnapshotModal();
+        }
+    });
+
     const ingestResponseData = (data, { isLoadMore = false } = {}) => {
         if (!data || !data.athlete || !data.activities || !data.totals) {
             throw new Error('Incomplete data received from API.');
@@ -4986,6 +5409,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             elevation: aggregatedTotals.elevation,
             calories: aggregatedTotals.calories
         };
+
+        writeDashboardCache(allData);
 
         hasMoreActivities = Boolean(
             allData.pageInfo?.hasMore ??
@@ -6444,6 +6869,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isSharedView) {
         await loadSharedSnapshot();
     } else {
+        hydrateFromClientCache();
         fetchData();
     }
 });

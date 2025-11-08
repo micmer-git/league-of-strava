@@ -66,6 +66,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow-y: auto;
+            scrollbar-gutter: stable both-edges;
             z-index: 1000;
         }
 
@@ -73,9 +75,17 @@
             background: rgba(15, 23, 42, 0.85);
         }
 
+        @media (max-width: 640px) {
+            #loading-spinner {
+                align-items: flex-start;
+            }
+        }
+
         .loading-dialog {
             position: relative;
             width: min(640px, 100%);
+            max-height: calc(var(--app-viewport-height) - clamp(2.5rem, 12vh, 6rem));
+            margin-inline: auto;
             border-radius: 28px;
             padding: clamp(1.75rem, 4vw, 2.75rem);
             background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(229, 240, 255, 0.9));
@@ -84,6 +94,8 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            overflow-y: auto;
+            scrollbar-gutter: stable;
         }
 
         .dark .loading-dialog {
@@ -131,6 +143,14 @@
         .dark #close-spinner:focus-visible {
             background: rgba(59, 130, 246, 0.28);
             color: #bfdbfe;
+        }
+
+        @media (max-width: 640px) {
+            .loading-dialog {
+                border-radius: 24px;
+                padding: clamp(1.35rem, 5vw, 2rem);
+                max-height: calc(var(--app-viewport-height) - clamp(2rem, 18vh, 4.5rem));
+            }
         }
 
         .loading-header {
@@ -498,6 +518,275 @@
             transform: translate(-50%, -50%);
             transition: opacity 0.15s ease-in-out;
         }
+
+        .weekly-snapshot {
+            position: fixed;
+            inset: 0;
+            padding: calc(var(--app-safe-area-top) + clamp(1.25rem, 6vh, 3rem)) clamp(1rem, 6vw, 2.75rem) calc(var(--app-safe-area-bottom) + clamp(1.5rem, 8vh, 3.5rem));
+            background: rgba(15, 23, 42, 0.55);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-y: auto;
+            scrollbar-gutter: stable both-edges;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 220ms ease-in-out;
+            z-index: 950;
+        }
+
+        .weekly-snapshot--visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .weekly-snapshot__dialog {
+            position: relative;
+            width: min(680px, 100%);
+            margin: auto;
+            margin-top: clamp(1.5rem, 8vh, 4rem);
+            border-radius: 28px;
+            padding: clamp(1.75rem, 4vw, 2.75rem);
+            background: linear-gradient(150deg, rgba(241, 245, 249, 0.95), rgba(226, 232, 240, 0.9));
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 32px 60px rgba(15, 23, 42, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            max-height: calc(var(--app-viewport-height) - clamp(3rem, 18vh, 6rem));
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+        }
+
+        .weekly-snapshot__close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(241, 245, 249, 0.9);
+            color: #334155;
+            font-weight: 600;
+            border-radius: 999px;
+            padding: 0.3rem 0.8rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+
+        .weekly-snapshot__close:hover,
+        .weekly-snapshot__close:focus-visible {
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px rgba(37, 99, 235, 0.2);
+        }
+
+        .weekly-snapshot__header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .weekly-snapshot__title {
+            margin: 0;
+            font-size: clamp(1.35rem, 3vw, 1.75rem);
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .weekly-snapshot__summary {
+            margin: 0;
+            font-size: 1rem;
+            color: #1e3a8a;
+            font-weight: 600;
+        }
+
+        .weekly-snapshot__range {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+
+        .weekly-snapshot__content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .weekly-snapshot__grid,
+        .weekly-snapshot__value-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+        }
+
+        .weekly-snapshot__metric {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            padding: 1rem 1.1rem;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .weekly-snapshot__metric-label {
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .weekly-snapshot__metric-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .weekly-snapshot__value-grid {
+            margin-top: 0.5rem;
+        }
+
+        .weekly-snapshot__value-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            padding: 1.15rem 1.25rem;
+            border-radius: 22px;
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(37, 99, 235, 0.22);
+        }
+
+        .weekly-snapshot__value-card--medals {
+            background: rgba(249, 115, 22, 0.12);
+            border-color: rgba(249, 115, 22, 0.24);
+        }
+
+        .weekly-snapshot__value-card--total {
+            background: rgba(14, 165, 233, 0.12);
+            border-color: rgba(14, 165, 233, 0.26);
+        }
+
+        .weekly-snapshot__value-card h3 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .weekly-snapshot__value {
+            font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .weekly-snapshot__detail {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+
+        .weekly-snapshot__breakdown {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 0.75rem;
+        }
+
+        .weekly-snapshot__breakdown-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+
+        .weekly-snapshot__empty {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .dark .weekly-snapshot__dialog {
+            background: linear-gradient(150deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.95));
+            border-color: rgba(148, 163, 184, 0.3);
+            box-shadow: 0 32px 60px rgba(8, 11, 18, 0.65);
+        }
+
+        .dark .weekly-snapshot__close {
+            background: rgba(30, 41, 59, 0.85);
+            color: #e2e8f0;
+            border-color: rgba(148, 163, 184, 0.4);
+        }
+
+        .dark .weekly-snapshot__close:hover,
+        .dark .weekly-snapshot__close:focus-visible {
+            background: rgba(59, 130, 246, 0.28);
+            color: #bfdbfe;
+        }
+
+        .dark .weekly-snapshot__title {
+            color: #f8fafc;
+        }
+
+        .dark .weekly-snapshot__summary {
+            color: #93c5fd;
+        }
+
+        .dark .weekly-snapshot__range {
+            color: #cbd5f5;
+        }
+
+        .dark .weekly-snapshot__metric {
+            background: rgba(30, 41, 59, 0.75);
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        .dark .weekly-snapshot__metric-label {
+            color: #cbd5f5;
+        }
+
+        .dark .weekly-snapshot__metric-value {
+            color: #f8fafc;
+        }
+
+        .dark .weekly-snapshot__value-card h3,
+        .dark .weekly-snapshot__value,
+        .dark .weekly-snapshot__detail,
+        .dark .weekly-snapshot__breakdown-item {
+            color: #e2e8f0;
+        }
+
+        .dark .weekly-snapshot__empty {
+            color: #cbd5f5;
+        }
+
+        @media (max-width: 640px) {
+            .weekly-snapshot {
+                padding: calc(var(--app-safe-area-top) + clamp(1rem, 5vh, 2rem)) clamp(0.75rem, 5vw, 1.5rem) calc(var(--app-safe-area-bottom) + clamp(1.25rem, 7vh, 2.5rem));
+            }
+
+            .weekly-snapshot__dialog {
+                margin-top: clamp(1rem, 8vw, 2.5rem);
+                border-radius: 24px;
+                padding: clamp(1.25rem, 5vw, 1.85rem);
+                max-height: calc(var(--app-viewport-height) - clamp(2.5rem, 20vh, 4.5rem));
+            }
+
+            .weekly-snapshot__grid,
+            .weekly-snapshot__value-grid {
+                grid-template-columns: repeat(auto-fit, minmax(min(9.5rem, 100%), 1fr));
+            }
+        }
+
+        @media (max-width: 420px) {
+            .weekly-snapshot__grid,
+            .weekly-snapshot__value-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
 
         .tooltip-bubble.visible {
             opacity: 1;
@@ -2439,6 +2728,68 @@
                     </div>
                 </dl>
             </section>
+        </section>
+    </div>
+    <div id="weekly-snapshot-modal" class="weekly-snapshot hidden" aria-hidden="true">
+        <section class="weekly-snapshot__dialog" role="dialog" aria-modal="true" aria-labelledby="weekly-snapshot-title" tabindex="-1">
+            <button type="button" id="weekly-snapshot-close" class="weekly-snapshot__close">
+                <span aria-hidden="true">✕</span>
+                <span class="sr-only">Close weekly snapshot</span>
+            </button>
+            <header class="weekly-snapshot__header">
+                <h2 id="weekly-snapshot-title" class="weekly-snapshot__title">Last 7 days snapshot</h2>
+                <p id="weekly-snapshot-summary" class="weekly-snapshot__summary">Your latest efforts are ready.</p>
+                <p id="weekly-snapshot-range" class="weekly-snapshot__range">—</p>
+            </header>
+            <div class="weekly-snapshot__content">
+                <div class="weekly-snapshot__grid" role="list" aria-label="Weekly activity metrics">
+                    <div class="weekly-snapshot__metric" role="listitem">
+                        <span class="weekly-snapshot__metric-label">Activities</span>
+                        <span id="weekly-snapshot-activities" class="weekly-snapshot__metric-value">—</span>
+                    </div>
+                    <div class="weekly-snapshot__metric" role="listitem">
+                        <span class="weekly-snapshot__metric-label">Hours</span>
+                        <span id="weekly-snapshot-hours" class="weekly-snapshot__metric-value">—</span>
+                    </div>
+                    <div class="weekly-snapshot__metric" role="listitem">
+                        <span class="weekly-snapshot__metric-label">Distance</span>
+                        <span id="weekly-snapshot-distance" class="weekly-snapshot__metric-value">—</span>
+                    </div>
+                    <div class="weekly-snapshot__metric" role="listitem">
+                        <span class="weekly-snapshot__metric-label">Elevation</span>
+                        <span id="weekly-snapshot-elevation" class="weekly-snapshot__metric-value">—</span>
+                    </div>
+                    <div class="weekly-snapshot__metric" role="listitem">
+                        <span class="weekly-snapshot__metric-label">Calories</span>
+                        <span id="weekly-snapshot-calories" class="weekly-snapshot__metric-value">—</span>
+                    </div>
+                    <div class="weekly-snapshot__metric" role="listitem">
+                        <span class="weekly-snapshot__metric-label">Kudos</span>
+                        <span id="weekly-snapshot-kudos" class="weekly-snapshot__metric-value">—</span>
+                    </div>
+                </div>
+                <div class="weekly-snapshot__value-grid" aria-label="Weekly rewards summary">
+                    <article class="weekly-snapshot__value-card" aria-live="polite">
+                        <h3>Coins minted</h3>
+                        <p id="weekly-snapshot-coins-count" class="weekly-snapshot__value">—</p>
+                        <p class="weekly-snapshot__detail">Worth <span id="weekly-snapshot-coins-value">—</span></p>
+                        <ul id="weekly-snapshot-coins-breakdown" class="weekly-snapshot__breakdown" aria-label="Coin breakdown"></ul>
+                        <p id="weekly-snapshot-coins-empty" class="weekly-snapshot__empty">No coins minted in the last 7 days.</p>
+                    </article>
+                    <article class="weekly-snapshot__value-card weekly-snapshot__value-card--medals" aria-live="polite">
+                        <h3>Medals unlocked</h3>
+                        <p id="weekly-snapshot-medals-count" class="weekly-snapshot__value">—</p>
+                        <p class="weekly-snapshot__detail">Worth <span id="weekly-snapshot-medals-value">—</span></p>
+                        <ul id="weekly-snapshot-medals-breakdown" class="weekly-snapshot__breakdown" aria-label="Medal highlights"></ul>
+                        <p id="weekly-snapshot-medals-empty" class="weekly-snapshot__empty">No medals awarded in the last 7 days.</p>
+                    </article>
+                    <article class="weekly-snapshot__value-card weekly-snapshot__value-card--total" aria-live="polite">
+                        <h3>Total haul</h3>
+                        <p id="weekly-snapshot-total-value" class="weekly-snapshot__value">—</p>
+                        <p id="weekly-snapshot-total-detail" class="weekly-snapshot__detail">—</p>
+                    </article>
+                </div>
+            </div>
         </section>
     </div>
 

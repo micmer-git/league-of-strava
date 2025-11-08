@@ -999,7 +999,7 @@
         .profile-card__headline {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.6rem;
             flex: 1;
             min-width: 0;
         }
@@ -1008,7 +1008,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 0.4rem;
+            gap: 0.25rem;
         }
 
         .profile-card__level-stack {
@@ -1094,10 +1094,10 @@
         .profile-card__balance-change {
             font-size: 0.85rem;
             font-weight: 600;
-            color: var(--color-success);
+            color: #c2410c;
             padding: 0.15rem 0.5rem;
             border-radius: 9999px;
-            background: rgba(31, 183, 138, 0.16);
+            background: rgba(251, 146, 60, 0.18);
         }
 
         .profile-card__balance-change--negative {
@@ -1121,44 +1121,40 @@
 
         .profile-card__badges {
             display: flex;
-            flex-direction: row;
-            gap: 0.6rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
             width: 100%;
-            overflow-x: auto;
-            padding-bottom: 0.25rem;
-            scroll-snap-type: x mandatory;
-            scrollbar-width: thin;
-            -webkit-overflow-scrolling: touch;
         }
 
         .profile-card__badge-item {
             display: inline-flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.2rem;
-            min-width: 9.5rem;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.6rem;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+            padding: 0.5rem 0.8rem;
+            border-radius: 9999px;
             background: rgba(15, 23, 42, 0.05);
             color: #0f172a;
             font-size: 0.9rem;
             font-weight: 600;
             scroll-snap-align: start;
+            flex: 1 1 12rem;
+            max-width: 100%;
         }
 
         .profile-card__badge-label {
             flex: 1;
             min-width: 0;
-            margin-right: 0.75rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         .profile-card__badge-count {
-            color: var(--color-success);
-            font-size: 0.85rem;
-            font-weight: 600;
+            color: #f97316;
+            font-size: 0.9rem;
+            font-weight: 700;
+            flex-shrink: 0;
         }
 
         .profile-card__level {
@@ -1190,11 +1186,19 @@
 
         .profile-card__level-stack .profile-card__level {
             font-size: 0.85rem;
-            color: #1d4ed8;
+            color: #0f172a;
         }
 
         .profile-card__coins {
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-top: 0.25rem;
+        }
+
+        .profile-card__coins .profile-metrics__row {
+            gap: 0.4rem;
         }
 
         .profile-card__wallet-totals {
@@ -1206,19 +1210,26 @@
         .wallet-total-pill {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.55rem 0.9rem;
-            border-radius: 0.85rem;
-            background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(6, 182, 212, 0.08));
-            font-weight: 700;
-            color: #0f172a;
+            gap: 0.35rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            background: rgba(250, 204, 21, 0.15);
+            color: #b45309;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             border: none;
             cursor: pointer;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+        }
+
+        .wallet-total-pill[data-panel-target="medals"] {
+            background: rgba(251, 191, 36, 0.18);
+            color: #92400e;
         }
 
         .wallet-total-pill__icon {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
         }
 
         .wallet-total-pill__value {
@@ -1238,7 +1249,11 @@
         .profile-card__progress {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.6rem;
+        }
+
+        .profile-card__progress--inline {
+            margin-top: 0.25rem;
         }
 
         .profile-card__rank {
@@ -1967,11 +1982,16 @@
             }
 
             .profile-card__badge-count {
-                color: #cbd5f5;
+                color: #fb923c;
             }
 
             .profile-card__balance-value {
                 color: #5eead4;
+            }
+
+            .profile-card__balance-change {
+                background: rgba(251, 146, 60, 0.28);
+                color: #fed7aa;
             }
 
             .wallet-control {
@@ -1988,8 +2008,14 @@
             }
 
             .wallet-total-pill {
-                background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(15, 118, 110, 0.18));
-                color: #e2e8f0;
+                background: rgba(250, 204, 21, 0.25);
+                color: #fde68a;
+                box-shadow: 0 8px 20px rgba(15, 23, 42, 0.35);
+            }
+
+            .wallet-total-pill[data-panel-target="medals"] {
+                background: rgba(251, 191, 36, 0.3);
+                color: #fcd34d;
             }
 
             .medal-banner {
@@ -2183,7 +2209,7 @@
         }
 
         .profile-card__level {
-            color: var(--color-text-soft);
+            color: var(--color-text-strong);
         }
 
         .profile-card__balance-value {
@@ -2191,8 +2217,8 @@
         }
 
         .profile-card__balance-change {
-            background: rgba(31, 183, 138, 0.16);
-            color: var(--color-success);
+            background: rgba(251, 146, 60, 0.16);
+            color: #c2410c;
         }
 
         .profile-card__balance-change--negative {
@@ -2210,17 +2236,23 @@
         }
 
         .wallet-total-pill {
-            background: rgba(255, 255, 255, 0.72);
-            border: 1px solid rgba(20, 28, 48, 0.08);
-            box-shadow: -8px -8px 16px rgba(255, 255, 255, 0.6), 8px 8px 16px rgba(17, 24, 39, 0.1);
-            color: var(--color-text-strong);
+            background: rgba(250, 204, 21, 0.18);
+            border: 1px solid rgba(234, 179, 8, 0.25);
+            box-shadow: 0 6px 16px rgba(17, 24, 39, 0.12);
+            color: #b45309;
             transition: transform var(--transition-base), box-shadow var(--transition-base);
+        }
+
+        .wallet-total-pill[data-panel-target="medals"] {
+            background: rgba(251, 191, 36, 0.2);
+            border-color: rgba(217, 119, 6, 0.25);
+            color: #92400e;
         }
 
         .wallet-total-pill:hover,
         .wallet-total-pill:focus-visible {
             transform: translateY(-2px);
-            box-shadow: -10px -10px 20px rgba(255, 255, 255, 0.7), 12px 12px 24px rgba(255, 138, 61, 0.2);
+            box-shadow: 0 10px 24px rgba(17, 24, 39, 0.16);
         }
 
         .profile-card__progress-bar {
@@ -2936,7 +2968,31 @@
                                                 <span id="likes-total" class="font-semibold">0</span>
                                             </button>
                                         </div>
-                                        <div class="profile-metrics__row profile-card__coins" id="coin-summary">
+                                    </div>
+                                    <div class="profile-card__identity">
+                                        <h2 id="athlete-name" class="profile-card__name"></h2>
+                                        <div class="profile-card__level-stack">
+                                            <span id="current-rank" class="profile-card__rank"></span>
+                                            <span id="level-progress" class="profile-card__level"></span>
+                                        </div>
+                                    </div>
+                                    <div class="profile-card__progress profile-card__progress--inline">
+                                        <div class="profile-card__progress-bar">
+                                            <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
+                                            <div class="profile-card__progress-overlay">
+                                                <span id="ranking-progress-label" class="profile-card__progress-label"></span>
+                                                <span id="next-rank" class="profile-card__progress-next"></span>
+                                            </div>
+                                        </div>
+                                        <div id="rank-details" class="profile-card__progress-detail"></div>
+                                    </div>
+                                    <p class="profile-card__balance" data-wallet-balance-container>
+                                        <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
+                                        <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
+                                        <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
+                                    </p>
+                                    <div class="profile-card__coins" id="coin-summary">
+                                        <div class="profile-metrics__row">
                                             <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
                                                 <span id="coin-dollar" class="font-semibold">0</span>
                                                 <span class="text-base leading-none" aria-hidden="true">💲</span>
@@ -2959,18 +3015,6 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div class="profile-card__identity">
-                                        <h2 id="athlete-name" class="profile-card__name"></h2>
-                                        <div class="profile-card__level-stack">
-                                            <span id="current-rank" class="profile-card__rank"></span>
-                                            <span id="level-progress" class="profile-card__level"></span>
-                                        </div>
-                                    </div>
-                                    <p class="profile-card__balance" data-wallet-balance-container>
-                                        <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
-                                        <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
-                                        <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
-                                    </p>
                                 </div>
                             </div>
                             <div class="profile-card__meta">
@@ -2985,16 +3029,6 @@
                                     <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
                                     <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
                                 </button>
-                            </div>
-                            <div class="profile-card__progress">
-                                <div class="profile-card__progress-bar">
-                                    <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
-                                    <div class="profile-card__progress-overlay">
-                                        <span id="ranking-progress-label" class="profile-card__progress-label"></span>
-                                        <span id="next-rank" class="profile-card__progress-next"></span>
-                                    </div>
-                                </div>
-                                <div id="rank-details" class="profile-card__progress-detail"></div>
                             </div>
                             <div class="profile-card__actions">
                                 <button type="button" id="share-dashboard" class="profile-card__action profile-card__action--outline">

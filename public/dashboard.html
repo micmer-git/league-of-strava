@@ -1012,7 +1012,7 @@
         }
 
         .profile-card__level-stack {
-            order: -1;
+            order: initial;
         }
 
         .profile-card__name {
@@ -1094,10 +1094,10 @@
         .profile-card__balance-change {
             font-size: 0.85rem;
             font-weight: 600;
-            color: #0f172a;
+            color: var(--color-success);
             padding: 0.15rem 0.5rem;
             border-radius: 9999px;
-            background: rgba(34, 197, 94, 0.12);
+            background: rgba(31, 183, 138, 0.16);
         }
 
         .profile-card__balance-change--negative {
@@ -1121,33 +1121,44 @@
 
         .profile-card__badges {
             display: flex;
-            flex-direction: column;
-            gap: 0.45rem;
+            flex-direction: row;
+            gap: 0.6rem;
             width: 100%;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
         }
 
         .profile-card__badge-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.4rem 0.65rem;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.2rem;
+            min-width: 9.5rem;
+            padding: 0.5rem 0.75rem;
             border-radius: 0.6rem;
             background: rgba(15, 23, 42, 0.05);
             color: #0f172a;
             font-size: 0.9rem;
             font-weight: 600;
+            scroll-snap-align: start;
         }
 
         .profile-card__badge-label {
             flex: 1;
             min-width: 0;
             margin-right: 0.75rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .profile-card__badge-count {
-            color: #475569;
+            color: var(--color-success);
             font-size: 0.85rem;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .profile-card__level {
@@ -1160,6 +1171,7 @@
             flex-direction: column;
             gap: 0.25rem;
             align-items: flex-start;
+            order: initial;
         }
 
         .profile-card__level-stack span {
@@ -1235,7 +1247,7 @@
 
         .profile-card__progress-bar {
             position: relative;
-            height: 0.9rem;
+            height: 1.05rem;
             border-radius: 9999px;
             background: rgba(148, 163, 184, 0.25);
             overflow: hidden;
@@ -1347,11 +1359,28 @@
             font-weight: 600;
         }
 
-        .share-card__stats li span:first-child {
+        .share-card__stat-label {
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.12em;
             color: #64748b;
+        }
+
+        .share-card__stat-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .share-card__stat-meta {
+            font-size: 0.8rem;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        .share-card__activity {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
         }
 
         .share-card__actions {
@@ -1402,6 +1431,12 @@
             color: #0f172a;
         }
 
+        @media (max-width: 768px) {
+            .dashboard-tabs {
+                display: none;
+            }
+        }
+
         .top-performances-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
@@ -1434,9 +1469,24 @@
             min-width: 0;
         }
 
+        .top-performance-card__metric {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.35rem;
+        }
+
         .top-performance-card__title,
         .top-performance-card__value {
             overflow-wrap: anywhere;
+        }
+
+        .top-performance-card__activity-name {
+            color: #1f2937;
+        }
+
+        .top-performance-card__activity-meta {
+            color: #64748b;
         }
 
         .wallet-table {
@@ -2141,8 +2191,8 @@
         }
 
         .profile-card__balance-change {
-            background: var(--color-accent-soft);
-            color: var(--color-accent-strong);
+            background: rgba(31, 183, 138, 0.16);
+            color: var(--color-success);
         }
 
         .profile-card__balance-change--negative {
@@ -2962,16 +3012,30 @@
                                 </div>
                                 <ul class="share-card__stats">
                                     <li>
-                                        <span>Wallet</span>
-                                        <span id="share-card-wallet">—</span>
+                                        <span class="share-card__stat-label">Wallet</span>
+                                        <span id="share-card-wallet" class="share-card__stat-value">—</span>
                                     </li>
                                     <li>
-                                        <span>Coins</span>
-                                        <span id="share-card-coins">0</span>
+                                        <span class="share-card__stat-label">Coins minted</span>
+                                        <span id="share-card-coins" class="share-card__stat-value">0</span>
                                     </li>
                                     <li>
-                                        <span>Medals</span>
-                                        <span id="share-card-medals">0</span>
+                                        <span class="share-card__stat-label">Medals unlocked</span>
+                                        <span id="share-card-medals" class="share-card__stat-value">0</span>
+                                    </li>
+                                    <li>
+                                        <span class="share-card__stat-label">Latest activity</span>
+                                        <div class="share-card__activity">
+                                            <span id="share-card-latest-name" class="share-card__stat-value">—</span>
+                                            <span id="share-card-latest-meta" class="share-card__stat-meta" hidden>—</span>
+                                        </div>
+                                    </li>
+                                    <li>
+                                        <span class="share-card__stat-label">Oldest activity</span>
+                                        <div class="share-card__activity">
+                                            <span id="share-card-oldest-name" class="share-card__stat-value">—</span>
+                                            <span id="share-card-oldest-meta" class="share-card__stat-meta" hidden>—</span>
+                                        </div>
                                     </li>
                                 </ul>
                                 <div class="share-card__actions">

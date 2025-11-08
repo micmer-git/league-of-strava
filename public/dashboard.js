@@ -164,6 +164,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareCardWallet = document.getElementById('share-card-wallet');
     const shareCardCoins = document.getElementById('share-card-coins');
     const shareCardMedals = document.getElementById('share-card-medals');
+    const shareCardLatestName = document.getElementById('share-card-latest-name');
+    const shareCardLatestMeta = document.getElementById('share-card-latest-meta');
+    const shareCardOldestName = document.getElementById('share-card-oldest-name');
+    const shareCardOldestMeta = document.getElementById('share-card-oldest-meta');
     const shareWhatsAppButton = document.getElementById('share-whatsapp');
     const shareCopyButton = document.getElementById('share-copy');
     const shareFeedbackElement = document.getElementById('share-feedback');
@@ -1188,6 +1192,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     const formatPizzas = (pizzas) => {
         if (!Number.isFinite(pizzas)) return '0.00 pizzas';
         return `${pizzas.toFixed(2)} pizzas`;
+    };
+
+    const formatActivityMetaSummary = (activity) => {
+        if (!activity) {
+            return '';
+        }
+
+        const activityDate = new Date(activity.start_date);
+        const formattedDate = Number.isNaN(activityDate.getTime())
+            ? ''
+            : activityDate.toLocaleDateString();
+
+        const distanceMeters = Number(activity?.distance ?? 0);
+        const distanceKmValue = Number.isFinite(distanceMeters) ? distanceMeters / 1000 : 0;
+        const distancePart = distanceKmValue > 0
+            ? `${distanceKmValue.toFixed(distanceKmValue >= 100 ? 0 : 1)} km`
+            : null;
+
+        const movingTimeSeconds = Number(activity?.moving_time ?? 0);
+        let durationPart = null;
+        if (movingTimeSeconds > 0) {
+            const movingHours = movingTimeSeconds / 3600;
+            durationPart = movingHours >= 1
+                ? `${movingHours.toFixed(1)} hrs`
+                : `${Math.max(1, Math.round(movingTimeSeconds / 60))} mins`;
+        }
+
+        const elevationValue = Number(activity?.total_elevation_gain ?? 0);
+        const elevationPart = elevationValue > 0 ? `${Math.round(elevationValue)} m` : null;
+
+        return [formattedDate, distancePart, durationPart, elevationPart]
+            .filter(Boolean)
+            .join(' • ');
+    };
+
+    const buildActivityShareSummary = (activity) => {
+        if (!activity) {
+            return null;
+        }
+
+        const name = (activity.name || activity.type || 'Activity').trim();
+        const meta = formatActivityMetaSummary(activity);
+        return {
+            name,
+            meta,
+            text: meta ? `${name} — ${meta}` : name,
+        };
     };
 
     const formatCount = (value) => {
@@ -3254,12 +3305,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         container.classList.remove('hidden');
         container.setAttribute('role', 'list');
+        container.setAttribute('aria-label', 'Super achievements');
 
         achievements.forEach((achievement) => {
             const countValue = Number.isFinite(achievement.count) ? achievement.count : 1;
             const countText = countValue === 1
-                ? '1 time'
-                : `${countValue.toLocaleString()} times`;
+                ? '+1 achievement'
+                : `+${countValue.toLocaleString()} achievements`;
             const badge = document.createElement('div');
             badge.className = 'profile-card__badge-item';
             badge.setAttribute('role', 'listitem');
@@ -3987,16 +4039,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const subtitle = subtitleParts.join(' · ');
 
+        const latestActivitySummary = buildActivityShareSummary(sortedActivities[0]);
+        const oldestActivitySummary = buildActivityShareSummary(sortedActivities.length > 0 ? sortedActivities[sortedActivities.length - 1] : null);
+
+        const summaryParts = [];
+        summaryParts.push(`${athleteName}${subtitle ? ` — ${subtitle}` : ''}.`);
+        if (latestActivitySummary) {
+            summaryParts.push(`Latest: ${latestActivitySummary.text}.`);
+        }
+        if (oldestActivitySummary && (!latestActivitySummary || oldestActivitySummary.text !== latestActivitySummary.text)) {
+            summaryParts.push(`Oldest: ${oldestActivitySummary.text}.`);
+        }
+        summaryParts.push(`Wallet: ${walletText || '—'}. Coins minted: ${coinsCount}. Medals unlocked: ${medalsCount}. Explore the full dashboard: ${shareUrl}`);
+
         return {
             title: `${athleteName} · League of Strava`,
-            text: `${athleteName}${subtitle ? ` — ${subtitle}` : ''}. Wallet: ${walletText || '—'}. Coins minted: ${coinsCount}. Medals unlocked: ${medalsCount}. Explore the full dashboard: ${shareUrl}`,
+            text: summaryParts.join(' '),
             url: shareUrl,
             metadata: {
                 name: athleteName,
                 subtitle: subtitle || 'League of Strava highlights',
                 walletText: walletText || '—',
                 coinsCount: coinsCount || '0',
-                medalsCount: medalsCount || '0'
+                medalsCount: medalsCount || '0',
+                latestActivity: latestActivitySummary,
+                oldestActivity: oldestActivitySummary,
             }
         };
     };
@@ -4021,6 +4088,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (shareCardMedals) {
             shareCardMedals.textContent = metadata.medalsCount || '0';
+        }
+
+        const latestActivity = metadata.latestActivity || null;
+        if (shareCardLatestName) {
+            shareCardLatestName.textContent = latestActivity?.name || '—';
+        }
+        if (shareCardLatestMeta) {
+            const latestMeta = latestActivity?.meta || '';
+            if (latestMeta) {
+                shareCardLatestMeta.textContent = latestMeta;
+                shareCardLatestMeta.hidden = false;
+            } else {
+                shareCardLatestMeta.textContent = '—';
+                shareCardLatestMeta.hidden = true;
+            }
+        }
+
+        const oldestActivity = metadata.oldestActivity || null;
+        if (shareCardOldestName) {
+            shareCardOldestName.textContent = oldestActivity?.name || '—';
+        }
+        if (shareCardOldestMeta) {
+            const oldestMeta = oldestActivity?.meta || '';
+            if (oldestMeta) {
+                shareCardOldestMeta.textContent = oldestMeta;
+                shareCardOldestMeta.hidden = false;
+            } else {
+                shareCardOldestMeta.textContent = '—';
+                shareCardOldestMeta.hidden = true;
+            }
         }
 
         const shouldReveal = reveal || shareCardPreview.classList.contains('is-visible');
@@ -6474,18 +6571,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                     iconSpan.textContent = metric.icon;
 
                     const titleWrapper = document.createElement('div');
-                    titleWrapper.className = 'flex min-w-0 flex-col';
+                    titleWrapper.className = 'flex min-w-0 flex-col gap-1';
+
+                    const metricHeader = document.createElement('div');
+                    metricHeader.className = 'top-performance-card__metric flex flex-wrap items-baseline gap-2';
 
                     const titleLabel = document.createElement('span');
                     titleLabel.className = 'top-performance-card__title text-base font-semibold leading-tight break-words';
                     titleLabel.textContent = metric.title;
 
                     const valueLabel = document.createElement('span');
-                    valueLabel.className = 'top-performance-card__value text-sm text-gray-600 dark:text-gray-300 break-words';
+                    valueLabel.className = 'top-performance-card__value text-sm text-slate-600 dark:text-slate-300 break-words';
                     valueLabel.textContent = metric.formatter(bestValue);
 
-                    titleWrapper.appendChild(titleLabel);
-                    titleWrapper.appendChild(valueLabel);
+                    metricHeader.append(titleLabel, valueLabel);
+                    titleWrapper.append(metricHeader);
+
+                    const activityName = document.createElement('span');
+                    activityName.className = 'top-performance-card__activity-name text-sm font-semibold text-slate-700 dark:text-slate-200 break-words';
+                    activityName.textContent = (bestActivity.name || bestActivity.type || 'Activity').trim();
+                    titleWrapper.append(activityName);
+
+                    const activityMetaText = formatActivityMetaSummary(bestActivity);
+                    if (activityMetaText) {
+                        const activityMeta = document.createElement('span');
+                        activityMeta.className = 'top-performance-card__activity-meta text-xs text-slate-500 dark:text-slate-400';
+                        activityMeta.textContent = activityMetaText;
+                        titleWrapper.append(activityMeta);
+                    }
 
                     infoWrapper.appendChild(iconSpan);
                     infoWrapper.appendChild(titleWrapper);

@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return date.toLocaleDateString(undefined, { month: 'short' });
     });
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
-    const MEDALS_PAGE_SIZE = 10;
+    const MEDALS_PAGE_SIZE = Number.POSITIVE_INFINITY;
     const COIN_LABEL_OVERRIDES = {
         Run: {
             '10km Run': '10 km run',
@@ -711,7 +711,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let visibleActivitiesCount = 0;
     let sortedActivities = [];
-    const MEDAL_FILTER_PAGE_SIZE = 10;
+    const MEDAL_FILTER_PAGE_SIZE = Number.POSITIVE_INFINITY;
     let activeMedalFilter = null;
     let medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
     let activeMedalMeta = null;
@@ -1176,6 +1176,58 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 'no change';
         element.setAttribute('aria-label', `${direction} of ${absoluteValue.toFixed(decimals)} percent over ${periodLabel}`);
     };
+
+    const formatPercentChangeLabel = (percentValue, periodLabel) => {
+        if (!Number.isFinite(percentValue)) {
+            return `— ${periodLabel}`;
+        }
+
+        const absoluteValue = Math.abs(percentValue);
+        const decimals = absoluteValue >= 100 ? 0 : 1;
+        const sign = percentValue > 0 ? '+' : percentValue < 0 ? '-' : '';
+        return `${sign}${absoluteValue.toFixed(decimals)}% · ${periodLabel}`;
+    };
+
+    const updateWalletProgressBar = () => {
+        const monthChange = Number.isFinite(walletGrowthStats?.monthChangePct)
+            ? walletGrowthStats.monthChangePct
+            : null;
+        const walletTotal = Number.isFinite(walletGrowthStats?.currentTotal) && walletGrowthStats.currentTotal > 0
+            ? walletGrowthStats.currentTotal
+            : 0;
+
+        const isPositive = Number.isFinite(monthChange) && monthChange > 0;
+        const isNegative = Number.isFinite(monthChange) && monthChange < 0;
+        const progressPercent = Number.isFinite(monthChange)
+            ? Math.min(100, Math.abs(monthChange))
+            : 0;
+
+        if (rankingProgressElement) {
+            rankingProgressElement.style.width = `${progressPercent}%`;
+            rankingProgressElement.classList.toggle('is-negative', isNegative);
+            rankingProgressElement.classList.toggle('is-neutral', !isPositive && !isNegative);
+            rankingProgressElement.setAttribute('aria-valuenow', progressPercent.toFixed(0));
+            rankingProgressElement.setAttribute('aria-valuemin', '0');
+            rankingProgressElement.setAttribute('aria-valuemax', '100');
+        }
+
+        if (rankingProgressLabelElement) {
+            if (walletTotal > 0) {
+                const totalLabel = formatMillions(walletTotal);
+                rankingProgressLabelElement.textContent = totalLabel;
+                rankingProgressLabelElement.setAttribute('aria-label', `Total wallet value ${totalLabel}`);
+            } else {
+                rankingProgressLabelElement.textContent = 'Wallet inactive';
+                rankingProgressLabelElement.setAttribute('aria-label', 'Wallet inactive');
+            }
+        }
+
+        if (nextRankElement) {
+            nextRankElement.textContent = formatPercentChangeLabel(monthChange, '30d');
+        }
+    };
+
+    updateWalletProgressBar();
 
     const formatDistance = (km) => {
         if (!Number.isFinite(km)) return '0.00 km';
@@ -2272,6 +2324,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             : (hasWalletChartData('balance') ? 'balance' : (hasWalletChartData('coins') ? 'coins' : null));
         activeChartKey = nextChartKey || activeChartKey;
         renderWalletChart(activeChartKey);
+
+        updateWalletProgressBar();
     };
 
     function calculateActivityCalories(activity = {}) {
@@ -5882,52 +5936,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Ranking System ===
         let currentRank = rankConfig[0];
-        let nextRank = null;
 
         // Find the current rank
         for (let i = rankConfig.length - 1; i >= 0; i--) {
             if (totalHours >= rankConfig[i].minHours) {
                 currentRank = rankConfig[i];
-                nextRank = rankConfig[i + 1] || null;
                 break;
             }
         }
-
-        // Calculate progress percentage towards next rank
-        const nextRankGap = nextRank ? (nextRank.minHours - currentRank.minHours) : 0;
-        const progressPercentage = (nextRank && nextRankGap > 0)
-            ? ((totalHours - currentRank.minHours) / nextRankGap) * 100
-            : 100;
-        const clampedProgress = hasActivities
-            ? Math.max(0, Math.min(progressPercentage, 100))
-            : 0;
 
         // Update the ranking progress bar
         if (currentRankElement) {
             currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
         } else {
             console.warn("'current-rank' element not found in the DOM.");
-        }
-
-        if (nextRankElement) {
-            nextRankElement.textContent = nextRank
-                ? `${nextRank.emoji} ${nextRank.name}`
-                : 'Max rank achieved';
-        } else {
-            console.warn("'next-rank' element not found in the DOM.");
-        }
-
-        if (rankingProgressElement) {
-            rankingProgressElement.style.width = `${clampedProgress}%`;
-        } else {
-            console.warn("'ranking-progress' element not found in the DOM.");
-        }
-
-        if (rankingProgressLabelElement) {
-            const progressLabel = hasActivities
-                ? (nextRank ? `${totalHours.toFixed(1)} / ${nextRank.minHours} hrs` : `${totalHours.toFixed(1)} hrs`)
-                : 'No activity yet';
-            rankingProgressLabelElement.textContent = progressLabel;
         }
 
         if (rankDetailsElement) {

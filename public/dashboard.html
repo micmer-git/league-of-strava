@@ -799,14 +799,16 @@
         }
 
         .profile-metrics__row {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 0.5rem;
+            width: 100%;
         }
 
         .profile-metric-pill {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 0.35rem;
             padding: 0.45rem 0.7rem;
             border-radius: 9999px;
@@ -814,7 +816,8 @@
             font-size: 0.85rem;
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            flex-shrink: 0;
+            width: 100%;
+            min-width: 0;
         }
 
         .profile-metric-pill:hover {
@@ -1223,9 +1226,10 @@
         }
 
         .profile-card__wallet-totals {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 0.4rem;
-            flex-wrap: wrap;
+            width: 100%;
         }
 
         .wallet-total-pill {
@@ -1256,7 +1260,8 @@
         }
 
         .profile-card__progress--inline {
-            margin-top: 0.25rem;
+            margin-top: 0;
+            margin-bottom: 0.75rem;
         }
 
         .profile-card__rank {
@@ -1275,7 +1280,15 @@
             height: 100%;
             border-radius: inherit;
             background: linear-gradient(135deg, #2563eb, #38bdf8);
-            transition: width 0.3s ease;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .profile-card__progress-fill.is-negative {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+        }
+
+        .profile-card__progress-fill.is-neutral {
+            background: linear-gradient(135deg, #94a3b8, #cbd5f5);
         }
 
         .profile-card__progress-overlay {
@@ -2959,6 +2972,16 @@
                                             <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
                                             <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
                                         </p>
+                                        <div class="profile-card__progress profile-card__progress--inline">
+                                            <div class="profile-card__progress-bar">
+                                                <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
+                                                <div class="profile-card__progress-overlay">
+                                                    <span id="ranking-progress-label" class="profile-card__progress-label"></span>
+                                                    <span id="next-rank" class="profile-card__progress-next"></span>
+                                                </div>
+                                            </div>
+                                            <div id="rank-details" class="profile-card__progress-detail"></div>
+                                        </div>
                                         <div class="profile-card__level-stack">
                                             <span id="current-rank" class="profile-card__rank"></span>
                                             <span id="level-progress" class="profile-card__level"></span>
@@ -3017,16 +3040,6 @@
                                             <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
                                             <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
                                         </button>
-                                    </div>
-                                    <div class="profile-card__progress profile-card__progress--inline">
-                                        <div class="profile-card__progress-bar">
-                                            <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
-                                            <div class="profile-card__progress-overlay">
-                                                <span id="ranking-progress-label" class="profile-card__progress-label"></span>
-                                                <span id="next-rank" class="profile-card__progress-next"></span>
-                                            </div>
-                                        </div>
-                                        <div id="rank-details" class="profile-card__progress-detail"></div>
                                     </div>
                                 </div>
                             </div>
@@ -3258,9 +3271,6 @@
                             </div>
                         </header>
                         <div id="medals-section" class="medals-section"></div>
-                        <div class="panel-card__footer">
-                            <button id="medals-load-more" type="button" class="filter-button filter-button--ghost">Load more medals</button>
-                        </div>
                     </div>
                 </section>
 

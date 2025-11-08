@@ -3309,25 +3309,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         achievements.forEach((achievement) => {
             const countValue = Number.isFinite(achievement.count) ? achievement.count : 1;
-            const countText = countValue === 1
-                ? '+1 achievement'
-                : `+${countValue.toLocaleString()} achievements`;
+            const countSummary = `${countValue.toLocaleString()}×`;
             const badge = document.createElement('div');
             badge.className = 'profile-card__badge-item';
             badge.setAttribute('role', 'listitem');
             badge.setAttribute('tabindex', '0');
 
+            const count = document.createElement('span');
+            count.className = 'profile-card__badge-count';
+            count.textContent = countSummary;
+
             const label = document.createElement('span');
             label.className = 'profile-card__badge-label';
             label.textContent = achievement.label;
 
-            const count = document.createElement('span');
-            count.className = 'profile-card__badge-count';
-            count.textContent = countText;
+            badge.append(count, label);
 
-            badge.append(label, count);
-
-            const tooltipMessage = `${achievement.label} — ${achievement.description} — ${countText}`;
+            const tooltipParts = [achievement.label];
+            const descriptionText = (achievement.description || '').trim();
+            if (descriptionText) {
+                tooltipParts.push(descriptionText);
+            }
+            tooltipParts.push(countSummary);
+            const tooltipMessage = tooltipParts.join(' — ');
             badge.setAttribute('aria-label', tooltipMessage);
             attachTooltip(badge, tooltipMessage);
             container.appendChild(badge);

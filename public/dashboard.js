@@ -3226,21 +3226,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!achievements || achievements.length === 0) {
             container.classList.add('hidden');
+            container.removeAttribute('role');
             return;
         }
 
         container.classList.remove('hidden');
-        achievements.forEach(achievement => {
+        container.setAttribute('role', 'list');
+
+        achievements.forEach((achievement) => {
             const countValue = Number.isFinite(achievement.count) ? achievement.count : 1;
-            const badge = document.createElement('button');
-            badge.type = 'button';
-            badge.className = 'tooltip-target inline-flex h-9 min-w-[3rem] items-center justify-center gap-1 rounded-full bg-amber-500/20 px-2 text-base font-semibold';
-            badge.innerHTML = `
-                <span class="text-xs font-semibold">${countValue.toLocaleString()}</span>
-                <span>${achievement.emoji}</span>
-            `;
-            badge.setAttribute('aria-label', `${achievement.label} earned ${countValue.toLocaleString()} times`);
-            attachTooltip(badge, `${achievement.label} — ${achievement.description} — ${countValue.toLocaleString()} earned`);
+            const countText = countValue === 1
+                ? '1 time'
+                : `${countValue.toLocaleString()} times`;
+            const badge = document.createElement('div');
+            badge.className = 'profile-card__badge-item';
+            badge.setAttribute('role', 'listitem');
+            badge.setAttribute('tabindex', '0');
+
+            const label = document.createElement('span');
+            label.className = 'profile-card__badge-label';
+            label.textContent = achievement.label;
+
+            const count = document.createElement('span');
+            count.className = 'profile-card__badge-count';
+            count.textContent = countText;
+
+            badge.append(label, count);
+
+            const tooltipMessage = `${achievement.label} — ${achievement.description} — ${countText}`;
+            badge.setAttribute('aria-label', tooltipMessage);
+            attachTooltip(badge, tooltipMessage);
             container.appendChild(badge);
         });
     };
@@ -4929,7 +4944,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         {
             name: 'Legend of Kudos',
-            emoji: '🪙',
+            emoji: '👍',
             description: 'Earned at least 200 kudos on a single activity',
             category: 'Fan Favorites',
             criteria: (activity) => getActivityLikesCount(activity) >= 200

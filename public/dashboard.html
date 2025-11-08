@@ -474,31 +474,37 @@
         .profile-metrics {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.65rem;
+            width: 100%;
         }
 
         .profile-metrics__row {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 0.6rem;
+            width: 100%;
+            justify-content: flex-start;
         }
 
         .profile-metric-pill {
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            gap: 0.35rem;
-            padding: 0.45rem 0.7rem;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.55rem 0.85rem;
             border-radius: 9999px;
             font-weight: 600;
             font-size: 0.85rem;
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            flex-shrink: 0;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            flex: 1 1 clamp(140px, 45%, 220px);
+            min-width: 140px;
+            text-align: center;
         }
 
         .profile-metric-pill:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+            box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
         }
 
         .dashboard-onepage {
@@ -635,14 +641,15 @@
         }
 
         .profile-card__header {
-            display: flex;
-            align-items: flex-start;
-            gap: 1.25rem;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: center;
+            gap: clamp(1rem, 3vw, 1.5rem);
         }
 
         .profile-card__avatar {
-            width: 5rem;
-            height: 5rem;
+            width: clamp(4.75rem, 20vw, 6.5rem);
+            height: clamp(4.75rem, 20vw, 6.5rem);
             border-radius: 50%;
             object-fit: cover;
             box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
@@ -651,7 +658,7 @@
         .profile-card__headline {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: clamp(0.85rem, 2vw, 1.15rem);
             flex: 1;
             min-width: 0;
         }
@@ -659,8 +666,17 @@
         .profile-card__identity {
             display: flex;
             flex-wrap: wrap;
-            align-items: center;
-            gap: 0.75rem;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: clamp(0.75rem, 2vw, 1.25rem);
+        }
+
+        .profile-card__identity-main {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            min-width: 0;
+            align-items: flex-start;
         }
 
         .profile-card__name {
@@ -676,6 +692,7 @@
             flex-wrap: wrap;
             gap: 0.6rem;
             margin-left: auto;
+            justify-content: flex-end;
         }
 
         .profile-card__action-icon {
@@ -777,9 +794,10 @@
         }
 
         .profile-card__level-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem;
         }
 
         .profile-card__level-stack span {
@@ -1350,22 +1368,82 @@
 
         .medals-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 0.85rem;
         }
 
-        @media (min-width: 1024px) {
+        @media (max-width: 400px) {
+            .medals-grid {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            }
+        }
+
+        @media (min-width: 1280px) {
             .medals-grid {
                 grid-template-columns: repeat(5, minmax(0, 1fr));
             }
         }
 
         .medal-badge {
-            transition: box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            padding: 0.85rem;
+            border-radius: 1rem;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(226, 232, 240, 0.9));
+            color: #0f172a;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
+            text-align: center;
+            min-height: 150px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .medal-badge:hover {
-            box-shadow: 0 12px 20px rgba(15, 23, 42, 0.18);
+        .medal-badge:hover,
+        .medal-badge:focus-visible {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+            outline: none;
+        }
+
+        .medal-badge__emoji {
+            font-size: 1.9rem;
+            line-height: 1;
+        }
+
+        .medal-badge__name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .medal-badge__count {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #64748b;
+        }
+
+        .medal-badge[data-medal-earned="false"] {
+            background: linear-gradient(145deg, rgba(148, 163, 184, 0.12), rgba(226, 232, 240, 0.08));
+            color: #475569;
+            border-style: dashed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .medal-badge[data-medal-earned="false"] .medal-badge__emoji {
+            filter: grayscale(100%);
+            opacity: 0.6;
+        }
+
+        .medal-badge[data-medal-earned="false"] .medal-badge__name {
+            color: #64748b;
+        }
+
+        .medal-badge[data-medal-earned="false"] .medal-badge__count {
+            color: #94a3b8;
         }
 
         .leaderboard-table-wrapper {
@@ -1427,17 +1505,37 @@
             }
 
             .profile-card__header {
-                flex-direction: column;
-                align-items: stretch;
+                grid-template-columns: 1fr;
+                justify-items: center;
+                text-align: center;
+            }
+
+            .profile-card__avatar {
+                width: clamp(5rem, 34vw, 7rem);
+                height: clamp(5rem, 34vw, 7rem);
+            }
+
+            .profile-card__identity {
+                justify-content: center;
+                text-align: center;
+            }
+
+            .profile-card__identity-main {
+                align-items: center;
             }
 
             .profile-card__actions {
                 width: 100%;
-                justify-content: flex-start;
+                justify-content: center;
+                margin-left: 0;
             }
 
             .profile-card__headline {
                 gap: 1rem;
+            }
+
+            .profile-metrics__row {
+                justify-content: center;
             }
 
             .share-card {
@@ -2118,58 +2216,69 @@
                             <div class="profile-card__header">
                                 <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar">
                                 <div class="profile-card__headline">
-                                    <div class="profile-metrics" id="profile-metric-pills">
-                                        <div class="profile-metrics__row">
-                                            <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">🌍</span>
-                                                <span id="globe-total" class="font-semibold">0</span>
-                                            </button>
-                                            <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
-                                                <span id="everest-total" class="font-semibold">0</span>
-                                            </button>
-                                            <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">🍕</span>
-                                                <span id="pizza-total" class="font-semibold">0</span>
-                                            </button>
-                                            <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">🪙</span>
-                                                <span id="likes-total" class="font-semibold">0</span>
-                                            </button>
-                                        </div>
-                                        <div class="profile-metrics__row profile-card__coins" id="coin-summary">
-                                            <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
-                                                <span id="coin-dollar" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">💲</span>
-                                            </button>
-                                            <button type="button" data-coin-type="💰" class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                                                <span id="coin-money" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">💰</span>
-                                            </button>
-                                            <button type="button" data-coin-type="🧈" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                                <span id="coin-butter" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">🧈</span>
-                                            </button>
-                                            <button type="button" data-coin-type="💎" class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
-                                                <span id="coin-diamond" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">💎</span>
-                                            </button>
-                                            <button type="button" data-coin-type="👑" class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
-                                                <span id="coin-king" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">👑</span>
-                                            </button>
-                                        </div>
-                                    </div>
                                     <div class="profile-card__identity">
-                                        <h2 id="athlete-name" class="profile-card__name"></h2>
-                                        <div class="profile-card__level-stack">
-                                            <span id="current-rank" class="profile-card__rank"></span>
-                                            <span id="level-progress" class="profile-card__level"></span>
+                                        <div class="profile-card__identity-main">
+                                            <h2 id="athlete-name" class="profile-card__name"></h2>
+                                            <div class="profile-card__level-stack">
+                                                <span id="current-rank" class="profile-card__rank"></span>
+                                                <span id="level-progress" class="profile-card__level"></span>
+                                            </div>
                                         </div>
                                         <div class="profile-card__actions">
                                             <button type="button" id="share-dashboard" class="profile-card__action profile-card__action--outline">
                                                 <span class="profile-card__action-icon" aria-hidden="true">📤</span>
                                                 <span>Share highlight</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="profile-metrics" id="profile-metric-pills">
+                                        <div class="profile-metrics__row">
+                                            <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🌍</span>
+                                                <span id="globe-total" class="font-semibold">0</span>
+                                                <span class="sr-only">Global laps completed</span>
+                                            </button>
+                                            <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
+                                                <span id="everest-total" class="font-semibold">0</span>
+                                                <span class="sr-only">Everest ascents completed</span>
+                                            </button>
+                                            <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🍕</span>
+                                                <span id="pizza-total" class="font-semibold">0</span>
+                                                <span class="sr-only">Pizzas burned</span>
+                                            </button>
+                                            <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                                <span aria-hidden="true" class="text-lg leading-none">🪙</span>
+                                                <span id="likes-total" class="font-semibold">0</span>
+                                                <span class="sr-only">Kudos received</span>
+                                            </button>
+                                        </div>
+                                        <div class="profile-metrics__row profile-card__coins" id="coin-summary">
+                                            <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
+                                                <span class="text-base leading-none" aria-hidden="true">💲</span>
+                                                <span id="coin-dollar" class="font-semibold" data-coin-count>0</span>
+                                                <span class="sr-only">Bronze coins minted</span>
+                                            </button>
+                                            <button type="button" data-coin-type="💰" class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                                                <span class="text-base leading-none" aria-hidden="true">💰</span>
+                                                <span id="coin-money" class="font-semibold" data-coin-count>0</span>
+                                                <span class="sr-only">Silver coins minted</span>
+                                            </button>
+                                            <button type="button" data-coin-type="🧈" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                                <span class="text-base leading-none" aria-hidden="true">🧈</span>
+                                                <span id="coin-butter" class="font-semibold" data-coin-count>0</span>
+                                                <span class="sr-only">Butter coins minted</span>
+                                            </button>
+                                            <button type="button" data-coin-type="💎" class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
+                                                <span class="text-base leading-none" aria-hidden="true">💎</span>
+                                                <span id="coin-diamond" class="font-semibold" data-coin-count>0</span>
+                                                <span class="sr-only">Diamond coins minted</span>
+                                            </button>
+                                            <button type="button" data-coin-type="👑" class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
+                                                <span class="text-base leading-none" aria-hidden="true">👑</span>
+                                                <span id="coin-king" class="font-semibold" data-coin-count>0</span>
+                                                <span class="sr-only">Crown coins minted</span>
                                             </button>
                                         </div>
                                     </div>

@@ -876,9 +876,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activeMedalFilter) {
             medalFilterBanner.classList.remove('hidden');
             const emojiValue = activeMedalMeta?.emoji || '';
-            const countValue = Number.isFinite(activeMedalMeta?.count)
-                ? activeMedalMeta.count.toLocaleString()
-                : '';
+            const resolvedCount = Number.isFinite(activeMedalMeta?.count) ? activeMedalMeta.count : 0;
+            const countLabel = resolvedCount.toLocaleString();
+            const isUnlocked = activeMedalMeta?.isUnlocked ?? (resolvedCount > 0);
             if (medalFilterLabel) {
                 const labelParts = [];
                 if (emojiValue) {
@@ -895,11 +895,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             if (medalFilterDescription) {
                 const descriptionParts = [];
-                if (countValue || emojiValue) {
-                    const summary = [countValue, emojiValue].filter(Boolean).join(' ').trim();
-                    if (summary) {
-                        descriptionParts.push(summary);
-                    }
+                if (isUnlocked) {
+                    descriptionParts.push(`${countLabel} collected`);
+                } else {
+                    descriptionParts.push('Not collected yet');
                 }
                 const categoryLabel = activeMedalMeta?.category;
                 if (categoryLabel) {
@@ -959,19 +958,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        if (!Number.isFinite(visibleMedalCount) || visibleMedalCount <= 0) {
-            visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, medalInventory.length);
-        }
-
-        if (activeMedalFilter) {
-            const activeIndex = medalInventory.findIndex(medal => medal.name === activeMedalFilter);
-            if (activeIndex >= 0 && activeIndex >= visibleMedalCount) {
-                visibleMedalCount = activeIndex + 1;
-            }
-        }
-
-        const sliceEnd = Math.min(visibleMedalCount, medalInventory.length);
-        const medalsToRender = medalInventory.slice(0, sliceEnd);
+        visibleMedalCount = medalInventory.length;
+        const medalsToRender = medalInventory.slice(0, visibleMedalCount);
         const categoryOrder = [];
         const medalsByCategory = new Map();
 
@@ -1000,24 +988,51 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalsByCategory.get(categoryName).forEach(medal => {
                 const medalButton = document.createElement('button');
                 medalButton.type = 'button';
-                medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
+                const isUnlocked = medal.isUnlocked ?? (Number.isFinite(medal.count) && medal.count > 0);
+                medalButton.className = [
+                    'tooltip-target',
+                    'medal-badge',
+                    'rounded-2xl',
+                    'focus:outline-none',
+                    'focus:ring-2',
+                    'focus:ring-blue-400',
+                    'focus:ring-offset-1',
+                    'dark:focus:ring-offset-gray-900'
+                ].join(' ');
+                medalButton.dataset.medalEarned = isUnlocked ? 'true' : 'false';
+                const countValue = Number.isFinite(medal.count) ? medal.count : 0;
+                const countLabel = countValue.toLocaleString();
+                const statusText = isUnlocked
+                    ? `${countLabel} ${countValue === 1 ? 'time earned' : 'times earned'}`
+                    : 'Not collected yet';
                 medalButton.innerHTML = `
-                    <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
-                    <span class="text-2xl leading-none">${medal.emoji}</span>
+                    <span class="medal-badge__emoji" aria-hidden="true">${medal.emoji || '🏅'}</span>
+                    <span class="medal-badge__name">${medal.name}</span>
+                    <span class="medal-badge__count">${statusText}</span>
                 `;
                 const descriptionText = (medal.description || '').trim();
-                const countLabel = medal.count.toLocaleString();
-                const ariaDescription = descriptionText
-                    ? `${medal.name}: ${descriptionText} — earned ${countLabel} times`
-                    : `${medal.name} — earned ${countLabel} times`;
-                medalButton.setAttribute('aria-label', ariaDescription);
-                const medalTooltip = descriptionText
-                    ? `${medal.name} — ${descriptionText} — ${countLabel} earned`
-                    : `${medal.name} — ${countLabel} earned`;
-                attachTooltip(medalButton, medalTooltip);
+                const tooltipLines = [];
+                const titleLine = medal.emoji
+                    ? `${medal.emoji} ${medal.name}`.trim()
+                    : medal.name;
+                if (titleLine) {
+                    tooltipLines.push(titleLine);
+                }
+                if (descriptionText) {
+                    tooltipLines.push(descriptionText);
+                }
+                tooltipLines.push(isUnlocked
+                    ? `${countLabel} ${countValue === 1 ? 'time earned' : 'times earned'}`
+                    : 'Not collected yet');
+                if (medal.category) {
+                    tooltipLines.push(medal.category);
+                }
+                attachTooltip(medalButton, tooltipLines.join('\n'));
+                medalButton.setAttribute('aria-label', tooltipLines.join(' — '));
                 medalButton.dataset.medalName = medal.name;
                 medalButton.dataset.medalEmoji = medal.emoji || '';
                 medalButton.dataset.medalCategory = medal.category || '';
+                medalButton.dataset.medalCount = String(countValue);
                 medalButton.addEventListener('click', () => {
                     toggleMedalFilter(medal);
                 });
@@ -1032,14 +1047,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateMedalFilterBanner();
 
         if (medalsLoadMoreButton) {
-            if (activeMedalFilter) {
-                medalsLoadMoreButton.classList.remove('hidden');
-                medalsLoadMoreButton.disabled = false;
-            } else {
-                const hasMore = sliceEnd < medalInventory.length;
-                medalsLoadMoreButton.classList.toggle('hidden', !hasMore);
-                medalsLoadMoreButton.disabled = !hasMore;
-            }
+            medalsLoadMoreButton.classList.add('hidden');
+            medalsLoadMoreButton.disabled = true;
         }
     };
 
@@ -1061,7 +1070,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeMedalMeta = null;
         medalFilteredActivities = [];
         medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
-        visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, Array.isArray(medalInventory) ? medalInventory.length : MEDALS_PAGE_SIZE);
+        visibleMedalCount = Array.isArray(medalInventory) ? medalInventory.length : 0;
         updateMedalFilterBanner();
         updateMedalButtonStates();
         updateActivityFilterActiveText();
@@ -3782,7 +3791,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: medal.emoji || '',
             count: Number.isFinite(medal.count) ? medal.count : null,
             description: medal.description || '',
-            category: medal.category || ''
+            category: medal.category || '',
+            isUnlocked: Boolean(medal.isUnlocked)
         };
         medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
 
@@ -5542,8 +5552,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const sortedMedals = medalsEarned.slice().sort((a, b) => {
-            const categoryA = a.category || 'Other';
-            const categoryB = b.category || 'Other';
+            const categoryA = a.category || 'Other Achievements';
+            const categoryB = b.category || 'Other Achievements';
             if (categoryA !== categoryB) {
                 return categoryA.localeCompare(categoryB);
             }
@@ -5562,11 +5572,78 @@ document.addEventListener('DOMContentLoaded', async () => {
             return a.name.localeCompare(b.name);
         });
 
-        medalInventory = sortedMedals;
+        const medalRosterMap = new Map();
+        medalsConfig.forEach(configMedal => {
+            if (!configMedal || !configMedal.name) {
+                return;
+            }
+            const baseCategory = resolveMedalCategory(configMedal);
+            medalRosterMap.set(configMedal.name, {
+                name: configMedal.name,
+                emoji: configMedal.emoji || '🏅',
+                description: configMedal.description || '',
+                count: 0,
+                isDayBased: Boolean(configMedal.dates?.length || configMedal.dynamicDateResolver),
+                category: baseCategory,
+                isUnlocked: false
+            });
+        });
+
+        sortedMedals.forEach(earnedMedal => {
+            if (!earnedMedal || !earnedMedal.name) {
+                return;
+            }
+            const existing = medalRosterMap.get(earnedMedal.name) || {
+                name: earnedMedal.name,
+                emoji: earnedMedal.emoji || '🏅',
+                description: earnedMedal.description || '',
+                count: 0,
+                isDayBased: Boolean(earnedMedal.isDayBased),
+                category: earnedMedal.category || resolveMedalCategory(earnedMedal),
+                isUnlocked: false
+            };
+            const countValue = Number.isFinite(earnedMedal.count) ? earnedMedal.count : 0;
+            existing.count = countValue;
+            existing.emoji = earnedMedal.emoji || existing.emoji;
+            existing.description = earnedMedal.description || existing.description;
+            existing.category = earnedMedal.category || existing.category;
+            existing.isDayBased = typeof earnedMedal.isDayBased === 'boolean' ? earnedMedal.isDayBased : existing.isDayBased;
+            existing.isUnlocked = countValue > 0;
+            medalRosterMap.set(existing.name, existing);
+        });
+
+        const completeMedalRoster = Array.from(medalRosterMap.values()).sort((a, b) => {
+            const categoryA = a.category || 'Other Achievements';
+            const categoryB = b.category || 'Other Achievements';
+            if (categoryA !== categoryB) {
+                return categoryA.localeCompare(categoryB);
+            }
+            const unlockedDiff = Number(b.isUnlocked) - Number(a.isUnlocked);
+            if (unlockedDiff !== 0) {
+                return unlockedDiff;
+            }
+            const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
+            if (dayComparison !== 0) {
+                return dayComparison;
+            }
+            const countA = Number.isFinite(a.count) ? a.count : 0;
+            const countB = Number.isFinite(b.count) ? b.count : 0;
+            if (countB !== countA) {
+                return countB - countA;
+            }
+            const orderA = medalOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+            const orderB = medalOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        medalInventory = completeMedalRoster;
 
         let shouldRenderMedals = true;
         if (activeMedalFilter) {
-            const matchedMedal = sortedMedals.find(medal => medal.name === activeMedalFilter);
+            const matchedMedal = completeMedalRoster.find(medal => medal.name === activeMedalFilter);
             if (matchedMedal) {
                 const descriptionText = (matchedMedal.description || '').trim();
                 activeMedalMeta = {
@@ -5574,7 +5651,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     emoji: matchedMedal.emoji || '',
                     count: Number.isFinite(matchedMedal.count) ? matchedMedal.count : null,
                     description: descriptionText,
-                    category: matchedMedal.category || null
+                    category: matchedMedal.category || null,
+                    isUnlocked: Boolean(matchedMedal.isUnlocked)
                 };
             } else {
                 shouldRenderMedals = false;
@@ -5585,11 +5663,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (shouldRenderMedals) {
-            if (!Number.isFinite(visibleMedalCount) || visibleMedalCount <= 0) {
-                visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, sortedMedals.length);
-            } else {
-                visibleMedalCount = Math.min(visibleMedalCount, sortedMedals.length);
-            }
+            visibleMedalCount = medalInventory.length;
             renderMedalsGrid();
         }
 
@@ -6078,8 +6152,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            const nextVisibleCount = Math.min(medalInventory.length, visibleMedalCount + MEDALS_PAGE_SIZE);
-            if (nextVisibleCount > visibleMedalCount) {
+            const nextVisibleCount = medalInventory.length;
+            if (nextVisibleCount !== visibleMedalCount) {
                 visibleMedalCount = nextVisibleCount;
                 renderMedalsGrid();
             }

@@ -23,6 +23,8 @@
 
 html {
   font-size: 16px;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -58,7 +60,7 @@ body {
   min-height: 100vh;
   padding: clamp(1.25rem, 2vw, 2.75rem) clamp(1rem, 4vw, 3.25rem) clamp(2.5rem, 6vw, 4.5rem);
   gap: clamp(1.25rem, 2vw, 2.5rem);
-  max-width: 1180px;
+  width: min(100%, 1180px);
   margin: 0 auto;
   position: relative;
   z-index: 1;
@@ -78,6 +80,7 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.15);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(18px);
+  width: 100%;
 }
 
 .header-top {
@@ -159,12 +162,14 @@ body {
   display: grid;
   gap: clamp(1.25rem, 2vw, 2.25rem);
   align-items: start;
+  width: 100%;
 }
 
 .primary-column,
 .secondary-column {
   display: grid;
   gap: clamp(1.25rem, 2vw, 2rem);
+  min-width: 0;
 }
 
 .secondary-column {
@@ -184,6 +189,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  width: 100%;
+}
+
+[data-section] {
+  scroll-margin-bottom: calc(var(--bottom-nav-height) + 1.5rem);
 }
 
 .card-header {
@@ -307,7 +317,8 @@ body {
   padding: 1.2rem;
   box-shadow: var(--shadow-soft);
   color: var(--color-text);
-  max-width: clamp(280px, 60vw, 420px);
+  max-width: clamp(240px, 80vw, 420px);
+  width: min(100%, clamp(260px, 80vw, 420px));
   z-index: 5;
 }
 
@@ -396,6 +407,7 @@ body {
   margin: 0;
   padding: 0;
   list-style: none;
+  min-width: 0;
 }
 
 .medal {
@@ -476,7 +488,7 @@ body {
   border-top: 1px solid rgba(148, 163, 184, 0.25);
   box-shadow: 0 -20px 40px rgba(8, 11, 23, 0.35);
   backdrop-filter: blur(12px);
-  width: 100%;
+  width: min(100%, 100vw);
   z-index: 20;
 }
 
@@ -555,6 +567,7 @@ body {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  min-width: 0;
 }
 
 .stat-card {
@@ -658,6 +671,7 @@ body {
     gap: 0.35rem;
     padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.65rem, 5vw, 1.25rem)
       calc(clamp(0.5rem, 2vw, 0.75rem) + env(safe-area-inset-bottom));
+    max-width: 100%;
   }
 
   [data-section][hidden] {
@@ -667,10 +681,76 @@ body {
   .dashboard {
     display: flex;
     flex-direction: column;
+    gap: 1.1rem;
   }
 
   .medal-list {
     grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .primary-column,
+  .secondary-column {
+    gap: 1.1rem;
+  }
+
+  .lifetime-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brand-copy h1 {
+    font-size: clamp(1.4rem, 8vw, 1.9rem);
+  }
+
+  .brand-copy .tagline {
+    font-size: clamp(0.85rem, 4vw, 0.95rem);
+  }
+
+  .header-description {
+    font-size: clamp(0.9rem, 4vw, 1rem);
+  }
+
+  .medal {
+    gap: 0.65rem;
+    padding: 0.75rem 0.9rem;
+  }
+
+  .medal__detail {
+    font-size: 0.8rem;
+  }
+
+  .mobile-nav-button {
+    padding-inline: 0.6rem;
+  }
+
+  .mobile-nav-button span:last-child {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .app-shell {
+    padding: 0.85rem;
+  }
+
+  .card,
+  .dashboard-header {
+    padding: 1.1rem;
+  }
+
+  .mobile-nav-button {
+    padding-inline: 0.45rem;
+  }
+
+  .mobile-nav-button span:last-child {
+    font-size: 0.7rem;
+  }
+
+  .brand {
+    gap: 0.75rem;
   }
 }
 

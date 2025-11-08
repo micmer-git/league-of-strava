@@ -13,6 +13,7 @@ const {
   appendUserSnapshot,
   getLatestUserSnapshot,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
+const { PersistentCache } = require('./services/cache');
 
 const app = express();
 app.use(cookieParser());
@@ -43,7 +44,25 @@ const COIN_VALUE_MAP = {
 };
 const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
 
-const userDataCache = new Map();
+const CACHE_STORAGE_DIR = process.env.CACHE_STORAGE_DIR
+  ? path.resolve(process.env.CACHE_STORAGE_DIR)
+  : path.join(__dirname, 'static', 'cache');
+
+const userDataCache = new PersistentCache({
+  namespace: 'strava:user-snapshots',
+  ttlMs: CACHE_TTL_MS,
+  maxEntries: 50,
+  storageDir: CACHE_STORAGE_DIR,
+});
+
+const SEGMENT_CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_SEGMENT_CACHE_TTL_MS, 10) || 60 * 60 * 1000; // 1 hour default
+
+const segmentCache = new PersistentCache({
+  namespace: 'strava:segment-efforts',
+  ttlMs: SEGMENT_CACHE_TTL_MS,
+  maxEntries: 400,
+  storageDir: CACHE_STORAGE_DIR,
+});
 
 // *** Updated: Define Multiple Segment Tracking Variables ***
 const TRACKED_SEGMENTS = [
@@ -223,6 +242,8 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
 // API endpoint to fetch all Strava activities and segment completions
 app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
+  userDataCache.pruneExpired();
+  segmentCache.pruneExpired();
   const accessToken = req.cookies.strava_token;
   const forceRefresh = req.query.refresh === 'true';
   const loadStored = req.query.loadStored === 'true';
@@ -262,10 +283,8 @@ app.get('/api/strava-data', async (req, res) => {
       const storedSnapshot = await getLatestUserSnapshot(userId);
       if (storedSnapshot?.payload) {
         console.log(`Stored snapshot located for athlete ${userId} from ${storedSnapshot.timestamp}.`);
-        userDataCache.set(cacheKey, {
-          timestamp: Date.now(),
-          data: storedSnapshot.payload,
-        });
+        const cacheTimestamp = Date.now();
+        userDataCache.set(cacheKey, storedSnapshot.payload);
 
         return res.json({
           ...storedSnapshot.payload,
@@ -273,6 +292,8 @@ app.get('/api/strava-data', async (req, res) => {
           stale: false,
           stored: true,
           storedTimestamp: storedSnapshot.timestamp,
+          cacheTimestamp,
+          cacheAgeMs: 0,
         });
       }
 
@@ -284,15 +305,16 @@ app.get('/api/strava-data', async (req, res) => {
       });
     }
 
-    const existingCache = userDataCache.get(cacheKey);
-    const now = Date.now();
+    const existingCacheEntry = userDataCache.getEntry(cacheKey);
 
-    if (!forceRefresh && existingCache && now - existingCache.timestamp < CACHE_TTL_MS) {
+    if (!forceRefresh && existingCacheEntry) {
       console.log(`Serving cached Strava data for athlete ${userId}`);
       return res.json({
-        ...existingCache.data,
+        ...existingCacheEntry.value,
         cached: true,
         stale: false,
+        cacheTimestamp: existingCacheEntry.timestamp,
+        cacheAgeMs: existingCacheEntry.ageMs,
       });
     }
 
@@ -320,7 +342,12 @@ app.get('/api/strava-data', async (req, res) => {
 
     // Fetch segment completions as before
     console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
-    let segments = await fetchSegmentDetails(TRACKED_SEGMENTS, accessToken); // Refactor segment fetching into a separate function
+    let segments = await fetchSegmentDetails({
+      segmentsList: TRACKED_SEGMENTS,
+      accessToken,
+      userId,
+      forceRefresh,
+    }); // Refactor segment fetching into a separate function
 
     const reachedConfiguredLimit = MAX_ACTIVITY_PAGES > 0 && (startPage - 1 + fetchedPages) >= MAX_ACTIVITY_PAGES;
     const hasMore = Boolean(hasMoreFromStrava && !reachedConfiguredLimit);
@@ -375,33 +402,35 @@ app.get('/api/strava-data', async (req, res) => {
       console.error(`Failed to persist snapshot for athlete ${userId}:`, storageError.message);
     }
 
-    userDataCache.set(cacheKey, {
-      timestamp: now,
-      data: responsePayload,
-    });
+    const cacheTimestamp = Date.now();
+    userDataCache.set(cacheKey, responsePayload);
 
     res.json({
       ...responsePayload,
       cached: false,
       stale: false,
       aggregated: mergedWithStoredSnapshot,
+      cacheTimestamp,
+      cacheAgeMs: 0,
     });
   } catch (error) {
     const statusCode = error.statusCode || error.response?.status || 500;
     console.error('Error fetching Strava data:', error.response ? error.response.data : error.message);
 
     if (cacheKey) {
-      const cachedEntry = userDataCache.get(cacheKey);
+      const cachedEntry = userDataCache.getEntry(cacheKey);
       if ((error.isRateLimit || statusCode === 429 || statusCode === 503) && cachedEntry) {
         const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
         const retryAfter = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : Math.ceil(CACHE_TTL_MS / 1000);
 
         console.log(`Returning cached data for athlete ${userId} after rate limit response.`);
         return res.status(200).json({
-          ...cachedEntry.data,
+          ...cachedEntry.value,
           cached: true,
           stale: true,
           retryAfter,
+          cacheTimestamp: cachedEntry.timestamp,
+          cacheAgeMs: cachedEntry.ageMs,
           message: 'Showing cached data because Strava temporarily rate limited requests. Please try again later.',
         });
       }
@@ -422,12 +451,18 @@ app.get('/api/strava-data', async (req, res) => {
         const storedSnapshot = await getLatestUserSnapshot(userId);
         if (storedSnapshot?.payload) {
           console.log(`Returning stored snapshot for athlete ${userId} after live fetch failure.`);
+          if (cacheKey) {
+            userDataCache.set(cacheKey, storedSnapshot.payload);
+          }
+          const cacheTimestamp = Date.now();
           return res.status(200).json({
             ...storedSnapshot.payload,
             cached: true,
             stale: true,
             stored: true,
             storedTimestamp: storedSnapshot.timestamp,
+            cacheTimestamp,
+            cacheAgeMs: 0,
             message: 'Live Strava fetch failed. Returning stored snapshot.',
           });
         }
@@ -535,44 +570,98 @@ async function fetchAllActivities(accessToken, { startPage = 1, pageCount = 3, p
  * @param {string} accessToken
  * @returns {Promise<Array<Object>>}
  */
-async function fetchSegmentDetails(segmentsList, accessToken) {
-  let segments = [];
+async function fetchSegmentDetails({ segmentsList = [], accessToken, userId, forceRefresh = false } = {}) {
+  if (!Array.isArray(segmentsList) || segmentsList.length === 0) {
+    return [];
+  }
+
+  const segments = [];
 
   for (const segment of segmentsList) {
+    const segmentId = segment?.id;
+    const segmentName = segment?.name || `Segment ${segmentId || ''}`.trim();
+    const cacheKey = !forceRefresh && userId && segmentId ? `${userId}:${segmentId}` : null;
+
+    if (cacheKey) {
+      const cachedSegment = segmentCache.getEntry(cacheKey);
+      if (cachedSegment) {
+        segments.push({
+          ...cachedSegment.value,
+          cached: true,
+          cacheTimestamp: cachedSegment.timestamp,
+          cacheAgeMs: cachedSegment.ageMs,
+        });
+        continue;
+      }
+    }
+
+    if (!segmentId) {
+      const responseTimestamp = Date.now();
+      segments.push({
+        name: segmentName,
+        count: 0,
+        totalCount: 0,
+        completions: [],
+        cached: false,
+        cacheTimestamp: responseTimestamp,
+        cacheAgeMs: 0,
+      });
+      continue;
+    }
+
     try {
-      console.log(`Fetching segment ID: ${segment.id}`);
-      const segmentResponse = await stravaGet(`segments/${segment.id}`, accessToken);
-      console.log(`Fetched segment details for ${segment.name}`);
+      console.log(`Fetching segment ID: ${segmentId}`);
+      const segmentResponse = await stravaGet(`segments/${segmentId}`, accessToken);
+      console.log(`Fetched segment details for ${segmentName}`);
 
-      const segmentData = segmentResponse.data;
+      const segmentData = segmentResponse.data || {};
 
-      const completionDates = await fetchSegmentEfforts(segment.id, accessToken);
+      const completionDates = await fetchSegmentEfforts(segmentId, accessToken);
       const effortCount = completionDates.length;
       const statsCount = segmentData.athlete_segment_stats?.effort_count || 0;
       const count = effortCount || statsCount;
 
-      segments.push({
-        name: segment.name,
+      const normalizedSegment = {
+        id: segmentId,
+        name: segmentName,
         count,
         totalCount: statsCount,
         completions: completionDates,
+      };
+
+      if (userId && segmentId) {
+        segmentCache.set(`${userId}:${segmentId}`, normalizedSegment);
+      }
+
+      const responseTimestamp = Date.now();
+
+      segments.push({
+        ...normalizedSegment,
+        cached: false,
+        cacheTimestamp: responseTimestamp,
+        cacheAgeMs: 0,
       });
-      console.log(`Segment: ${segment.name}, Completions: ${count}`);
+      console.log(`Segment: ${segmentName}, Completions: ${count}`);
 
       await sleep(500); // Respect rate limits
     } catch (segmentError) {
-      console.error(`Error fetching segment ID ${segment.id}:`, segmentError.response ? segmentError.response.data : segmentError.message);
+      console.error(`Error fetching segment ID ${segmentId}:`, segmentError.response ? segmentError.response.data : segmentError.message);
 
       if (segmentError.isRateLimit) {
         segmentError.statusCode = segmentError.statusCode || segmentError.response?.status || 503;
         throw segmentError;
       }
 
+      const responseTimestamp = Date.now();
       segments.push({
-        name: segment.name,
+        id: segmentId,
+        name: segmentName,
         count: 0,
         totalCount: 0,
         completions: [],
+        cached: false,
+        cacheTimestamp: responseTimestamp,
+        cacheAgeMs: 0,
       });
     }
   }

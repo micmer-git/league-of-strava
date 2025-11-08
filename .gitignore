@@ -4,3 +4,4 @@ app.log
 instance/users.db
 services/credentials.json
 services/credentials.json
+static/cache/*.json

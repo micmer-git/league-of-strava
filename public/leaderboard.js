@@ -100,14 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="level-cell">Level ${levelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}</td>
           <td class="wallet-cell">${walletBalance}</td>
           <td>${totalHaulValue}</td>
-          <td class="stat-cell">${worldTrips}</td>
-          <td class="stat-cell">${everestSummits}</td>
-          <td class="stat-cell">${pizzaCount}</td>
-          <td class="stat-cell">${coinTotals['💲']}</td>
-          <td class="stat-cell">${coinTotals['💰']}</td>
-          <td class="stat-cell">${coinTotals['🧈']}</td>
-          <td class="stat-cell">${coinTotals['💎']}</td>
-          <td class="stat-cell">${coinTotals['👑']}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(worldTrips)}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(everestSummits)}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(pizzaCount)}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['💲'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['💰'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['🧈'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['💎'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['👑'])}</td>
           <td>${relativeUpdated}</td>
         `;
         tableBody.appendChild(row);
@@ -171,14 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>Updated ${escapeHtml(view.relativeUpdated)}</span>
         </div>
         <div class="leaderboard-card__stats">
-          ${buildCardStat('🌍 World trips', view.worldTrips)}
-          ${buildCardStat('🏔️ Everests', view.everestSummits)}
-          ${buildCardStat('🍕 Pizzas', view.pizzaCount)}
-          ${buildCardStat('💲 Coins', view.coinTotals['💲'])}
-          ${buildCardStat('💰 Coins', view.coinTotals['💰'])}
-          ${buildCardStat('🧈 Coins', view.coinTotals['🧈'])}
-          ${buildCardStat('💎 Coins', view.coinTotals['💎'])}
-          ${buildCardStat('👑 Crowns', view.coinTotals['👑'])}
+          ${buildCardStat('🌍 World trips', view.worldTrips, { usePill: true })}
+          ${buildCardStat('🏔️ Everests', view.everestSummits, { usePill: true })}
+          ${buildCardStat('🍕 Pizzas', view.pizzaCount, { usePill: true })}
+          ${buildCardStat('💲 Coins', view.coinTotals['💲'], { usePill: true })}
+          ${buildCardStat('💰 Coins', view.coinTotals['💰'], { usePill: true })}
+          ${buildCardStat('🧈 Coins', view.coinTotals['🧈'], { usePill: true })}
+          ${buildCardStat('💎 Coins', view.coinTotals['💎'], { usePill: true })}
+          ${buildCardStat('👑 Crowns', view.coinTotals['👑'], { usePill: true })}
         </div>
       `;
 
@@ -190,13 +190,27 @@ document.addEventListener('DOMContentLoaded', () => {
     cardsContainer.hidden = false;
   }
 
-  function buildCardStat(label, value) {
+  function buildCardStat(label, value, { usePill = false, tone = 'wallet' } = {}) {
+    const valueClasses = ['leaderboard-card__stat-value'];
+    if (tone === 'wallet') {
+      valueClasses.push('leaderboard-card__stat-value--wallet');
+    }
+    const safeLabel = escapeHtml(label);
+    const valueMarkup = usePill ? formatStatPill(value) : escapeHtml(String(value));
     return `
       <div class="leaderboard-card__stat">
-        <span class="leaderboard-card__stat-label">${escapeHtml(label)}</span>
-        <span class="leaderboard-card__stat-value">${escapeHtml(String(value))}</span>
+        <span class="leaderboard-card__stat-label">${safeLabel}</span>
+        <span class="${valueClasses.join(' ')}">${valueMarkup}</span>
       </div>
     `;
+  }
+
+  function formatStatPill(value, tone = 'coin') {
+    const classNames = ['stat-value-pill'];
+    if (tone) {
+      classNames.push(`stat-value-pill--${tone}`);
+    }
+    return `<span class="${classNames.join(' ')}">${escapeHtml(String(value))}</span>`;
   }
 
   function formatCurrency(value) {

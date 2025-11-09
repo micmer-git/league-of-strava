@@ -87,20 +87,29 @@
         <section class="card rank-card" aria-labelledby="rank-heading" id="section-rank" data-section="rank">
           <div class="card-header">
             <h2 class="card-title" id="rank-heading">Current Rank</h2>
-            <span class="card-subtitle" id="current-rank"></span>
+            <button type="button" class="rank-level-button" id="rank-level-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="level-info-modal" aria-label="View level system details">
+              <span class="card-subtitle" id="current-rank"></span>
+            </button>
           </div>
           <div class="rank-overview">
             <div class="rank-visual">
               <div class="rank-emoji" id="rank-emoji" aria-label="Current rank icon">🥉</div>
-              <div class="rank-points">Points: <span id="current-points"></span> / <span id="next-rank-points"></span></div>
+              <div class="rank-points">Hours logged: <span id="current-hours"></span> / <span id="next-rank-hours"></span></div>
             </div>
             <div class="progress-wrapper">
               <div class="progress-labels">
                 <span id="current-rank-label"></span>
                 <span id="next-rank-label"></span>
               </div>
-              <div class="progress-container" id="progress-container" tabindex="0" aria-describedby="rank-tooltip">
+              <div class="progress-container" id="progress-container" tabindex="0" aria-describedby="progress-hours-total progress-hours-remaining rank-tooltip">
                 <div class="progress-bar" id="progress-bar" role="progressbar" aria-live="polite"></div>
+                <div class="progress-overlay" aria-hidden="true">
+                  <span id="progress-hours-label"></span>
+                </div>
+              </div>
+              <div class="progress-summary">
+                <span id="progress-hours-total"></span>
+                <span id="progress-hours-remaining"></span>
               </div>
               <div class="tooltip" id="rank-tooltip" role="dialog" aria-modal="false">
                 <h3>Rank Progression</h3>
@@ -111,6 +120,22 @@
             </div>
           </div>
         </section>
+
+        <div id="level-info-modal" class="level-info-modal" aria-hidden="true">
+          <div class="level-info-modal__overlay" data-level-modal-overlay></div>
+          <div class="level-info-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="level-info-title">
+            <div class="level-info-modal__header">
+              <h3 id="level-info-title">Level system overview</h3>
+              <button type="button" class="level-info-modal__close" id="level-info-close" aria-label="Close level overview" data-modal-initial-focus>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div class="level-info-modal__body">
+              <p id="level-info-description" class="level-info-modal__description"></p>
+              <ul id="level-info-list" class="level-info-list" aria-label="Level thresholds"></ul>
+            </div>
+          </div>
+        </div>
 
         <!-- Weekly Stats -->
         <section class="card weekly-card" aria-labelledby="weekly-heading" id="section-weekly" data-section="weekly">
@@ -288,17 +313,103 @@
         caloriesWeekGain: 9200,
       };
 
-      const rankProgress = { points: 1285 };
+      const rankProgress = { points: 1285, hours: 1285 };
       const rankLevels = [
-        { name: 'Novizio della Contea', minPoints: 0, emoji: '🌱' },
-        { name: 'Battitore di Bree', minPoints: 180, emoji: '🧭' },
-        { name: 'Custode di Gran Burrone', minPoints: 420, emoji: '🛡️' },
-        { name: 'Cavaliere di Rohan', minPoints: 720, emoji: '🐎' },
-        { name: 'Guardiano di Gondor', minPoints: 1080, emoji: '🦅' },
-        { name: 'Araldo di Valinor', minPoints: 1500, emoji: '🌅' },
-        { name: 'Campione della Terra di Mezzo', minPoints: 1900, emoji: '⚜️' },
-        { name: 'Signore delle Quattro Strade', minPoints: 2300, emoji: '👑' },
+        { name: 'Novizio della Contea', minPoints: 0, minHours: 0, emoji: '🌱' },
+        { name: 'Battitore di Bree', minPoints: 180, minHours: 180, emoji: '🧭' },
+        { name: 'Custode di Gran Burrone', minPoints: 420, minHours: 420, emoji: '🛡️' },
+        { name: 'Cavaliere di Rohan', minPoints: 720, minHours: 720, emoji: '🐎' },
+        { name: 'Guardiano di Gondor', minPoints: 1080, minHours: 1080, emoji: '🦅' },
+        { name: 'Araldo di Valinor', minPoints: 1500, minHours: 1500, emoji: '🌅' },
+        { name: 'Campione della Terra di Mezzo', minPoints: 1900, minHours: 1900, emoji: '⚜️' },
+        { name: 'Signore delle Quattro Strade', minPoints: 2300, minHours: 2300, emoji: '👑' },
       ];
+
+      const getLevelThresholdHours = (level) => {
+        if (!level || typeof level !== 'object') {
+          return 0;
+        }
+        const hours = Number(level.minHours);
+        if (Number.isFinite(hours)) {
+          return hours;
+        }
+        const fallback = Number(level.minPoints);
+        return Number.isFinite(fallback) ? fallback : 0;
+      };
+
+      const levelInfoModal = document.getElementById('level-info-modal');
+      const levelInfoTrigger = document.getElementById('rank-level-trigger');
+      const levelInfoCloseButton = document.getElementById('level-info-close');
+      const levelInfoDescription = document.getElementById('level-info-description');
+      const levelInfoList = document.getElementById('level-info-list');
+      const levelInfoOverlay = levelInfoModal ? levelInfoModal.querySelector('[data-level-modal-overlay]') : null;
+      const levelInfoDialog = levelInfoModal ? levelInfoModal.querySelector('.level-info-modal__dialog') : null;
+      let levelInfoPreviousFocus = null;
+
+      const openLevelInfoModal = () => {
+        if (!levelInfoModal) {
+          return;
+        }
+        levelInfoPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        levelInfoModal.classList.add('level-info-modal--visible');
+        levelInfoModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        if (levelInfoTrigger) {
+          levelInfoTrigger.setAttribute('aria-expanded', 'true');
+        }
+        const focusTarget = levelInfoModal.querySelector('[data-modal-initial-focus]') || levelInfoDialog;
+        if (focusTarget instanceof HTMLElement) {
+          focusTarget.focus();
+        }
+      };
+
+      const closeLevelInfoModal = () => {
+        if (!levelInfoModal) {
+          return;
+        }
+        levelInfoModal.classList.remove('level-info-modal--visible');
+        levelInfoModal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        if (levelInfoTrigger) {
+          levelInfoTrigger.setAttribute('aria-expanded', 'false');
+        }
+        if (levelInfoPreviousFocus && typeof levelInfoPreviousFocus.focus === 'function') {
+          levelInfoPreviousFocus.focus();
+        }
+      };
+
+      if (levelInfoTrigger && levelInfoModal) {
+        levelInfoTrigger.addEventListener('click', () => {
+          openLevelInfoModal();
+        });
+      }
+      if (levelInfoCloseButton) {
+        levelInfoCloseButton.addEventListener('click', () => {
+          closeLevelInfoModal();
+        });
+      }
+      if (levelInfoOverlay) {
+        levelInfoOverlay.addEventListener('click', () => {
+          closeLevelInfoModal();
+        });
+      }
+      if (levelInfoDialog) {
+        levelInfoDialog.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+      }
+      if (levelInfoModal) {
+        levelInfoModal.addEventListener('click', (event) => {
+          if (event.target === levelInfoModal) {
+            closeLevelInfoModal();
+          }
+        });
+      }
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && levelInfoModal && levelInfoModal.classList.contains('level-info-modal--visible')) {
+          closeLevelInfoModal();
+        }
+      });
 
       const fellowshipClasses = [
         {
@@ -841,11 +952,13 @@
       };
 
       const renderRank = () => {
-        const points = rankProgress.points;
+        const points = Number(rankProgress.points ?? 0);
+        const hoursLogged = Number(rankProgress.hours ?? points ?? 0);
         let currentIndex = 0;
         for (let i = 0; i < rankLevels.length; i += 1) {
           const nextLevel = rankLevels[i + 1];
-          if (!nextLevel || points < nextLevel.minPoints) {
+          const nextThreshold = Number(nextLevel?.minPoints ?? Number.POSITIVE_INFINITY);
+          if (!nextLevel || points < nextThreshold) {
             currentIndex = i;
             break;
           }
@@ -856,19 +969,88 @@
         setText('current-rank', `${currentRank.emoji} ${currentRank.name}`);
         setText('current-rank-label', currentRank.name);
         setText('next-rank-label', nextRank.name);
-        setText('current-points', formatMetric(points, { decimals: 0 }));
-        setText('next-rank-points', formatMetric(nextRank.minPoints, { decimals: 0 }));
         setText('rank-emoji', currentRank.emoji);
+
+        const currentMinHours = getLevelThresholdHours(currentRank);
+        const nextMinHours = getLevelThresholdHours(nextRank);
+        const reachedCap = currentRank === nextRank;
+        const safeHours = Math.max(hoursLogged, currentMinHours);
+        const remainingHours = Math.max(0, nextMinHours - hoursLogged);
+
+        setText('current-hours', formatMetric(hoursLogged, { decimals: 0, suffix: ' h' }));
+        setText('next-rank-hours', formatMetric(nextMinHours, { decimals: 0, suffix: ' h' }));
 
         const progressBar = document.getElementById('progress-bar');
         if (progressBar) {
-          const range = Math.max(1, nextRank.minPoints - currentRank.minPoints);
-          const ratio = currentRank === nextRank ? 1 : Math.min(1, Math.max(0, (points - currentRank.minPoints) / range));
+          const range = Math.max(1, nextMinHours - currentMinHours);
+          const ratio = reachedCap ? 1 : Math.min(1, Math.max(0, (safeHours - currentMinHours) / range));
           const width = (ratio * 100).toFixed(2);
           progressBar.style.width = `${width}%`;
-          progressBar.setAttribute('aria-valuenow', `${points}`);
-          progressBar.setAttribute('aria-valuemin', `${currentRank.minPoints}`);
-          progressBar.setAttribute('aria-valuemax', `${nextRank.minPoints}`);
+          progressBar.setAttribute('aria-valuenow', `${Math.min(safeHours, nextMinHours)}`);
+          progressBar.setAttribute('aria-valuemin', `${currentMinHours}`);
+          progressBar.setAttribute('aria-valuemax', `${nextMinHours}`);
+          const ariaValueText = reachedCap
+            ? 'Maximum level reached'
+            : `${formatMetric(hoursLogged, { decimals: 0, suffix: ' h' })} of ${formatMetric(nextMinHours, { decimals: 0, suffix: ' h' })}`;
+          progressBar.setAttribute('aria-valuetext', ariaValueText);
+        }
+
+        const overlayText = reachedCap
+          ? 'Prestige achieved'
+          : `${formatMetric(hoursLogged, { decimals: 0, suffix: ' h' })} logged`;
+        setText('progress-hours-label', overlayText);
+
+        const progressHoursTotal = document.getElementById('progress-hours-total');
+        if (progressHoursTotal) {
+          if (reachedCap) {
+            progressHoursTotal.textContent = `Level cap at ${formatMetric(nextMinHours, { decimals: 0, suffix: ' h' })}`;
+          } else {
+            progressHoursTotal.textContent = `${formatMetric(hoursLogged, { decimals: 0, suffix: ' h' })} / ${formatMetric(nextMinHours, { decimals: 0, suffix: ' h' })}`;
+          }
+        }
+
+        const progressHoursRemaining = document.getElementById('progress-hours-remaining');
+        if (progressHoursRemaining) {
+          if (reachedCap) {
+            progressHoursRemaining.textContent = 'Maximum title reached';
+          } else if (remainingHours <= 0) {
+            progressHoursRemaining.textContent = 'Ready to level up';
+          } else {
+            progressHoursRemaining.textContent = `${formatMetric(remainingHours, { decimals: 0, suffix: ' h' })} to next level`;
+          }
+        }
+
+        if (levelInfoDescription) {
+          const intro = `${currentRank.name} unlocks at ${formatMetric(currentMinHours, { decimals: 0, suffix: ' h' })}.`;
+          const outro = reachedCap
+            ? 'You have reached the highest title available.'
+            : `Next title ${nextRank.name} begins at ${formatMetric(nextMinHours, { decimals: 0, suffix: ' h' })}.`;
+          levelInfoDescription.textContent = `${intro} ${outro}`;
+        }
+
+        if (levelInfoList) {
+          levelInfoList.innerHTML = '';
+          rankLevels.forEach((level) => {
+            const item = document.createElement('li');
+            item.className = 'level-info-item';
+            if (level === currentRank) {
+              item.classList.add('level-info-item--current');
+              item.setAttribute('aria-current', 'true');
+            }
+            const thresholdHours = getLevelThresholdHours(level);
+            const metaParts = [
+              `${formatMetric(thresholdHours, { decimals: 0, suffix: ' h' })}`,
+              `${formatMetric(level.minPoints, { decimals: 0, suffix: ' pt' })}`,
+            ];
+            item.innerHTML = `
+              <span class="level-info-item__icon" aria-hidden="true">${level.emoji}</span>
+              <div class="level-info-item__copy">
+                <span class="level-info-item__title">${level.name}</span>
+                <span class="level-info-item__meta">${metaParts.join(' • ')}</span>
+              </div>
+            `;
+            levelInfoList.appendChild(item);
+          });
         }
 
         const list = document.getElementById('rank-list');
@@ -884,7 +1066,7 @@
               <span class="rank-tier__icon" aria-hidden="true">${level.emoji}</span>
               <div class="rank-tier__copy">
                 <span class="rank-tier__name">${level.name}</span>
-                <span class="rank-tier__points">${formatMetric(level.minPoints, { decimals: 0 })} pt</span>
+                <span class="rank-tier__points">${formatMetric(getLevelThresholdHours(level), { decimals: 0, suffix: ' h' })}</span>
               </div>
             `;
             list.appendChild(item);

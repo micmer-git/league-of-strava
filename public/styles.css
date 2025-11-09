@@ -756,6 +756,10 @@ img {
     padding-bottom: calc(6.5rem + var(--app-safe-area-bottom));
   }
 
+  .dashboard-tabs {
+    display: none;
+  }
+
   .panel-card__header {
     flex-direction: column;
     align-items: flex-start;

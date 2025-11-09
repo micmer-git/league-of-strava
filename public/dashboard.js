@@ -160,9 +160,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankInfoCloseButton = rankInfoModal ? rankInfoModal.querySelector('[data-rank-info-close]') : null;
     const rankInfoSummaryElement = document.getElementById('rank-info-summary');
     const rankInfoListElement = document.getElementById('rank-info-list');
-    let activeRankConfig = null;
-    let rankProgressState = { totalHours: 0, currentRank: null, nextRank: null };
-    let rankInfoListInitialized = false;
     const notificationDetailModal = document.getElementById('notification-detail-modal');
     const notificationDetailCloseButton = notificationDetailModal ? notificationDetailModal.querySelector('[data-notification-detail-close]') : null;
     const notificationDetailTitle = document.getElementById('notification-detail-title');
@@ -1160,6 +1157,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let weeklySnapshotPreviouslyFocusedElement = null;
     let hasShownWeeklySnapshot = false;
     let hasHydratedFromClientCache = false;
+    let activeRankConfig = null;
+    let rankProgressState = { totalHours: 0, currentRank: null, nextRank: null };
+    let rankInfoListInitialized = false;
 
     const DEFAULT_COUNTRY_LABEL = 'Unknown location';
     const DEFAULT_ACTIVITY_FILTERS = {
@@ -1630,6 +1630,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${sign}${absoluteValue.toFixed(decimals)}% · ${periodLabel}`;
     };
 
+    function formatHours(hours) {
+        if (!Number.isFinite(hours)) {
+            return '0 h';
+        }
+
+        const safeHours = Math.max(0, hours);
+
+        if (safeHours >= 1000) {
+            return `${(safeHours / 1000).toFixed(1)} kh`;
+        }
+
+        if (safeHours >= 100) {
+            return `${safeHours.toFixed(0)} h`;
+        }
+
+        if (safeHours >= 10) {
+            return `${safeHours.toFixed(1)} h`;
+        }
+
+        if (safeHours >= 1) {
+            return `${safeHours.toFixed(2)} h`;
+        }
+
+        const minutes = safeHours * 60;
+        if (minutes >= 1) {
+            return `${minutes.toFixed(0)} m`;
+        }
+
+        const seconds = minutes * 60;
+        return `${seconds.toFixed(0)} s`;
+    }
+
     const updateRankProgressBar = () => {
         const totalHours = Number.isFinite(rankProgressState?.totalHours)
             ? rankProgressState.totalHours
@@ -1763,19 +1795,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const formatPizzas = (pizzas) => {
         if (!Number.isFinite(pizzas)) return '0.00 pizzas';
         return `${pizzas.toFixed(2)} pizzas`;
-    };
-    const formatHours = (hours) => {
-        if (!Number.isFinite(hours)) {
-            return '0 h';
-        }
-        const safeHours = Math.max(0, hours);
-        if (safeHours >= 100) {
-            return `${safeHours.toFixed(0)} h`;
-        }
-        if (safeHours >= 10) {
-            return `${safeHours.toFixed(1)} h`;
-        }
-        return `${safeHours.toFixed(2)} h`;
     };
 
     const formatActivityMetaSummary = (activity) => {
@@ -4845,7 +4864,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             return acc;
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
     };
-
 
     const getISOWeekInfo = (inputDate) => {
         if (!(inputDate instanceof Date) || Number.isNaN(inputDate.getTime())) {

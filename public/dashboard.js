@@ -160,6 +160,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankInfoCloseButton = rankInfoModal ? rankInfoModal.querySelector('[data-rank-info-close]') : null;
     const rankInfoSummaryElement = document.getElementById('rank-info-summary');
     const rankInfoListElement = document.getElementById('rank-info-list');
+    let activeRankConfig = null;
+    let rankProgressState = { totalHours: 0, currentRank: null, nextRank: null };
+    let rankInfoListInitialized = false;
     const notificationDetailModal = document.getElementById('notification-detail-modal');
     const notificationDetailCloseButton = notificationDetailModal ? notificationDetailModal.querySelector('[data-notification-detail-close]') : null;
     const notificationDetailTitle = document.getElementById('notification-detail-title');
@@ -4843,9 +4846,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
     };
 
-    let activeRankConfig = null;
-    let rankProgressState = { totalHours: 0, currentRank: null, nextRank: null };
-    let rankInfoListInitialized = false;
 
     const getISOWeekInfo = (inputDate) => {
         if (!(inputDate instanceof Date) || Number.isNaN(inputDate.getTime())) {

@@ -82,6 +82,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             '24000 kcal Week': '24,000 kcal week'
         }
     };
+    const ACHIEVEMENT_TYPE_META = {
+        RUN: { emoji: '🏃', label: 'Run achievements' },
+        RIDE: { emoji: '🚴', label: 'Ride achievements' },
+        SWIM: { emoji: '🏊', label: 'Swim achievements' },
+        WALK: { emoji: '🚶', label: 'Walk achievements' },
+        HIKE: { emoji: '🥾', label: 'Hike achievements' },
+        ROW: { emoji: '🚣', label: 'Row achievements' },
+        DEFAULT: { emoji: '🏅', label: 'Other achievements' }
+    };
     const CALORIE_SCALE_FACTOR = 0.65;
     const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
     const usdCodeFormatter = new Intl.NumberFormat(undefined, {
@@ -515,10 +524,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const item = document.createElement('li');
                 item.className = 'notification-detail__list-item';
                 const labelSpan = document.createElement('span');
-                labelSpan.textContent = renderLabel(entry);
-                const valueSpan = document.createElement('span');
-                valueSpan.textContent = `${entry.count.toLocaleString()}×`;
-                item.append(labelSpan, valueSpan);
+                labelSpan.className = 'notification-detail__list-label';
+                const labelText = renderLabel(entry);
+                labelSpan.textContent = `${entry.count.toLocaleString()}× ${labelText}`;
+                item.appendChild(labelSpan);
                 list.appendChild(item);
             });
             return list;
@@ -552,10 +561,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const achievementsSummary = document.createElement('p');
         achievementsSummary.className = 'notification-detail__summary';
         achievementsSummary.textContent = summary.achievements.total > 0
-            ? `${summary.achievements.total.toLocaleString()} highlights`
+            ? `${summary.achievements.total.toLocaleString()} achievements`
             : 'No achievements recorded in this period.';
         achievementsSection.append(achievementsHeading, achievementsSummary);
-        const achievementList = buildList(summary.achievements.breakdown, (entry) => `${entry.emoji} ${entry.description}`);
+        const achievementList = buildList(summary.achievements.breakdown, (entry) => `${entry.emoji} ${entry.label}`.trim());
         if (achievementList) {
             achievementsSection.appendChild(achievementList);
         } else {
@@ -760,27 +769,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             });
 
-            const achievementsMap = new Map();
-            let achievementsTotal = 0;
-            matchedDetails.forEach((detail) => {
-                const highlights = getActivityAchievementHighlights(detail.activity, detail.stats);
-                highlights.forEach(({ emoji, description }) => {
-                    const key = `${emoji || '🏅'}|${description || 'Achievement'}`;
-                    const existing = achievementsMap.get(key) || { emoji: emoji || '🏅', description: description || 'Achievement', count: 0 };
-                    existing.count += 1;
-                    achievementsMap.set(key, existing);
-                    achievementsTotal += 1;
-                });
-            });
-
             const coinBreakdown = COIN_EMOJIS.map((emoji) => ({ emoji, count: coinCounts[emoji] || 0 }))
                 .filter((entry) => entry.count > 0);
             const medalBreakdown = Array.from(medalCounts.entries())
                 .sort((a, b) => b[1] - a[1])
                 .map(([label, count]) => ({ label, count }));
-            const achievementBreakdown = Array.from(achievementsMap.values())
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 6);
+            const achievementSummary = summarizeAchievementsByType(matchedActivities);
 
             notificationSummaryById.set(range.id, {
                 id: range.id,
@@ -788,7 +782,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activities: matchedActivities.length,
                 hours: totals.hours,
                 coins: { total: coinsTotal, breakdown: coinBreakdown },
-                achievements: { total: achievementsTotal, breakdown: achievementBreakdown },
+                achievements: achievementSummary,
                 medals: { total: medalsTotal, breakdown: medalBreakdown },
             });
         });
@@ -3766,6 +3760,175 @@ document.addEventListener('DOMContentLoaded', async () => {
         return totals;
     };
 
+    const ensureCoinTotalsShape = (inputTotals = {}) => {
+        return COIN_EMOJIS.reduce((acc, emoji) => {
+            const value = Number(inputTotals?.[emoji]);
+            acc[emoji] = Number.isFinite(value) && value > 0 ? value : 0;
+            return acc;
+        }, {});
+    };
+
+    const getWeekKey = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const weekStart = new Date(date);
+        weekStart.setHours(0, 0, 0, 0);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        return weekStart.toISOString().slice(0, 10);
+    };
+
+    const getMonthKey = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+    };
+
+    const aggregateCoinTotalsFromActivities = (activities = []) => {
+        const runDistances = [];
+        const rideDistances = [];
+        const elevationPerActivity = [];
+        const caloriesPerActivity = [];
+        const runWeekly = new Map();
+        const rideWeekly = new Map();
+        const elevationWeekly = new Map();
+        const elevationMonthly = new Map();
+        const weeklyCalories = new Map();
+
+        activities.forEach(activity => {
+            if (!activity || typeof activity !== 'object') {
+                return;
+            }
+
+            const distanceMeters = Number(activity.distance) || 0;
+            const elevationGain = Number(activity.total_elevation_gain) || 0;
+            const calories = calculateActivityCalories(activity);
+
+            if (elevationGain > 0) {
+                elevationPerActivity.push(elevationGain);
+            }
+            if (calories > 0) {
+                caloriesPerActivity.push(calories);
+            }
+
+            const startDate = activity.start_date || activity.start_date_local;
+            const parsedDate = startDate ? new Date(startDate) : null;
+            const weekKey = parsedDate ? getWeekKey(parsedDate) : null;
+            const monthKey = parsedDate ? getMonthKey(parsedDate) : null;
+            const distanceKm = distanceMeters / 1000;
+            const normalizedType = (activity.type || '').toUpperCase();
+
+            if (normalizedType === 'RUN' && distanceKm > 0) {
+                runDistances.push(distanceKm);
+                if (weekKey) {
+                    runWeekly.set(weekKey, (runWeekly.get(weekKey) || 0) + distanceKm);
+                }
+            }
+
+            if (normalizedType === 'RIDE' && distanceKm > 0) {
+                rideDistances.push(distanceKm);
+                if (weekKey) {
+                    rideWeekly.set(weekKey, (rideWeekly.get(weekKey) || 0) + distanceKm);
+                }
+            }
+
+            if (elevationGain > 0) {
+                if (weekKey) {
+                    elevationWeekly.set(weekKey, (elevationWeekly.get(weekKey) || 0) + elevationGain);
+                }
+                if (monthKey) {
+                    elevationMonthly.set(monthKey, (elevationMonthly.get(monthKey) || 0) + elevationGain);
+                }
+            }
+
+            if (calories > 0 && weekKey) {
+                weeklyCalories.set(weekKey, (weeklyCalories.get(weekKey) || 0) + calories);
+            }
+        });
+
+        const coinTotals = COIN_EMOJIS.reduce((acc, emoji) => {
+            acc[emoji] = 0;
+            return acc;
+        }, {});
+
+        const addCoins = (emoji, count) => {
+            if (!Number.isFinite(count) || count <= 0) {
+                return;
+            }
+            coinTotals[emoji] += count;
+        };
+
+        const runWeeklyValues = Array.from(runWeekly.values());
+        addCoins('💲', runDistances.filter(distance => distance >= 10).length);
+        addCoins('💰', runDistances.filter(distance => distance >= 21).length);
+        addCoins('🧈', runDistances.filter(distance => distance >= 42).length);
+        addCoins('💎', runWeeklyValues.filter(total => total >= 50).length);
+        addCoins('👑', runWeeklyValues.filter(total => total >= 100).length);
+
+        const rideWeeklyValues = Array.from(rideWeekly.values());
+        addCoins('💲', rideDistances.filter(distance => distance >= 100).length);
+        addCoins('💰', rideDistances.filter(distance => distance >= 150).length);
+        addCoins('🧈', rideDistances.filter(distance => distance >= 200).length);
+        addCoins('💎', rideWeeklyValues.filter(total => total >= 300).length);
+        addCoins('👑', rideWeeklyValues.filter(total => total >= 600).length);
+
+        const elevationWeeklyValues = Array.from(elevationWeekly.values());
+        const elevationMonthlyValues = Array.from(elevationMonthly.values());
+        addCoins('💲', elevationPerActivity.filter(gain => gain >= 1000).length);
+        addCoins('💰', elevationPerActivity.filter(gain => gain >= 2000).length);
+        addCoins('🧈', elevationPerActivity.filter(gain => gain >= 4424).length);
+        addCoins('👑', elevationWeeklyValues.filter(total => total >= 10000).length);
+        addCoins('💎', elevationMonthlyValues.filter(total => total >= 25000).length);
+
+        const weeklyCaloriesValues = Array.from(weeklyCalories.values());
+        addCoins('💲', caloriesPerActivity.filter(value => value >= 1000).length);
+        addCoins('💰', caloriesPerActivity.filter(value => value >= 2000).length);
+        addCoins('🧈', caloriesPerActivity.filter(value => value >= 4000).length);
+        addCoins('💎', caloriesPerActivity.filter(value => value >= 7500).length);
+        addCoins('👑', caloriesPerActivity.filter(value => value >= 8000).length);
+        addCoins('💎', weeklyCaloriesValues.filter(total => total >= 12000).length);
+        addCoins('👑', weeklyCaloriesValues.filter(total => total >= 24000).length);
+
+        const totalCoinValue = Object.entries(coinTotals).reduce((sum, [emoji, count]) => {
+            const coinValue = COIN_VALUE_MAP[emoji] || 0;
+            return sum + (coinValue * count);
+        }, 0);
+
+        return {
+            coinTotals,
+            totalCoinValue,
+        };
+    };
+
+    const summarizeAchievementsByType = (activities = []) => {
+        const counts = new Map();
+        let total = 0;
+
+        activities.forEach(activity => {
+            const count = Number(activity?.achievement_count) || 0;
+            if (count <= 0) {
+                return;
+            }
+            total += count;
+            const typeKey = (activity?.type || '').toUpperCase();
+            const meta = ACHIEVEMENT_TYPE_META[typeKey] || ACHIEVEMENT_TYPE_META.DEFAULT;
+            const key = meta.label;
+            const existing = counts.get(key) || { emoji: meta.emoji, label: meta.label, count: 0 };
+            existing.count += count;
+            counts.set(key, existing);
+        });
+
+        const breakdown = Array.from(counts.values()).sort((a, b) => b.count - a.count).slice(0, 6);
+
+        return {
+            total,
+            breakdown,
+        };
+    };
+
     const computePremiumAchievements = (lifetimeActivities = []) => {
         if (!Array.isArray(lifetimeActivities) || lifetimeActivities.length === 0) {
             return [];
@@ -4105,8 +4268,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }, medalBreakdown = []) => {
-        const totals = computeWalletCoinTotals(achievementCategories);
+    const updateCoinSummaryFromWallet = (
+        achievementCategories = [],
+        medalSummary = { count: 0, value: 0 },
+        medalBreakdown = [],
+        options = {}
+    ) => {
+        const { overrideCoinTotals = null, overrideCoinValue = null } = options || {};
+        const totals = overrideCoinTotals
+            ? ensureCoinTotalsShape(overrideCoinTotals)
+            : computeWalletCoinTotals(achievementCategories);
         const elementMap = {
             '💲': 'coin-dollar',
             '💰': 'coin-money',
@@ -4131,10 +4302,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const totalCoinValue = Object.entries(totals).reduce((sum, [emoji, count]) => {
-            const coinValue = COIN_VALUE_MAP[emoji] || 0;
-            return sum + (coinValue * count);
-        }, 0);
+        const totalCoinValue = Number.isFinite(overrideCoinValue)
+            ? overrideCoinValue
+            : Object.entries(totals).reduce((sum, [emoji, count]) => {
+                const coinValue = COIN_VALUE_MAP[emoji] || 0;
+                return sum + (coinValue * count);
+            }, 0);
 
         const medalValue = Number.isFinite(medalSummary?.value) ? medalSummary.value : 0;
         const medalCount = Number.isFinite(medalSummary?.count) ? medalSummary.count : 0;
@@ -7014,7 +7187,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             value: totalMedalCount * MEDAL_DOLLAR_VALUE
         };
 
-        updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
+        const walletCoinAggregation = aggregateCoinTotalsFromActivities(lifetimeActivities);
+
+        updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned, {
+            overrideCoinTotals: walletCoinAggregation.coinTotals,
+            overrideCoinValue: walletCoinAggregation.totalCoinValue
+        });
 
         // === Update Achievement Wallet ===
         if (achievementWallet) {

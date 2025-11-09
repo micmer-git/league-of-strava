@@ -228,7 +228,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const leaderboardStatus = document.getElementById('leaderboard-status');
     const leaderboardBody = document.getElementById('leaderboard-body');
     const leaderboardSortButtons = Array.from(document.querySelectorAll('.leaderboard-sort'));
-    const panelBackButtons = Array.from(document.querySelectorAll('.panel-back-btn'));
     const panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
     const coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
@@ -391,16 +390,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             panel.classList.toggle('is-active', name === panelName);
         });
 
-        if (window.innerWidth < 768) {
-            if (panelName !== 'profile') {
-                bodyElement.style.overflow = 'hidden';
-            } else {
-                bodyElement.style.overflow = '';
-            }
-        } else {
-            bodyElement.style.overflow = '';
-        }
-
         notifyPanelChange(panelName);
     }
 
@@ -453,20 +442,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         button.addEventListener('click', () => {
             setActivePanel(button.dataset.dashboardNav, { focusTab: false });
         });
-    });
-
-    panelBackButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const targetPanel = button.dataset.target || 'profile';
-            setActivePanel(targetPanel, { focusTab: true });
-            bodyElement.style.overflow = '';
-        });
-    });
-
-    window.addEventListener('resize', () => {
-        if (window.innerWidth >= 768) {
-            bodyElement.style.overflow = '';
-        }
     });
 
     if (dashboardPanelsContainer) {
@@ -6381,7 +6356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             COIN_EMOJIS.forEach(emoji => {
                 const headerCell = document.createElement('th');
-                headerCell.className = 'px-3 py-2 text-center text-base';
+                headerCell.className = 'px-2 py-1 text-center text-sm';
                 headerCell.textContent = emoji;
                 headerRow.appendChild(headerCell);
             });
@@ -6429,18 +6404,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const labelCell = document.createElement('th');
                 labelCell.scope = 'row';
-                labelCell.className = 'px-3 py-2 text-center align-middle';
+                labelCell.className = 'px-2 py-1 text-center align-middle';
                 const labelWrapper = document.createElement('div');
-                labelWrapper.className = 'flex flex-col items-center gap-1 px-2 py-1 text-center font-semibold text-gray-700 dark:text-gray-200';
+                labelWrapper.className = 'wallet-table__label flex flex-col items-center gap-1 px-1.5 py-0.5 text-center font-semibold text-gray-700 dark:text-gray-200';
                 labelWrapper.innerHTML = `<span class="text-xl leading-none">${rowConfig.icon}</span><span class="text-sm">${rowConfig.label}</span>`;
                 labelCell.appendChild(labelWrapper);
                 row.appendChild(labelCell);
 
                 COIN_EMOJIS.forEach(emoji => {
                     const cell = document.createElement('td');
-                    cell.className = 'px-2 py-2 text-center align-middle';
+                    cell.className = 'px-1.5 py-1.5 text-center align-middle';
                     const cellWrapper = document.createElement('div');
-                    cellWrapper.className = 'flex min-w-[3.75rem] flex-col items-center gap-0.5 px-1.5 py-1 text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-100';
+                    cellWrapper.className = 'wallet-table__cell flex min-w-[3rem] flex-col items-center gap-0.5 px-1 py-0.5 font-semibold text-gray-800 dark:text-gray-100';
                     const countValue = countsByEmoji[emoji].toLocaleString();
                     const descriptionCandidates = detailsByEmoji[emoji]
                         .map(detail => formatCoinCellLabel(rowConfig.label, detail.name))

@@ -910,6 +910,7 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            max-width: 100%;
         }
 
         .panel-card {
@@ -1019,6 +1020,16 @@
             margin-top: 0.35rem;
         }
 
+        @media (max-width: 639px) {
+            .profile-card__header {
+                justify-items: start;
+            }
+
+            .profile-card__avatar {
+                justify-self: start;
+            }
+        }
+
         @media (min-width: 640px) {
             .profile-card__header {
                 grid-template-columns: auto 1fr;
@@ -1051,7 +1062,7 @@
             font-size: clamp(1.15rem, 3vw, 1.65rem);
             font-weight: 600;
             margin: 0;
-            color: #0f172a;
+            color: #000;
             word-break: break-word;
         }
 
@@ -1182,7 +1193,7 @@
             padding: 0.5rem 0.8rem;
             border-radius: 9999px;
             background: rgba(15, 23, 42, 0.05);
-            color: #0f172a;
+            color: #000;
             font-size: 0.9rem;
             font-weight: 600;
             scroll-snap-align: start;
@@ -1259,14 +1270,25 @@
         }
 
         .profile-card__coins .profile-metrics__row {
+            display: flex;
+            flex-wrap: wrap;
             gap: 0.4rem;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .profile-card__coins .profile-metric-pill {
+            width: fit-content;
+            max-width: 100%;
+            flex: 0 1 auto;
         }
 
         .profile-card__wallet-totals {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
             gap: 0.4rem;
             width: 100%;
+            justify-content: flex-start;
         }
 
         .wallet-total-pill {
@@ -1274,6 +1296,8 @@
             border: 1px solid rgba(250, 204, 21, 0.35);
             color: #b45309;
             cursor: pointer;
+            width: fit-content;
+            max-width: 100%;
         }
 
         .wallet-total-pill[data-panel-target="medals"] {
@@ -1894,6 +1918,20 @@
             transition: box-shadow 0.2s ease;
         }
 
+        .medal-badge--unearned {
+            background: rgba(148, 163, 184, 0.18) !important;
+            color: #475569 !important;
+            border: 1px dashed rgba(148, 163, 184, 0.45);
+            opacity: 0.85;
+        }
+
+        .dark .medal-badge--unearned,
+        body.dark .medal-badge--unearned {
+            background: rgba(148, 163, 184, 0.35) !important;
+            color: #cbd5f5 !important;
+            border-color: rgba(148, 163, 184, 0.55);
+        }
+
         .medal-badge:hover {
             box-shadow: 0 12px 20px rgba(15, 23, 42, 0.18);
         }
@@ -2044,7 +2082,6 @@
             }
 
             .panel-card__title,
-            .profile-card__name,
             .profile-card__level,
             .profile-card__rank {
                 color: #e2e8f0;
@@ -2058,8 +2095,9 @@
             }
 
             .profile-card__badge-item {
-                background: rgba(148, 163, 184, 0.18);
-                color: #e2e8f0;
+                background: rgba(255, 255, 255, 0.82);
+                color: #000;
+                border-color: rgba(255, 255, 255, 0.7);
             }
 
             .profile-card__badge-count {
@@ -2140,6 +2178,10 @@
             max-width: 100%;
             box-sizing: border-box;
             min-height: calc(var(--app-viewport-height) - var(--app-safe-area-top) - var(--app-safe-area-bottom));
+        }
+
+        .dashboard-shell > * {
+            max-width: 100%;
         }
 
         #error-message {

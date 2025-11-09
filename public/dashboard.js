@@ -1442,19 +1442,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const medalButton = document.createElement('button');
                 medalButton.type = 'button';
                 medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
+                if (!medal.count) {
+                    medalButton.classList.add('medal-badge--unearned');
+                }
                 medalButton.innerHTML = `
                     <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
                     <span class="text-2xl leading-none">${medal.emoji}</span>
                 `;
                 const descriptionText = (medal.description || '').trim();
                 const countLabel = medal.count.toLocaleString();
+                const earnedDescriptor = medal.count > 0 ? `${countLabel} earned` : 'Not earned yet';
                 const ariaDescription = descriptionText
-                    ? `${medal.name}: ${descriptionText} — earned ${countLabel} times`
-                    : `${medal.name} — earned ${countLabel} times`;
+                    ? `${medal.name}: ${descriptionText} — ${earnedDescriptor}`
+                    : `${medal.name} — ${earnedDescriptor}`;
                 medalButton.setAttribute('aria-label', ariaDescription);
                 const medalTooltip = descriptionText
-                    ? `${medal.name} — ${descriptionText} — ${countLabel} earned`
-                    : `${medal.name} — ${countLabel} earned`;
+                    ? `${medal.name} — ${descriptionText} — ${earnedDescriptor}`
+                    : `${medal.name} — ${earnedDescriptor}`;
                 attachTooltip(medalButton, medalTooltip);
                 medalButton.dataset.medalName = medal.name;
                 medalButton.dataset.medalEmoji = medal.emoji || '';
@@ -6217,9 +6221,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             })
             .filter(year => year !== null)));
 
-        medalsConfig.forEach(medal => {
+        const allMedals = medalsConfig.map(medal => {
             const medalCategory = resolveMedalCategory(medal);
-            if ((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver) {
+            const result = {
+                name: medal.name,
+                emoji: medal.emoji,
+                description: medal.description,
+                count: 0,
+                isDayBased: Boolean((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver),
+                category: medalCategory
+            };
+
+            let count = 0;
+
+            if (result.isDayBased) {
                 const resolvedDates = new Set(medal.dates || []);
                 if (medal.dynamicDateResolver && activityYears.length > 0) {
                     activityYears.forEach(year => {
@@ -6231,7 +6246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
 
-                const count = activities.filter(activity => {
+                count = activities.filter(activity => {
                     const activityDate = new Date(activity.start_date);
                     if (Number.isNaN(activityDate.getTime())) {
                         return false;
@@ -6239,94 +6254,67 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const monthDay = activityDate.toISOString().slice(5, 10);
                     return resolvedDates.has(monthDay);
                 }).length;
+            } else if (typeof medal.criteria === 'function') {
+                count = activities.filter(activity => medal.criteria(activity)).length;
+            } else if (medal.name === '7-Day Caloric Champion') {
+                const dailyCalories = {};
+                activities.forEach(activity => {
+                    const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
+                    dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + calculateActivityCalories(activity);
+                });
 
-                if (count > 0) {
-                    medalsEarned.push({
-                        name: medal.name,
-                        emoji: medal.emoji,
-                        description: medal.description,
-                        count,
-                        isDayBased: true,
-                        category: medalCategory
-                    });
-                }
-            } else if (medal.criteria) {
-                const count = activities.filter(activity => medal.criteria(activity)).length;
-                if (count > 0) {
-                    medalsEarned.push({
-                        name: medal.name,
-                        emoji: medal.emoji,
-                        description: medal.description,
-                        count,
-                        isDayBased: false,
-                        category: medalCategory
-                    });
-                }
-            } else {
-                if (medal.name === '7-Day Caloric Champion') {
-                    const dailyCalories = {};
-                    activities.forEach(activity => {
-                        const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
-                        dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + calculateActivityCalories(activity);
-                    });
+                const dates = Object.keys(dailyCalories).sort();
+                let streak = 0;
+                let maxStreak = 0;
 
-                    const dates = Object.keys(dailyCalories).sort();
-                    let streak = 0;
-                    let maxStreak = 0;
-
-                    dates.forEach(date => {
-                        if (dailyCalories[date] >= 1000) {
-                            streak++;
-                            maxStreak = Math.max(maxStreak, streak);
-                        } else {
-                            streak = 0;
-                        }
-                    });
-
-                    if (maxStreak >= 7) {
-                        medalsEarned.push({
-                            name: medal.name,
-                            emoji: medal.emoji,
-                            description: medal.description,
-                            count: Math.floor(maxStreak / 7),
-                            isDayBased: false,
-                            category: medalCategory
-                        });
-                    }
-                }
-
-                if (medal.name === 'Cycling Streak') {
-                    const cyclingActivities = activities.filter(a => a.type && a.type.toUpperCase() === 'RIDE');
-                    const uniqueDates = [...new Set(cyclingActivities.map(a => new Date(a.start_date).toISOString().slice(0, 10)))].sort();
-                    let streak = 0;
-                    let maxStreak = 0;
-                    let previousDate = null;
-
-                    uniqueDates.forEach(dateStr => {
-                        const date = new Date(dateStr);
-                        if (previousDate) {
-                            const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
-                            streak = diffDays === 1 ? streak + 1 : 1;
-                        } else {
-                            streak = 1;
-                        }
-
+                dates.forEach(date => {
+                    if (dailyCalories[date] >= 1000) {
+                        streak++;
                         maxStreak = Math.max(maxStreak, streak);
-                        previousDate = date;
-                    });
-
-                    if (maxStreak >= 5) {
-                        medalsEarned.push({
-                            name: medal.name,
-                            emoji: medal.emoji,
-                            description: medal.description,
-                            count: Math.floor(maxStreak / 5),
-                            isDayBased: false,
-                            category: medalCategory
-                        });
+                    } else {
+                        streak = 0;
                     }
+                });
+
+                if (maxStreak >= 7) {
+                    count = Math.floor(maxStreak / 7);
+                }
+            } else if (medal.name === 'Cycling Streak') {
+                const cyclingActivities = activities.filter(a => a.type && a.type.toUpperCase() === 'RIDE');
+                const uniqueDates = [...new Set(cyclingActivities.map(a => new Date(a.start_date).toISOString().slice(0, 10)))].sort();
+                let streak = 0;
+                let maxStreak = 0;
+                let previousDate = null;
+
+                uniqueDates.forEach(dateStr => {
+                    const date = new Date(dateStr);
+                    if (previousDate) {
+                        const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
+                        streak = diffDays === 1 ? streak + 1 : 1;
+                    } else {
+                        streak = 1;
+                    }
+
+                    maxStreak = Math.max(maxStreak, streak);
+                    previousDate = date;
+                });
+
+                if (maxStreak >= 5) {
+                    count = Math.floor(maxStreak / 5);
                 }
             }
+
+            if (!Number.isFinite(count) || count < 0) {
+                count = 0;
+            }
+
+            result.count = count;
+
+            if (count > 0) {
+                medalsEarned.push(result);
+            }
+
+            return result;
         });
 
         const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + (medal.count || 0), 0);
@@ -6441,7 +6429,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'achievement-wallet' element not found in the DOM.");
         }
 
-        const sortedMedals = medalsEarned.slice().sort((a, b) => {
+        const sortedMedals = allMedals.slice().sort((a, b) => {
             const categoryA = a.category || 'Other';
             const categoryB = b.category || 'Other';
             if (categoryA !== categoryB) {

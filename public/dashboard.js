@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const date = new Date(2000, index, 1);
         return date.toLocaleDateString(undefined, { month: 'short' });
     });
+    const notificationRanges = [
+        { id: 'week', label: 'Last 7 days', days: 7 },
+        { id: 'month', label: 'Last 30 days', days: 30 },
+        { id: 'quarter', label: 'Last 90 days', days: 90 },
+    ];
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const MEDALS_PAGE_SIZE = Number.POSITIVE_INFINITY;
     const COIN_LABEL_OVERRIDES = {
@@ -88,6 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     const DASHBOARD_CACHE_STORAGE_KEY = 'los:dashboard-cache:v1';
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+    const MODAL_TRANSITION_DURATION_MS = 250;
 
     // === DOM Elements ===
     const bodyElement = document.body;
@@ -146,8 +152,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentRankElement = document.getElementById('current-rank');
     const nextRankElement = document.getElementById('next-rank');
     const rankingProgressElement = document.getElementById('ranking-progress');
+    const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
+    const rankInfoTrigger = document.getElementById('rank-info-trigger');
+    const rankInfoModal = document.getElementById('rank-info-modal');
+    const rankInfoCloseButton = rankInfoModal ? rankInfoModal.querySelector('[data-rank-info-close]') : null;
+    const rankInfoSummaryElement = document.getElementById('rank-info-summary');
+    const rankInfoListElement = document.getElementById('rank-info-list');
+    const notificationDetailModal = document.getElementById('notification-detail-modal');
+    const notificationDetailCloseButton = notificationDetailModal ? notificationDetailModal.querySelector('[data-notification-detail-close]') : null;
+    const notificationDetailTitle = document.getElementById('notification-detail-title');
+    const notificationDetailMeta = document.getElementById('notification-detail-meta');
+    const notificationDetailBody = document.getElementById('notification-detail-body');
     const globeStatButton = document.getElementById('globe-stat');
     const everestStatButton = document.getElementById('everest-stat');
     const pizzaStatButton = document.getElementById('pizza-stat');
@@ -158,6 +175,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const likesTotalElement = document.getElementById('likes-total');
     const profileWalletTotalElement = document.getElementById('profile-wallet-total');
     const shareButton = document.getElementById('share-dashboard');
+    const notificationsTrigger = document.getElementById('notifications-trigger');
+    const notificationsBadge = document.getElementById('notifications-badge');
+    const notificationsPopover = document.getElementById('notifications-popover');
+    const notificationsListElement = document.getElementById('notifications-list');
+    const notificationsEmptyElement = document.getElementById('notifications-empty');
     const shareCardPreview = document.getElementById('share-card-preview');
     const shareCardName = document.getElementById('share-card-athlete');
     const shareCardRank = document.getElementById('share-card-rank');
@@ -321,6 +343,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activeQuickFilter = null;
     let lastShareData = null;
     let shareCopyResetTimeout = null;
+    let notificationSummaryById = new Map();
+    let shouldRefreshNotificationSummaries = false;
+    let rankInfoPreviousFocus = null;
+    let notificationDetailPreviousFocus = null;
+    let rankInfoCloseTimeoutId = null;
+    let notificationDetailCloseTimeoutId = null;
 
     let activePanelName = null;
     const initialPanelFromMarkup = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab ?? null;
@@ -341,6 +369,434 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    const isModalVisible = (modalElement) => Boolean(modalElement && !modalElement.classList.contains('hidden'));
+
+    const applyBodyModalState = () => {
+        if (isModalVisible(rankInfoModal) || isModalVisible(notificationDetailModal)) {
+            bodyElement.classList.add('modal-open');
+        } else {
+            bodyElement.classList.remove('modal-open');
+        }
+    };
+
+    const openRankInfoModal = () => {
+        if (!rankInfoModal) {
+            return;
+        }
+        refreshRankInfoModalState();
+        if (rankInfoCloseTimeoutId) {
+            clearTimeout(rankInfoCloseTimeoutId);
+            rankInfoCloseTimeoutId = null;
+        }
+        rankInfoPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        rankInfoModal.classList.remove('hidden');
+        rankInfoModal.classList.remove('pointer-events-none');
+        void rankInfoModal.offsetWidth;
+        rankInfoModal.classList.remove('opacity-0');
+        rankInfoModal.classList.add('opacity-100');
+        rankInfoModal.setAttribute('aria-hidden', 'false');
+        rankInfoTrigger?.setAttribute('aria-expanded', 'true');
+        applyBodyModalState();
+        const focusTarget = rankInfoModal.querySelector('[data-modal-initial-focus]') || rankInfoCloseButton || rankInfoModal;
+        if (focusTarget instanceof HTMLElement) {
+            focusTarget.focus();
+        }
+    };
+
+    const closeRankInfoModal = () => {
+        if (!rankInfoModal || rankInfoModal.classList.contains('hidden')) {
+            return;
+        }
+        rankInfoModal.classList.remove('opacity-100');
+        rankInfoModal.classList.add('opacity-0');
+        rankInfoModal.classList.add('pointer-events-none');
+        rankInfoModal.setAttribute('aria-hidden', 'true');
+        rankInfoTrigger?.setAttribute('aria-expanded', 'false');
+        const finalize = () => {
+            rankInfoModal.classList.add('hidden');
+            rankInfoModal.removeEventListener('transitionend', finalize);
+            applyBodyModalState();
+            if (rankInfoPreviousFocus && typeof rankInfoPreviousFocus.focus === 'function') {
+                try {
+                    rankInfoPreviousFocus.focus();
+                } catch (error) {
+                    // Ignore focus errors
+                }
+            }
+            rankInfoPreviousFocus = null;
+            rankInfoCloseTimeoutId = null;
+        };
+        rankInfoModal.addEventListener('transitionend', finalize, { once: true });
+        if (rankInfoCloseTimeoutId) {
+            clearTimeout(rankInfoCloseTimeoutId);
+        }
+        rankInfoCloseTimeoutId = window.setTimeout(finalize, MODAL_TRANSITION_DURATION_MS + 50);
+    };
+
+    const openNotificationDetailModal = () => {
+        if (!notificationDetailModal) {
+            return;
+        }
+        if (notificationDetailCloseTimeoutId) {
+            clearTimeout(notificationDetailCloseTimeoutId);
+            notificationDetailCloseTimeoutId = null;
+        }
+        notificationDetailPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        notificationDetailModal.classList.remove('hidden');
+        notificationDetailModal.classList.remove('pointer-events-none');
+        void notificationDetailModal.offsetWidth;
+        notificationDetailModal.classList.remove('opacity-0');
+        notificationDetailModal.classList.add('opacity-100');
+        notificationDetailModal.setAttribute('aria-hidden', 'false');
+        applyBodyModalState();
+        const focusTarget = notificationDetailModal.querySelector('[data-modal-initial-focus]') || notificationDetailCloseButton || notificationDetailModal;
+        if (focusTarget instanceof HTMLElement) {
+            focusTarget.focus();
+        }
+    };
+
+    const closeNotificationDetailModal = () => {
+        if (!notificationDetailModal || notificationDetailModal.classList.contains('hidden')) {
+            return;
+        }
+        notificationDetailModal.classList.remove('opacity-100');
+        notificationDetailModal.classList.add('opacity-0');
+        notificationDetailModal.classList.add('pointer-events-none');
+        notificationDetailModal.setAttribute('aria-hidden', 'true');
+        const finalize = () => {
+            notificationDetailModal.classList.add('hidden');
+            notificationDetailModal.removeEventListener('transitionend', finalize);
+            applyBodyModalState();
+            if (notificationDetailPreviousFocus && typeof notificationDetailPreviousFocus.focus === 'function') {
+                try {
+                    notificationDetailPreviousFocus.focus();
+                } catch (error) {
+                    // Ignore focus errors
+                }
+            }
+            notificationDetailPreviousFocus = null;
+            notificationDetailCloseTimeoutId = null;
+        };
+        notificationDetailModal.addEventListener('transitionend', finalize, { once: true });
+        if (notificationDetailCloseTimeoutId) {
+            clearTimeout(notificationDetailCloseTimeoutId);
+        }
+        notificationDetailCloseTimeoutId = window.setTimeout(finalize, MODAL_TRANSITION_DURATION_MS + 50);
+    };
+
+    const renderNotificationDetail = (summary) => {
+        if (!notificationDetailBody) {
+            return;
+        }
+
+        notificationDetailBody.innerHTML = '';
+        const metaText = summary.activities > 0
+            ? `${summary.activities.toLocaleString()} activities • ${formatHours(summary.hours)} • ${summary.coins.total.toLocaleString()} coins`
+            : 'No activities recorded in this period.';
+        if (notificationDetailMeta) {
+            notificationDetailMeta.textContent = metaText;
+        }
+
+        if (summary.activities === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'notification-detail__empty';
+            empty.textContent = 'Log some training to see coins, achievements, and medals here.';
+            notificationDetailBody.appendChild(empty);
+            return;
+        }
+
+        const buildList = (entries, renderLabel) => {
+            if (!entries || entries.length === 0) {
+                return null;
+            }
+            const list = document.createElement('ul');
+            list.className = 'notification-detail__list';
+            entries.forEach((entry) => {
+                const item = document.createElement('li');
+                item.className = 'notification-detail__list-item';
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = renderLabel(entry);
+                const valueSpan = document.createElement('span');
+                valueSpan.textContent = `${entry.count.toLocaleString()}×`;
+                item.append(labelSpan, valueSpan);
+                list.appendChild(item);
+            });
+            return list;
+        };
+
+        const coinsSection = document.createElement('section');
+        coinsSection.className = 'notification-detail__section';
+        const coinsHeading = document.createElement('h4');
+        coinsHeading.textContent = 'Coins';
+        const coinsSummary = document.createElement('p');
+        coinsSummary.className = 'notification-detail__summary';
+        coinsSummary.textContent = summary.coins.total > 0
+            ? `${summary.coins.total.toLocaleString()} minted`
+            : 'No coins minted in this period.';
+        coinsSection.append(coinsHeading, coinsSummary);
+        const coinsList = buildList(summary.coins.breakdown, (entry) => entry.emoji);
+        if (coinsList) {
+            coinsSection.appendChild(coinsList);
+        } else {
+            const empty = document.createElement('p');
+            empty.className = 'notification-detail__empty';
+            empty.textContent = 'No coins minted in this period.';
+            coinsSection.appendChild(empty);
+        }
+        notificationDetailBody.appendChild(coinsSection);
+
+        const achievementsSection = document.createElement('section');
+        achievementsSection.className = 'notification-detail__section';
+        const achievementsHeading = document.createElement('h4');
+        achievementsHeading.textContent = 'Achievements';
+        const achievementsSummary = document.createElement('p');
+        achievementsSummary.className = 'notification-detail__summary';
+        achievementsSummary.textContent = summary.achievements.total > 0
+            ? `${summary.achievements.total.toLocaleString()} highlights`
+            : 'No achievements recorded in this period.';
+        achievementsSection.append(achievementsHeading, achievementsSummary);
+        const achievementList = buildList(summary.achievements.breakdown, (entry) => `${entry.emoji} ${entry.description}`);
+        if (achievementList) {
+            achievementsSection.appendChild(achievementList);
+        } else {
+            const empty = document.createElement('p');
+            empty.className = 'notification-detail__empty';
+            empty.textContent = 'No achievements recorded in this period.';
+            achievementsSection.appendChild(empty);
+        }
+        notificationDetailBody.appendChild(achievementsSection);
+
+        const medalsSection = document.createElement('section');
+        medalsSection.className = 'notification-detail__section';
+        const medalsHeading = document.createElement('h4');
+        medalsHeading.textContent = 'Medals';
+        const medalsSummary = document.createElement('p');
+        medalsSummary.className = 'notification-detail__summary';
+        medalsSummary.textContent = summary.medals.total > 0
+            ? `${summary.medals.total.toLocaleString()} earned`
+            : 'No medals collected in this period.';
+        medalsSection.append(medalsHeading, medalsSummary);
+        const medalsList = buildList(summary.medals.breakdown, (entry) => entry.label);
+        if (medalsList) {
+            medalsSection.appendChild(medalsList);
+        } else {
+            const empty = document.createElement('p');
+            empty.className = 'notification-detail__empty';
+            empty.textContent = 'No medals collected in this period.';
+            medalsSection.appendChild(empty);
+        }
+        notificationDetailBody.appendChild(medalsSection);
+    };
+
+    const openNotificationDetail = (rangeId) => {
+        const range = notificationRanges.find((entry) => entry.id === rangeId);
+        const summary = notificationSummaryById.get(rangeId) || {
+            id: rangeId,
+            label: range ? range.label : 'Summary',
+            activities: 0,
+            hours: 0,
+            coins: { total: 0, breakdown: [] },
+            achievements: { total: 0, breakdown: [] },
+            medals: { total: 0, breakdown: [] },
+        };
+        if (notificationDetailTitle) {
+            notificationDetailTitle.textContent = summary.label || (range ? range.label : 'Summary');
+        }
+        renderNotificationDetail(summary);
+        closeNotificationsPopover();
+        openNotificationDetailModal();
+    };
+
+    const closeNotificationsPopover = () => {
+        if (!notificationsPopover) {
+            return;
+        }
+        notificationsPopover.setAttribute('hidden', '');
+        notificationsTrigger?.setAttribute('aria-expanded', 'false');
+    };
+
+    const openNotificationsPopover = () => {
+        if (!notificationsPopover) {
+            return;
+        }
+        notificationsPopover.removeAttribute('hidden');
+        notificationsTrigger?.setAttribute('aria-expanded', 'true');
+    };
+
+    const toggleNotificationsPopover = () => {
+        if (!notificationsPopover) {
+            return;
+        }
+        if (notificationsPopover.hasAttribute('hidden')) {
+            openNotificationsPopover();
+        } else {
+            closeNotificationsPopover();
+        }
+    };
+
+    const isEventWithinElement = (element, target) => {
+        if (!(element instanceof HTMLElement)) {
+            return false;
+        }
+        if (!(target instanceof Node)) {
+            return false;
+        }
+        return element === target || element.contains(target);
+    };
+
+    const renderNotificationsList = () => {
+        if (!notificationsListElement) {
+            if (notificationsBadge) {
+                notificationsBadge.hidden = true;
+            }
+            if (notificationsEmptyElement) {
+                notificationsEmptyElement.hidden = false;
+            }
+            return;
+        }
+
+        notificationsListElement.innerHTML = '';
+        let activeCount = 0;
+
+        notificationRanges.forEach((range) => {
+            const summary = notificationSummaryById.get(range.id) || {
+                label: range.label,
+                activities: 0,
+                hours: 0,
+                coins: { total: 0 },
+            };
+            const listItem = document.createElement('li');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'notifications-popover__item';
+            button.dataset.notificationId = range.id;
+            const hasData = summary.activities > 0;
+            if (!hasData) {
+                button.classList.add('is-empty');
+            }
+            const metaText = hasData
+                ? `${summary.activities.toLocaleString()} activities • ${formatHours(summary.hours)} • ${summary.coins.total.toLocaleString()} coins`
+                : 'No activity logged yet';
+            button.innerHTML = `
+                <span class="notifications-popover__title">${range.label}</span>
+                <span class="notifications-popover__meta">${metaText}</span>
+            `;
+            button.addEventListener('click', () => openNotificationDetail(range.id));
+            listItem.appendChild(button);
+            notificationsListElement.appendChild(listItem);
+            if (hasData) {
+                activeCount += 1;
+            }
+        });
+
+        if (notificationsEmptyElement) {
+            notificationsEmptyElement.hidden = notificationRanges.some((range) => {
+                const summary = notificationSummaryById.get(range.id);
+                return summary && summary.activities > 0;
+            });
+        }
+
+        if (notificationsBadge) {
+            if (activeCount > 0) {
+                notificationsBadge.textContent = String(activeCount);
+                notificationsBadge.hidden = false;
+            } else {
+                notificationsBadge.hidden = true;
+            }
+        }
+    };
+
+    const updateNotificationSummaries = (activities = []) => {
+        notificationSummaryById = new Map();
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            renderNotificationsList();
+            return;
+        }
+
+        const now = Date.now();
+        const activityDetails = activities.map((activity) => {
+            if (!activity) {
+                return null;
+            }
+            const date = new Date(activity.start_date);
+            if (Number.isNaN(date.getTime())) {
+                return null;
+            }
+            const stats = computeActivitySmallStats(activity);
+            return { activity, date, stats };
+        }).filter(Boolean);
+
+        notificationRanges.forEach((range) => {
+            const cutoffTime = now - range.days * 24 * 60 * 60 * 1000;
+            const matchedDetails = activityDetails.filter((detail) => detail.date.getTime() >= cutoffTime);
+            const matchedActivities = matchedDetails.map((detail) => detail.activity);
+            const totals = calculateTotals(matchedActivities);
+            const metrics = buildWalletMetrics(matchedActivities);
+
+            const coinCounts = COIN_EMOJIS.reduce((acc, emoji) => {
+                acc[emoji] = 0;
+                return acc;
+            }, {});
+            let coinsTotal = 0;
+            const medalCounts = new Map();
+            let medalsTotal = 0;
+
+            metrics.forEach((metric) => {
+                (metric?.coins || []).forEach((emoji) => {
+                    if (!Object.prototype.hasOwnProperty.call(coinCounts, emoji)) {
+                        coinCounts[emoji] = 0;
+                    }
+                    coinCounts[emoji] += 1;
+                    coinsTotal += 1;
+                });
+                (metric?.medals || []).forEach((medal) => {
+                    if (!medal) {
+                        return;
+                    }
+                    const label = medal.emoji ? `${medal.emoji} ${medal.name}` : (medal.name || 'Medal');
+                    medalCounts.set(label, (medalCounts.get(label) || 0) + 1);
+                    medalsTotal += 1;
+                });
+            });
+
+            const achievementsMap = new Map();
+            let achievementsTotal = 0;
+            matchedDetails.forEach((detail) => {
+                const highlights = getActivityAchievementHighlights(detail.activity, detail.stats);
+                highlights.forEach(({ emoji, description }) => {
+                    const key = `${emoji || '🏅'}|${description || 'Achievement'}`;
+                    const existing = achievementsMap.get(key) || { emoji: emoji || '🏅', description: description || 'Achievement', count: 0 };
+                    existing.count += 1;
+                    achievementsMap.set(key, existing);
+                    achievementsTotal += 1;
+                });
+            });
+
+            const coinBreakdown = COIN_EMOJIS.map((emoji) => ({ emoji, count: coinCounts[emoji] || 0 }))
+                .filter((entry) => entry.count > 0);
+            const medalBreakdown = Array.from(medalCounts.entries())
+                .sort((a, b) => b[1] - a[1])
+                .map(([label, count]) => ({ label, count }));
+            const achievementBreakdown = Array.from(achievementsMap.values())
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 6);
+
+            notificationSummaryById.set(range.id, {
+                id: range.id,
+                label: range.label,
+                activities: matchedActivities.length,
+                hours: totals.hours,
+                coins: { total: coinsTotal, breakdown: coinBreakdown },
+                achievements: { total: achievementsTotal, breakdown: achievementBreakdown },
+                medals: { total: medalsTotal, breakdown: medalBreakdown },
+            });
+        });
+
+        renderNotificationsList();
+    };
+
+    updateNotificationSummaries([]);
     function setActivePanel(panelName, { focusTab = false } = {}) {
         if (!panelName || !dashboardPanels.has(panelName)) {
             return;
@@ -390,6 +846,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             panel.classList.toggle('is-active', name === panelName);
         });
 
+        closeNotificationsPopover();
         notifyPanelChange(panelName);
     }
 
@@ -630,7 +1087,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sharedUserIdParam = (urlParams.get('userId') || '').trim();
     const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
     const isSharedView = Boolean(sharedUserId);
-    const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
     const coinMixCanvas = document.getElementById('coin-mix-chart');
     const coinMixEmptyState = document.getElementById('coin-mix-empty');
     const medalMixCanvas = document.getElementById('medal-mix-chart');
@@ -714,6 +1170,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         maxElevation: null,
     };
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
+
+    const syncNotificationSummariesFromAllData = (activitiesOverride = null) => {
+        const lifetimeActivities = Array.isArray(activitiesOverride)
+            ? activitiesOverride
+            : (Array.isArray(allData.activities) ? allData.activities : []);
+        updateNotificationSummaries(lifetimeActivities);
+        shouldRefreshNotificationSummaries = false;
+    };
     let activityFilterUniverseCount = 0;
 
     let tooltipHideTimeout = null;
@@ -1163,46 +1627,123 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${sign}${absoluteValue.toFixed(decimals)}% · ${periodLabel}`;
     };
 
-    const updateWalletProgressBar = () => {
-        const monthChange = Number.isFinite(walletGrowthStats?.monthChangePct)
-            ? walletGrowthStats.monthChangePct
-            : null;
-        const walletTotal = Number.isFinite(walletGrowthStats?.currentTotal) && walletGrowthStats.currentTotal > 0
-            ? walletGrowthStats.currentTotal
+    const updateRankProgressBar = () => {
+        const totalHours = Number.isFinite(rankProgressState?.totalHours)
+            ? rankProgressState.totalHours
             : 0;
-
-        const isPositive = Number.isFinite(monthChange) && monthChange > 0;
-        const isNegative = Number.isFinite(monthChange) && monthChange < 0;
-        const progressPercent = Number.isFinite(monthChange)
-            ? Math.min(100, Math.abs(monthChange))
-            : 0;
+        const currentRank = rankProgressState?.currentRank ?? null;
+        const nextRank = rankProgressState?.nextRank ?? null;
+        const currentThreshold = Number.isFinite(currentRank?.minHours) ? currentRank.minHours : 0;
+        const nextThreshold = Number.isFinite(nextRank?.minHours) ? nextRank.minHours : null;
+        const hoursIntoCurrent = Math.max(0, totalHours - currentThreshold);
+        const progressRange = nextThreshold !== null
+            ? Math.max(nextThreshold - currentThreshold, 1)
+            : Math.max(hoursIntoCurrent, 1);
+        const progressPercent = nextThreshold !== null
+            ? Math.min(100, (hoursIntoCurrent / progressRange) * 100)
+            : 100;
 
         if (rankingProgressElement) {
             rankingProgressElement.style.width = `${progressPercent}%`;
-            rankingProgressElement.classList.toggle('is-negative', isNegative);
-            rankingProgressElement.classList.toggle('is-neutral', !isPositive && !isNegative);
-            rankingProgressElement.setAttribute('aria-valuenow', progressPercent.toFixed(0));
+            rankingProgressElement.classList.remove('is-negative', 'is-neutral');
             rankingProgressElement.setAttribute('aria-valuemin', '0');
-            rankingProgressElement.setAttribute('aria-valuemax', '100');
+            rankingProgressElement.setAttribute('aria-valuemax', progressRange.toFixed(2));
+            rankingProgressElement.setAttribute('aria-valuenow', hoursIntoCurrent.toFixed(2));
+            const currentLabel = currentRank?.name ? `${currentRank.name}` : 'current rank';
+            const targetLabel = nextRank?.name ? `${nextRank.name}` : 'maximum tier';
+            rankingProgressElement.setAttribute('aria-label', `Progress ${formatHours(hoursIntoCurrent)} into ${currentLabel}, goal ${targetLabel}`);
         }
 
         if (rankingProgressLabelElement) {
-            if (walletTotal > 0) {
-                const totalLabel = formatMillions(walletTotal);
-                rankingProgressLabelElement.textContent = totalLabel;
-                rankingProgressLabelElement.setAttribute('aria-label', `Total wallet value ${totalLabel}`);
-            } else {
-                rankingProgressLabelElement.textContent = 'Wallet inactive';
-                rankingProgressLabelElement.setAttribute('aria-label', 'Wallet inactive');
-            }
+            const hoursLabel = formatHours(totalHours);
+            rankingProgressLabelElement.textContent = hoursLabel;
+            rankingProgressLabelElement.setAttribute('aria-label', `Total hours logged ${hoursLabel}`);
         }
 
         if (nextRankElement) {
-            nextRankElement.textContent = formatPercentChangeLabel(monthChange, '30d');
+            if (nextRank) {
+                const hoursRemaining = Math.max(0, nextRank.minHours - totalHours);
+                const nextLabel = `${nextRank.emoji ? `${nextRank.emoji} ` : ''}${nextRank.name}`.trim();
+                nextRankElement.textContent = `${formatHours(hoursRemaining)} to ${nextLabel}`;
+                nextRankElement.setAttribute('aria-label', `${formatHours(hoursRemaining)} remaining to ${nextLabel}`);
+            } else if (currentRank) {
+                nextRankElement.textContent = 'All tiers unlocked';
+                nextRankElement.setAttribute('aria-label', 'All tiers unlocked');
+            } else {
+                nextRankElement.textContent = 'Rank data unavailable';
+                nextRankElement.setAttribute('aria-label', 'Rank data unavailable');
+            }
         }
+
+        refreshRankInfoModalState();
     };
 
-    updateWalletProgressBar();
+    updateRankProgressBar();
+
+    function refreshRankInfoModalState() {
+        if (!rankInfoListElement) {
+            return;
+        }
+
+        if (!Array.isArray(activeRankConfig) || activeRankConfig.length === 0) {
+            rankInfoListElement.innerHTML = '';
+            rankInfoListInitialized = false;
+            if (rankInfoSummaryElement) {
+                rankInfoSummaryElement.textContent = 'Rank data unavailable.';
+            }
+            return;
+        }
+
+        if (!rankInfoListInitialized) {
+            rankInfoListElement.innerHTML = '';
+            activeRankConfig.forEach((rank) => {
+                if (!rank) {
+                    return;
+                }
+                const item = document.createElement('li');
+                item.className = 'rank-info-item';
+                item.dataset.rankKey = String(Number.isFinite(rank.minHours) ? rank.minHours : 0);
+
+                const label = document.createElement('span');
+                label.className = 'rank-info-item__label';
+                const labelText = `${rank.emoji ? `${rank.emoji} ` : ''}${rank.name || 'Rank'}`.trim();
+                label.textContent = labelText;
+
+                const value = document.createElement('span');
+                value.className = 'rank-info-item__value';
+                value.textContent = formatHours(Number.isFinite(rank.minHours) ? rank.minHours : 0);
+
+                item.append(label, value);
+                rankInfoListElement.appendChild(item);
+            });
+            rankInfoListInitialized = true;
+        }
+
+        const totalHours = Number.isFinite(rankProgressState?.totalHours) ? rankProgressState.totalHours : 0;
+        const currentRank = rankProgressState?.currentRank ?? null;
+        const nextRank = rankProgressState?.nextRank ?? null;
+        const currentKey = currentRank ? String(Number.isFinite(currentRank.minHours) ? currentRank.minHours : 0) : null;
+        const nextKey = nextRank ? String(Number.isFinite(nextRank.minHours) ? nextRank.minHours : 0) : null;
+
+        rankInfoListElement.querySelectorAll('[data-rank-key]').forEach((item) => {
+            const itemKey = item.getAttribute('data-rank-key');
+            item.classList.toggle('is-current', itemKey === currentKey);
+            item.classList.toggle('is-next', itemKey === nextKey && nextKey !== currentKey);
+        });
+
+        if (rankInfoSummaryElement) {
+            const hoursLabel = formatHours(totalHours);
+            if (currentRank && nextRank) {
+                const nextLabel = `${nextRank.emoji ? `${nextRank.emoji} ` : ''}${nextRank.name}`.trim();
+                const hoursRemaining = Math.max(0, nextRank.minHours - totalHours);
+                rankInfoSummaryElement.textContent = `${currentRank.emoji ? `${currentRank.emoji} ` : ''}${currentRank.name} • ${hoursLabel} logged • ${formatHours(hoursRemaining)} to ${nextLabel}`;
+            } else if (currentRank) {
+                rankInfoSummaryElement.textContent = `${currentRank.emoji ? `${currentRank.emoji} ` : ''}${currentRank.name} • ${hoursLabel} logged • All prestige tiers unlocked`;
+            } else {
+                rankInfoSummaryElement.textContent = `${hoursLabel} logged`;
+            }
+        }
+    }
 
     const formatDistance = (km) => {
         if (!Number.isFinite(km)) return '0.00 km';
@@ -1219,6 +1760,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const formatPizzas = (pizzas) => {
         if (!Number.isFinite(pizzas)) return '0.00 pizzas';
         return `${pizzas.toFixed(2)} pizzas`;
+    };
+    const formatHours = (hours) => {
+        if (!Number.isFinite(hours)) {
+            return '0 h';
+        }
+        const safeHours = Math.max(0, hours);
+        if (safeHours >= 100) {
+            return `${safeHours.toFixed(0)} h`;
+        }
+        if (safeHours >= 10) {
+            return `${safeHours.toFixed(1)} h`;
+        }
+        return `${safeHours.toFixed(2)} h`;
     };
 
     const formatActivityMetaSummary = (activity) => {
@@ -2966,6 +3520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             ingestResponseData(cachedPayload, { isLoadMore: false });
+            syncNotificationSummariesFromAllData();
             applyFilters({ preserveVisibleCount: false });
             updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
             updateInitialLoadingState('snapshot', 'complete', 'Loaded cached dashboard snapshot');
@@ -4289,6 +4844,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     let activeRankConfig = null;
+    let rankProgressState = { totalHours: 0, currentRank: null, nextRank: null };
+    let rankInfoListInitialized = false;
 
     const getISOWeekInfo = (inputDate) => {
         if (!(inputDate instanceof Date) || Number.isNaN(inputDate.getTime())) {
@@ -5179,6 +5736,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     ];
 
     activeRankConfig = rankConfig;
+    rankInfoListInitialized = false;
+    refreshRankInfoModalState();
+    updateRankProgressBar();
 
     // === Coin Configuration ===
     const coinConfig = {
@@ -5521,11 +6081,92 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
-            hideWeeklySnapshotModal();
+    const handleGlobalKeydown = (event) => {
+        if (event.key !== 'Escape') {
+            return;
         }
-    });
+
+        let handled = false;
+
+        if (isModalVisible(notificationDetailModal)) {
+            closeNotificationDetailModal();
+            handled = true;
+        }
+
+        if (isModalVisible(rankInfoModal)) {
+            closeRankInfoModal();
+            handled = true;
+        }
+
+        if (weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
+            hideWeeklySnapshotModal();
+            handled = true;
+        }
+
+        if (notificationsPopover && !notificationsPopover.hasAttribute('hidden')) {
+            closeNotificationsPopover();
+            handled = true;
+        }
+
+        if (handled) {
+            event.stopPropagation();
+        }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeydown);
+
+    const handleDocumentClick = (event) => {
+        const target = event.target;
+        if (notificationsPopover && !notificationsPopover.hasAttribute('hidden')) {
+            if (!isEventWithinElement(notificationsPopover, target) && !isEventWithinElement(notificationsTrigger, target)) {
+                closeNotificationsPopover();
+            }
+        }
+    };
+
+    document.addEventListener('click', handleDocumentClick);
+
+    if (rankInfoTrigger) {
+        rankInfoTrigger.addEventListener('click', () => {
+            closeNotificationsPopover();
+            openRankInfoModal();
+        });
+    }
+
+    if (rankInfoCloseButton) {
+        rankInfoCloseButton.addEventListener('click', () => {
+            closeRankInfoModal();
+        });
+    }
+
+    if (rankInfoModal) {
+        rankInfoModal.addEventListener('click', (event) => {
+            if (event.target === rankInfoModal) {
+                closeRankInfoModal();
+            }
+        });
+    }
+
+    if (notificationDetailCloseButton) {
+        notificationDetailCloseButton.addEventListener('click', () => {
+            closeNotificationDetailModal();
+        });
+    }
+
+    if (notificationDetailModal) {
+        notificationDetailModal.addEventListener('click', (event) => {
+            if (event.target === notificationDetailModal) {
+                closeNotificationDetailModal();
+            }
+        });
+    }
+
+    if (notificationsTrigger) {
+        notificationsTrigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            toggleNotificationsPopover();
+        });
+    }
 
     const ingestResponseData = (data, { isLoadMore = false } = {}) => {
         if (!data || !data.athlete || !data.activities || !data.totals) {
@@ -5571,6 +6212,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         allData.hasMore = typeof data.hasMore === 'boolean'
             ? data.hasMore
             : (typeof allData.hasMore === 'boolean' ? allData.hasMore : undefined);
+
+        shouldRefreshNotificationSummaries = true;
 
         const aggregatedTotals = calculateTotals(allData.activities || []);
         allData.totals = {
@@ -5642,6 +6285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             ingestResponseData(storedData, { isLoadMore: false });
+            syncNotificationSummariesFromAllData();
             applyFilters({ preserveVisibleCount: false });
             console.log('Loaded stored snapshot from Google Sheets.');
             updateInitialLoadingState('snapshot', 'complete', 'Synced your latest saved snapshot');
@@ -5683,6 +6327,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             ingestResponseData(data, { isLoadMore: false });
+            syncNotificationSummariesFromAllData();
             hasMoreActivities = false;
             nextActivitiesPageStart = null;
             applyFilters({ preserveVisibleCount: false });
@@ -5924,7 +6569,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // Update the ranking progress bar
+        const currentRankIndex = Array.isArray(activeRankConfig) ? activeRankConfig.indexOf(currentRank) : -1;
+        const nextRank = currentRankIndex >= 0 && currentRankIndex < (activeRankConfig?.length ?? 0) - 1
+            ? activeRankConfig[currentRankIndex + 1]
+            : null;
+
+        rankProgressState = {
+            totalHours,
+            currentRank,
+            nextRank
+        };
+        updateRankProgressBar();
+
         if (currentRankElement) {
             currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
         } else {
@@ -5933,6 +6589,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (rankDetailsElement) {
             rankDetailsElement.innerHTML = '';
+
+            const summaryElement = document.createElement('div');
+            summaryElement.className = 'text-sm font-semibold text-gray-700 dark:text-gray-200';
+            if (nextRank) {
+                const nextLabel = `${nextRank.emoji ? `${nextRank.emoji} ` : ''}${nextRank.name}`.trim();
+                const hoursRemaining = Math.max(0, nextRank.minHours - totalHours);
+                summaryElement.textContent = `${formatHours(totalHours)} logged • ${formatHours(hoursRemaining)} to ${nextLabel}`;
+            } else if (currentRank) {
+                summaryElement.textContent = `${formatHours(totalHours)} logged • All prestige tiers unlocked`;
+            } else {
+                summaryElement.textContent = `${formatHours(totalHours)} logged`;
+            }
+            rankDetailsElement.appendChild(summaryElement);
 
             if (hasActivities) {
                 const oldestActivityDate = activities.reduce((oldest, activity) => {
@@ -5981,6 +6650,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             : activities;
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
+
+        if (shouldRefreshNotificationSummaries || notificationSummaryById.size === 0) {
+            syncNotificationSummariesFromAllData(lifetimeActivities);
+        }
 
         updateWalletChartData({
             activities,

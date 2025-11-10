@@ -1079,6 +1079,16 @@
             }
         }
 
+        @media (max-width: 1000px) {
+            .profile-card__headline {
+                --profile-stack-max-width: 100%;
+            }
+
+            .profile-card__wallet-totals {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            }
+        }
+
         .profile-card__identity {
             display: flex;
             flex-direction: column;
@@ -1588,7 +1598,7 @@
 
         .profile-card__wallet-totals {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
+            grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
             gap: 0.4rem;
             width: 100%;
             max-width: var(--dashboard-panel-max-width);
@@ -2010,6 +2020,13 @@
             transition: all 0.2s ease;
         }
 
+        .wallet-controls__group {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: stretch;
+        }
+
         .wallet-control[aria-pressed="true"],
         .wallet-control:focus-visible {
             border-color: #2563eb;
@@ -2027,9 +2044,100 @@
             height: 1rem;
         }
 
+        .wallet-control--select {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.35rem;
+            padding: 0.65rem 0.85rem;
+            min-width: 9.5rem;
+            background: rgba(248, 250, 255, 0.85);
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+
+        .wallet-control--select span {
+            font-size: 0.65rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .wallet-control__select {
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            border-radius: 0.65rem;
+            padding: 0.35rem 0.6rem;
+            background: rgba(255, 255, 255, 0.92);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f2937;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .wallet-control__select:focus {
+            outline: 2px solid rgba(37, 99, 235, 0.3);
+            outline-offset: 2px;
+            border-color: rgba(37, 99, 235, 0.65);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+        }
+
         .wallet-chart {
             position: relative;
             min-height: 18rem;
+        }
+
+        .wallet-chart__overlay {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            display: grid;
+            gap: 0.45rem;
+            padding: 0.85rem 1rem;
+            border-radius: 1rem;
+            background: rgba(15, 23, 42, 0.82);
+            color: #f8fafc;
+            box-shadow: 0 18px 34px rgba(15, 23, 42, 0.3);
+            pointer-events: none;
+            width: min(280px, 72%);
+            max-width: 100%;
+            z-index: 4;
+        }
+
+        .wallet-chart__overlay h3 {
+            margin: 0;
+            font-size: 0.85rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: rgba(248, 250, 255, 0.9);
+        }
+
+        .wallet-chart__overlay-list {
+            display: grid;
+            gap: 0.35rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .wallet-chart__overlay-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            font-size: 0.82rem;
+        }
+
+        .wallet-chart__overlay-label {
+            color: rgba(226, 232, 240, 0.78);
+        }
+
+        .wallet-chart__overlay-value {
+            font-weight: 600;
+            color: #f8fafc;
+        }
+
+        .wallet-chart__overlay-empty {
+            margin: 0;
+            font-size: 0.75rem;
+            color: rgba(226, 232, 240, 0.75);
         }
 
         .wallet-chart__empty {
@@ -2042,6 +2150,27 @@
             padding: 1rem;
             font-size: 0.9rem;
             color: #94a3b8;
+        }
+
+        .dark .wallet-control--select {
+            background: rgba(15, 23, 42, 0.7);
+            border-color: rgba(148, 163, 184, 0.4);
+            color: #e2e8f0;
+        }
+
+        .dark .wallet-control--select span {
+            color: #cbd5f5;
+        }
+
+        .dark .wallet-control__select {
+            background: rgba(30, 41, 59, 0.88);
+            color: #e2e8f0;
+            border-color: rgba(148, 163, 184, 0.4);
+        }
+
+        .dark .wallet-chart__overlay {
+            background: rgba(15, 23, 42, 0.9);
+            box-shadow: 0 20px 36px rgba(15, 23, 42, 0.38);
         }
 
         .filter-form {
@@ -2375,6 +2504,17 @@
             .filter-button--ghost,
             .filter-button--primary {
                 width: auto;
+            }
+
+            .wallet-chart__overlay {
+                position: static;
+                width: 100%;
+                margin: 0 0 0.75rem 0;
+                box-shadow: 0 12px 26px rgba(15, 23, 42, 0.18);
+            }
+
+            .wallet-chart {
+                min-height: 16rem;
             }
         }
 
@@ -3835,13 +3975,35 @@
                             <div class="wallet-controls">
                                 <button id="chart-toggle-coins" type="button" class="wallet-control" aria-pressed="false">Coins &amp; Medals</button>
                                 <button id="chart-toggle-balance" type="button" class="wallet-control" aria-pressed="false">Balance</button>
-                                <label data-balance-year-toggle-label class="wallet-control wallet-control--toggle">
+                                <label data-balance-year-toggle-label class="wallet-control wallet-control--toggle" for="balance-year-toggle">
                                     <input id="balance-year-toggle" type="checkbox" class="wallet-control__checkbox" />
-                                    <span>Compare years</span>
+                                    <span>Compare (coming soon)</span>
                                 </label>
+                                <div class="wallet-controls__group" role="group" aria-label="Wallet timeframe controls">
+                                    <label class="wallet-control wallet-control--select" for="wallet-timeframe">
+                                        <span>Timeframe</span>
+                                        <select id="wallet-timeframe" class="wallet-control__select">
+                                            <option value="all">All time (quarter)</option>
+                                            <option value="year">Per year (monthly)</option>
+                                            <option value="rolling">Last 365 days</option>
+                                        </select>
+                                    </label>
+                                    <label class="wallet-control wallet-control--select" for="wallet-grouping">
+                                        <span>Grouping</span>
+                                        <select id="wallet-grouping" class="wallet-control__select">
+                                            <option value="quarter">Quarter</option>
+                                        </select>
+                                    </label>
+                                </div>
                             </div>
                         </header>
                         <div id="wallet-chart-wrapper" class="wallet-chart">
+                            <div id="wallet-chart-overlay" class="wallet-chart__overlay" role="status" aria-live="polite">
+                                <h3 id="wallet-chart-overlay-title">Wallet insights</h3>
+                                <ul id="wallet-chart-overlay-list" class="wallet-chart__overlay-list">
+                                    <li class="wallet-chart__overlay-empty">Hover over the chart to explore totals.</li>
+                                </ul>
+                            </div>
                             <canvas id="wallet-chart" class="w-full h-full"></canvas>
                             <p id="wallet-chart-empty" class="wallet-chart__empty hidden">No wallet data available for this view.</p>
                         </div>

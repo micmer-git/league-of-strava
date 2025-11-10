@@ -371,6 +371,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
     const balanceYearToggle = document.getElementById('balance-year-toggle');
     const balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
+    const walletTimeframeSelect = document.getElementById('wallet-timeframe');
+    const walletGroupingSelect = document.getElementById('wallet-grouping');
+    const walletOverlayElement = document.getElementById('wallet-chart-overlay');
+    const walletOverlayTitleElement = document.getElementById('wallet-chart-overlay-title');
+    const walletOverlayListElement = document.getElementById('wallet-chart-overlay-list');
     const medalsLoadMoreButton = document.getElementById('medals-load-more');
     const leaderboardStatus = document.getElementById('leaderboard-status');
     const leaderboardBody = document.getElementById('leaderboard-body');
@@ -818,14 +823,143 @@ document.addEventListener('DOMContentLoaded', async () => {
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
-    const walletChartData = {
-        coins: { labels: [], coinBreakdown: {}, medalBreakdown: [], timelineLabels: [], coinTimeline: {} },
-        balance: {
-            labels: [],
-            values: [],
-            quarterCoinTotals: [],
-            compareLabels: QUARTER_COMPARISON_LABELS,
-            compareDatasets: []
+
+    const WALLET_VIEW_TIMEFRAMES = Object.freeze({
+        ALL: 'all',
+        YEAR: 'year',
+        ROLLING: 'rolling',
+    });
+
+    const WALLET_VIEW_GROUPINGS = Object.freeze({
+        QUARTER: 'quarter',
+        MONTH: 'month',
+        WEEK: 'week',
+    });
+
+    const HUNDRED_THOUSAND = 100_000;
+
+    let walletViewTimeframe = WALLET_VIEW_TIMEFRAMES.ALL;
+    let walletViewGrouping = WALLET_VIEW_GROUPINGS.QUARTER;
+
+    let walletChartContext = {
+        filteredMetrics: [],
+        lifetimeMetrics: [],
+        selectedYear: 'all',
+        latestDate: null,
+        availableYears: [],
+    };
+
+    let walletContextVersion = 0;
+    let walletAggregationCache = { version: -1, timeframe: null, grouping: null, result: { aggregation: [], metadata: {} } };
+    const walletDatasetCache = new Map();
+    let walletOverlayLastContentKey = null;
+
+    const walletOverlayDefaultContent = {
+        title: 'Wallet insights',
+        lines: [{ label: 'Explore', value: 'Hover over the chart to explore totals.' }],
+    };
+
+    const WALLET_TIMEFRAME_GROUPING_MAP = Object.freeze({
+        [WALLET_VIEW_TIMEFRAMES.ALL]: [WALLET_VIEW_GROUPINGS.QUARTER],
+        [WALLET_VIEW_TIMEFRAMES.YEAR]: [WALLET_VIEW_GROUPINGS.MONTH],
+        [WALLET_VIEW_TIMEFRAMES.ROLLING]: [
+            WALLET_VIEW_GROUPINGS.MONTH,
+            WALLET_VIEW_GROUPINGS.WEEK,
+        ],
+    });
+
+    const WALLET_GROUPING_LABELS = Object.freeze({
+        [WALLET_VIEW_GROUPINGS.QUARTER]: 'Quarter',
+        [WALLET_VIEW_GROUPINGS.MONTH]: 'Month',
+        [WALLET_VIEW_GROUPINGS.WEEK]: 'Week',
+    });
+
+    const resetWalletAggregationCache = () => {
+        walletAggregationCache = {
+            version: -1,
+            timeframe: null,
+            grouping: null,
+            result: { aggregation: [], metadata: {} },
+        };
+    };
+
+    const resetWalletDatasetCache = () => {
+        walletDatasetCache.clear();
+        walletOverlayLastContentKey = null;
+    };
+
+    const getAllowedGroupingsForTimeframe = (timeframe) => {
+        const defaultGroupings = [WALLET_VIEW_GROUPINGS.QUARTER];
+        if (!timeframe || !Object.prototype.hasOwnProperty.call(WALLET_TIMEFRAME_GROUPING_MAP, timeframe)) {
+            return defaultGroupings;
+        }
+        const configured = WALLET_TIMEFRAME_GROUPING_MAP[timeframe];
+        return Array.isArray(configured) && configured.length > 0 ? configured.slice() : defaultGroupings;
+    };
+
+    const clampWalletGrouping = (timeframe, grouping) => {
+        const allowed = getAllowedGroupingsForTimeframe(timeframe);
+        if (allowed.includes(grouping)) {
+            return grouping;
+        }
+        return allowed[0] || WALLET_VIEW_GROUPINGS.QUARTER;
+    };
+
+    const updateWalletViewControls = () => {
+        const metricsForAvailability = [
+            Array.isArray(walletChartContext.filteredMetrics) ? walletChartContext.filteredMetrics.length : 0,
+            Array.isArray(walletChartContext.lifetimeMetrics) ? walletChartContext.lifetimeMetrics.length : 0,
+        ];
+
+        const hasAnyMetrics = metricsForAvailability.some(length => Number.isFinite(length) && length > 0);
+        const hasYearMetrics = Array.isArray(walletChartContext.availableYears)
+            && walletChartContext.availableYears.length > 0;
+        const hasRollingMetrics = Array.isArray(walletChartContext.filteredMetrics)
+            && walletChartContext.filteredMetrics.length > 0;
+
+        if (walletTimeframeSelect) {
+            walletTimeframeSelect.disabled = !hasAnyMetrics;
+
+            Array.from(walletTimeframeSelect.options).forEach(option => {
+                if (!option) {
+                    return;
+                }
+
+                if (option.value === WALLET_VIEW_TIMEFRAMES.ALL) {
+                    option.disabled = !hasAnyMetrics;
+                } else if (option.value === WALLET_VIEW_TIMEFRAMES.YEAR) {
+                    option.disabled = !hasYearMetrics;
+                } else if (option.value === WALLET_VIEW_TIMEFRAMES.ROLLING) {
+                    option.disabled = !hasRollingMetrics;
+                }
+            });
+
+            if (!hasAnyMetrics) {
+                walletViewTimeframe = WALLET_VIEW_TIMEFRAMES.ALL;
+            } else if (!hasYearMetrics && walletViewTimeframe === WALLET_VIEW_TIMEFRAMES.YEAR) {
+                walletViewTimeframe = WALLET_VIEW_TIMEFRAMES.ALL;
+            } else if (!hasRollingMetrics && walletViewTimeframe === WALLET_VIEW_TIMEFRAMES.ROLLING) {
+                walletViewTimeframe = hasYearMetrics ? WALLET_VIEW_TIMEFRAMES.YEAR : WALLET_VIEW_TIMEFRAMES.ALL;
+            }
+
+            walletTimeframeSelect.value = walletViewTimeframe;
+        }
+
+        walletViewGrouping = clampWalletGrouping(walletViewTimeframe, walletViewGrouping);
+
+        if (walletGroupingSelect) {
+            const allowedGroupings = getAllowedGroupingsForTimeframe(walletViewTimeframe);
+            walletGroupingSelect.innerHTML = '';
+
+            allowedGroupings.forEach(groupingValue => {
+                const option = document.createElement('option');
+                option.value = groupingValue;
+                option.textContent = WALLET_GROUPING_LABELS[groupingValue] || groupingValue;
+                walletGroupingSelect.appendChild(option);
+            });
+
+            walletGroupingSelect.disabled = allowedGroupings.length <= 1 || !hasAnyMetrics;
+            walletGroupingSelect.value = walletViewGrouping;
         }
     };
 
@@ -1392,6 +1526,482 @@ document.addEventListener('DOMContentLoaded', async () => {
             return null;
         }
         return ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
+    };
+
+    const initializeCoinCounts = () => COIN_EMOJIS.reduce((acc, emoji) => {
+        acc[emoji] = 0;
+        return acc;
+    }, {});
+
+    const resolveWalletGrouping = (timeframe, grouping) => {
+        if (timeframe === WALLET_VIEW_TIMEFRAMES.ALL) {
+            return WALLET_VIEW_GROUPINGS.QUARTER;
+        }
+        if (timeframe === WALLET_VIEW_TIMEFRAMES.YEAR) {
+            return WALLET_VIEW_GROUPINGS.MONTH;
+        }
+        if (timeframe === WALLET_VIEW_TIMEFRAMES.ROLLING && grouping === WALLET_VIEW_GROUPINGS.WEEK) {
+            return WALLET_VIEW_GROUPINGS.WEEK;
+        }
+        if (timeframe === WALLET_VIEW_TIMEFRAMES.ROLLING) {
+            return WALLET_VIEW_GROUPINGS.MONTH;
+        }
+        return WALLET_VIEW_GROUPINGS.QUARTER;
+    };
+
+    const getQuarterStartMonth = (monthIndex) => Math.max(0, Math.floor(Math.max(monthIndex, 0) / 3) * 3);
+
+    const getISOWeekNumber = (date) => {
+        const target = new Date(date.valueOf());
+        const dayNumber = (target.getDay() + 6) % 7;
+        target.setDate(target.getDate() - dayNumber + 3);
+        const firstThursday = new Date(target.getFullYear(), 0, 4);
+        const firstThursdayDayNumber = (firstThursday.getDay() + 6) % 7;
+        firstThursday.setDate(firstThursday.getDate() - firstThursdayDayNumber + 3);
+        const diff = target - firstThursday;
+        return 1 + Math.round(diff / 604800000);
+    };
+
+    const getPeriodStartDate = (date, period) => {
+        const base = new Date(date);
+        if (Number.isNaN(base.getTime())) {
+            return null;
+        }
+        base.setHours(0, 0, 0, 0);
+        if (period === WALLET_VIEW_GROUPINGS.MONTH) {
+            base.setDate(1);
+        } else if (period === WALLET_VIEW_GROUPINGS.QUARTER) {
+            base.setMonth(getQuarterStartMonth(base.getMonth()), 1);
+        } else if (period === WALLET_VIEW_GROUPINGS.WEEK) {
+            const day = base.getDay();
+            const diff = day === 0 ? -6 : 1 - day;
+            base.setDate(base.getDate() + diff);
+        }
+        return base;
+    };
+
+    const getPeriodKey = (date, period) => {
+        const start = getPeriodStartDate(date, period);
+        if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+            return null;
+        }
+        if (period === WALLET_VIEW_GROUPINGS.MONTH) {
+            return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+        }
+        if (period === WALLET_VIEW_GROUPINGS.QUARTER) {
+            const quarter = Math.floor(start.getMonth() / 3) + 1;
+            return `${start.getFullYear()}-Q${quarter}`;
+        }
+        if (period === WALLET_VIEW_GROUPINGS.WEEK) {
+            const week = getISOWeekNumber(start);
+            return `${start.getFullYear()}-W${String(week).padStart(2, '0')}`;
+        }
+        return start.toISOString();
+    };
+
+    const formatPeriodLabel = (startDate, period) => {
+        if (!(startDate instanceof Date) || Number.isNaN(startDate.getTime())) {
+            return '';
+        }
+        if (period === WALLET_VIEW_GROUPINGS.MONTH) {
+            return startDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+        }
+        if (period === WALLET_VIEW_GROUPINGS.QUARTER) {
+            const quarter = Math.floor(startDate.getMonth() / 3) + 1;
+            return `Q${quarter} ${startDate.getFullYear()}`;
+        }
+        if (period === WALLET_VIEW_GROUPINGS.WEEK) {
+            const rangeStart = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            return `Week of ${rangeStart}`;
+        }
+        return startDate.toLocaleDateString();
+    };
+
+    const aggregateMetricsByPeriod = (metrics, { period, startDate, endDate }) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return [];
+        }
+
+        const entriesMap = new Map();
+        const sortedMetrics = metrics.slice().sort((a, b) => {
+            if (!(a?.date instanceof Date) || Number.isNaN(a.date.getTime())) {
+                return -1;
+            }
+            if (!(b?.date instanceof Date) || Number.isNaN(b.date.getTime())) {
+                return 1;
+            }
+            return a.date - b.date;
+        });
+
+        sortedMetrics.forEach(metric => {
+            if (!metric || !(metric.date instanceof Date) || Number.isNaN(metric.date.getTime())) {
+                return;
+            }
+            if (startDate instanceof Date && metric.date < startDate) {
+                return;
+            }
+            if (endDate instanceof Date && metric.date > endDate) {
+                return;
+            }
+            const periodKey = getPeriodKey(metric.date, period);
+            if (!periodKey) {
+                return;
+            }
+            const periodStart = getPeriodStartDate(metric.date, period);
+            const entry = entriesMap.get(periodKey) || {
+                key: periodKey,
+                startDate: periodStart,
+                totalValue: 0,
+                coinValue: 0,
+                medalValue: 0,
+                coinCounts: initializeCoinCounts(),
+                coinTotal: 0,
+                medalTotal: 0,
+            };
+            const coinValue = Number.isFinite(metric.coinValue) ? metric.coinValue : 0;
+            const medalValue = Number.isFinite(metric.medalValue) ? metric.medalValue : 0;
+            entry.totalValue += coinValue + medalValue;
+            entry.coinValue += coinValue;
+            entry.medalValue += medalValue;
+            const coins = Array.isArray(metric.coins) ? metric.coins : [];
+            entry.coinTotal += coins.length;
+            coins.forEach(emoji => {
+                if (Object.prototype.hasOwnProperty.call(entry.coinCounts, emoji)) {
+                    entry.coinCounts[emoji] += 1;
+                } else {
+                    entry.coinCounts[emoji] = 1;
+                }
+            });
+            const medals = Array.isArray(metric.medals) ? metric.medals : [];
+            entry.medalTotal += medals.length;
+            entriesMap.set(periodKey, entry);
+        });
+
+        const entries = Array.from(entriesMap.values()).sort((a, b) => {
+            if (!(a?.startDate instanceof Date) || Number.isNaN(a.startDate.getTime())) {
+                return -1;
+            }
+            if (!(b?.startDate instanceof Date) || Number.isNaN(b.startDate.getTime())) {
+                return 1;
+            }
+            return a.startDate - b.startDate;
+        });
+
+        entries.forEach(entry => {
+            entry.label = formatPeriodLabel(entry.startDate, period);
+        });
+
+        return entries;
+    };
+
+    const determineTargetYear = (metrics, selectedYear) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return null;
+        }
+        const yearSet = new Set();
+        metrics.forEach(metric => {
+            if (metric?.date instanceof Date && Number.isFinite(metric.date.getFullYear())) {
+                yearSet.add(metric.date.getFullYear());
+            }
+        });
+        const years = Array.from(yearSet).sort((a, b) => a - b);
+        if (years.length === 0) {
+            return null;
+        }
+        const numericSelectedYear = Number(selectedYear);
+        if (Number.isFinite(numericSelectedYear) && years.includes(numericSelectedYear)) {
+            return numericSelectedYear;
+        }
+        return years[years.length - 1];
+    };
+
+    const computeWalletAggregation = (context, timeframe, grouping) => {
+        const metricsSource = Array.isArray(context.filteredMetrics) && context.filteredMetrics.length > 0
+            ? context.filteredMetrics
+            : context.lifetimeMetrics;
+
+        if (!Array.isArray(metricsSource) || metricsSource.length === 0) {
+            return { aggregation: [], metadata: { timeframe, grouping } };
+        }
+
+        const metadata = {
+            timeframe,
+            grouping,
+            label: '',
+            startDate: null,
+            endDate: null,
+            totalValue: 0,
+            totalCoins: 0,
+            totalMedals: 0,
+        };
+
+        let filteredMetrics = metricsSource;
+
+        if (timeframe === WALLET_VIEW_TIMEFRAMES.YEAR) {
+            const targetYear = determineTargetYear(metricsSource, context.selectedYear);
+            metadata.targetYear = targetYear;
+            if (Number.isFinite(targetYear)) {
+                filteredMetrics = metricsSource.filter(metric => metric?.date instanceof Date && metric.date.getFullYear() === targetYear);
+                metadata.label = String(targetYear);
+            }
+        } else if (timeframe === WALLET_VIEW_TIMEFRAMES.ROLLING) {
+            const latestDate = context.latestDate instanceof Date && !Number.isNaN(context.latestDate.getTime())
+                ? context.latestDate
+                : metricsSource.reduce((latest, metric) => {
+                    if (metric?.date instanceof Date && !Number.isNaN(metric.date.getTime())) {
+                        if (!latest || metric.date > latest) {
+                            return metric.date;
+                        }
+                    }
+                    return latest;
+                }, null);
+            if (latestDate instanceof Date && !Number.isNaN(latestDate.getTime())) {
+                const endDate = new Date(latestDate);
+                endDate.setHours(23, 59, 59, 999);
+                const startDate = new Date(endDate);
+                startDate.setDate(startDate.getDate() - 364);
+                startDate.setHours(0, 0, 0, 0);
+                metadata.startDate = startDate;
+                metadata.endDate = endDate;
+                filteredMetrics = metricsSource.filter(metric => metric?.date instanceof Date && metric.date >= startDate && metric.date <= endDate);
+                metadata.label = `${startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} – ${endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+            }
+        } else {
+            metadata.label = 'All time';
+        }
+
+        const aggregation = aggregateMetricsByPeriod(filteredMetrics, {
+            period: grouping,
+            startDate: metadata.startDate,
+            endDate: metadata.endDate,
+        });
+
+        metadata.totalValue = aggregation.reduce((sum, entry) => sum + (entry.totalValue || 0), 0);
+        metadata.totalCoins = aggregation.reduce((sum, entry) => sum + (entry.coinTotal || 0), 0);
+        metadata.totalMedals = aggregation.reduce((sum, entry) => sum + (entry.medalTotal || 0), 0);
+
+        return { aggregation, metadata };
+    };
+
+    const getWalletAggregation = () => {
+        const resolvedGrouping = resolveWalletGrouping(walletViewTimeframe, walletViewGrouping);
+        if (
+            walletAggregationCache.version === walletContextVersion
+            && walletAggregationCache.timeframe === walletViewTimeframe
+            && walletAggregationCache.grouping === resolvedGrouping
+        ) {
+            return walletAggregationCache.result;
+        }
+
+        const result = computeWalletAggregation(walletChartContext, walletViewTimeframe, resolvedGrouping);
+        walletAggregationCache = {
+            version: walletContextVersion,
+            timeframe: walletViewTimeframe,
+            grouping: resolvedGrouping,
+            result,
+        };
+        return result;
+    };
+
+    const buildBalanceDatasetFromAggregation = (entries, metadata) => {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return null;
+        }
+
+        let runningTotal = 0;
+        const lineValues = entries.map(entry => {
+            const value = Number.isFinite(entry.totalValue) ? entry.totalValue : 0;
+            runningTotal += value;
+            return runningTotal;
+        });
+
+        const barValues = entries.map(entry => {
+            const value = Number.isFinite(entry.totalValue) ? entry.totalValue : 0;
+            return value / HUNDRED_THOUSAND;
+        });
+
+        const barRawValues = entries.map(entry => Number.isFinite(entry.totalValue) ? entry.totalValue : 0);
+
+        const overlayDefault = {
+            title: metadata?.label || 'Wallet insights',
+            lines: [
+                { label: 'Total collected', value: usdCodeFormatter.format(metadata?.totalValue || 0) },
+                { label: 'Coins minted', value: (metadata?.totalCoins || 0).toLocaleString() },
+                { label: 'Medals earned', value: (metadata?.totalMedals || 0).toLocaleString() },
+            ],
+        };
+
+        const formatOverlay = (tooltipContext) => {
+            const dataPoint = tooltipContext?.tooltip?.dataPoints?.[0];
+            if (!dataPoint) {
+                return overlayDefault;
+            }
+            const index = dataPoint.dataIndex;
+            const entry = entries[index];
+            if (!entry) {
+                return overlayDefault;
+            }
+            return {
+                title: entry.label || 'Period',
+                lines: [
+                    { label: 'Collected', value: usdCodeFormatter.format(entry.totalValue || 0) },
+                    { label: 'Coins', value: entry.coinTotal.toLocaleString() },
+                    { label: 'Medals', value: entry.medalTotal.toLocaleString() },
+                ],
+            };
+        };
+
+        return {
+            type: 'balance',
+            labels: entries.map(entry => entry.label),
+            lineValues,
+            lineRawValues,
+            barValues,
+            barRawValues,
+            overlayDefault,
+            formatOverlay,
+            metadata,
+        };
+    };
+
+    const buildCoinDatasetFromAggregation = (entries, metadata) => {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return null;
+        }
+
+        const labels = entries.map(entry => entry.label);
+        const coinBreakdown = {};
+        COIN_EMOJIS.forEach(emoji => {
+            coinBreakdown[emoji] = entries.map(entry => entry.coinCounts?.[emoji] || 0);
+        });
+
+        const medalValues = entries.map(entry => entry.medalTotal || 0);
+        const hasMedals = medalValues.some(value => Number.isFinite(value) && value > 0);
+        const medalColor = getMedalColor('Medals', { isOther: true }) || 'rgba(251, 191, 36, 0.75)';
+        const medalBreakdown = hasMedals
+            ? [{ label: 'Medals', data: medalValues, color: medalColor }]
+            : [];
+
+        const overlayDefault = {
+            title: metadata?.label || 'Wallet insights',
+            lines: [
+                { label: 'Coins minted', value: (metadata?.totalCoins || 0).toLocaleString() },
+                { label: 'Medals earned', value: (metadata?.totalMedals || 0).toLocaleString() },
+                { label: 'Total value', value: usdCodeFormatter.format(metadata?.totalValue || 0) },
+            ],
+        };
+
+        const formatOverlay = (tooltipContext) => {
+            const dataPoint = tooltipContext?.tooltip?.dataPoints?.[0];
+            if (!dataPoint) {
+                return overlayDefault;
+            }
+            const index = dataPoint.dataIndex;
+            const entry = entries[index];
+            if (!entry) {
+                return overlayDefault;
+            }
+            const lines = [
+                { label: 'Coins minted', value: entry.coinTotal.toLocaleString() },
+            ];
+            if (entry.medalTotal > 0) {
+                lines.push({ label: 'Medals earned', value: entry.medalTotal.toLocaleString() });
+            }
+            lines.push({ label: 'Value', value: usdCodeFormatter.format(entry.totalValue || 0) });
+            return {
+                title: entry.label || 'Period',
+                lines,
+            };
+        };
+
+        return {
+            type: 'coins-stacked',
+            labels,
+            coinBreakdown,
+            medalBreakdown,
+            overlayDefault,
+            formatOverlay,
+            metadata,
+        };
+    };
+
+    const getWalletDataset = (key) => {
+        const cacheKey = `${walletContextVersion}:${walletViewTimeframe}:${walletViewGrouping}:${key}`;
+        if (walletDatasetCache.has(cacheKey)) {
+            return walletDatasetCache.get(cacheKey);
+        }
+
+        const { aggregation, metadata } = getWalletAggregation();
+        if (!Array.isArray(aggregation) || aggregation.length === 0) {
+            walletDatasetCache.set(cacheKey, null);
+            return null;
+        }
+
+        let dataset = null;
+        if (key === 'coins') {
+            dataset = buildCoinDatasetFromAggregation(aggregation, metadata);
+        } else if (key === 'balance') {
+            dataset = buildBalanceDatasetFromAggregation(aggregation, metadata);
+        }
+
+        walletDatasetCache.set(cacheKey, dataset);
+        return dataset;
+    };
+
+    const renderWalletOverlayContent = (content = walletOverlayDefaultContent) => {
+        if (!walletOverlayElement || !walletOverlayTitleElement || !walletOverlayListElement) {
+            return;
+        }
+
+        const resolvedContent = content || walletOverlayDefaultContent;
+        const normalizedLines = Array.isArray(resolvedContent.lines) ? resolvedContent.lines : [];
+        const cacheKey = JSON.stringify({ title: resolvedContent.title, lines: normalizedLines });
+        if (walletOverlayLastContentKey === cacheKey) {
+            return;
+        }
+        walletOverlayLastContentKey = cacheKey;
+
+        walletOverlayTitleElement.textContent = resolvedContent.title || walletOverlayDefaultContent.title;
+        walletOverlayListElement.innerHTML = '';
+
+        if (normalizedLines.length === 0) {
+            const emptyItem = document.createElement('li');
+            emptyItem.className = 'wallet-chart__overlay-empty';
+            emptyItem.textContent = 'Hover over the chart to explore totals.';
+            walletOverlayListElement.appendChild(emptyItem);
+            return;
+        }
+
+        normalizedLines.forEach(line => {
+            const item = document.createElement('li');
+            item.className = 'wallet-chart__overlay-item';
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'wallet-chart__overlay-label';
+            labelSpan.textContent = line?.label ?? '';
+
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'wallet-chart__overlay-value';
+            valueSpan.textContent = line?.value ?? '';
+
+            item.append(labelSpan, valueSpan);
+            walletOverlayListElement.appendChild(item);
+        });
+    };
+
+    const createExternalTooltipHandler = (formatter, defaultContent) => (context) => {
+        if (!context || !context.tooltip || context.tooltip.opacity === 0) {
+            renderWalletOverlayContent(defaultContent);
+            return;
+        }
+
+        try {
+            const formatted = typeof formatter === 'function' ? formatter(context) : null;
+            renderWalletOverlayContent(formatted || defaultContent);
+        } catch (error) {
+            console.error('Wallet tooltip formatter error:', error);
+            renderWalletOverlayContent(defaultContent);
+        }
     };
 
     const applyPercentChangeToElement = (element, percentValue, periodLabel) => {
@@ -2094,41 +2704,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const hasWalletChartData = (key) => {
-        const dataset = walletChartData[key];
-        if (!dataset || !Array.isArray(dataset.labels) || dataset.labels.length === 0) {
-            return false;
-        }
-
-        if (key === 'coins') {
-            const coinBreakdown = dataset.coinBreakdown || {};
-            const medalBreakdown = dataset.medalBreakdown || [];
-            const coinTimeline = dataset.coinTimeline || {};
-            const timelineLabels = Array.isArray(dataset.timelineLabels) ? dataset.timelineLabels : [];
-
-            const hasCoinValues = Object.values(coinBreakdown).some(values =>
-                Array.isArray(values) && values.some(value => value > 0)
-            );
-            const hasMedalValues = Array.isArray(medalBreakdown) && medalBreakdown.some(entry =>
-                Array.isArray(entry?.data) && entry.data.some(value => value > 0)
-            );
-            const hasTimelineValues = timelineLabels.length > 0 && COIN_EMOJIS.some(emoji => {
-                const values = coinTimeline[emoji];
-                return Array.isArray(values) && values.some(value => value > 0);
-            });
-
-            return hasCoinValues || hasMedalValues || hasTimelineValues;
-        }
-
-        if (key === 'balance') {
-            const hasValues = Array.isArray(dataset.values) && dataset.values.some(value => value > 0);
-            const hasCoins = Array.isArray(dataset.quarterCoinTotals)
-                && dataset.quarterCoinTotals.some(value => Number.isFinite(value) && value > 0);
-            const hasCompare = Array.isArray(dataset.compareDatasets)
-                && dataset.compareDatasets.some(entry => Array.isArray(entry?.data) && entry.data.some(value => value > 0));
-            return hasValues || hasCoins || hasCompare;
-        }
-
-        return false;
+        const dataset = getWalletDataset(key);
+        return Boolean(dataset && Array.isArray(dataset.labels) && dataset.labels.length > 0);
     };
 
     const updateBalanceCompareToggleState = () => {
@@ -2136,25 +2713,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const dataset = walletChartData.balance || {};
-        const availableCompareDatasets = Array.isArray(dataset.compareDatasets)
-            ? dataset.compareDatasets.filter(entry => Array.isArray(entry?.data) && entry.data.some(value => value > 0))
-            : [];
-        const hasCompareData = availableCompareDatasets.length > 1;
-
-        const shouldEnable = activeChartKey === 'balance' && hasCompareData;
-
-        if (!shouldEnable) {
-            balanceCompareYears = false;
-        }
-
-        balanceYearToggle.disabled = !shouldEnable;
-        balanceYearToggle.checked = shouldEnable && balanceCompareYears;
-        balanceYearToggle.setAttribute('aria-disabled', shouldEnable ? 'false' : 'true');
+        balanceCompareYears = false;
+        balanceYearToggle.disabled = true;
+        balanceYearToggle.checked = false;
+        balanceYearToggle.setAttribute('aria-disabled', 'true');
 
         if (balanceYearToggleLabel) {
-            balanceYearToggleLabel.classList.toggle('opacity-60', !shouldEnable);
-            balanceYearToggleLabel.classList.toggle('pointer-events-none', !shouldEnable);
+            balanceYearToggleLabel.classList.add('opacity-60', 'pointer-events-none');
+            balanceYearToggleLabel.setAttribute('title', 'Compare view coming soon');
+            const labelText = balanceYearToggleLabel.querySelector('span');
+            if (labelText) {
+                labelText.textContent = 'Compare (coming soon)';
+            }
         }
     };
 
@@ -2206,6 +2776,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 walletChartEmptyState.textContent = 'Charts unavailable.';
                 walletChartEmptyState.classList.remove('hidden');
             }
+            renderWalletOverlayContent(walletOverlayDefaultContent);
             updateToggleStates(null);
             return;
         }
@@ -2221,12 +2792,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 walletChartEmptyState.classList.remove('hidden');
                 walletChartEmptyState.textContent = 'No wallet data available for this view.';
             }
+            renderWalletOverlayContent(walletOverlayDefaultContent);
             updateToggleStates(null);
             return;
         }
 
         activeChartKey = availableKey;
-        const dataset = walletChartData[availableKey];
+        const dataset = getWalletDataset(availableKey);
+
+        if (!dataset || !Array.isArray(dataset.labels) || dataset.labels.length === 0) {
+            destroyWalletChart();
+            walletChartCanvas.classList.add('hidden');
+            if (walletChartEmptyState) {
+                walletChartEmptyState.classList.remove('hidden');
+                walletChartEmptyState.textContent = 'No wallet data available for this view.';
+            }
+            renderWalletOverlayContent(walletOverlayDefaultContent);
+            updateToggleStates(null);
+            return;
+        }
 
         walletChartCanvas.classList.remove('hidden');
         if (walletChartEmptyState) {
@@ -2237,354 +2821,172 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isDarkMode = document.body.classList.contains('dark');
         const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
-        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
+        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.18)';
         const fontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";
         const tickFont = { family: fontFamily, size: 13, weight: '600' };
-        const tooltipBodyFont = { family: fontFamily, size: 13 };
-        const tooltipTitleFont = { family: fontFamily, size: 12, weight: '600' };
 
         if (availableKey === 'coins') {
-            const timelineLabels = Array.isArray(dataset.timelineLabels) ? dataset.timelineLabels : [];
-            const coinTimeline = dataset.coinTimeline || {};
-            const hasTimelineData = timelineLabels.length > 0 && COIN_EMOJIS.some(emoji => {
-                const values = coinTimeline[emoji];
-                return Array.isArray(values) && values.some(value => value > 0);
+            coinChartMode = 'stacked';
+            const datasets = [];
+            COIN_EMOJIS.forEach(emoji => {
+                const values = Array.isArray(dataset.coinBreakdown?.[emoji]) ? dataset.coinBreakdown[emoji] : [];
+                datasets.push({
+                    label: `${emoji} Coins`,
+                    data: values,
+                    backgroundColor: COIN_COLOR_MAP[emoji] || '#2563eb',
+                    stack: 'walletCoins',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 44,
+                });
             });
 
-            if (coinChartMode === 'timeline' && hasTimelineData) {
-                const lineDatasets = COIN_EMOJIS.map(emoji => {
-                    const values = Array.isArray(coinTimeline[emoji]) ? coinTimeline[emoji] : [];
-                    if (!values.some(value => value > 0)) {
-                        return null;
-                    }
-                    return {
-                        label: `${emoji} Coins`,
-                        data: values,
-                        borderColor: COIN_COLOR_MAP[emoji] || '#2563eb',
-                        backgroundColor: (COIN_COLOR_MAP[emoji] || '#2563eb') + '33',
-                        tension: 0.25,
-                        borderWidth: 3,
-                        pointRadius: 2.5,
-                        fill: false
-                    };
-                }).filter(Boolean);
+            (dataset.medalBreakdown || []).forEach(entry => {
+                if (!entry || !Array.isArray(entry.data)) {
+                    return;
+                }
+                datasets.push({
+                    label: entry.label || 'Medals',
+                    data: entry.data,
+                    backgroundColor: entry.color || getMedalColor(entry.label, { isOther: entry.isOther }),
+                    stack: 'walletCoins',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    maxBarThickness: 44,
+                });
+            });
 
-                walletChartInstance = new Chart(walletChartCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: timelineLabels,
-                        datasets: lineDatasets
+            walletChartInstance = new Chart(walletChartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: dataset.labels,
+                    datasets,
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    layout: {
+                        padding: { top: 18, right: 16, bottom: 12, left: 16 },
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                            padding: { top: 18, right: 18, bottom: 12, left: 18 }
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: false,
+                            external: createExternalTooltipHandler(dataset.formatOverlay, dataset.overlayDefault || walletOverlayDefaultContent),
                         },
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: axisColor,
-                                    font: tickFont
-                                }
-                            },
-                            tooltip: {
-                                bodyFont: tooltipBodyFont,
-                                titleFont: tooltipTitleFont,
-                                callbacks: {
-                                    label: (context) => {
-                                        const value = context.parsed.y || 0;
-                                        const label = context.dataset.label || '';
-                                        return `${label}: ${value.toLocaleString()}`;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                ticks: {
-                                    color: axisColor,
-                                    font: tickFont,
-                                    maxRotation: 45,
-                                    minRotation: 0
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    color: axisColor,
-                                    precision: 0,
-                                    font: tickFont
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            }
-                        }
-                    }
-                });
-            } else {
-                coinChartMode = 'stacked';
-                const datasets = [];
-
-                COIN_EMOJIS.forEach(emoji => {
-                    const values = Array.isArray(dataset.coinBreakdown?.[emoji])
-                        ? dataset.coinBreakdown[emoji]
-                        : [];
-                    datasets.push({
-                        label: `${emoji} Coins`,
-                        data: values,
-                        backgroundColor: COIN_COLOR_MAP[emoji] || '#2563eb',
-                        stack: 'coins',
-                        yAxisID: 'yCoins',
-                        borderRadius: 6,
-                        borderSkipped: false,
-                        maxBarThickness: 44
-                    });
-                });
-
-                (dataset.medalBreakdown || []).forEach(entry => {
-                    if (!entry || !Array.isArray(entry.data)) {
-                        return;
-                    }
-                    datasets.push({
-                        label: entry.label,
-                        data: entry.data,
-                        backgroundColor: entry.color || getMedalColor(entry.label, { isOther: entry.isOther }),
-                        stack: 'medals',
-                        yAxisID: 'yMedals',
-                        borderRadius: 6,
-                        borderSkipped: false,
-                        maxBarThickness: 44
-                    });
-                });
-
-                walletChartInstance = new Chart(walletChartCanvas, {
-                    type: 'bar',
-                    data: {
-                        labels: dataset.labels,
-                        datasets
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                            padding: { top: 18, right: 16, bottom: 12, left: 16 }
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ticks: { color: axisColor, font: tickFont, padding: 8 },
+                            grid: { color: gridColor },
                         },
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                bodyFont: tooltipBodyFont,
-                                titleFont: tooltipTitleFont,
-                                callbacks: {
-                                    label: (context) => {
-                                        const value = context.parsed.y || 0;
-                                        const label = context.dataset.label || '';
-                                        return `${label}: ${value.toLocaleString()}`;
-                                    }
-                                }
-                            }
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            ticks: { color: axisColor, font: tickFont, padding: 6 },
+                            grid: { color: gridColor },
                         },
-                        scales: {
-                            x: {
-                                stacked: true,
-                                ticks: {
-                                    color: axisColor,
-                                    font: tickFont,
-                                    padding: 8
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            yCoins: {
-                                stacked: true,
-                                beginAtZero: true,
-                                type: 'linear',
-                                position: 'left',
-                                ticks: {
-                                    color: axisColor,
-                                    precision: 0,
-                                    font: tickFont,
-                                    padding: 6
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            yMedals: {
-                                stacked: true,
-                                beginAtZero: true,
-                                type: 'linear',
-                                position: 'right',
-                                ticks: {
-                                    color: axisColor,
-                                    precision: 0,
-                                    font: tickFont,
-                                    padding: 6
-                                },
-                                grid: {
-                                    color: gridColor,
-                                    drawOnChartArea: false
-                                }
-                            }
-                        }
-                    }
-                });
-            }
+                    },
+                },
+            });
         } else {
-            const hasCompareData = Array.isArray(dataset.compareDatasets) && dataset.compareDatasets.length > 1;
-            const useComparison = Boolean(balanceCompareYears && hasCompareData);
-
-            const comparisonDatasets = useComparison
-                ? dataset.compareDatasets.map(entry => ({
-                    label: entry.label || 'Balance',
-                    data: Array.isArray(entry.data) ? entry.data : [],
-                    borderColor: entry.borderColor || '#2563eb',
-                    backgroundColor: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
-                    fill: false,
-                    tension: 0.3,
+            const includeBars = Array.isArray(dataset.barValues) && dataset.barValues.some(value => Number.isFinite(value) && value !== 0);
+            const baseDatasets = [
+                {
+                    label: 'Cumulative balance',
+                    data: dataset.lineValues || [],
+                    borderColor: '#16a34a',
+                    backgroundColor: 'rgba(22, 163, 74, 0.2)',
+                    fill: true,
+                    tension: 0.35,
                     pointRadius: 3,
                     pointHoverRadius: 4,
-                }))
-                : [];
+                    order: 1,
+                    yAxisID: 'y',
+                },
+            ];
 
-            const chartLabels = useComparison
-                ? (Array.isArray(dataset.compareLabels) && dataset.compareLabels.length > 0
-                    ? dataset.compareLabels
-                    : QUARTER_COMPARISON_LABELS)
-                : dataset.labels;
-
-            const chartDatasets = useComparison
-                ? comparisonDatasets
-                : [
-                    {
-                        label: 'Cumulative balance',
-                        data: dataset.values,
-                        borderColor: '#16a34a',
-                        backgroundColor: 'rgba(22, 163, 74, 0.2)',
-                        fill: true,
-                        tension: 0.35,
-                        pointRadius: 3,
-                        pointHoverRadius: 4,
-                        order: 1,
-                        yAxisID: 'y'
-                    }
-                ];
-
-            const includeCoinBars = !useComparison
-                && Array.isArray(dataset.quarterCoinTotals)
-                && dataset.quarterCoinTotals.some(value => Number.isFinite(value) && value > 0);
-
-            if (includeCoinBars) {
-                chartDatasets.unshift({
+            if (includeBars) {
+                baseDatasets.unshift({
                     type: 'bar',
-                    label: 'Coins collected',
-                    data: dataset.quarterCoinTotals,
+                    label: 'Collected (×100k)',
+                    data: dataset.barValues,
                     backgroundColor: 'rgba(37, 99, 235, 0.35)',
                     borderRadius: 6,
-                    maxBarThickness: 38,
-                    yAxisID: 'yCoins',
+                    maxBarThickness: 36,
+                    borderSkipped: false,
+                    yAxisID: 'yBars',
                     order: 0,
-                    borderSkipped: false
                 });
             }
 
-            const baseScales = {
-                x: {
-                    ticks: {
-                        color: axisColor,
-                        font: tickFont,
-                        padding: 8
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                layout: { padding: { top: 18, right: 16, bottom: 12, left: 16 } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: false,
+                        external: createExternalTooltipHandler(dataset.formatOverlay, dataset.overlayDefault || walletOverlayDefaultContent),
                     },
-                    grid: {
-                        color: gridColor
-                    }
                 },
-                y: {
+                scales: {
+                    x: {
+                        ticks: { color: axisColor, font: tickFont, padding: 8 },
+                        grid: { color: gridColor },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: axisColor,
+                            font: tickFont,
+                            padding: 6,
+                            callback: (value) => {
+                                if (!Number.isFinite(value)) {
+                                    return '$0.0M';
+                                }
+                                return `$${(value / 1_000_000).toFixed(1)}M`;
+                            },
+                        },
+                        grid: { color: gridColor },
+                    },
+                },
+            };
+
+            if (includeBars) {
+                chartOptions.scales.yBars = {
                     beginAtZero: true,
+                    position: 'right',
                     ticks: {
                         color: axisColor,
                         font: tickFont,
                         padding: 6,
                         callback: (value) => {
                             if (!Number.isFinite(value)) {
-                                return '$0.0M';
+                                return '$0';
                             }
-                            return `$${(value / 1_000_000).toFixed(1)}M`;
-                        }
+                            return `$${Math.round(value * 100_000).toLocaleString()}`;
+                        },
                     },
-                    grid: {
-                        color: gridColor
-                    }
-                }
-            };
-
-            if (includeCoinBars) {
-                baseScales.yCoins = {
-                    beginAtZero: true,
-                    position: 'right',
-                    ticks: {
-                        color: axisColor,
-                        font: tickFont,
-                        precision: 0,
-                        padding: 6
-                    },
-                    grid: {
-                        color: gridColor,
-                        drawOnChartArea: false
-                    }
+                    grid: { color: gridColor, drawOnChartArea: false },
                 };
             }
 
             walletChartInstance = new Chart(walletChartCanvas, {
                 type: 'line',
                 data: {
-                    labels: chartLabels,
-                    datasets: chartDatasets,
+                    labels: dataset.labels,
+                    datasets: baseDatasets,
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: {
-                        padding: { top: 18, right: 16, bottom: 12, left: 16 }
-                    },
-                    plugins: {
-                        legend: {
-                            display: useComparison,
-                            labels: {
-                                usePointStyle: true,
-                                font: tickFont,
-                            }
-                        },
-                        tooltip: {
-                            bodyFont: tooltipBodyFont,
-                            titleFont: tooltipTitleFont,
-                            callbacks: {
-                                label: (context) => {
-                                    const value = context.parsed.y || 0;
-                                    const label = context.dataset?.label || 'Balance';
-                                    if (context.dataset?.yAxisID === 'yCoins') {
-                                        return `${label}: ${value.toLocaleString()} coins`;
-                                    }
-                                    return useComparison
-                                        ? `${label}: ${formatMillions(value)}`
-                                        : `Balance: ${formatMillions(value)}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: baseScales
-                }
+                options: chartOptions,
             });
         }
 
+        renderWalletOverlayContent(dataset.overlayDefault || walletOverlayDefaultContent);
         updateToggleStates(activeChartKey);
     };
 
@@ -2622,268 +3024,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? metricsForFiltered
             : buildWalletMetrics(lifetimeActivities);
 
-        const yearlyAggregation = new Map();
-        const monthlyTotalsByYear = new Map();
-        const createYearEntry = () => ({
-            coins: 0,
-            medals: 0,
-            coinCounts: COIN_EMOJIS.reduce((acc, emoji) => {
-                acc[emoji] = 0;
-                return acc;
-            }, {}),
-            medalCounts: new Map()
-        });
-        metricsForYearly.forEach(metric => {
-            const year = metric.date.getFullYear();
-            if (!Number.isFinite(year)) {
-                return;
-            }
-
-            const entry = yearlyAggregation.get(year) || createYearEntry();
-            entry.coins += metric.coins.length;
-            entry.medals += metric.medals.length;
-            metric.coins.forEach(emoji => {
-                if (!Object.prototype.hasOwnProperty.call(entry.coinCounts, emoji)) {
-                    entry.coinCounts[emoji] = 0;
-                }
-                entry.coinCounts[emoji] += 1;
-            });
-            metric.medals.forEach(medal => {
-                if (!medal) {
-                    return;
-                }
-                const label = medal.emoji ? `${medal.emoji} ${medal.name}` : (medal.name || 'Medal');
-                entry.medalCounts.set(label, (entry.medalCounts.get(label) || 0) + 1);
-            });
-            yearlyAggregation.set(year, entry);
-
-            const monthIndex = metric.date.getMonth();
-            if (Number.isInteger(monthIndex) && monthIndex >= 0 && monthIndex < 12) {
-                const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
-                totals[monthIndex] += metric.coinValue + metric.medalValue;
-                monthlyTotalsByYear.set(year, totals);
-            }
-        });
-
-        const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
-        const coinBreakdown = COIN_EMOJIS.reduce((acc, emoji) => {
-            acc[emoji] = sortedYears.map(year => {
-                const entry = yearlyAggregation.get(year);
-                return entry?.coinCounts?.[emoji] ?? 0;
-            });
-            return acc;
-        }, {});
-
-        const medalTotalsAcrossYears = new Map();
-        sortedYears.forEach(year => {
-            const medalCounts = yearlyAggregation.get(year)?.medalCounts;
-            if (!medalCounts) {
-                return;
-            }
-            medalCounts.forEach((count, label) => {
-                medalTotalsAcrossYears.set(label, (medalTotalsAcrossYears.get(label) || 0) + count);
-            });
-        });
-
-        const medalTotalsSorted = Array.from(medalTotalsAcrossYears.entries()).sort((a, b) => b[1] - a[1]);
-
-        const medalBreakdown = medalTotalsSorted.map(([label]) => ({
-            label,
-            data: sortedYears.map(year => yearlyAggregation.get(year)?.medalCounts?.get(label) ?? 0),
-            color: getMedalColor(label)
-        }));
-
-        const createCoinCountMap = () => COIN_EMOJIS.reduce((acc, emoji) => {
-            acc[emoji] = 0;
-            return acc;
-        }, {});
-        const timelineBuckets = new Map();
-        metricsForYearly.forEach(metric => {
-            const year = metric.date.getFullYear();
-            const monthIndex = metric.date.getMonth();
-            if (!Number.isFinite(year) || !Number.isInteger(monthIndex)) {
-                return;
-            }
-
-            const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
-            const bucket = timelineBuckets.get(key) || { counts: createCoinCountMap(), year, monthIndex };
-            metric.coins.forEach(emoji => {
-                if (!Object.prototype.hasOwnProperty.call(bucket.counts, emoji)) {
-                    bucket.counts[emoji] = 0;
-                }
-                bucket.counts[emoji] += 1;
-            });
-            timelineBuckets.set(key, bucket);
-        });
-
-        const sortedTimelineKeys = Array.from(timelineBuckets.keys()).sort();
-        const coinTimeline = COIN_EMOJIS.reduce((acc, emoji) => {
-            acc[emoji] = [];
-            return acc;
-        }, {});
-        const timelineLabels = [];
-
-        if (sortedTimelineKeys.length > 0) {
-            const parseKey = (key) => {
-                const [yearStr, monthStr] = key.split('-');
-                return { year: Number(yearStr), monthIndex: Number(monthStr) - 1 };
-            };
-
-            const start = parseKey(sortedTimelineKeys[0]);
-            const end = parseKey(sortedTimelineKeys[sortedTimelineKeys.length - 1]);
-            let currentYear = start.year;
-            let currentMonthIndex = start.monthIndex;
-            const runningTotals = createCoinCountMap();
-
-            while (currentYear < end.year || (currentYear === end.year && currentMonthIndex <= end.monthIndex)) {
-                const key = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}`;
-                const bucket = timelineBuckets.get(key) || { counts: createCoinCountMap() };
-                const labelDate = new Date(currentYear, currentMonthIndex, 1);
-                timelineLabels.push(labelDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }));
-
-                COIN_EMOJIS.forEach(emoji => {
-                    const increment = Number.isFinite(bucket.counts?.[emoji]) ? bucket.counts[emoji] : 0;
-                    runningTotals[emoji] += increment;
-                    coinTimeline[emoji].push(runningTotals[emoji]);
-                });
-
-                currentMonthIndex += 1;
-                if (currentMonthIndex > 11) {
-                    currentMonthIndex = 0;
-                    currentYear += 1;
+        const determineLatestDate = (metrics) => metrics.reduce((latest, metric) => {
+            if (metric?.date instanceof Date && !Number.isNaN(metric.date.getTime())) {
+                if (!latest || metric.date > latest) {
+                    return metric.date;
                 }
             }
-        }
+            return latest;
+        }, null);
 
-        walletChartData.coins = {
-            labels: sortedYears.map(year => String(year)),
-            coinBreakdown,
-            medalBreakdown,
-            timelineLabels,
-            coinTimeline
+        const latestDate = determineLatestDate(metricsForFiltered) || determineLatestDate(metricsForYearly) || null;
+        const availableYears = Array.from(new Set(metricsForYearly
+            .map(metric => (metric?.date instanceof Date ? metric.date.getFullYear() : null))
+            .filter(year => Number.isFinite(year)))).sort((a, b) => a - b);
+
+        walletChartContext = {
+            filteredMetrics: metricsForFiltered,
+            lifetimeMetrics: metricsForYearly,
+            selectedYear,
+            latestDate,
+            availableYears,
         };
 
-        const convertMonthlyToQuarterCumulative = (monthlyTotals = []) => {
-            const quarterTotals = [0, 0, 0, 0];
-            monthlyTotals.forEach((value, monthIndex) => {
-                const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
-                const quarterIndex = Math.min(3, Math.max(0, Math.floor(monthIndex / 3)));
-                quarterTotals[quarterIndex] += numericValue;
-            });
+        walletContextVersion += 1;
+        resetWalletAggregationCache();
+        resetWalletDatasetCache();
+        updateWalletViewControls();
 
-            let runningTotal = 0;
-            return quarterTotals.map(total => {
-                const value = Number.isFinite(total) ? total : 0;
-                runningTotal += value;
-                return runningTotal;
-            });
-        };
+        const { aggregation: quarterAggregation } = computeWalletAggregation(
+            walletChartContext,
+            WALLET_VIEW_TIMEFRAMES.ALL,
+            WALLET_VIEW_GROUPINGS.QUARTER,
+        );
 
-        const compareDatasets = [];
-        sortedYears.forEach((year, index) => {
-            const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
-            const cumulative = convertMonthlyToQuarterCumulative(totals);
-
-            if (!cumulative.some(value => value > 0)) {
-                return;
-            }
-
-            const paletteEntry = BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
-            compareDatasets.push({
-                label: String(year),
-                data: cumulative,
-                borderColor: paletteEntry.border,
-                backgroundColor: paletteEntry.background,
-            });
-        });
-
-        const filteredQuarterAggregation = new Map();
-        metricsForFiltered.forEach(metric => {
-            const year = metric.date.getFullYear();
-            const monthIndex = metric.date.getMonth();
-            if (!Number.isFinite(year) || !Number.isInteger(monthIndex) || monthIndex < 0) {
-                return;
-            }
-
-            const quarterIndex = Math.floor(monthIndex / 3);
-            const key = `${year}-Q${quarterIndex + 1}`;
-            const entry = filteredQuarterAggregation.get(key) || { value: 0, coins: 0 };
-            const coinValue = Number.isFinite(metric.coinValue) ? metric.coinValue : 0;
-            const medalValue = Number.isFinite(metric.medalValue) ? metric.medalValue : 0;
-            const increment = coinValue + medalValue;
-            entry.value += increment;
-            entry.coins += Array.isArray(metric.coins) ? metric.coins.length : 0;
-            filteredQuarterAggregation.set(key, entry);
-        });
-
-        const parseQuarterKey = (key) => {
-            const [yearPart, quarterPart] = key.split('-Q');
-            return {
-                year: Number(yearPart),
-                quarter: Number(quarterPart)
-            };
-        };
-
-        const formatQuarterLabel = (key) => {
-            const { year, quarter } = parseQuarterKey(key);
-            if (!Number.isFinite(year) || !Number.isFinite(quarter)) {
-                return key;
-            }
-            return `Q${quarter} ${year}`;
-        };
-
-        const sortedQuarterKeys = Array.from(filteredQuarterAggregation.keys()).sort((a, b) => {
-            const parsedA = parseQuarterKey(a);
-            const parsedB = parseQuarterKey(b);
-            if (parsedA.year !== parsedB.year) {
-                return parsedA.year - parsedB.year;
-            }
-            return parsedA.quarter - parsedB.quarter;
-        });
-
-        const quarterLabels = [];
-        const cumulativeBalanceValues = [];
-        const quarterCoinTotals = [];
-        const quarterSeries = [];
         let runningQuarterTotal = 0;
-
-        sortedQuarterKeys.forEach(key => {
-            const entry = filteredQuarterAggregation.get(key) || { value: 0, coins: 0 };
-            const valueIncrement = Number.isFinite(entry.value) ? entry.value : 0;
-            const coinIncrement = Number.isFinite(entry.coins) ? entry.coins : 0;
-            runningQuarterTotal += valueIncrement;
-            quarterLabels.push(formatQuarterLabel(key));
-            cumulativeBalanceValues.push(runningQuarterTotal);
-            quarterCoinTotals.push(coinIncrement);
-
-            const { year, quarter } = parseQuarterKey(key);
-            if (Number.isFinite(year) && Number.isFinite(quarter)) {
-                const quarterStartMonth = (quarter - 1) * 3;
-                const date = new Date(year, quarterStartMonth, 1);
-                quarterSeries.push({ date, value: runningQuarterTotal });
-            } else {
-                quarterSeries.push({ date: null, value: runningQuarterTotal });
-            }
+        const cumulativeQuarterEntries = quarterAggregation.map(entry => {
+            const value = Number.isFinite(entry.totalValue) ? entry.totalValue : 0;
+            runningQuarterTotal += value;
+            return { ...entry, cumulativeValue: runningQuarterTotal };
         });
 
-        const latestEntry = quarterSeries.length > 0 ? quarterSeries[quarterSeries.length - 1] : null;
-        const previousEntry = quarterSeries.length > 1 ? quarterSeries[quarterSeries.length - 2] : null;
-        const yearAgoEntry = quarterSeries.length > 4 ? quarterSeries[quarterSeries.length - 5] : null;
-        const quarterPercentChange = calculatePercentChange(latestEntry?.value, previousEntry?.value);
-        const yearPercentChange = calculatePercentChange(latestEntry?.value, yearAgoEntry?.value);
+        const latestEntry = cumulativeQuarterEntries.at(-1) || null;
+        const previousEntry = cumulativeQuarterEntries.length > 1
+            ? cumulativeQuarterEntries[cumulativeQuarterEntries.length - 2]
+            : null;
+        const yearAgoEntry = cumulativeQuarterEntries.length > 4
+            ? cumulativeQuarterEntries[cumulativeQuarterEntries.length - 5]
+            : null;
 
         walletGrowthStats = {
-            currentTotal: Number.isFinite(latestEntry?.value) ? latestEntry.value : 0,
-            quarterChangePct: quarterPercentChange,
-            yearChangePct: yearPercentChange
-        };
-
-        walletChartData.balance = {
-            labels: quarterLabels,
-            values: cumulativeBalanceValues,
-            quarterCoinTotals,
-            compareLabels: QUARTER_COMPARISON_LABELS,
-            compareDatasets,
+            currentTotal: Number.isFinite(latestEntry?.cumulativeValue) ? latestEntry.cumulativeValue : 0,
+            quarterChangePct: calculatePercentChange(latestEntry?.cumulativeValue, previousEntry?.cumulativeValue),
+            yearChangePct: calculatePercentChange(latestEntry?.cumulativeValue, yearAgoEntry?.cumulativeValue),
         };
 
         const nextChartKey = hasWalletChartData(activeChartKey)
@@ -7988,6 +8180,55 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activeChartKey = 'balance';
             }
 
+            renderWalletChart(activeChartKey);
+        });
+    }
+
+    if (walletTimeframeSelect) {
+        walletTimeframeSelect.addEventListener('change', (event) => {
+            if (walletTimeframeSelect.disabled) {
+                walletTimeframeSelect.value = walletViewTimeframe;
+                return;
+            }
+
+            const nextTimeframe = event?.target?.value;
+            const validTimeframes = Object.values(WALLET_VIEW_TIMEFRAMES);
+            if (!validTimeframes.includes(nextTimeframe)) {
+                walletTimeframeSelect.value = walletViewTimeframe;
+                return;
+            }
+
+            if (nextTimeframe === walletViewTimeframe) {
+                return;
+            }
+
+            walletViewTimeframe = nextTimeframe;
+            walletViewGrouping = clampWalletGrouping(walletViewTimeframe, walletViewGrouping);
+            updateWalletViewControls();
+            resetWalletAggregationCache();
+            resetWalletDatasetCache();
+            renderWalletChart(activeChartKey);
+        });
+    }
+
+    if (walletGroupingSelect) {
+        walletGroupingSelect.addEventListener('change', (event) => {
+            if (walletGroupingSelect.disabled) {
+                walletGroupingSelect.value = walletViewGrouping;
+                return;
+            }
+
+            const nextGrouping = event?.target?.value;
+            const allowedGroupings = getAllowedGroupingsForTimeframe(walletViewTimeframe);
+            if (!allowedGroupings.includes(nextGrouping) || nextGrouping === walletViewGrouping) {
+                walletGroupingSelect.value = walletViewGrouping;
+                return;
+            }
+
+            walletViewGrouping = nextGrouping;
+            updateWalletViewControls();
+            resetWalletAggregationCache();
+            resetWalletDatasetCache();
             renderWalletChart(activeChartKey);
         });
     }

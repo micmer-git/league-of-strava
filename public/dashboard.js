@@ -288,10 +288,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
-    const globeStatButton = document.getElementById('globe-stat');
-    const everestStatButton = document.getElementById('everest-stat');
-    const pizzaStatButton = document.getElementById('pizza-stat');
-    const likesStatButton = document.getElementById('likes-stat');
+    const globeStatElement = document.getElementById('globe-stat');
+    const everestStatElement = document.getElementById('everest-stat');
+    const pizzaStatElement = document.getElementById('pizza-stat');
+    const likesStatElement = document.getElementById('likes-stat');
     const globeTotalElement = document.getElementById('globe-total');
     const everestTotalElement = document.getElementById('everest-total');
     const pizzaTotalElement = document.getElementById('pizza-total');
@@ -314,6 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareCopyButtonLabel = shareCopyButton?.querySelector('span:last-child') || null;
     const shareCopyOriginalLabel = shareCopyButtonLabel?.textContent ?? '';
     const profileRefreshButton = document.getElementById('profile-refresh');
+    const profileActivityTimeline = document.getElementById('profile-activity-timeline');
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
@@ -1707,6 +1708,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             meta,
             text: meta ? `${name} — ${meta}` : name,
         };
+    };
+
+    const renderProfileActivityTimeline = (activities) => {
+        if (!profileActivityTimeline) {
+            return;
+        }
+
+        profileActivityTimeline.innerHTML = '';
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            const emptyMessage = document.createElement('p');
+            emptyMessage.className = 'profile-card__timeline-empty';
+            emptyMessage.textContent = 'No activities available yet.';
+            profileActivityTimeline.appendChild(emptyMessage);
+            return;
+        }
+
+        const timelineList = document.createElement('div');
+        timelineList.className = 'profile-card__timeline-list';
+
+        const entries = [
+            { label: 'Last activity', activity: activities[0] },
+            { label: 'First activity', activity: activities[activities.length - 1] },
+        ];
+
+        entries.forEach(({ label, activity }, index) => {
+            if (!activity) {
+                return;
+            }
+
+            if (index > 0 && activity === entries[0].activity) {
+                return;
+            }
+
+            const summary = buildActivityShareSummary(activity);
+            const item = document.createElement('div');
+            item.className = 'profile-card__timeline-item';
+
+            const term = document.createElement('span');
+            term.className = 'profile-card__timeline-term';
+            term.textContent = label;
+            item.appendChild(term);
+
+            const name = document.createElement('span');
+            name.className = 'profile-card__timeline-activity';
+            name.textContent = summary?.name || (activity.name || activity.type || 'Activity');
+            item.appendChild(name);
+
+            if (summary?.meta) {
+                const meta = document.createElement('span');
+                meta.className = 'profile-card__timeline-meta';
+                meta.textContent = summary.meta;
+                item.appendChild(meta);
+            }
+
+            timelineList.appendChild(item);
+        });
+
+        profileActivityTimeline.appendChild(timelineList);
     };
 
     const formatCount = (value) => {
@@ -6750,34 +6810,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             pizzaTotalElement.textContent = formatStatValue(aggregatedSmallStats.pizzas);
         }
 
-        if (globeStatButton) {
+        if (globeStatElement) {
             const message = hasActivities
                 ? `Total distance ${formatDistance(aggregatedSmallStats.distanceKm)} — ${formatStatValue(aggregatedSmallStats.globeTrips)} globe trips.`
                 : 'No distance recorded for the selected period.';
-            attachTooltip(globeStatButton, message);
+            globeStatElement.setAttribute('aria-label', message);
+            attachTooltip(globeStatElement, message);
         }
-        if (everestStatButton) {
+        if (everestStatElement) {
             const message = hasActivities
                 ? `Total elevation ${formatElevation(aggregatedSmallStats.elevationGain)} — ${formatStatValue(aggregatedSmallStats.everestSummits)} Everest climbs.`
                 : 'No elevation recorded for the selected period.';
-            attachTooltip(everestStatButton, message);
+            everestStatElement.setAttribute('aria-label', message);
+            attachTooltip(everestStatElement, message);
         }
-        if (pizzaStatButton) {
+        if (pizzaStatElement) {
             const message = hasActivities
                 ? `Energy burned ${formatCalories(aggregatedSmallStats.calories)} ≈ ${formatPizzas(aggregatedSmallStats.pizzas)}.`
                 : 'No heart rate data to estimate calories for this period.';
-            attachTooltip(pizzaStatButton, message);
+            pizzaStatElement.setAttribute('aria-label', message);
+            attachTooltip(pizzaStatElement, message);
         }
         if (likesTotalElement) {
             likesTotalElement.textContent = formatCount(aggregatedSmallStats.likes);
         }
-        if (likesStatButton) {
+        if (likesStatElement) {
             const totalLikes = aggregatedSmallStats.likes;
             const message = hasActivities
                 ? `${formatCount(totalLikes)} kudos collected across all visible activities.`
                 : 'No kudos recorded for the selected period.';
-            likesStatButton.setAttribute('aria-label', message);
-            attachTooltip(likesStatButton, message);
+            likesStatElement.setAttribute('aria-label', message);
+            attachTooltip(likesStatElement, message);
         }
 
         // === User Profile ===
@@ -6828,28 +6891,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (rankDetailsElement) {
             rankDetailsElement.innerHTML = '';
 
-            if (hasActivities) {
-                const oldestActivityDate = activities.reduce((oldest, activity) => {
-                    const activityDate = new Date(activity.start_date);
-                    if (!Number.isNaN(activityDate.getTime()) && activityDate < oldest) {
-                        return activityDate;
-                    }
-                    return oldest;
-                }, new Date(activities[0]?.start_date));
-
-                if (!Number.isNaN(oldestActivityDate.getTime())) {
-                    const formattedOldestDate = oldestActivityDate.toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                    });
-
-                    const oldestActivityElement = document.createElement('div');
-                    oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
-                    oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
-                    rankDetailsElement.appendChild(oldestActivityElement);
-                }
-            } else {
+            if (!hasActivities) {
                 const noDataElement = document.createElement('div');
                 noDataElement.className = 'text-sm text-gray-500';
                 noDataElement.textContent = 'No activities available for the selected filters.';
@@ -6865,7 +6907,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const level = hasActivities
                 ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
                 : 0;
-            levelProgressElement.textContent = `Level ${level}/${levelCap}`;
+            levelProgressElement.textContent = `Level ${level} / ${levelCap}`;
         } else {
             console.warn("'level-progress' element not found in the DOM.");
         }
@@ -7543,6 +7585,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
         rebuildMedalFilteredActivities();
+
+        renderProfileActivityTimeline(sortedActivities);
 
         if (sortedActivities.length === 0) {
             visibleActivitiesCount = 0;

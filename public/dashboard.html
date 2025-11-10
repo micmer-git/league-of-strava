@@ -821,21 +821,6 @@
             min-width: 0;
         }
 
-        #profile-metric-pills .profile-metrics__row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 0.5rem;
-        }
-
-        #profile-metric-pills .profile-metric-pill {
-            flex: 0 0 auto;
-            width: auto;
-            min-width: 3rem;
-            padding: 0.4rem 0.65rem;
-        }
-
         .profile-metric-pill:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
@@ -904,6 +889,9 @@
         .dashboard-panels {
             position: relative;
             min-height: 0;
+            margin-inline: auto;
+            width: min(100%, var(--dashboard-panel-max-width));
+            max-width: var(--dashboard-panel-max-width);
         }
 
         .dashboard-panel {
@@ -911,6 +899,9 @@
             animation: panelFade 0.3s ease;
             contain: layout paint;
             will-change: opacity, transform;
+            margin-inline: auto;
+            width: min(100%, var(--dashboard-panel-max-width));
+            max-width: var(--dashboard-panel-max-width);
         }
 
         .dashboard-panel.is-active {
@@ -926,7 +917,9 @@
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
-            max-width: 100%;
+            width: 100%;
+            max-width: var(--dashboard-panel-max-width);
+            margin-inline: auto;
         }
 
         .panel-card {
@@ -937,25 +930,8 @@
             border: none !important;
             box-shadow: none !important;
             width: 100%;
-            max-width: 100%;
-        }
-
-        @media (min-width: 1024px) {
-            .dashboard-panels {
-                margin-inline: auto;
-                max-width: var(--dashboard-panel-max-width);
-            }
-
-            .dashboard-panel {
-                margin-inline: auto;
-                max-width: var(--dashboard-panel-max-width);
-            }
-
-            .dashboard-panel .panel-stack,
-            .dashboard-panel .panel-card {
-                margin-inline: auto;
-                max-width: var(--dashboard-panel-max-width);
-            }
+            max-width: var(--dashboard-panel-max-width);
+            margin-inline: auto;
         }
 
         .panel-card--soft {
@@ -1450,13 +1426,133 @@
             font-weight: 600;
         }
 
+        .profile-card__world-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.6rem;
+            width: 100%;
+            margin-top: 0.6rem;
+        }
+
+        .profile-card__world-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 18px;
+            background: rgba(148, 163, 184, 0.15);
+            color: #0f172a;
+            min-width: 0;
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+
+        .profile-card__world-stat:focus-visible {
+            outline: 2px solid rgba(59, 130, 246, 0.45);
+            outline-offset: 2px;
+        }
+
+        .profile-card__world-stat-icon {
+            font-size: 1.35rem;
+            line-height: 1;
+        }
+
+        .profile-card__world-stat-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+        }
+
+        .profile-card__world-value {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: inherit;
+        }
+
+        .profile-card__world-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #475569;
+        }
+
+        .profile-card__world-stat--globe {
+            background: rgba(59, 130, 246, 0.14);
+            color: #1d4ed8;
+        }
+
+        .profile-card__world-stat--everest {
+            background: rgba(16, 185, 129, 0.14);
+            color: #047857;
+        }
+
+        .profile-card__world-stat--pizza {
+            background: rgba(249, 115, 22, 0.12);
+            color: #b45309;
+        }
+
+        .profile-card__world-stat--likes {
+            background: rgba(251, 191, 36, 0.16);
+            color: #b45309;
+        }
+
+        .profile-card__timeline {
+            margin-top: 1.75rem;
+            width: 100%;
+        }
+
+        .profile-card__timeline-list {
+            display: grid;
+            gap: 0.75rem;
+            margin: 0;
+            padding: 0;
+        }
+
+        .profile-card__timeline-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding: 0.85rem 1rem;
+            border-radius: 18px;
+            background: rgba(148, 163, 184, 0.12);
+        }
+
+        .profile-card__timeline-term {
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #475569;
+        }
+
+        .profile-card__timeline-activity {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+
+        .profile-card__timeline-meta {
+            font-size: 0.85rem;
+            color: #475569;
+        }
+
+        .profile-card__timeline-empty {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #475569;
+        }
+
         .profile-card__metrics,
         .profile-card__coins,
-        .profile-card__wallet-totals,
-        .profile-card__progress {
+        .profile-card__wallet-totals {
             align-self: flex-start;
             width: var(--profile-stack-max-width);
             max-width: min(100%, var(--dashboard-panel-max-width));
+        }
+
+        .profile-card__progress {
+            align-self: stretch;
+            width: 100%;
+            max-width: 100%;
         }
 
         .profile-card__summary-row.profile-card__metrics,
@@ -3497,62 +3593,72 @@
                             <div class="profile-card__header">
                                 <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar" loading="lazy">
                                 <div class="profile-card__headline">
-                                    <div class="profile-card__identity">
-                                        <div class="profile-card__name-row">
-                                            <h2 id="athlete-name" class="profile-card__name"></h2>
-                                            <div class="profile-card__name-actions">
-                                                <button id="profile-refresh" type="button" class="profile-card__icon-button profile-card__icon-button--refresh" aria-label="Fetch the latest Strava activities">
-                                                    <span class="profile-card__icon-symbol" aria-hidden="true">🔄</span>
-                                                    <span class="sr-only">Refresh dashboard data</span>
-                                                </button>
-                                                <button type="button" id="share-dashboard" class="profile-card__icon-button profile-card__icon-button--share" aria-label="Share highlight">
-                                                    <span class="profile-card__icon-symbol" aria-hidden="true">📤</span>
-                                                    <span class="sr-only">Share highlight</span>
-                                                </button>
+                                        <div class="profile-card__identity">
+                                            <div class="profile-card__name-row">
+                                                <h2 id="athlete-name" class="profile-card__name"></h2>
+                                                <div class="profile-card__name-actions">
+                                                    <button id="profile-refresh" type="button" class="profile-card__icon-button profile-card__icon-button--refresh" aria-label="Fetch the latest Strava activities">
+                                                        <span class="profile-card__icon-symbol" aria-hidden="true">🔄</span>
+                                                        <span class="sr-only">Refresh dashboard data</span>
+                                                    </button>
+                                                    <button type="button" id="share-dashboard" class="profile-card__icon-button profile-card__icon-button--share" aria-label="Share highlight">
+                                                        <span class="profile-card__icon-symbol" aria-hidden="true">📤</span>
+                                                        <span class="sr-only">Share highlight</span>
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <p class="profile-card__balance" data-wallet-balance-container>
-                                            <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
-                                            <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
-                                            <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
-                                        </p>
-                                        <div class="profile-card__level-stack">
-                                            <span id="current-rank" class="profile-card__rank"></span>
-                                            <div id="rank-progress-trigger" class="profile-card__progress profile-card__progress--inline">
-                                                <div class="profile-card__progress-bar">
-                                                    <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
-                                                    <div class="profile-card__progress-overlay">
-                                                        <span id="ranking-progress-label" class="profile-card__progress-label"></span>
-                                                        <span id="ranking-progress-monthly" class="profile-card__progress-monthly"></span>
-                                                        <span id="next-rank" class="profile-card__progress-next"></span>
+                                            <div class="profile-card__world-stats" id="profile-world-stats">
+                                                <div id="globe-stat" class="profile-card__world-stat profile-card__world-stat--globe" tabindex="0">
+                                                    <span class="profile-card__world-stat-icon" aria-hidden="true">🌍</span>
+                                                    <div class="profile-card__world-stat-copy">
+                                                        <span id="globe-total" class="profile-card__world-value">0</span>
+                                                        <span class="profile-card__world-label">World trips</span>
                                                     </div>
                                                 </div>
-                                                <div id="rank-details" class="profile-card__progress-detail"></div>
+                                                <div id="everest-stat" class="profile-card__world-stat profile-card__world-stat--everest" tabindex="0">
+                                                    <span class="profile-card__world-stat-icon" aria-hidden="true">🏔️</span>
+                                                    <div class="profile-card__world-stat-copy">
+                                                        <span id="everest-total" class="profile-card__world-value">0</span>
+                                                        <span class="profile-card__world-label">Everest climbs</span>
+                                                    </div>
+                                                </div>
+                                                <div id="pizza-stat" class="profile-card__world-stat profile-card__world-stat--pizza" tabindex="0">
+                                                    <span class="profile-card__world-stat-icon" aria-hidden="true">🍕</span>
+                                                    <div class="profile-card__world-stat-copy">
+                                                        <span id="pizza-total" class="profile-card__world-value">0</span>
+                                                        <span class="profile-card__world-label">Pizzas burned</span>
+                                                    </div>
+                                                </div>
+                                                <div id="likes-stat" class="profile-card__world-stat profile-card__world-stat--likes" tabindex="0">
+                                                    <span class="profile-card__world-stat-icon" aria-hidden="true">👍</span>
+                                                    <div class="profile-card__world-stat-copy">
+                                                        <span id="likes-total" class="profile-card__world-value">0</span>
+                                                        <span class="profile-card__world-label">Kudos</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <span id="level-progress" class="profile-card__level"></span>
+                                            <p class="profile-card__balance" data-wallet-balance-container>
+                                                <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
+                                                <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
+                                                <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
+                                            </p>
+                                            <div class="profile-card__level-stack">
+                                                <span id="current-rank" class="profile-card__rank"></span>
+                                                <div id="rank-progress-trigger" class="profile-card__progress profile-card__progress--inline">
+                                                    <div class="profile-card__progress-bar">
+                                                        <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
+                                                        <div class="profile-card__progress-overlay">
+                                                            <span id="ranking-progress-label" class="profile-card__progress-label"></span>
+                                                            <span id="ranking-progress-monthly" class="profile-card__progress-monthly"></span>
+                                                            <span id="next-rank" class="profile-card__progress-next"></span>
+                                                        </div>
+                                                    </div>
+                                                    <div id="rank-details" class="profile-card__progress-detail"></div>
+                                                </div>
+                                                <span id="level-progress" class="profile-card__level"></span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="profile-metrics profile-card__summary-row" id="profile-metric-pills">
-                                    <div class="profile-metrics__row">
-                                        <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🌍</span>
-                                            <span id="globe-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
-                                            <span id="everest-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🍕</span>
-                                            <span id="pizza-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">👍</span>
-                                            <span id="likes-total" class="font-semibold">0</span>
-                                        </button>
-                                    </div>
-                                </div>
                                 <div class="profile-card__coins profile-card__summary-row" id="coin-summary">
                                     <div class="profile-metrics__row">
                                         <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
@@ -3639,6 +3745,7 @@
                                 </div>
                                 <p id="share-feedback" class="share-card__feedback" role="status" aria-live="polite"></p>
                             </div>
+                            <div id="profile-activity-timeline" class="profile-card__timeline" aria-live="polite"></div>
                         </article>
 
                         <article class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">

@@ -86,8 +86,147 @@ document.addEventListener('DOMContentLoaded', async () => {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     });
-    const DASHBOARD_CACHE_STORAGE_KEY = 'los:dashboard-cache:v1';
+    const DASHBOARD_CACHE_VERSION = 'v2';
+    const DASHBOARD_CACHE_STORAGE_KEY = `los:dashboard-cache:${DASHBOARD_CACHE_VERSION}`;
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+    const DASHBOARD_CACHE_MAX_ENTRIES = 6;
+
+    const createEmptyCacheContainer = () => ({
+        version: DASHBOARD_CACHE_VERSION,
+        entries: {},
+        metadata: {},
+    });
+
+    const persistDashboardCacheContainer = (container) => {
+        if (!container || typeof container !== 'object') {
+            return;
+        }
+
+        try {
+            sessionStorage.setItem(DASHBOARD_CACHE_STORAGE_KEY, JSON.stringify(container));
+        } catch (error) {
+            console.warn('Unable to persist dashboard cache:', error);
+        }
+    };
+
+    const loadDashboardCacheContainer = () => {
+        const fallback = createEmptyCacheContainer();
+
+        try {
+            const raw = sessionStorage.getItem(DASHBOARD_CACHE_STORAGE_KEY);
+            if (!raw) {
+                return fallback;
+            }
+
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object' || parsed.version !== DASHBOARD_CACHE_VERSION) {
+                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
+                return fallback;
+            }
+
+            const entries = (parsed.entries && typeof parsed.entries === 'object') ? { ...parsed.entries } : {};
+            const metadata = (parsed.metadata && typeof parsed.metadata === 'object') ? { ...parsed.metadata } : {};
+            const container = { version: DASHBOARD_CACHE_VERSION, entries, metadata };
+            const now = Date.now();
+            let mutated = false;
+
+            Object.entries(entries).forEach(([key, entry]) => {
+                const timestamp = Number(entry?.timestamp);
+                if (!entry || !Number.isFinite(timestamp) || (DASHBOARD_CACHE_TTL_MS > 0 && now - timestamp > DASHBOARD_CACHE_TTL_MS)) {
+                    delete entries[key];
+                    mutated = true;
+                }
+            });
+
+            if (mutated) {
+                persistDashboardCacheContainer(container);
+            }
+
+            return container;
+        } catch (error) {
+            console.warn('Unable to access dashboard cache storage:', error);
+            try {
+                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
+            } catch (storageError) {
+                console.warn('Unable to reset dashboard cache storage:', storageError);
+            }
+            return fallback;
+        }
+    };
+
+    const resolveDashboardCacheKey = (payload) => {
+        const athleteId = payload?.athlete?.id;
+
+        if (isSharedView) {
+            if (sharedUserId) {
+                return `shared:${sharedUserId}`;
+            }
+
+            if (athleteId !== undefined && athleteId !== null) {
+                return `shared:${athleteId}`;
+            }
+
+            return null;
+        }
+
+        if (athleteId !== undefined && athleteId !== null) {
+            return `self:${athleteId}`;
+        }
+
+        return 'self:unknown';
+    };
+
+    const getDashboardCacheLookupKeys = (container) => {
+        const keys = [];
+
+        if (isSharedView) {
+            if (sharedUserId) {
+                keys.push(`shared:${sharedUserId}`);
+            }
+            return keys;
+        }
+
+        if (container?.metadata) {
+            if (typeof container.metadata.lastActiveKey === 'string') {
+                keys.push(container.metadata.lastActiveKey);
+            }
+        }
+
+        if (!keys.includes('self:unknown')) {
+            keys.push('self:unknown');
+        }
+
+        return keys;
+    };
+
+    const enforceDashboardCacheSizeLimit = (container, protectedKey) => {
+        if (!container || !container.entries) {
+            return;
+        }
+
+        const keys = Object.keys(container.entries);
+        if (keys.length <= DASHBOARD_CACHE_MAX_ENTRIES) {
+            return;
+        }
+
+        const sortedKeys = keys.sort((a, b) => {
+            const timeA = Number(container.entries[a]?.timestamp) || 0;
+            const timeB = Number(container.entries[b]?.timestamp) || 0;
+            return timeA - timeB;
+        });
+
+        for (const key of sortedKeys) {
+            if (Object.keys(container.entries).length <= DASHBOARD_CACHE_MAX_ENTRIES) {
+                break;
+            }
+
+            if (key === protectedKey) {
+                continue;
+            }
+
+            delete container.entries[key];
+        }
+    };
 
     // === DOM Elements ===
     const bodyElement = document.body;
@@ -2778,14 +2917,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasValidEnd = endDate instanceof Date && !Number.isNaN(endDate.getTime());
 
         if (!hasValidStart && !hasValidEnd) {
-            return 'Last 7 days';
+            return 'Recent activity';
         }
 
         const start = hasValidStart ? startDate : endDate;
         const end = hasValidEnd ? endDate : start;
 
         if (!start || !end) {
-            return 'Last 7 days';
+            return 'Recent activity';
         }
 
         const sameDay = start.toDateString() === end.toDateString();
@@ -2860,7 +2999,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (weeklySnapshotElements.totalDetail) {
             weeklySnapshotElements.totalDetail.textContent = snapshot.totalValue > 0
                 ? `Coins ${usdCodeFormatter.format(snapshot.coinValue || 0)} + medals ${usdCodeFormatter.format(snapshot.medalValue || 0)}`
-                : 'No new rewards minted in the last 7 days.';
+                : 'No new rewards minted across your recent activities.';
         }
 
         const coinEntries = Object.entries(snapshot.coinBreakdown || {})
@@ -3075,8 +3214,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const summaryText = weeklyStats.activities > 0
-            ? `You logged ${weeklyStats.activities.toLocaleString()} activit${weeklyStats.activities === 1 ? 'y' : 'ies'} in the last 7 days.`
-            : 'No activities logged in the last 7 days — your next session will show up here.';
+            ? `You logged ${weeklyStats.activities.toLocaleString()} activit${weeklyStats.activities === 1 ? 'y' : 'ies'} across your recent activities.`
+            : 'No recent activities logged — your next session will show up here.';
         loadingWeeklySummary.textContent = summaryText;
 
         const setMetric = (key, value) => {
@@ -3188,44 +3327,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const readDashboardCache = () => {
-        if (isSharedView) {
-            return null;
-        }
-
         try {
-            const raw = sessionStorage.getItem(DASHBOARD_CACHE_STORAGE_KEY);
-            if (!raw) {
-                return null;
+            const container = loadDashboardCacheContainer();
+            const lookupKeys = getDashboardCacheLookupKeys(container);
+
+            for (const key of lookupKeys) {
+                if (!key) {
+                    continue;
+                }
+
+                const entry = container.entries?.[key];
+                if (entry?.data) {
+                    return entry.data;
+                }
             }
-            const parsed = JSON.parse(raw);
-            if (!parsed || typeof parsed !== 'object') {
-                return null;
+
+            if (isSharedView && sharedUserId) {
+                const fallbackKey = Object.keys(container.entries || {}).find(candidate => candidate.endsWith(`:${sharedUserId}`));
+                if (fallbackKey) {
+                    const entry = container.entries[fallbackKey];
+                    if (entry?.data) {
+                        return entry.data;
+                    }
+                }
             }
-            const { timestamp, data } = parsed;
-            if (!timestamp || !data) {
-                return null;
+
+            if (!isSharedView && container.metadata?.lastActiveKey) {
+                const activeEntry = container.entries?.[container.metadata.lastActiveKey];
+                if (activeEntry?.data) {
+                    return activeEntry.data;
+                }
             }
-            if ((Date.now() - Number(timestamp)) > DASHBOARD_CACHE_TTL_MS) {
-                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
-                return null;
+
+            const entriesArray = Object.values(container.entries || {});
+            if (entriesArray.length === 1 && entriesArray[0]?.data) {
+                return entriesArray[0].data;
             }
-            return data;
         } catch (error) {
             console.warn('Unable to read dashboard cache:', error);
-            return null;
         }
+
+        return null;
     };
 
     const writeDashboardCache = (payload) => {
-        if (isSharedView || !payload) {
+        if (!payload) {
             return;
         }
 
         try {
-            sessionStorage.setItem(DASHBOARD_CACHE_STORAGE_KEY, JSON.stringify({
+            const container = loadDashboardCacheContainer();
+            const cacheKey = resolveDashboardCacheKey(payload);
+
+            if (!cacheKey) {
+                return;
+            }
+
+            container.entries[cacheKey] = {
                 timestamp: Date.now(),
                 data: payload,
-            }));
+            };
+
+            if (!container.metadata || typeof container.metadata !== 'object') {
+                container.metadata = {};
+            }
+
+            container.metadata.lastActiveKey = cacheKey;
+            enforceDashboardCacheSizeLimit(container, cacheKey);
+            persistDashboardCacheContainer(container);
         } catch (error) {
             console.warn('Unable to cache dashboard payload:', error);
         }
@@ -3233,14 +3402,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const clearDashboardCache = () => {
         try {
-            sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
+            const container = loadDashboardCacheContainer();
+            const keysToRemove = [];
+
+            if (isSharedView && sharedUserId) {
+                keysToRemove.push(`shared:${sharedUserId}`);
+            } else if (container.metadata?.lastActiveKey) {
+                keysToRemove.push(container.metadata.lastActiveKey);
+            } else {
+                keysToRemove.push('self:unknown');
+            }
+
+            let mutated = false;
+            keysToRemove.forEach((key) => {
+                if (key && container.entries?.[key]) {
+                    delete container.entries[key];
+                    mutated = true;
+                }
+            });
+
+            if (mutated) {
+                persistDashboardCacheContainer(container);
+            }
         } catch (error) {
             console.warn('Unable to clear dashboard cache:', error);
+            try {
+                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
+            } catch (storageError) {
+                console.warn('Unable to reset dashboard cache storage:', storageError);
+            }
         }
     };
 
     const hydrateFromClientCache = () => {
-        if (hasHydratedFromClientCache || isSharedView) {
+        if (hasHydratedFromClientCache) {
             return false;
         }
 
@@ -3254,8 +3449,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             applyFilters({ preserveVisibleCount: false });
             updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
             updateInitialLoadingState('snapshot', 'complete', 'Loaded cached dashboard snapshot');
+            updateInitialLoadingState('fetch', 'complete', 'Restored cached dashboard data');
+            updateInitialLoadingState('finalize', 'active', 'Polishing cached insights');
             hasHydratedFromClientCache = true;
-            hasAttemptedStoredSnapshot = true;
+            if (!isSharedView) {
+                hasAttemptedStoredSnapshot = true;
+            }
+            fadeOutSpinner();
             return true;
         } catch (error) {
             console.warn('Failed to hydrate cached dashboard data:', error);
@@ -7776,7 +7976,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (isSharedView) {
-        await loadSharedSnapshot();
+        const hydrated = hydrateFromClientCache();
+        if (!hydrated) {
+            await loadSharedSnapshot();
+        }
     } else {
         hydrateFromClientCache();
         fetchData();

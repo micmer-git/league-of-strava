@@ -199,6 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (segmentSection) {
         segmentSection.classList.add('hidden');
     }
+    const segmentStatusElement = document.getElementById('segment-status');
     const bestActivitiesContainer = document.getElementById('best-activities');
     const topPerformancesEmptyState = document.getElementById('top-performances-empty');
     const yearSelect = document.getElementById('year-select');
@@ -766,6 +767,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if ('segments' in data && !Array.isArray(data.segments)) {
             return false;
+        }
+
+        if ('segmentMetadata' in data) {
+            if (data.segmentMetadata === null || typeof data.segmentMetadata !== 'object') {
+                return false;
+            }
+
+            if ('warnings' in data.segmentMetadata && !Array.isArray(data.segmentMetadata.warnings)) {
+                return false;
+            }
+
+            if ('errors' in data.segmentMetadata && !Array.isArray(data.segmentMetadata.errors)) {
+                return false;
+            }
         }
 
         if ('totals' in data && (data.totals === null || typeof data.totals !== 'object')) {
@@ -3239,6 +3254,78 @@ document.addEventListener('DOMContentLoaded', async () => {
         return Array.from(mergedMap.values());
     };
 
+    const createEmptySegmentMetadata = () => ({
+        warnings: [],
+        errors: [],
+        rateLimited: false,
+        partiallyComplete: false,
+    });
+
+    const normalizeSegmentMetadata = (metadata) => {
+        if (!metadata || typeof metadata !== 'object') {
+            return createEmptySegmentMetadata();
+        }
+
+        const normalizedWarnings = Array.isArray(metadata.warnings)
+            ? metadata.warnings.map(item => String(item).trim()).filter(Boolean)
+            : [];
+
+        const normalizedErrors = Array.isArray(metadata.errors)
+            ? metadata.errors
+                .map((error) => {
+                    if (!error || typeof error !== 'object') {
+                        const message = String(error || '').trim();
+                        return message ? { message } : null;
+                    }
+
+                    const message = typeof error.message === 'string'
+                        ? error.message.trim()
+                        : String(error.message || '').trim();
+
+                    if (!message) {
+                        return null;
+                    }
+
+                    return {
+                        segmentId: error.segmentId ?? error.id ?? null,
+                        name: error.name || error.segmentName || null,
+                        message,
+                    };
+                })
+                .filter(Boolean)
+            : [];
+
+        return {
+            ...metadata,
+            warnings: Array.from(new Set(normalizedWarnings)),
+            errors: normalizedErrors,
+            rateLimited: Boolean(metadata.rateLimited),
+            partiallyComplete: Boolean(metadata.partiallyComplete || metadata.rateLimited || normalizedWarnings.length > 0),
+        };
+    };
+
+    const mergeSegmentMetadata = (existingMetadata, incomingMetadata) => {
+        const existing = normalizeSegmentMetadata(existingMetadata);
+        const incoming = normalizeSegmentMetadata(incomingMetadata);
+
+        const warnings = Array.from(new Set([...existing.warnings, ...incoming.warnings]));
+        const errors = [...existing.errors, ...incoming.errors];
+
+        return {
+            ...existing,
+            ...incoming,
+            warnings,
+            errors,
+            rateLimited: Boolean(existing.rateLimited || incoming.rateLimited),
+            partiallyComplete: Boolean(
+                existing.partiallyComplete
+                || incoming.partiallyComplete
+                || warnings.length > 0
+                || errors.length > 0,
+            ),
+        };
+    };
+
     const mergeSegmentEntries = (existingSegments = [], incomingSegments = []) => {
         const segmentMap = new Map();
 
@@ -3248,36 +3335,67 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const key = segment.name || String(segment.id ?? segment.segment_id ?? segment.slug ?? segmentMap.size);
-            const existingEntry = segmentMap.get(key) || {
-                name: segment.name || key,
-                completions: [],
-                count: 0,
-                totalCount: 0,
+            const existingEntry = segmentMap.get(key) || {};
+
+            const existingCompletions = Array.isArray(existingEntry.completions) ? existingEntry.completions : [];
+            const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
+            const combinedCompletions = Array.from(new Set([...existingCompletions, ...incomingCompletions]));
+
+            const mergedEntry = {
+                ...existingEntry,
+                ...segment,
+                name: segment.name || existingEntry.name || key,
+                completions: combinedCompletions,
             };
 
-            const completions = Array.isArray(existingEntry.completions) ? existingEntry.completions : [];
-            const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
-            const combinedCompletions = Array.from(new Set([...completions, ...incomingCompletions]));
+            const countCandidates = [
+                Array.isArray(combinedCompletions) ? combinedCompletions.length : 0,
+                Number(existingEntry.count) || 0,
+                Number(segment.count) || 0,
+                Number(mergedEntry.count) || 0,
+            ].filter(number => Number.isFinite(number));
 
-            const resolvedCount = Number.isFinite(Number(segment.count)) ? Number(segment.count) : combinedCompletions.length;
-            const resolvedTotalCount = Number.isFinite(Number(segment.totalCount)) ? Number(segment.totalCount) : combinedCompletions.length;
+            mergedEntry.count = countCandidates.length > 0 ? Math.max(...countCandidates) : 0;
 
-            segmentMap.set(key, {
-                name: existingEntry.name || segment.name || key,
-                completions: combinedCompletions,
-                count: Math.max(existingEntry.count || 0, resolvedCount, combinedCompletions.length),
-                totalCount: Math.max(existingEntry.totalCount || 0, resolvedTotalCount, combinedCompletions.length),
-            });
+            const totalCountCandidates = [
+                Number(existingEntry.totalCount) || 0,
+                Number(segment.totalCount) || 0,
+                Number(mergedEntry.totalCount) || 0,
+                mergedEntry.count,
+            ].filter(number => Number.isFinite(number));
+
+            mergedEntry.totalCount = totalCountCandidates.length > 0 ? Math.max(...totalCountCandidates) : mergedEntry.count;
+
+            mergedEntry.cached = Boolean(existingEntry.cached || segment.cached || mergedEntry.cached);
+            mergedEntry.stale = Boolean(existingEntry.stale || segment.stale || mergedEntry.stale);
+            mergedEntry.rateLimited = Boolean(existingEntry.rateLimited || segment.rateLimited || mergedEntry.rateLimited);
+            mergedEntry.message = segment.message || existingEntry.message || mergedEntry.message;
+
+            const cacheTimestamps = [existingEntry.cacheTimestamp, segment.cacheTimestamp, mergedEntry.cacheTimestamp]
+                .map(value => Number(value))
+                .filter(Number.isFinite);
+            if (cacheTimestamps.length > 0) {
+                mergedEntry.cacheTimestamp = Math.max(...cacheTimestamps);
+            } else {
+                delete mergedEntry.cacheTimestamp;
+            }
+
+            const cacheAges = [existingEntry.cacheAgeMs, segment.cacheAgeMs, mergedEntry.cacheAgeMs]
+                .map(value => Number(value))
+                .filter(Number.isFinite);
+            if (cacheAges.length > 0) {
+                mergedEntry.cacheAgeMs = Math.min(...cacheAges);
+            } else if ('cacheAgeMs' in mergedEntry) {
+                delete mergedEntry.cacheAgeMs;
+            }
+
+            segmentMap.set(key, mergedEntry);
         };
 
         existingSegments.forEach(addSegment);
         incomingSegments.forEach(addSegment);
 
-        return Array.from(segmentMap.values()).map(segment => ({
-            ...segment,
-            count: Array.isArray(segment.completions) ? segment.completions.length : Number(segment.count) || 0,
-            totalCount: Math.max(Number(segment.totalCount) || 0, Array.isArray(segment.completions) ? segment.completions.length : 0),
-        }));
+        return Array.from(segmentMap.values());
     };
 
     const mergePageInfo = (existingPageInfo = {}, incomingPageInfo = {}) => {
@@ -5739,6 +5857,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const existingActivities = Array.isArray(allData.activities) ? allData.activities : [];
         const existingSegments = Array.isArray(allData.segments) ? allData.segments : [];
         const existingPageInfo = allData.pageInfo;
+        const existingSegmentMetadata = normalizeSegmentMetadata(allData.segmentMetadata);
+        const incomingSegmentMetadata = normalizeSegmentMetadata(data.segmentMetadata);
 
         const shouldMerge = isLoadMore || existingActivities.length > 0;
 
@@ -5749,6 +5869,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const mergedSegments = shouldMerge
             ? mergeSegmentEntries(existingSegments, segmentsFromResponse)
             : [...segmentsFromResponse];
+
+        const mergedSegmentMetadata = mergeSegmentMetadata(existingSegmentMetadata, incomingSegmentMetadata);
 
         const mergedAthlete = {
             ...(allData.athlete || {}),
@@ -5763,6 +5885,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             athlete: mergedAthlete,
             activities: sortActivitiesDescending(mergedActivities),
             segments: mergedSegments,
+            segmentMetadata: mergedSegmentMetadata,
             pageInfo: mergedPageInfo,
         };
 
@@ -6033,10 +6156,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (medalsSection) medalsSection.innerHTML = '';
         if (segmentContainer) segmentContainer.innerHTML = '';
         if (bestActivitiesContainer) bestActivitiesContainer.innerHTML = '';
+        if (segmentStatusElement) {
+            segmentStatusElement.textContent = '';
+            segmentStatusElement.classList.add('hidden');
+        }
 
         const activities = Array.isArray(data.activities) ? data.activities : [];
         data.activities = activities;
         const segments = Array.isArray(data.segments) ? data.segments : [];
+        const segmentMetadata = normalizeSegmentMetadata(data.segmentMetadata);
+        data.segmentMetadata = segmentMetadata;
         const hasActivities = activities.length > 0;
         const totals = calculateTotals(activities);
         updateLoadingWeeklyOverview(activities);
@@ -6698,6 +6827,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         // === Update Segment Completions Display ===
         if (segmentContainer) {
             segmentContainer.innerHTML = '';
+        }
+
+        const segmentStatusMessages = [];
+        if (segmentMetadata.rateLimited) {
+            segmentStatusMessages.push('Segment completions may be incomplete because Strava temporarily rate limited requests.');
+        }
+
+        segmentMetadata.warnings.forEach(message => {
+            if (typeof message === 'string' && message.trim()) {
+                segmentStatusMessages.push(message.trim());
+            }
+        });
+
+        segmentMetadata.errors.forEach(error => {
+            const message = typeof error?.message === 'string' ? error.message.trim() : '';
+            if (message) {
+                segmentStatusMessages.push(message);
+            }
+        });
+
+        if (segmentStatusElement) {
+            if (segmentStatusMessages.length > 0) {
+                segmentStatusElement.textContent = segmentStatusMessages.join(' ');
+                segmentStatusElement.classList.remove('hidden');
+            } else {
+                segmentStatusElement.textContent = '';
+                segmentStatusElement.classList.add('hidden');
+            }
+        }
+
+        if (segmentSection) {
+            const shouldShowSegments = segments.length > 0 || segmentStatusMessages.length > 0;
+            segmentSection.classList.toggle('hidden', !shouldShowSegments);
         }
 
         // === Update Best Activities with Clickable Titles ===

@@ -402,12 +402,22 @@ app.get('/api/strava-data', async (req, res) => {
 
     // Fetch segment completions as before
     console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
-    let segments = await fetchSegmentDetails({
+    const segmentFetchResult = await fetchSegmentDetails({
       segmentsList: TRACKED_SEGMENTS,
       accessToken,
       userId,
       forceRefresh,
     }); // Refactor segment fetching into a separate function
+
+    const normalizedSegmentResult = Array.isArray(segmentFetchResult)
+      ? { segments: segmentFetchResult }
+      : (segmentFetchResult || {});
+
+    const segments = Array.isArray(normalizedSegmentResult.segments)
+      ? normalizedSegmentResult.segments
+      : [];
+
+    const segmentMetadata = normalizeSegmentMetadata(normalizedSegmentResult.metadata);
 
     const reachedConfiguredLimit = MAX_ACTIVITY_PAGES > 0 && (startPage - 1 + fetchedPages) >= MAX_ACTIVITY_PAGES;
     const hasMore = Boolean(hasMoreFromStrava && !reachedConfiguredLimit);
@@ -418,6 +428,7 @@ app.get('/api/strava-data', async (req, res) => {
       activities: allActivities,
       totals: totals,
       segments: segments, // Array of segments with name and count
+      segmentMetadata,
       hasMore,
       pageInfo: {
         startPage,
@@ -632,10 +643,13 @@ async function fetchAllActivities(accessToken, { startPage = 1, pageCount = 3, p
  */
 async function fetchSegmentDetails({ segmentsList = [], accessToken, userId, forceRefresh = false } = {}) {
   if (!Array.isArray(segmentsList) || segmentsList.length === 0) {
-    return [];
+    return { segments: [], metadata: createEmptySegmentMetadata() };
   }
 
   const segments = [];
+  const warnings = [];
+  const errors = [];
+  const rateLimitedSegments = new Set();
 
   for (const segment of segmentsList) {
     const segmentId = segment?.id;
@@ -644,28 +658,23 @@ async function fetchSegmentDetails({ segmentsList = [], accessToken, userId, for
 
     if (cacheKey) {
       const cachedSegment = segmentCache.getEntry(cacheKey);
-      if (cachedSegment) {
+      if (cachedSegment?.value && typeof cachedSegment.value === 'object') {
         segments.push({
           ...cachedSegment.value,
           cached: true,
           cacheTimestamp: cachedSegment.timestamp,
           cacheAgeMs: cachedSegment.ageMs,
+          stale: Boolean(cachedSegment.ageMs > 0),
         });
         continue;
       }
     }
 
     if (!segmentId) {
-      const responseTimestamp = Date.now();
-      segments.push({
-        name: segmentName,
-        count: 0,
-        totalCount: 0,
-        completions: [],
-        cached: false,
-        cacheTimestamp: responseTimestamp,
-        cacheAgeMs: 0,
-      });
+      segments.push(buildSegmentPlaceholder({
+        segmentId,
+        segmentName,
+      }));
       continue;
     }
 
@@ -687,46 +696,173 @@ async function fetchSegmentDetails({ segmentsList = [], accessToken, userId, for
         count,
         totalCount: statsCount,
         completions: completionDates,
+        cached: false,
+        cacheTimestamp: Date.now(),
+        cacheAgeMs: 0,
       };
 
       if (userId && segmentId) {
         segmentCache.set(`${userId}:${segmentId}`, normalizedSegment);
       }
 
-      const responseTimestamp = Date.now();
-
-      segments.push({
-        ...normalizedSegment,
-        cached: false,
-        cacheTimestamp: responseTimestamp,
-        cacheAgeMs: 0,
-      });
+      segments.push(normalizedSegment);
       console.log(`Segment: ${segmentName}, Completions: ${count}`);
 
       await sleep(500); // Respect rate limits
     } catch (segmentError) {
       console.error(`Error fetching segment ID ${segmentId}:`, segmentError.response ? segmentError.response.data : segmentError.message);
 
+      const cachedSegment = cacheKey ? segmentCache.getEntry(cacheKey) : null;
+      const cachedValue = cachedSegment?.value && typeof cachedSegment.value === 'object'
+        ? {
+            ...cachedSegment.value,
+            cached: true,
+            cacheTimestamp: cachedSegment.timestamp,
+            cacheAgeMs: cachedSegment.ageMs,
+            stale: true,
+          }
+        : null;
+
       if (segmentError.isRateLimit) {
         segmentError.statusCode = segmentError.statusCode || segmentError.response?.status || 503;
-        throw segmentError;
+        rateLimitedSegments.add(segmentName || segmentId || 'unknown');
+
+        const warningMessage = `Strava temporarily rate limited segment data for ${segmentName || 'this segment'}.`;
+        warnings.push(warningMessage);
+
+        const fallbackSegment = cachedValue || buildSegmentPlaceholder({
+          segmentId,
+          segmentName,
+          message: 'Segment data temporarily unavailable due to Strava rate limiting.',
+        });
+
+        segments.push({
+          ...fallbackSegment,
+          rateLimited: true,
+          stale: true,
+          message: fallbackSegment.message || warningMessage,
+        });
+        continue;
       }
 
-      const responseTimestamp = Date.now();
-      segments.push({
-        id: segmentId,
+      errors.push({
+        segmentId: segmentId ?? null,
         name: segmentName,
-        count: 0,
-        totalCount: 0,
-        completions: [],
-        cached: false,
-        cacheTimestamp: responseTimestamp,
-        cacheAgeMs: 0,
+        message: segmentError.message || 'Failed to fetch segment details.',
       });
+
+      segments.push(cachedValue || buildSegmentPlaceholder({
+        segmentId,
+        segmentName,
+      }));
     }
   }
 
-  return segments;
+  return {
+    segments,
+    metadata: {
+      warnings: Array.from(new Set(warnings.filter(Boolean))),
+      errors,
+      rateLimited: rateLimitedSegments.size > 0,
+      partiallyComplete: rateLimitedSegments.size > 0 || warnings.length > 0,
+    },
+  };
+}
+
+function buildSegmentPlaceholder({ segmentId, segmentName, message }) {
+  const resolvedName = segmentName || (segmentId ? `Segment ${segmentId}` : 'Segment');
+  const timestamp = Date.now();
+  const placeholder = {
+    id: segmentId ?? null,
+    name: resolvedName,
+    count: 0,
+    totalCount: 0,
+    completions: [],
+    cached: false,
+    cacheTimestamp: timestamp,
+    cacheAgeMs: 0,
+    stale: true,
+  };
+
+  if (message) {
+    placeholder.message = message;
+  }
+
+  return placeholder;
+}
+
+function createEmptySegmentMetadata() {
+  return {
+    warnings: [],
+    errors: [],
+    rateLimited: false,
+    partiallyComplete: false,
+  };
+}
+
+function normalizeSegmentMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object') {
+    return createEmptySegmentMetadata();
+  }
+
+  const normalizedWarnings = Array.isArray(metadata.warnings)
+    ? metadata.warnings.map(warning => String(warning).trim()).filter(Boolean)
+    : [];
+
+  const normalizedErrors = Array.isArray(metadata.errors)
+    ? metadata.errors
+        .map((error) => {
+          if (!error || typeof error !== 'object') {
+            const message = String(error || '').trim();
+            return message ? { message } : null;
+          }
+
+          const message = typeof error.message === 'string'
+            ? error.message.trim()
+            : String(error.message || '').trim();
+
+          if (!message) {
+            return null;
+          }
+
+          return {
+            segmentId: error.segmentId ?? error.id ?? null,
+            name: error.name || error.segmentName || null,
+            message,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  return {
+    ...metadata,
+    warnings: Array.from(new Set(normalizedWarnings)),
+    errors: normalizedErrors,
+    rateLimited: Boolean(metadata.rateLimited),
+    partiallyComplete: Boolean(metadata.partiallyComplete || metadata.rateLimited || normalizedWarnings.length > 0),
+  };
+}
+
+function mergeSegmentMetadata(existingMetadata, incomingMetadata) {
+  const existing = normalizeSegmentMetadata(existingMetadata);
+  const incoming = normalizeSegmentMetadata(incomingMetadata);
+
+  const warnings = Array.from(new Set([...existing.warnings, ...incoming.warnings]));
+  const errors = [...existing.errors, ...incoming.errors];
+
+  return {
+    ...existing,
+    ...incoming,
+    warnings,
+    errors,
+    rateLimited: Boolean(existing.rateLimited || incoming.rateLimited),
+    partiallyComplete: Boolean(
+      existing.partiallyComplete
+      || incoming.partiallyComplete
+      || warnings.length > 0
+      || errors.length > 0,
+    ),
+  };
 }
 
 function estimateCalories(activity) {
@@ -867,36 +1003,68 @@ function mergeSegments(existingSegments = [], incomingSegments = []) {
     }
 
     const key = segment.name || String(segment.id ?? segment.segment_id ?? segment.slug ?? segmentMap.size);
-    const existingEntry = segmentMap.get(key) || {
-      name: segment.name || key,
-      completions: [],
-      count: 0,
-      totalCount: 0,
+    const existingEntry = segmentMap.get(key) || {};
+
+    const existingCompletions = Array.isArray(existingEntry.completions) ? existingEntry.completions : [];
+    const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
+    const combinedCompletions = Array.from(new Set([...existingCompletions, ...incomingCompletions]));
+
+    const mergedEntry = {
+      ...existingEntry,
+      ...segment,
+      name: segment.name || existingEntry.name || key,
+      completions: combinedCompletions,
     };
 
-    const completions = Array.isArray(existingEntry.completions) ? existingEntry.completions : [];
-    const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
-    const combinedCompletions = Array.from(new Set([...completions, ...incomingCompletions]));
+    const countCandidates = [
+      Array.isArray(combinedCompletions) ? combinedCompletions.length : 0,
+      Number(existingEntry.count) || 0,
+      Number(segment.count) || 0,
+      Number(mergedEntry.count) || 0,
+    ].filter(number => Number.isFinite(number));
 
-    const resolvedCount = Number.isFinite(Number(segment.count)) ? Number(segment.count) : combinedCompletions.length;
-    const resolvedTotalCount = Number.isFinite(Number(segment.totalCount)) ? Number(segment.totalCount) : combinedCompletions.length;
+    mergedEntry.count = countCandidates.length > 0 ? Math.max(...countCandidates) : 0;
 
-    segmentMap.set(key, {
-      name: existingEntry.name || segment.name || key,
-      completions: combinedCompletions,
-      count: Math.max(combinedCompletions.length, existingEntry.count || 0, resolvedCount),
-      totalCount: Math.max(resolvedTotalCount, existingEntry.totalCount || 0, combinedCompletions.length),
-    });
+    const totalCountCandidates = [
+      Number(existingEntry.totalCount) || 0,
+      Number(segment.totalCount) || 0,
+      Number(mergedEntry.totalCount) || 0,
+      mergedEntry.count,
+    ].filter(number => Number.isFinite(number));
+
+    mergedEntry.totalCount = totalCountCandidates.length > 0 ? Math.max(...totalCountCandidates) : mergedEntry.count;
+
+    mergedEntry.cached = Boolean(existingEntry.cached || segment.cached || mergedEntry.cached);
+    mergedEntry.stale = Boolean(existingEntry.stale || segment.stale || mergedEntry.stale);
+    mergedEntry.rateLimited = Boolean(existingEntry.rateLimited || segment.rateLimited || mergedEntry.rateLimited);
+
+    mergedEntry.message = segment.message || existingEntry.message || mergedEntry.message;
+
+    const cacheTimestamps = [existingEntry.cacheTimestamp, segment.cacheTimestamp, mergedEntry.cacheTimestamp]
+      .map(value => Number(value))
+      .filter(Number.isFinite);
+    if (cacheTimestamps.length > 0) {
+      mergedEntry.cacheTimestamp = Math.max(...cacheTimestamps);
+    } else {
+      delete mergedEntry.cacheTimestamp;
+    }
+
+    const cacheAges = [existingEntry.cacheAgeMs, segment.cacheAgeMs, mergedEntry.cacheAgeMs]
+      .map(value => Number(value))
+      .filter(Number.isFinite);
+    if (cacheAges.length > 0) {
+      mergedEntry.cacheAgeMs = Math.min(...cacheAges);
+    } else if ('cacheAgeMs' in mergedEntry) {
+      delete mergedEntry.cacheAgeMs;
+    }
+
+    segmentMap.set(key, mergedEntry);
   };
 
   existingSegments.forEach(addSegment);
   incomingSegments.forEach(addSegment);
 
-  return Array.from(segmentMap.values()).map(segment => ({
-    ...segment,
-    count: Array.isArray(segment.completions) ? segment.completions.length : Number(segment.count) || 0,
-    totalCount: Math.max(Number(segment.totalCount) || 0, Array.isArray(segment.completions) ? segment.completions.length : 0),
-  }));
+  return Array.from(segmentMap.values());
 }
 
 function isValidSnapshotPayload(payload) {
@@ -923,6 +1091,11 @@ function mergeSnapshotPayload(existingPayload = {}, incomingPayload = {}) {
   const mergedSegments = mergeSegments(existingPayload.segments, incomingPayload.segments);
 
   const mergedTotals = calculateTotals(mergedActivities);
+
+  const mergedSegmentMetadata = mergeSegmentMetadata(
+    existingPayload.segmentMetadata,
+    incomingPayload.segmentMetadata,
+  );
 
   const existingPageInfo = existingPayload.pageInfo || {};
   const incomingPageInfo = incomingPayload.pageInfo || {};
@@ -966,6 +1139,7 @@ function mergeSnapshotPayload(existingPayload = {}, incomingPayload = {}) {
     },
     activities: mergedActivities,
     segments: mergedSegments,
+    segmentMetadata: mergedSegmentMetadata,
     totals: {
       ...(existingPayload.totals || {}),
       ...(incomingPayload.totals || {}),

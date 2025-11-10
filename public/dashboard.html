@@ -1053,26 +1053,9 @@
         .profile-card__identity {
             display: flex;
             flex-direction: column;
-            align-items: stretch;
-            gap: 0.6rem;
+            align-items: flex-start;
+            gap: 0.4rem;
             width: 100%;
-        }
-
-        .profile-card__identity-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            width: 100%;
-            flex-wrap: wrap;
-        }
-
-        .profile-card__quick-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            margin-left: auto;
-            flex-shrink: 0;
         }
 
         .profile-card__name {
@@ -1084,48 +1067,12 @@
         }
 
         .profile-card__actions {
-            position: relative;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
             width: 100%;
+            justify-content: flex-start;
             margin-top: 0.75rem;
-        }
-
-        .profile-card__icon-button {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 2.25rem;
-            height: 2.25rem;
-            border-radius: 999px;
-            border: none;
-            background: rgba(15, 23, 42, 0.08);
-            color: #0f172a;
-            transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
-            cursor: pointer;
-        }
-
-        .profile-card__icon-button:hover,
-        .profile-card__icon-button:focus-visible {
-            background: rgba(59, 130, 246, 0.15);
-            color: #0f172a;
-            transform: translateY(-1px);
-            outline: none;
-        }
-
-        .profile-card__icon-button:active {
-            transform: translateY(0);
-        }
-
-        .profile-card__icon-button .profile-card__action-icon {
-            font-size: 1.05rem;
-            line-height: 1;
-        }
-
-        .profile-card__icon-button .notifications-badge {
-            position: absolute;
-            top: -0.15rem;
-            right: -0.15rem;
-            transform: scale(0.85);
         }
 
         .profile-card__action-icon {
@@ -1160,19 +1107,6 @@
             cursor: pointer;
             box-shadow: 0 10px 18px rgba(249, 115, 22, 0.22);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .profile-card__action--ghost {
-            background: rgba(15, 23, 42, 0.06);
-            color: #0f172a;
-            border: 1px solid rgba(15, 23, 42, 0.12);
-            box-shadow: none;
-        }
-
-        .profile-card__action--ghost:hover,
-        .profile-card__action--ghost:focus-visible {
-            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
-            color: #0f172a;
         }
 
         .profile-card__action:hover,
@@ -1395,30 +1329,6 @@
             color: #0f172a;
         }
 
-        .profile-card__rank-trigger {
-            background: none;
-            border: none;
-            padding: 0;
-            margin: 0;
-            font: inherit;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            color: inherit;
-            cursor: pointer;
-        }
-
-        .profile-card__rank-trigger:hover,
-        .profile-card__rank-trigger:focus-visible {
-            text-decoration: underline;
-            outline: none;
-        }
-
-        .profile-card__rank-trigger-icon {
-            font-size: 0.85rem;
-            opacity: 0.65;
-        }
-
         .profile-card__progress-bar {
             position: relative;
             height: 1.05rem;
@@ -1468,266 +1378,6 @@
 
         .profile-card__progress-detail {
             font-size: 0.8rem;
-            color: #64748b;
-        }
-
-        .notifications-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 1.1rem;
-            height: 1.1rem;
-            padding: 0 0.25rem;
-            border-radius: 999px;
-            background: #ef4444;
-            color: #fff;
-            font-size: 0.65rem;
-            font-weight: 600;
-        }
-
-        .notifications-badge[hidden] {
-            display: none;
-        }
-
-        .notifications-popover {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: min(320px, calc(100vw - 3rem));
-            max-height: min(420px, calc(100vh - 4rem));
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 0.9rem;
-            box-shadow: 0 24px 36px rgba(15, 23, 42, 0.2);
-            border: 1px solid rgba(15, 23, 42, 0.08);
-            padding: 0.85rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            z-index: 110;
-            overflow: hidden;
-        }
-
-        .notifications-popover[hidden] {
-            display: none;
-        }
-
-        .notifications-popover__header h3 {
-            margin: 0;
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .notifications-popover__intro {
-            margin: 0;
-            color: #475569;
-            font-size: 0.8rem;
-        }
-
-        .notifications-popover__list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 0.45rem;
-            overflow-y: auto;
-        }
-
-        .notifications-popover__item {
-            width: 100%;
-            border: 1px solid rgba(15, 23, 42, 0.08);
-            background: rgba(148, 163, 184, 0.12);
-            border-radius: 0.75rem;
-            padding: 0.6rem 0.7rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-            text-align: left;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-        }
-
-        .notifications-popover__item:hover,
-        .notifications-popover__item:focus-visible {
-            outline: none;
-            background: rgba(59, 130, 246, 0.12);
-            border-color: rgba(59, 130, 246, 0.45);
-            transform: translateY(-1px);
-        }
-
-        .notifications-popover__item.is-empty {
-            background: rgba(148, 163, 184, 0.08);
-            border-color: rgba(148, 163, 184, 0.18);
-            cursor: default;
-        }
-
-        .notifications-popover__item.is-empty:hover,
-        .notifications-popover__item.is-empty:focus-visible {
-            transform: none;
-            border-color: rgba(148, 163, 184, 0.18);
-            background: rgba(148, 163, 184, 0.12);
-        }
-
-        .notifications-popover__title {
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .notifications-popover__meta {
-            color: #475569;
-        }
-
-        .notifications-popover__empty {
-            margin: 0;
-            font-size: 0.85rem;
-            color: #64748b;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: clamp(1.5rem, 6vw, 3.5rem);
-            background: rgba(15, 23, 42, 0.55);
-            z-index: 1050;
-        }
-
-        .modal-overlay.hidden {
-            display: none;
-        }
-
-        .modal-close-button {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: #475569;
-            background: rgba(241, 245, 249, 0.9);
-            border: 1px solid rgba(148, 163, 184, 0.4);
-            padding: 0.3rem 0.85rem;
-            border-radius: 999px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-        }
-
-        .modal-close-button:hover,
-        .modal-close-button:focus-visible {
-            transform: translateY(-1px);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
-            outline: none;
-        }
-
-        .rank-info-body {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .rank-info-summary {
-            margin: 0;
-            font-size: 0.9rem;
-            color: #475569;
-        }
-
-        .rank-info-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: grid;
-            gap: 0.6rem;
-        }
-
-        .rank-info-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            border-radius: 0.85rem;
-            padding: 0.65rem 0.8rem;
-            background: rgba(148, 163, 184, 0.16);
-            border: 1px solid transparent;
-            font-size: 0.9rem;
-        }
-
-        .rank-info-item__label {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .rank-info-item__value {
-            font-variant-numeric: tabular-nums;
-            color: #475569;
-        }
-
-        .rank-info-item.is-current {
-            background: rgba(37, 99, 235, 0.18);
-            border-color: rgba(37, 99, 235, 0.45);
-        }
-
-        .rank-info-item.is-next {
-            border-color: rgba(249, 115, 22, 0.5);
-        }
-
-        .notification-detail-body {
-            display: grid;
-            gap: 1.1rem;
-        }
-
-        .notification-detail__section {
-            display: grid;
-            gap: 0.45rem;
-        }
-
-        .notification-detail__section h4 {
-            margin: 0;
-            font-size: 1rem;
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .notification-detail__summary {
-            margin: 0;
-            font-size: 0.9rem;
-            color: #475569;
-        }
-
-        .notification-detail__list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: grid;
-            gap: 0.35rem;
-        }
-
-        .notification-detail__list-item {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 0.4rem;
-            padding: 0.35rem 0.55rem;
-            border-radius: 0.65rem;
-            background: rgba(148, 163, 184, 0.16);
-            font-size: 0.8rem;
-        }
-
-        .notification-detail__list-label {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-weight: 600;
-        }
-
-        .notification-detail__empty {
-            margin: 0;
-            font-size: 0.85rem;
             color: #64748b;
         }
 
@@ -1876,26 +1526,6 @@
         @media (max-width: 768px) {
             .dashboard-tabs {
                 display: none;
-            }
-        }
-
-        @media (max-width: 640px) {
-            .top-performances-grid {
-                grid-auto-flow: column;
-                grid-auto-columns: minmax(240px, 80%);
-                overflow-x: auto;
-                padding-bottom: 0.75rem;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: thin;
-            }
-
-            .top-performances-grid::-webkit-scrollbar {
-                height: 0.4rem;
-            }
-
-            .top-performances-grid::-webkit-scrollbar-thumb {
-                background: rgba(148, 163, 184, 0.45);
-                border-radius: 999px;
             }
         }
 
@@ -2795,125 +2425,6 @@
             border-color: rgba(148, 163, 184, 0.28);
         }
 
-        body.dark .profile-card__action--ghost,
-        .dark .profile-card__action--ghost {
-            background: rgba(148, 163, 184, 0.18);
-            color: #e2e8f0;
-            border-color: rgba(148, 163, 184, 0.35);
-        }
-
-        body.dark .notifications-popover,
-        .dark .notifications-popover {
-            background: rgba(17, 24, 39, 0.96);
-            border-color: rgba(148, 163, 184, 0.28);
-        }
-
-        body.dark .notifications-popover__title,
-        .dark .notifications-popover__title {
-            color: #e2e8f0;
-        }
-
-        body.dark .notifications-popover__meta,
-        .dark .notifications-popover__meta,
-        body.dark .notifications-popover__intro,
-        .dark .notifications-popover__intro {
-            color: #94a3b8;
-        }
-
-        body.dark .notifications-popover__item,
-        .dark .notifications-popover__item {
-            background: rgba(30, 41, 59, 0.55);
-            border-color: rgba(148, 163, 184, 0.2);
-            color: #e2e8f0;
-        }
-
-        body.dark .notifications-popover__item:hover,
-        body.dark .notifications-popover__item:focus-visible,
-        .dark .notifications-popover__item:hover,
-        .dark .notifications-popover__item:focus-visible {
-            background: rgba(59, 130, 246, 0.25);
-            border-color: rgba(96, 165, 250, 0.45);
-        }
-
-        body.dark .notifications-popover__item.is-empty,
-        .dark .notifications-popover__item.is-empty {
-            background: rgba(30, 41, 59, 0.45);
-            border-color: rgba(148, 163, 184, 0.2);
-        }
-
-        body.dark .profile-card__icon-button,
-        .dark .profile-card__icon-button {
-            background: rgba(30, 41, 59, 0.6);
-            color: #e2e8f0;
-            border: 1px solid rgba(148, 163, 184, 0.25);
-        }
-
-        body.dark .profile-card__icon-button:hover,
-        body.dark .profile-card__icon-button:focus-visible,
-        .dark .profile-card__icon-button:hover,
-        .dark .profile-card__icon-button:focus-visible {
-            background: rgba(59, 130, 246, 0.3);
-            border-color: rgba(96, 165, 250, 0.45);
-            color: #f8fafc;
-        }
-
-        body.dark .modal-overlay,
-        .dark .modal-overlay {
-            background: rgba(2, 6, 23, 0.7);
-        }
-
-        body.dark .modal-close-button,
-        .dark .modal-close-button {
-            background: rgba(30, 41, 59, 0.9);
-            color: #e2e8f0;
-            border-color: rgba(148, 163, 184, 0.35);
-        }
-
-        body.dark .rank-info-summary,
-        .dark .rank-info-summary {
-            color: #cbd5f5;
-        }
-
-        body.dark .rank-info-item,
-        .dark .rank-info-item {
-            background: rgba(30, 41, 59, 0.55);
-            border-color: rgba(148, 163, 184, 0.18);
-        }
-
-        body.dark .rank-info-item__label,
-        .dark .rank-info-item__label {
-            color: #e2e8f0;
-        }
-
-        body.dark .rank-info-item__value,
-        .dark .rank-info-item__value,
-        body.dark .notification-detail__summary,
-        .dark .notification-detail__summary {
-            color: #94a3b8;
-        }
-
-        body.dark .rank-info-item.is-current,
-        .dark .rank-info-item.is-current {
-            background: rgba(59, 130, 246, 0.28);
-            border-color: rgba(96, 165, 250, 0.55);
-        }
-
-        body.dark .rank-info-item.is-next,
-        .dark .rank-info-item.is-next {
-            border-color: rgba(251, 191, 36, 0.5);
-        }
-
-        body.dark .notification-detail__list-item,
-        .dark .notification-detail__list-item {
-            background: rgba(30, 41, 59, 0.55);
-            color: #e2e8f0;
-        }
-
-        body.dark .notification-detail__empty,
-        .dark .notification-detail__empty {
-            color: #94a3b8;
-        }
-
         body.dark .top-performance-card:hover,
         body.dark .top-performance-card:focus-visible,
         .dark .top-performance-card:hover,
@@ -3455,43 +2966,6 @@
         </section>
     </div>
 
-    <div id="rank-info-modal" class="modal-overlay hidden opacity-0 pointer-events-none transition-opacity duration-300 ease-in-out" aria-hidden="true">
-        <section class="loading-dialog rank-info-dialog" role="dialog" aria-modal="true" aria-labelledby="rank-info-title">
-            <button type="button" class="modal-close-button" data-rank-info-close data-modal-initial-focus>
-                <span aria-hidden="true">✕</span>
-                <span class="sr-only">Close rank overview</span>
-            </button>
-            <div class="loading-header">
-                <span class="loading-icon" aria-hidden="true">🏆</span>
-                <div class="loading-header__copy">
-                    <h2 id="rank-info-title" class="loading-title">Level system overview</h2>
-                    <p id="rank-info-summary" class="rank-info-summary">Track your hours to climb through the fellowship tiers.</p>
-                </div>
-            </div>
-            <div class="rank-info-body">
-                <ul id="rank-info-list" class="rank-info-list" aria-label="Rank tiers and hour requirements"></ul>
-            </div>
-        </section>
-    </div>
-
-    <div id="notification-detail-modal" class="modal-overlay hidden opacity-0 pointer-events-none transition-opacity duration-300 ease-in-out" aria-hidden="true">
-        <section class="loading-dialog notification-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="notification-detail-title">
-            <button type="button" class="modal-close-button" data-notification-detail-close data-modal-initial-focus>
-                <span aria-hidden="true">✕</span>
-                <span class="sr-only">Close notification summary</span>
-            </button>
-            <div class="loading-header">
-                <span class="loading-icon" aria-hidden="true">🔔</span>
-                <div class="loading-header__copy">
-                    <h2 id="notification-detail-title" class="loading-title">Summary</h2>
-                    <p id="notification-detail-meta" class="loading-status">No activity recorded yet.</p>
-                    <p class="loading-status-detail">Detailed coin, achievement, and medal breakdown.</p>
-                </div>
-            </div>
-            <div id="notification-detail-body" class="notification-detail-body"></div>
-        </section>
-    </div>
-
     <main class="dashboard-shell">
         <div class="mobile-pull-indicator" id="pull-to-refresh-indicator" role="status" aria-live="polite">
             <span class="mobile-pull-indicator__icon" aria-hidden="true">⟲</span>
@@ -3531,18 +3005,7 @@
                                 <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar" loading="lazy">
                                 <div class="profile-card__headline">
                                     <div class="profile-card__identity">
-                                        <div class="profile-card__identity-header">
-                                            <h2 id="athlete-name" class="profile-card__name"></h2>
-                                            <div class="profile-card__quick-actions">
-                                                <button type="button" id="notifications-trigger" class="profile-card__icon-button" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" aria-controls="notifications-popover">
-                                                    <span class="profile-card__action-icon" aria-hidden="true">🔔</span>
-                                                    <span id="notifications-badge" class="notifications-badge" aria-hidden="true" hidden>0</span>
-                                                </button>
-                                                <button type="button" id="share-dashboard" class="profile-card__icon-button" aria-label="Share highlight">
-                                                    <span class="profile-card__action-icon" aria-hidden="true">📤</span>
-                                                </button>
-                                            </div>
-                                        </div>
+                                        <h2 id="athlete-name" class="profile-card__name"></h2>
                                         <p class="profile-card__balance" data-wallet-balance-container>
                                             <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
                                             <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
@@ -3559,10 +3022,7 @@
                                             <div id="rank-details" class="profile-card__progress-detail"></div>
                                         </div>
                                         <div class="profile-card__level-stack">
-                                            <button type="button" id="rank-info-trigger" class="profile-card__rank-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="rank-info-modal">
-                                                <span id="current-rank" class="profile-card__rank"></span>
-                                                <span class="profile-card__rank-trigger-icon" aria-hidden="true">ℹ️</span>
-                                            </button>
+                                            <span id="current-rank" class="profile-card__rank"></span>
                                             <span id="level-progress" class="profile-card__level"></span>
                                         </div>
                                     </div>
@@ -3626,14 +3086,10 @@
                                 <div id="premium-achievements" class="profile-card__badges"></div>
                             </div>
                             <div class="profile-card__actions">
-                                <div id="notifications-popover" class="notifications-popover" role="dialog" aria-modal="false" aria-labelledby="notifications-heading" hidden>
-                                    <div class="notifications-popover__header">
-                                        <h3 id="notifications-heading">Activity summaries</h3>
-                                        <p class="notifications-popover__intro">Tap a summary to review coins, achievements, and medals.</p>
-                                    </div>
-                                    <ul id="notifications-list" class="notifications-popover__list"></ul>
-                                    <p id="notifications-empty" class="notifications-popover__empty" hidden>No recent activity summaries yet.</p>
-                                </div>
+                                <button type="button" id="share-dashboard" class="profile-card__action profile-card__action--outline">
+                                    <span class="profile-card__action-icon" aria-hidden="true">📤</span>
+                                    <span>Share highlight</span>
+                                </button>
                             </div>
                             <div id="share-card-preview" class="share-card" hidden>
                                 <div class="share-card__header">

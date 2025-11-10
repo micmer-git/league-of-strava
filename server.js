@@ -55,13 +55,6 @@ const userDataCache = new PersistentCache({
   storageDir: CACHE_STORAGE_DIR,
 });
 
-const activitiesCache = new PersistentCache({
-  namespace: 'strava:activities',
-  ttlMs: CACHE_TTL_MS,
-  maxEntries: 400,
-  storageDir: CACHE_STORAGE_DIR,
-});
-
 const SEGMENT_CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_SEGMENT_CACHE_TTL_MS, 10) || 60 * 60 * 1000; // 1 hour default
 
 const segmentCache = new PersistentCache({
@@ -251,7 +244,6 @@ app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   userDataCache.pruneExpired();
   segmentCache.pruneExpired();
-  activitiesCache.pruneExpired();
   const accessToken = req.cookies.strava_token;
   const forceRefresh = req.query.refresh === 'true';
   const loadStored = req.query.loadStored === 'true';
@@ -292,11 +284,10 @@ app.get('/api/strava-data', async (req, res) => {
       if (storedSnapshot?.payload) {
         console.log(`Stored snapshot located for athlete ${userId} from ${storedSnapshot.timestamp}.`);
         const cacheTimestamp = Date.now();
-        const normalizedPayload = normalizeSnapshotPayload(storedSnapshot.payload);
-        userDataCache.set(cacheKey, normalizedPayload);
+        userDataCache.set(cacheKey, storedSnapshot.payload);
 
         return res.json({
-          ...normalizedPayload,
+          ...storedSnapshot.payload,
           cached: true,
           stale: false,
           stored: true,
@@ -335,11 +326,9 @@ app.get('/api/strava-data', async (req, res) => {
 
     if (allowedPageCount > 0) {
       activitiesResult = await fetchAllActivities(accessToken, {
-        userId,
         startPage,
         pageCount: allowedPageCount,
         perPage,
-        forceRefresh,
       });
     } else {
       console.log('Requested start page exceeds configured maximum activity pages. Returning empty activity list.');
@@ -364,7 +353,7 @@ app.get('/api/strava-data', async (req, res) => {
     const hasMore = Boolean(hasMoreFromStrava && !reachedConfiguredLimit);
     const nextPageStart = hasMore ? startPage + fetchedPages : null;
 
-    let responsePayload = normalizeSnapshotPayload({
+    let responsePayload = {
       athlete: athleteResponse.data,
       activities: allActivities,
       totals: totals,
@@ -379,7 +368,7 @@ app.get('/api/strava-data', async (req, res) => {
         hasMore,
         nextPageStart,
       },
-    });
+    };
 
     let mergedWithStoredSnapshot = false;
 
@@ -462,13 +451,12 @@ app.get('/api/strava-data', async (req, res) => {
         const storedSnapshot = await getLatestUserSnapshot(userId);
         if (storedSnapshot?.payload) {
           console.log(`Returning stored snapshot for athlete ${userId} after live fetch failure.`);
-          const normalizedStored = normalizeSnapshotPayload(storedSnapshot.payload);
           if (cacheKey) {
-            userDataCache.set(cacheKey, normalizedStored);
+            userDataCache.set(cacheKey, storedSnapshot.payload);
           }
           const cacheTimestamp = Date.now();
           return res.status(200).json({
-            ...normalizedStored,
+            ...storedSnapshot.payload,
             cached: true,
             stale: true,
             stored: true,
@@ -490,95 +478,9 @@ app.get('/api/strava-data', async (req, res) => {
 
 // Helper functions
 
-const MASTER_PRESTIGE_MAX = 1000;
-const MASTER_PRESTIGE_START_HOURS = 4000;
-const MAX_RANK_HOURS = 20000;
-
-const BASE_RANKS = [
-  { name: 'Bronze 3', emoji: '🥉', minHours: 0 },
-  { name: 'Bronze 2', emoji: '🥉', minHours: 100 },
-  { name: 'Bronze 1', emoji: '🥉', minHours: 200 },
-  { name: 'Silver 3', emoji: '🥈', minHours: 300 },
-  { name: 'Silver 2', emoji: '🥈', minHours: 400 },
-  { name: 'Silver 1', emoji: '🥈', minHours: 500 },
-  { name: 'Gold 3', emoji: '🥇', minHours: 600 },
-  { name: 'Gold 2', emoji: '🥇', minHours: 700 },
-  { name: 'Gold 1', emoji: '🥇', minHours: 800 },
-  { name: 'Platinum 3', emoji: '🏆', minHours: 900 },
-  { name: 'Platinum 2', emoji: '🏆', minHours: 1000 },
-  { name: 'Platinum 1', emoji: '🏆', minHours: 1100 },
-  { name: 'Diamond 3', emoji: '💎', minHours: 1200 },
-  { name: 'Diamond 2', emoji: '💎', minHours: 1300 },
-  { name: 'Diamond 1', emoji: '💎', minHours: 1400 },
-  { name: 'Master 3', emoji: '🔥', minHours: 1500 },
-  { name: 'Master 2', emoji: '🔥', minHours: 1600 },
-  { name: 'Master 1', emoji: '🔥', minHours: 1700 },
-  { name: 'Grandmaster 3', emoji: '🚀', minHours: 1800 },
-  { name: 'Grandmaster 2', emoji: '🚀', minHours: 1900 },
-  { name: 'Grandmaster 1', emoji: '🚀', minHours: 2000 },
-  { name: 'Challenger', emoji: '🌟', minHours: 2100 },
-  { name: 'Ascendant', emoji: '✨', minHours: 2300 },
-  { name: 'Paragon', emoji: '🛡️', minHours: 2600 },
-  { name: 'Mythic', emoji: '🐉', minHours: 2900 },
-  { name: 'Celestial', emoji: '🌠', minHours: 3200 },
-  { name: 'Eternal', emoji: '♾️', minHours: 3500 },
-  { name: 'Transcendent', emoji: '🧬', minHours: 3800 },
-  { name: 'Apex', emoji: '🗻', minHours: 3900 },
-];
-
-const COIN_RULES = {
-  RUN: [
-    { threshold: 10, emoji: '💲' },
-    { threshold: 21, emoji: '🧈' },
-    { threshold: 30, emoji: '💰' },
-    { threshold: 42, emoji: '💎' },
-    { threshold: 65, emoji: '👑' },
-  ],
-  RIDE: [
-    { threshold: 100, emoji: '💲' },
-    { threshold: 150, emoji: '💰' },
-    { threshold: 200, emoji: '🧈' },
-    { threshold: 250, emoji: '💎' },
-    { threshold: 600, emoji: '👑' },
-  ],
-  ELEVATION: [
-    { threshold: 1000, emoji: '💲' },
-    { threshold: 5000, emoji: '💰' },
-    { threshold: 10000, emoji: '🧈' },
-    { threshold: 20000, emoji: '💎' },
-    { threshold: 50000, emoji: '👑' },
-  ],
-  KCAL: [
-    { threshold: 1000, emoji: '💲' },
-    { threshold: 3000, emoji: '🧈' },
-    { threshold: 6000, emoji: '💰' },
-    { threshold: 7500, emoji: '💎' },
-    { threshold: 8000, emoji: '👑' },
-  ],
-};
-
-const SEGMENT_COIN_THRESHOLDS = [
-  { threshold: 1, emoji: '💲' },
-  { threshold: 5, emoji: '💰' },
-  { threshold: 10, emoji: '🧈' },
-  { threshold: 20, emoji: '💎' },
-  { threshold: 30, emoji: '👑' },
-];
-
-const SPECIAL_MEDAL_DATES = new Set([
-  '01-01', // New Year
-  '02-14', // Valentine's Day
-  '03-14', // Pi Day
-  '06-09', // Nice Day
-  '06-21', // Summer solstice
-  '07-04', // Independence Day
-  '10-31', // Halloween
-  '12-25', // Christmas
-]);
-
-async function stravaGet(path, accessToken, params = {}, { retries = 2, retryDelayMs = 1000 } = {}) {
+async function stravaGet(path, accessToken, params = {}, retries = 2) {
   let attempt = 0;
-  let delayMs = Math.max(250, retryDelayMs);
+  let delayMs = 1000;
 
   while (attempt <= retries) {
     try {
@@ -588,555 +490,353 @@ async function stravaGet(path, accessToken, params = {}, { retries = 2, retryDel
       });
     } catch (error) {
       const status = error.response?.status;
-      const isRateLimit = status === 429 || status === 503;
-      const shouldRetry = attempt < retries && (isRateLimit || status === 500 || status === 502);
+      const shouldRetry = attempt < retries && (status === 429 || status === 503 || status >= 500);
 
-      if (isRateLimit) {
+      if (shouldRetry) {
+        const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
+        const retryDelay = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : delayMs;
+        console.warn(`Strava request to ${path} failed with status ${status}. Retrying in ${retryDelay}ms (attempt ${attempt + 1}/${retries}).`);
+        await sleep(retryDelay);
+        attempt += 1;
+        delayMs *= 2;
+        continue;
+      }
+
+      if (status === 429 || status === 503) {
         error.isRateLimit = true;
       }
 
-      if (!shouldRetry) {
-        throw error;
-      }
-
-      await sleep(delayMs);
-      delayMs *= 2;
-      attempt += 1;
+      error.statusCode = status || error.statusCode || 500;
+      throw error;
     }
   }
 
-  throw new Error('Failed to complete Strava request after retries.');
+  const finalError = new Error(`Failed to fetch ${path} from Strava after ${retries + 1} attempts`);
+  finalError.statusCode = 503;
+  finalError.isRateLimit = true;
+  throw finalError;
 }
 
-async function fetchAllActivities(accessToken, {
-  userId = null,
-  startPage = 1,
-  pageCount = 1,
-  perPage = 200,
-  forceRefresh = false,
-} = {}) {
-  const normalizedStartPage = Math.max(1, Number.parseInt(startPage, 10) || 1);
-  const normalizedPageCount = Math.max(1, Number.parseInt(pageCount, 10) || 1);
-  const normalizedPerPage = Math.min(200, Math.max(1, Number.parseInt(perPage, 10) || 200));
-
-  const activities = [];
-  const seenIds = new Set();
+/**
+ * Fetch all activities from Strava with pagination.
+ * @param {string} accessToken
+ * @returns {Promise<Array>}
+ */
+async function fetchAllActivities(accessToken, { startPage = 1, pageCount = 3, perPage = 200 } = {}) {
+  let allActivities = [];
+  let page = startPage;
   let fetchedPages = 0;
   let lastPageSize = 0;
 
-  for (let pageIndex = 0; pageIndex < normalizedPageCount; pageIndex += 1) {
-    const page = normalizedStartPage + pageIndex;
-    let pageActivities = null;
-    const cacheKey = userId ? `${userId}:page:${page}:per:${normalizedPerPage}` : null;
+  while (fetchedPages < pageCount) {
+    console.log(`Fetching activities - Page: ${page}, Per Page: ${perPage}`);
+    const activitiesResponse = await stravaGet('athlete/activities', accessToken, { per_page: perPage, page });
 
-    if (!forceRefresh && cacheKey) {
-      const cachedEntry = activitiesCache.getEntry(cacheKey);
-      if (cachedEntry?.value) {
-        pageActivities = Array.isArray(cachedEntry.value) ? cachedEntry.value : null;
-      }
-    }
+    const activities = activitiesResponse.data.map(activity => {
+      const estimatedCalories = estimateCalories(activity);
+      return { ...activity, estimated_calories: estimatedCalories };
+    });
 
-    if (!pageActivities) {
-      const response = await stravaGet('athlete/activities', accessToken, {
-        page,
-        per_page: normalizedPerPage,
-      });
-      pageActivities = Array.isArray(response.data) ? response.data : [];
-
-      if (cacheKey) {
-        activitiesCache.set(cacheKey, pageActivities);
-      }
-
-      await sleep(200);
-    }
+    lastPageSize = activities.length;
+    console.log(`Fetched ${activities.length} activities from page ${page}`);
+    allActivities = allActivities.concat(activities);
 
     fetchedPages += 1;
-    lastPageSize = pageActivities.length;
 
-    for (const activity of pageActivities) {
-      if (!activity || typeof activity !== 'object') {
-        continue;
-      }
-      const activityId = activity.id ?? activity.external_id;
-      const dedupeKey = activityId ? String(activityId) : `${activity.start_date ?? ''}:${activity.name ?? ''}:${activities.length}`;
-      if (seenIds.has(dedupeKey)) {
-        continue;
-      }
-      seenIds.add(dedupeKey);
-      activities.push(activity);
+    if (lastPageSize < perPage) {
+      break;
     }
 
-    if (pageActivities.length < normalizedPerPage) {
-      break;
+    page += 1;
+
+    if (fetchedPages < pageCount) {
+      await sleep(1000); // Sleep to respect rate limits
     }
   }
 
+  const hasMore = lastPageSize === perPage;
+
   return {
-    activities,
+    activities: allActivities,
+    hasMore,
     fetchedPages,
     lastPageSize,
-    hasMore: lastPageSize === Math.min(normalizedPerPage, perPage),
   };
 }
 
-async function fetchSegmentDetails({
-  segmentsList = [],
-  accessToken,
-  userId,
-  forceRefresh = false,
-}) {
+/**
+ * Fetch segment details for multiple segments.
+ * @param {Array<Object>} segmentsList - List of segments with id and name.
+ * @param {string} accessToken
+ * @returns {Promise<Array<Object>>}
+ */
+async function fetchSegmentDetails({ segmentsList = [], accessToken, userId, forceRefresh = false } = {}) {
   if (!Array.isArray(segmentsList) || segmentsList.length === 0) {
     return [];
   }
 
-  const results = [];
+  const segments = [];
 
   for (const segment of segmentsList) {
-    if (!segment || typeof segment !== 'object') {
-      continue;
-    }
+    const segmentId = segment?.id;
+    const segmentName = segment?.name || `Segment ${segmentId || ''}`.trim();
+    const cacheKey = !forceRefresh && userId && segmentId ? `${userId}:${segmentId}` : null;
 
-    const segmentId = segment.id ?? segment.segment_id;
-    if (!segmentId) {
-      continue;
-    }
-
-    const cacheKey = userId ? `${userId}:${segmentId}` : String(segmentId);
-    if (!forceRefresh) {
-      const cached = segmentCache.getEntry(cacheKey);
-      if (cached?.value) {
-        results.push({
-          id: segmentId,
-          name: segment.name || cached.value.name || `Segment ${segmentId}`,
-          completions: Array.isArray(cached.value.completions) ? cached.value.completions : [],
-          count: Number(cached.value.count) || 0,
-          totalCount: Number(cached.value.totalCount) || Number(cached.value.count) || 0,
+    if (cacheKey) {
+      const cachedSegment = segmentCache.getEntry(cacheKey);
+      if (cachedSegment) {
+        segments.push({
+          ...cachedSegment.value,
+          cached: true,
+          cacheTimestamp: cachedSegment.timestamp,
+          cacheAgeMs: cachedSegment.ageMs,
         });
         continue;
       }
     }
 
-    const completions = new Set();
-    let page = 1;
-    const perPage = 200;
+    if (!segmentId) {
+      const responseTimestamp = Date.now();
+      segments.push({
+        name: segmentName,
+        count: 0,
+        totalCount: 0,
+        completions: [],
+        cached: false,
+        cacheTimestamp: responseTimestamp,
+        cacheAgeMs: 0,
+      });
+      continue;
+    }
 
-    while (page <= 10) {
+    try {
+      console.log(`Fetching segment ID: ${segmentId}`);
+      const segmentResponse = await stravaGet(`segments/${segmentId}`, accessToken);
+      console.log(`Fetched segment details for ${segmentName}`);
+
+      const segmentData = segmentResponse.data || {};
+
+      const completionDates = await fetchSegmentEfforts(segmentId, accessToken);
+      const effortCount = completionDates.length;
+      const statsCount = segmentData.athlete_segment_stats?.effort_count || 0;
+      const count = effortCount || statsCount;
+
+      const normalizedSegment = {
+        id: segmentId,
+        name: segmentName,
+        count,
+        totalCount: statsCount,
+        completions: completionDates,
+      };
+
+      if (userId && segmentId) {
+        segmentCache.set(`${userId}:${segmentId}`, normalizedSegment);
+      }
+
+      const responseTimestamp = Date.now();
+
+      segments.push({
+        ...normalizedSegment,
+        cached: false,
+        cacheTimestamp: responseTimestamp,
+        cacheAgeMs: 0,
+      });
+      console.log(`Segment: ${segmentName}, Completions: ${count}`);
+
+      await sleep(500); // Respect rate limits
+    } catch (segmentError) {
+      console.error(`Error fetching segment ID ${segmentId}:`, segmentError.response ? segmentError.response.data : segmentError.message);
+
+      if (segmentError.isRateLimit) {
+        segmentError.statusCode = segmentError.statusCode || segmentError.response?.status || 503;
+        throw segmentError;
+      }
+
+      const responseTimestamp = Date.now();
+      segments.push({
+        id: segmentId,
+        name: segmentName,
+        count: 0,
+        totalCount: 0,
+        completions: [],
+        cached: false,
+        cacheTimestamp: responseTimestamp,
+        cacheAgeMs: 0,
+      });
+    }
+  }
+
+  return segments;
+}
+
+function estimateCalories(activity) {
+  const movingTimeSeconds = activity?.moving_time || 0;
+  const minutes = movingTimeSeconds / 60;
+  const averageHeartRate = activity?.average_heartrate;
+
+  if (minutes > 0 && typeof averageHeartRate === 'number' && !Number.isNaN(averageHeartRate)) {
+    const caloriesPerMinute = Math.max(0, 0.6309 * averageHeartRate - 55);
+    return caloriesPerMinute * minutes;
+  }
+
+  if (typeof activity?.kilojoules === 'number') {
+    return activity.kilojoules / 4.184;
+  }
+
+  if (typeof activity?.calories === 'number') {
+    return activity.calories;
+  }
+
+  return 0;
+}
+
+async function fetchSegmentEfforts(segmentId, accessToken) {
+  const per_page = 200;
+  let page = 1;
+  const completionDates = [];
+
+  while (true) {
+    try {
       const response = await stravaGet('segment_efforts', accessToken, {
         segment_id: segmentId,
+        per_page,
         page,
-        per_page: perPage,
-      }, { retries: 1, retryDelayMs: 750 });
+      });
 
       const efforts = Array.isArray(response.data) ? response.data : [];
-      efforts.forEach((effort) => {
+      efforts.forEach(effort => {
         if (effort?.start_date) {
-          completions.add(effort.start_date);
+          completionDates.push(effort.start_date);
+        } else if (effort?.start_date_local) {
+          completionDates.push(effort.start_date_local);
         }
       });
 
-      if (efforts.length < perPage) {
+      console.log(`Segment ${segmentId}: fetched ${efforts.length} efforts on page ${page}`);
+
+      if (efforts.length < per_page || efforts.length === 0) {
         break;
       }
 
       page += 1;
-      await sleep(200);
+      await sleep(750);
+    } catch (error) {
+      console.error(`Error fetching efforts for segment ${segmentId}:`, error.response ? error.response.data : error.message);
+
+      if (error.isRateLimit) {
+        error.statusCode = error.statusCode || error.response?.status || 503;
+        throw error;
+      }
+
+      break;
     }
-
-    const completionList = Array.from(completions.values()).sort();
-    const normalizedEntry = {
-      id: segmentId,
-      name: segment.name || `Segment ${segmentId}`,
-      completions: completionList,
-      count: completionList.length,
-      totalCount: completionList.length,
-    };
-
-    segmentCache.set(cacheKey, normalizedEntry);
-    results.push(normalizedEntry);
   }
 
-  return results;
+  return completionDates;
 }
 
-function calculateTotals(activities = []) {
-  return activities.reduce((acc, activity) => {
-    if (!activity || typeof activity !== 'object') {
-      return acc;
-    }
-
-    const movingTime = Number(activity.moving_time ?? 0);
-    const distance = Number(activity.distance ?? 0);
-    const elevation = Number(activity.total_elevation_gain ?? 0);
-
-    acc.hours += Number.isFinite(movingTime) ? movingTime / 3600 : 0;
-    acc.distance += Number.isFinite(distance) ? distance : 0;
-    acc.elevation += Number.isFinite(elevation) ? elevation : 0;
-    acc.calories += calculateActivityCalories(activity);
-    return acc;
-  }, {
+// Function to calculate totals from activities
+function calculateTotals(activities) {
+  let totals = {
     hours: 0,
-    distance: 0,
-    elevation: 0,
-    calories: 0,
-  });
-}
-
-function calculateActivityCalories(activity = {}) {
-  const movingTimeSeconds = Number(activity.moving_time ?? 0);
-  const hours = movingTimeSeconds > 0 ? movingTimeSeconds / 3600 : 0;
-  const averageHeartRate = Number(activity.average_heartrate ?? activity.avg_heart_rate ?? activity.avg_heartrate ?? 0);
-
-  let estimate = 0;
-
-  if (hours > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
-    const heartRateEstimate = (190 / averageHeartRate) * hours * 800;
-    if (Number.isFinite(heartRateEstimate) && heartRateEstimate > 0) {
-      estimate = heartRateEstimate;
-    }
-  }
-
-  if (estimate <= 0) {
-    const calories = Number(activity.calories ?? 0);
-    if (Number.isFinite(calories) && calories > 0) {
-      estimate = calories;
-    }
-  }
-
-  if (estimate <= 0) {
-    const kilojoules = Number(activity.kilojoules ?? 0);
-    if (Number.isFinite(kilojoules) && kilojoules > 0) {
-      estimate = kilojoules / 4.184;
-    }
-  }
-
-  const scaled = estimate > 0 ? estimate * CALORIE_SCALE_FACTOR : 0;
-  return Number.isFinite(scaled) && scaled > 0 ? scaled : 0;
-}
-
-function getActivityLikesCount(activity = {}) {
-  const likesValue = Number(activity.kudos_count ?? activity.likes ?? 0);
-  return Number.isFinite(likesValue) ? likesValue : 0;
-}
-
-function computeActivitySmallStats(activity = {}) {
-  const distance = Number(activity.distance ?? 0);
-  const elevation = Number(activity.total_elevation_gain ?? 0);
-  const distanceKm = Number.isFinite(distance) ? distance / 1000 : 0;
-  const elevationGain = Number.isFinite(elevation) ? elevation : 0;
-  const calories = calculateActivityCalories(activity);
-
-  return {
-    distanceKm,
-    elevationGain,
-    calories,
-    globeTrips: distanceKm / EARTH_CIRCUMFERENCE_KM,
-    everestSummits: elevationGain / EVEREST_HEIGHT_M,
-    pizzaCount: calories / PIZZA_KCAL,
-    likes: getActivityLikesCount(activity),
+    distance: 0, // in meters
+    elevation: 0, // in meters
+    calories: 0, // in kilojoules or as per Strava's data
+    activities: activities.length,
   };
-}
 
-function getActivityCoinRewards(activity = {}) {
-  const rewards = [];
-  const type = String(activity.type || '').toUpperCase();
-  const stats = computeActivitySmallStats(activity);
-
-  const runRules = COIN_RULES.RUN;
-  if (runRules && type === 'RUN') {
-    runRules.forEach((rule) => {
-      if (stats.distanceKm >= rule.threshold) {
-        rewards.push(rule.emoji);
-      }
-    });
-  }
-
-  const rideRules = COIN_RULES.RIDE;
-  if (rideRules && type === 'RIDE') {
-    rideRules.forEach((rule) => {
-      if (stats.distanceKm >= rule.threshold) {
-        rewards.push(rule.emoji);
-      }
-    });
-  }
-
-  const elevationRules = COIN_RULES.ELEVATION;
-  if (elevationRules && stats.elevationGain >= 0) {
-    elevationRules.forEach((rule) => {
-      if (stats.elevationGain >= rule.threshold) {
-        rewards.push(rule.emoji);
-      }
-    });
-  }
-
-  const kcalRules = COIN_RULES.KCAL;
-  if (kcalRules && stats.calories >= 0) {
-    kcalRules.forEach((rule) => {
-      if (stats.calories >= rule.threshold) {
-        rewards.push(rule.emoji);
-      }
-    });
-  }
-
-  return rewards;
-}
-
-function applySegmentCoinRules(totalSegmentCompletions, breakdown) {
-  if (!Number.isFinite(totalSegmentCompletions) || totalSegmentCompletions <= 0) {
-    return;
-  }
-
-  SEGMENT_COIN_THRESHOLDS.forEach((rule) => {
-    if (totalSegmentCompletions >= rule.threshold && Object.prototype.hasOwnProperty.call(breakdown, rule.emoji)) {
-      breakdown[rule.emoji] += 1;
-    }
-  });
-}
-
-function calculateCoinSummary(activities = [], segments = []) {
-  const breakdown = COIN_EMOJIS.reduce((acc, emoji) => {
-    acc[emoji] = 0;
-    return acc;
-  }, {});
-
-  activities.forEach((activity) => {
-    const rewards = getActivityCoinRewards(activity);
-    rewards.forEach((emoji) => {
-      if (Object.prototype.hasOwnProperty.call(breakdown, emoji)) {
-        breakdown[emoji] += 1;
-      }
-    });
+  activities.forEach(activity => {
+    totals.hours += activity.moving_time / 3600;
+    totals.distance += activity.distance;
+    totals.elevation += activity.total_elevation_gain;
+    totals.calories += activity.estimated_calories || 0;
   });
 
-  const segmentCompletions = segments.reduce((sum, segment) => {
-    const count = Number(segment?.count ?? segment?.totalCount ?? 0);
-    return sum + (Number.isFinite(count) ? count : 0);
-  }, 0);
-  applySegmentCoinRules(segmentCompletions, breakdown);
-
-  const totalCoinValue = Object.entries(breakdown).reduce((sum, [emoji, count]) => {
-    return sum + (COIN_VALUE_MAP[emoji] || 0) * count;
-  }, 0);
-
-  const totalCount = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
-
-  return {
-    breakdown,
-    totalCoinValue,
-    totalCount,
-  };
+  return totals;
 }
 
-function isSpecialMedalDate(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    return false;
+function buildActivityKey(activity = {}) {
+  if (activity == null || typeof activity !== 'object') {
+    return null;
   }
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return SPECIAL_MEDAL_DATES.has(`${month}-${day}`);
+
+  if (activity.id !== undefined && activity.id !== null) {
+    return `id:${String(activity.id)}`;
+  }
+
+  const type = activity.type || 'unknown';
+  const startDate = activity.start_date || activity.start_date_local || 'unknown';
+  const distance = Number.isFinite(Number(activity.distance)) ? Number(activity.distance).toFixed(2) : '0';
+  const movingTime = Number.isFinite(Number(activity.moving_time)) ? Number(activity.moving_time).toFixed(0) : '0';
+  const name = activity.name || 'activity';
+
+  return `${type}|${name}|${startDate}|${distance}|${movingTime}`;
 }
 
-function calculateMedalCount(activities = []) {
-  let totalMedals = 0;
+function mergeActivities(existingActivities = [], incomingActivities = []) {
+  const mergedMap = new Map();
 
-  activities.forEach((activity) => {
+  const addActivity = (activity) => {
     if (!activity || typeof activity !== 'object') {
       return;
     }
 
-    const stats = computeActivitySmallStats(activity);
-    const medalsForActivity = new Set();
+    const key = buildActivityKey(activity);
+    const baseActivity = { ...activity };
 
-    if (stats.distanceKm >= 21) {
-      medalsForActivity.add('half-marathon');
+    if (key) {
+      const current = mergedMap.get(key);
+      mergedMap.set(key, current ? { ...current, ...baseActivity } : baseActivity);
+    } else {
+      mergedMap.set(`fallback-${mergedMap.size}-${Math.random()}`, baseActivity);
     }
-    if (stats.distanceKm >= 42) {
-      medalsForActivity.add('marathon');
-    }
-    if (stats.elevationGain >= 3000) {
-      medalsForActivity.add('high-elevation');
-    }
-    if (stats.calories >= 3000) {
-      medalsForActivity.add('calorie-burner');
-    }
-    if (stats.likes >= 100) {
-      medalsForActivity.add('community-star');
-    }
-    if (isSpecialMedalDate(new Date(activity.start_date))) {
-      medalsForActivity.add('special-day');
-    }
+  };
 
-    totalMedals += medalsForActivity.size;
-  });
+  existingActivities.forEach(addActivity);
+  incomingActivities.forEach(addActivity);
 
-  return totalMedals;
+  return Array.from(mergedMap.values());
 }
 
-function normalizeActivities(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
+function mergeSegments(existingSegments = [], incomingSegments = []) {
+  const segmentMap = new Map();
 
-  const map = new Map();
-
-  value.forEach((activity) => {
-    if (!activity || typeof activity !== 'object') {
-      return;
-    }
-
-    const key = activity.id ?? activity.external_id ?? `${activity.start_date ?? ''}:${activity.name ?? ''}:${map.size}`;
-    const normalizedKey = String(key);
-    const existing = map.get(normalizedKey) || {};
-    map.set(normalizedKey, { ...existing, ...activity });
-  });
-
-  return Array.from(map.values());
-}
-
-function normalizeSegments(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const map = new Map();
-
-  value.forEach((segment) => {
+  const addSegment = (segment) => {
     if (!segment || typeof segment !== 'object') {
       return;
     }
 
-    const key = segment.id ?? segment.segment_id ?? segment.name ?? `segment-${map.size}`;
-    const normalizedKey = String(key);
-    const existing = map.get(normalizedKey) || {};
-
-    const completions = new Set();
-    const existingCompletions = Array.isArray(existing.completions) ? existing.completions : [];
-    const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
-    existingCompletions.forEach(valueItem => completions.add(valueItem));
-    incomingCompletions.forEach(valueItem => completions.add(valueItem));
-
-    const count = Number(segment.count ?? existing.count ?? completions.size);
-    const totalCount = Number(segment.totalCount ?? existing.totalCount ?? completions.size);
-
-    map.set(normalizedKey, {
-      id: segment.id ?? existing.id ?? null,
-      name: segment.name ?? existing.name ?? normalizedKey,
-      completions: Array.from(completions.values()),
-      count: Number.isFinite(count) ? count : completions.size,
-      totalCount: Number.isFinite(totalCount) ? totalCount : completions.size,
-    });
-  });
-
-  return Array.from(map.values());
-}
-
-function normalizePageInfo(value) {
-  if (!value || typeof value !== 'object') {
-    return {
-      startPage: null,
-      requestedPageCount: null,
-      fetchedPages: null,
-      perPage: null,
-      lastPageSize: null,
-      hasMore: null,
-      nextPageStart: null,
+    const key = segment.name || String(segment.id ?? segment.segment_id ?? segment.slug ?? segmentMap.size);
+    const existingEntry = segmentMap.get(key) || {
+      name: segment.name || key,
+      completions: [],
+      count: 0,
+      totalCount: 0,
     };
-  }
 
-  const toNumberOrNull = (input) => {
-    const parsed = Number(input);
-    return Number.isFinite(parsed) ? parsed : null;
+    const completions = Array.isArray(existingEntry.completions) ? existingEntry.completions : [];
+    const incomingCompletions = Array.isArray(segment.completions) ? segment.completions : [];
+    const combinedCompletions = Array.from(new Set([...completions, ...incomingCompletions]));
+
+    const resolvedCount = Number.isFinite(Number(segment.count)) ? Number(segment.count) : combinedCompletions.length;
+    const resolvedTotalCount = Number.isFinite(Number(segment.totalCount)) ? Number(segment.totalCount) : combinedCompletions.length;
+
+    segmentMap.set(key, {
+      name: existingEntry.name || segment.name || key,
+      completions: combinedCompletions,
+      count: Math.max(combinedCompletions.length, existingEntry.count || 0, resolvedCount),
+      totalCount: Math.max(resolvedTotalCount, existingEntry.totalCount || 0, combinedCompletions.length),
+    });
   };
 
-  return {
-    startPage: toNumberOrNull(value.startPage),
-    requestedPageCount: toNumberOrNull(value.requestedPageCount),
-    fetchedPages: toNumberOrNull(value.fetchedPages),
-    perPage: toNumberOrNull(value.perPage),
-    lastPageSize: toNumberOrNull(value.lastPageSize),
-    hasMore: typeof value.hasMore === 'boolean' ? value.hasMore : null,
-    nextPageStart: toNumberOrNull(value.nextPageStart),
-  };
-}
+  existingSegments.forEach(addSegment);
+  incomingSegments.forEach(addSegment);
 
-function calculateDerivedTotals(activities, segments, existingTotals = {}) {
-  const basicTotals = calculateTotals(activities);
-  const coinSummary = calculateCoinSummary(activities, segments);
-  const medalCount = calculateMedalCount(activities);
-
-  const pizzas = basicTotals.calories > 0 ? basicTotals.calories / PIZZA_KCAL : 0;
-  const worldTrips = basicTotals.distance > 0
-    ? (basicTotals.distance / 1000) / EARTH_CIRCUMFERENCE_KM
-    : 0;
-  const everestSummits = basicTotals.elevation > 0
-    ? basicTotals.elevation / EVEREST_HEIGHT_M
-    : 0;
-
-  const medalValue = medalCount * MEDAL_DOLLAR_VALUE;
-  const walletBalance = coinSummary.totalCoinValue + medalValue;
-
-  return {
-    ...existingTotals,
-    ...basicTotals,
-    coins: coinSummary.breakdown,
-    coinCount: coinSummary.totalCount,
-    coinValue: coinSummary.totalCoinValue,
-    medalCount,
-    medalValue,
-    walletBalance,
-    totalHaulValue: walletBalance,
-    pizzas,
-    pizzaCoins: pizzas,
-    worldTrips,
-    everestSummits,
-  };
-}
-
-function normalizeSnapshotPayload(payload = {}) {
-  const athlete = payload && typeof payload.athlete === 'object' ? payload.athlete : {};
-  const activities = normalizeActivities(payload.activities);
-  const segments = normalizeSegments(payload.segments);
-
-  const totals = calculateDerivedTotals(activities, segments, payload.totals);
-
-  return {
-    athlete,
-    activities,
-    segments,
-    totals,
-    hasMore: Boolean(payload.hasMore),
-    pageInfo: normalizePageInfo(payload.pageInfo),
-  };
-}
-
-function recalculateSnapshotTotals(payload = {}) {
-  return normalizeSnapshotPayload(payload);
-}
-
-function mergeSnapshotPayload(existing = {}, incoming = {}) {
-  const normalizedExisting = normalizeSnapshotPayload(existing);
-  const normalizedIncoming = normalizeSnapshotPayload(incoming);
-
-  const mergedActivities = normalizeActivities([
-    ...normalizedExisting.activities,
-    ...normalizedIncoming.activities,
-  ]);
-
-  const mergedSegments = normalizeSegments([
-    ...normalizedExisting.segments,
-    ...normalizedIncoming.segments,
-  ]);
-
-  return normalizeSnapshotPayload({
-    ...normalizedExisting,
-    ...normalizedIncoming,
-    activities: mergedActivities,
-    segments: mergedSegments,
-    hasMore: normalizedIncoming.hasMore ?? normalizedExisting.hasMore,
-    pageInfo: {
-      ...normalizedExisting.pageInfo,
-      ...normalizedIncoming.pageInfo,
-    },
-  });
+  return Array.from(segmentMap.values()).map(segment => ({
+    ...segment,
+    count: Array.isArray(segment.completions) ? segment.completions.length : Number(segment.count) || 0,
+    totalCount: Math.max(Number(segment.totalCount) || 0, Array.isArray(segment.completions) ? segment.completions.length : 0),
+  }));
 }
 
 function isValidSnapshotPayload(payload) {
@@ -1144,116 +844,363 @@ function isValidSnapshotPayload(payload) {
     return false;
   }
 
+  if (payload.error) {
+    return false;
+  }
+
   if ('activities' in payload && !Array.isArray(payload.activities)) {
-    return false;
-  }
-
-  if ('segments' in payload && !Array.isArray(payload.segments)) {
-    return false;
-  }
-
-  if ('totals' in payload && (payload.totals === null || typeof payload.totals !== 'object')) {
     return false;
   }
 
   return true;
 }
 
-function resolveAthleteName(athlete = {}) {
-  const parts = [athlete.firstname, athlete.lastname]
-    .map(part => (typeof part === 'string' ? part.trim() : ''))
-    .filter(Boolean);
+function mergeSnapshotPayload(existingPayload = {}, incomingPayload = {}) {
+  const existingActivities = Array.isArray(existingPayload.activities) ? existingPayload.activities : [];
+  const incomingActivities = Array.isArray(incomingPayload.activities) ? incomingPayload.activities : [];
+  const mergedActivities = mergeActivities(existingActivities, incomingActivities);
 
-  if (parts.length > 0) {
-    return parts.join(' ');
+  const mergedSegments = mergeSegments(existingPayload.segments, incomingPayload.segments);
+
+  const mergedTotals = calculateTotals(mergedActivities);
+
+  const existingPageInfo = existingPayload.pageInfo || {};
+  const incomingPageInfo = incomingPayload.pageInfo || {};
+
+  const hasMore = Boolean(
+    incomingPageInfo.hasMore ?? incomingPayload.hasMore ?? existingPageInfo.hasMore ?? existingPayload.hasMore ?? false,
+  );
+
+  const resolvedNextPageStart = Number.isFinite(incomingPageInfo.nextPageStart)
+    ? incomingPageInfo.nextPageStart
+    : (hasMore && Number.isFinite(existingPageInfo.nextPageStart) ? existingPageInfo.nextPageStart : null);
+
+  const mergedPageInfo = {
+    ...existingPageInfo,
+    ...incomingPageInfo,
+    hasMore,
+    nextPageStart: Number.isFinite(resolvedNextPageStart) ? resolvedNextPageStart : null,
+    startPage: Math.min(
+      Number.isFinite(existingPageInfo.startPage) ? existingPageInfo.startPage : Number.POSITIVE_INFINITY,
+      Number.isFinite(incomingPageInfo.startPage) ? incomingPageInfo.startPage : Number.POSITIVE_INFINITY,
+    ),
+    fetchedPages: Math.max(
+      Number(existingPageInfo.fetchedPages) || 0,
+      Number(incomingPageInfo.fetchedPages) || 0,
+    ),
+    perPage: Number.isFinite(incomingPageInfo.perPage)
+      ? incomingPageInfo.perPage
+      : (Number.isFinite(existingPageInfo.perPage) ? existingPageInfo.perPage : undefined),
+  };
+
+  if (!Number.isFinite(mergedPageInfo.startPage)) {
+    delete mergedPageInfo.startPage;
   }
 
-  if (athlete.username) {
-    return String(athlete.username).trim();
-  }
+  const mergedPayload = {
+    ...existingPayload,
+    ...incomingPayload,
+    athlete: {
+      ...(existingPayload.athlete || {}),
+      ...(incomingPayload.athlete || {}),
+    },
+    activities: mergedActivities,
+    segments: mergedSegments,
+    totals: {
+      ...(existingPayload.totals || {}),
+      ...(incomingPayload.totals || {}),
+      ...mergedTotals,
+    },
+    hasMore,
+    pageInfo: mergedPageInfo,
+  };
 
-  if (athlete.id) {
-    return `Athlete ${athlete.id}`;
-  }
+  mergedPayload.totals.activities = mergedActivities.length;
 
-  return 'Athlete';
+  return mergedPayload;
 }
 
-function resolveRankForHours(totalHours) {
-  let resolved = BASE_RANKS[0];
+function recalculateSnapshotTotals(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
 
-  for (const rank of BASE_RANKS) {
-    if (totalHours >= rank.minHours) {
-      resolved = rank;
+  const activities = Array.isArray(payload.activities) ? payload.activities : [];
+  const recalculatedTotals = calculateTotals(activities);
+
+  return {
+    ...payload,
+    totals: {
+      ...(payload.totals || {}),
+      ...recalculatedTotals,
+    },
+  };
+}
+
+function calculateActivityCalories(activity = {}) {
+  const movingTimeSeconds = Number(activity.moving_time) || 0;
+  const hours = movingTimeSeconds / 3600;
+  const averageHeartRate = activity.average_heartrate
+    ?? activity.avg_heart_rate
+    ?? activity.avg_heartrate
+    ?? null;
+
+  let estimate = 0;
+
+  if (hours > 0 && Number.isFinite(averageHeartRate) && averageHeartRate > 0) {
+    const calories = (190 / averageHeartRate) * hours * 800;
+    if (Number.isFinite(calories) && calories > 0) {
+      estimate = calories;
     }
   }
 
-  if (totalHours >= MASTER_PRESTIGE_START_HOURS) {
-    const prestigeSpan = Math.max(1, MAX_RANK_HOURS - MASTER_PRESTIGE_START_HOURS);
-    const hoursIntoPrestige = Math.max(0, totalHours - MASTER_PRESTIGE_START_HOURS);
-    const progress = Math.min(1, hoursIntoPrestige / prestigeSpan);
-    const prestigeIndex = Math.min(
-      MASTER_PRESTIGE_MAX - 1,
-      Math.floor(progress * (MASTER_PRESTIGE_MAX - 1)),
-    );
-
-    return {
-      name: `Master Prestige ${prestigeIndex + 1}`,
-      emoji: '⭐',
-      minHours: MASTER_PRESTIGE_START_HOURS + (prestigeSpan / Math.max(1, MASTER_PRESTIGE_MAX - 1)) * prestigeIndex,
-    };
+  const reportedCalories = Number(activity.calories);
+  if (estimate <= 0 && Number.isFinite(reportedCalories) && reportedCalories > 0) {
+    estimate = reportedCalories;
   }
 
-  return resolved;
+  const kilojoules = Number(activity.kilojoules);
+  if (estimate <= 0 && Number.isFinite(kilojoules) && kilojoules > 0) {
+    estimate = kilojoules / 4.184;
+  }
+
+  const scaledEstimate = estimate > 0 ? estimate * CALORIE_SCALE_FACTOR : 0;
+  return Number.isFinite(scaledEstimate) && scaledEstimate > 0 ? scaledEstimate : 0;
 }
 
-function buildLeaderboardSummary(payload = {}) {
-  const normalized = normalizeSnapshotPayload(payload);
-  const totals = normalized.totals || {};
-  const totalHours = Number(totals.hours) || 0;
-  const levelCap = MASTER_PRESTIGE_MAX;
-  const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
-  const level = Math.max(0, Math.min(levelCap, Math.floor(totalHours / hoursPerLevel)));
-  const rank = resolveRankForHours(totalHours);
+function getWeekKey(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
 
-  const coinBreakdown = COIN_EMOJIS.reduce((acc, emoji) => {
-    const value = Number(normalized.totals?.coins?.[emoji]);
-    acc[emoji] = Number.isFinite(value) ? value : 0;
+  const weekStart = new Date(date);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  return weekStart.toISOString().slice(0, 10);
+}
+
+function getMonthKey(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+}
+
+function computeLeaderboardMetrics(activities = []) {
+  const totals = {
+    hours: 0,
+    distanceMeters: 0,
+    elevationGain: 0,
+    calories: 0,
+  };
+
+  const runDistances = [];
+  const rideDistances = [];
+  const elevationPerActivity = [];
+  const caloriesPerActivity = [];
+
+  const runWeekly = new Map();
+  const rideWeekly = new Map();
+  const elevationWeekly = new Map();
+  const elevationMonthly = new Map();
+  const weeklyCalories = new Map();
+
+  activities.forEach(activity => {
+    if (!activity || typeof activity !== 'object') {
+      return;
+    }
+
+    const distanceMeters = Number(activity.distance) || 0;
+    const elevationGain = Number(activity.total_elevation_gain) || 0;
+    const movingTime = Number(activity.moving_time) || 0;
+    const calories = calculateActivityCalories(activity);
+
+    if (movingTime > 0) {
+      totals.hours += movingTime / 3600;
+    }
+    if (distanceMeters > 0) {
+      totals.distanceMeters += distanceMeters;
+    }
+    if (elevationGain > 0) {
+      totals.elevationGain += elevationGain;
+      elevationPerActivity.push(elevationGain);
+    }
+    if (calories > 0) {
+      totals.calories += calories;
+      caloriesPerActivity.push(calories);
+    }
+
+    const startDate = activity.start_date || activity.start_date_local;
+    const parsedDate = startDate ? new Date(startDate) : null;
+    const weekKey = parsedDate ? getWeekKey(parsedDate) : null;
+    const monthKey = parsedDate ? getMonthKey(parsedDate) : null;
+    const distanceKm = distanceMeters / 1000;
+    const normalizedType = (activity.type || '').toUpperCase();
+
+    if (normalizedType === 'RUN' && distanceKm > 0) {
+      runDistances.push(distanceKm);
+      if (weekKey) {
+        runWeekly.set(weekKey, (runWeekly.get(weekKey) || 0) + distanceKm);
+      }
+    }
+
+    if (normalizedType === 'RIDE' && distanceKm > 0) {
+      rideDistances.push(distanceKm);
+      if (weekKey) {
+        rideWeekly.set(weekKey, (rideWeekly.get(weekKey) || 0) + distanceKm);
+      }
+    }
+
+    if (elevationGain > 0) {
+      if (weekKey) {
+        elevationWeekly.set(weekKey, (elevationWeekly.get(weekKey) || 0) + elevationGain);
+      }
+      if (monthKey) {
+        elevationMonthly.set(monthKey, (elevationMonthly.get(monthKey) || 0) + elevationGain);
+      }
+    }
+
+    if (calories > 0 && weekKey) {
+      weeklyCalories.set(weekKey, (weeklyCalories.get(weekKey) || 0) + calories);
+    }
+  });
+
+  const coinTotals = COIN_EMOJIS.reduce((acc, emoji) => {
+    acc[emoji] = 0;
     return acc;
   }, {});
 
-  const coins = Object.values(coinBreakdown).reduce((sum, count) => sum + count, 0);
-  const coinValue = Object.entries(coinBreakdown).reduce((sum, [emoji, count]) => {
-    return sum + (COIN_VALUE_MAP[emoji] || 0) * count;
-  }, 0);
+  const addCoins = (emoji, count) => {
+    if (!Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    coinTotals[emoji] += count;
+  };
 
-  const medals = Number.isFinite(Number(totals.medalCount)) ? Number(totals.medalCount) : 0;
-  const pizzas = Number.isFinite(Number(totals.pizzas)) ? Number(totals.pizzas) : 0;
-  const worldTrips = Number.isFinite(Number(totals.worldTrips)) ? Number(totals.worldTrips) : 0;
-  const everestSummits = Number.isFinite(Number(totals.everestSummits)) ? Number(totals.everestSummits) : 0;
-  const walletBalance = Number.isFinite(Number(totals.walletBalance)) ? Number(totals.walletBalance) : coinValue + (medals * MEDAL_DOLLAR_VALUE);
-  const totalHaulValue = Number.isFinite(Number(totals.totalHaulValue)) ? Number(totals.totalHaulValue) : walletBalance;
+  const runWeeklyValues = Array.from(runWeekly.values());
+  addCoins('💲', runDistances.filter(distance => distance >= 10).length);
+  addCoins('💰', runDistances.filter(distance => distance >= 21).length);
+  addCoins('🧈', runDistances.filter(distance => distance >= 42).length);
+  addCoins('💎', runWeeklyValues.filter(total => total >= 50).length);
+  addCoins('👑', runWeeklyValues.filter(total => total >= 100).length);
+
+  const rideWeeklyValues = Array.from(rideWeekly.values());
+  addCoins('💲', rideDistances.filter(distance => distance >= 100).length);
+  addCoins('💰', rideDistances.filter(distance => distance >= 150).length);
+  addCoins('🧈', rideDistances.filter(distance => distance >= 200).length);
+  addCoins('💎', rideWeeklyValues.filter(total => total >= 300).length);
+  addCoins('👑', rideWeeklyValues.filter(total => total >= 600).length);
+
+  const elevationWeeklyValues = Array.from(elevationWeekly.values());
+  const elevationMonthlyValues = Array.from(elevationMonthly.values());
+  addCoins('💲', elevationPerActivity.filter(gain => gain >= 1000).length);
+  addCoins('💰', elevationPerActivity.filter(gain => gain >= 2000).length);
+  addCoins('🧈', elevationPerActivity.filter(gain => gain >= 4424).length);
+  addCoins('👑', elevationWeeklyValues.filter(total => total >= 10000).length);
+  addCoins('💎', elevationMonthlyValues.filter(total => total >= 25000).length);
+
+  const weeklyCaloriesValues = Array.from(weeklyCalories.values());
+  addCoins('💲', caloriesPerActivity.filter(value => value >= 1000).length);
+  addCoins('💰', caloriesPerActivity.filter(value => value >= 2000).length);
+  addCoins('🧈', caloriesPerActivity.filter(value => value >= 4000).length);
+  addCoins('💎', caloriesPerActivity.filter(value => value >= 7500).length);
+  addCoins('👑', caloriesPerActivity.filter(value => value >= 8000).length);
+  addCoins('💎', weeklyCaloriesValues.filter(total => total >= 12000).length);
+  addCoins('👑', weeklyCaloriesValues.filter(total => total >= 24000).length);
+
+  const totalDistanceKm = totals.distanceMeters / 1000;
+  const worldTrips = totalDistanceKm > 0 ? totalDistanceKm / EARTH_CIRCUMFERENCE_KM : 0;
+  const everestSummits = totals.elevationGain > 0 ? totals.elevationGain / EVEREST_HEIGHT_M : 0;
+  const pizzas = totals.calories > 0 ? totals.calories / PIZZA_KCAL : 0;
 
   return {
-    userId: normalized.athlete?.id ? String(normalized.athlete.id) : '',
-    displayName: resolveAthleteName(normalized.athlete),
-    level,
-    emoji: rank?.emoji || '',
-    coins,
-    totalHaulValue,
-    pizzaCoins: pizzas,
-    medals,
-    walletBalance,
-    dollars: walletBalance,
+    totals,
     worldTrips,
     everestSummits,
     pizzas,
-    coinBreakdown,
+    coinTotals,
+  };
+}
+
+function buildLeaderboardSummary(payload = {}) {
+  const athlete = payload.athlete || {};
+  const totals = payload.totals || {};
+  const userId = athlete.id !== undefined && athlete.id !== null ? String(athlete.id) : '';
+
+  const nameParts = [athlete.firstname, athlete.lastname]
+    .map(part => (part && String(part).trim()) || '')
+    .filter(Boolean);
+  const displayName = nameParts.join(' ') || athlete.username || userId || 'Unknown Athlete';
+
+  const activities = Array.isArray(payload.activities) ? payload.activities : [];
+  const derivedMetrics = computeLeaderboardMetrics(activities);
+
+  const totalHours = derivedMetrics.totals.hours > 0
+    ? derivedMetrics.totals.hours
+    : (Number.isFinite(Number(totals.hours)) ? Number(totals.hours) : 0);
+  const totalDistanceKm = derivedMetrics.totals.distanceMeters > 0
+    ? derivedMetrics.totals.distanceMeters / 1000
+    : (Number.isFinite(Number(totals.distance)) ? Number(totals.distance) / 1000 : 0);
+  const levelCap = 1000;
+  const maxRankHours = 20000;
+  const hoursPerLevel = levelCap > 0 ? maxRankHours / levelCap : maxRankHours;
+  const level = hoursPerLevel > 0 ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap) : 0;
+
+  const totalCalories = derivedMetrics.totals.calories > 0
+    ? derivedMetrics.totals.calories
+    : (Number.isFinite(Number(totals.calories)) ? Number(totals.calories) : 0);
+
+  const coinTotals = derivedMetrics.coinTotals;
+  const coins = Object.values(coinTotals).reduce((sum, count) => sum + (Number(count) || 0), 0);
+  const dollars = Math.max(0, Math.round(totalHours * 10));
+
+  const emojiBands = [
+    { threshold: 200, emoji: '👑' },
+    { threshold: 100, emoji: '💎' },
+    { threshold: 50, emoji: '🧈' },
+    { threshold: 25, emoji: '💰' },
+    { threshold: 0, emoji: '💲' },
+  ];
+
+  const emoji = emojiBands.find(band => coins >= band.threshold)?.emoji || '💲';
+
+  const pizzaCoins = Math.max(0, Math.round(totalCalories / PIZZA_KCAL));
+
+  const medalCount = Array.isArray(payload.activities)
+    ? payload.activities.reduce((sum, activity) => sum + (Number(activity?.achievement_count) || 0), 0)
+    : 0;
+
+  const totalCoinValue = Object.entries(coinTotals).reduce((sum, [emoji, count]) => {
+    const coinValue = COIN_VALUE_MAP[emoji] || BASE_COIN_VALUE;
+    return sum + (coinValue * (Number(count) || 0));
+  }, 0);
+  const totalMedalValue = medalCount * MEDAL_DOLLAR_VALUE;
+  const totalHaulValue = dollars + totalCoinValue + totalMedalValue;
+  const walletBalance = totalCoinValue + totalMedalValue;
+
+  return {
+    userId,
+    displayName,
+    level,
+    dollars,
+    coins,
+    emoji,
+    totalHaulValue,
+    pizzaCoins,
+    medals: medalCount,
+    worldTrips: derivedMetrics.worldTrips,
+    everestSummits: derivedMetrics.everestSummits,
+    pizzas: derivedMetrics.pizzas,
+    walletBalance,
+    coinBreakdown: coinTotals,
   };
 }
 
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app;
+module.exports = app; // Ensure to export if using separately

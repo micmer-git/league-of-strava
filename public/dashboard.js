@@ -173,6 +173,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareFeedbackElement = document.getElementById('share-feedback');
     const shareCopyButtonLabel = shareCopyButton?.querySelector('span:last-child') || null;
     const shareCopyOriginalLabel = shareCopyButtonLabel?.textContent ?? '';
+    const profileRefreshButton = document.getElementById('profile-refresh');
+    const rankModalElement = document.getElementById('rank-modal');
+    const rankModalListElement = document.getElementById('rank-modal-list');
+    const rankModalCloseButton = document.getElementById('rank-modal-close');
+    const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
         month: document.getElementById('profile-wallet-change-month'),
@@ -721,6 +726,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let hasInitializedLoadingProgress = false;
     let isInitialLoadComplete = false;
     let hasCompletedInitialRender = false;
+    let rankProgressState = {
+        totalHours: 0,
+        currentRankIndex: 0,
+        currentRank: null,
+        nextRank: null,
+    };
+    let rankModalPreviouslyFocusedElement = null;
     const tooltipElement = document.createElement('div');
     tooltipElement.id = 'dashboard-tooltip';
     tooltipElement.className = 'tooltip-bubble hidden';
@@ -1152,57 +1164,170 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.setAttribute('aria-label', `${direction} of ${absoluteValue.toFixed(decimals)} percent over ${periodLabel}`);
     };
 
-    const formatPercentChangeLabel = (percentValue, periodLabel) => {
-        if (!Number.isFinite(percentValue)) {
-            return `— ${periodLabel}`;
+    const formatHoursDisplay = (hours) => {
+        if (!Number.isFinite(hours) || hours <= 0) {
+            return '0';
         }
-
-        const absoluteValue = Math.abs(percentValue);
-        const decimals = absoluteValue >= 100 ? 0 : 1;
-        const sign = percentValue > 0 ? '+' : percentValue < 0 ? '-' : '';
-        return `${sign}${absoluteValue.toFixed(decimals)}% · ${periodLabel}`;
+        if (hours >= 1000) {
+            return hours.toFixed(0);
+        }
+        if (hours >= 100) {
+            return hours.toFixed(0);
+        }
+        if (hours >= 10) {
+            return hours.toFixed(1);
+        }
+        return hours.toFixed(2);
     };
 
-    const updateWalletProgressBar = () => {
-        const monthChange = Number.isFinite(walletGrowthStats?.monthChangePct)
-            ? walletGrowthStats.monthChangePct
+    const updateRankProgressBar = () => {
+        const { totalHours, currentRank, nextRank } = rankProgressState;
+        const safeTotalHours = Number.isFinite(totalHours) ? totalHours : 0;
+        const currentMinHours = Number.isFinite(currentRank?.minHours) ? currentRank.minHours : 0;
+        const nextMinHours = Number.isFinite(nextRank?.minHours) ? nextRank.minHours : null;
+        const spanHours = Number.isFinite(nextMinHours) && nextMinHours > currentMinHours
+            ? nextMinHours - currentMinHours
             : null;
-        const walletTotal = Number.isFinite(walletGrowthStats?.currentTotal) && walletGrowthStats.currentTotal > 0
-            ? walletGrowthStats.currentTotal
-            : 0;
-
-        const isPositive = Number.isFinite(monthChange) && monthChange > 0;
-        const isNegative = Number.isFinite(monthChange) && monthChange < 0;
-        const progressPercent = Number.isFinite(monthChange)
-            ? Math.min(100, Math.abs(monthChange))
-            : 0;
+        const earnedWithinLevel = Math.max(0, safeTotalHours - currentMinHours);
+        const progressRatio = spanHours
+            ? Math.min(1, Math.max(0, earnedWithinLevel / spanHours))
+            : 1;
 
         if (rankingProgressElement) {
-            rankingProgressElement.style.width = `${progressPercent}%`;
-            rankingProgressElement.classList.toggle('is-negative', isNegative);
-            rankingProgressElement.classList.toggle('is-neutral', !isPositive && !isNegative);
-            rankingProgressElement.setAttribute('aria-valuenow', progressPercent.toFixed(0));
-            rankingProgressElement.setAttribute('aria-valuemin', '0');
-            rankingProgressElement.setAttribute('aria-valuemax', '100');
+            rankingProgressElement.style.width = `${(progressRatio * 100).toFixed(2)}%`;
+            rankingProgressElement.classList.remove('is-negative', 'is-neutral');
+            rankingProgressElement.setAttribute('aria-valuemin', currentMinHours.toFixed(1));
+            const maxValue = spanHours ? nextMinHours : safeTotalHours;
+            rankingProgressElement.setAttribute('aria-valuemax', Number.isFinite(maxValue) ? maxValue.toFixed(1) : safeTotalHours.toFixed(1));
+            rankingProgressElement.setAttribute('aria-valuenow', safeTotalHours.toFixed(1));
         }
 
         if (rankingProgressLabelElement) {
-            if (walletTotal > 0) {
-                const totalLabel = formatMillions(walletTotal);
-                rankingProgressLabelElement.textContent = totalLabel;
-                rankingProgressLabelElement.setAttribute('aria-label', `Total wallet value ${totalLabel}`);
-            } else {
-                rankingProgressLabelElement.textContent = 'Wallet inactive';
-                rankingProgressLabelElement.setAttribute('aria-label', 'Wallet inactive');
-            }
+            const label = `${formatHoursDisplay(safeTotalHours)} h`;
+            rankingProgressLabelElement.textContent = label;
+            rankingProgressLabelElement.setAttribute('aria-label', `Lifetime training ${label}`);
         }
 
         if (nextRankElement) {
-            nextRankElement.textContent = formatPercentChangeLabel(monthChange, '30d');
+            if (spanHours && nextRank) {
+                const hoursRemaining = Math.max(0, nextMinHours - safeTotalHours);
+                if (hoursRemaining <= 0.05) {
+                    nextRankElement.textContent = `Ready for ${nextRank.name}`;
+                } else {
+                    nextRankElement.textContent = `${formatHoursDisplay(hoursRemaining)} h to ${nextRank.name}`;
+                }
+            } else {
+                nextRankElement.textContent = 'Legendary — max rank';
+            }
         }
     };
 
-    updateWalletProgressBar();
+    updateRankProgressBar();
+
+    const renderRankModal = () => {
+        if (!rankModalListElement) {
+            return;
+        }
+
+        const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
+        rankModalListElement.innerHTML = '';
+
+        if (config.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
+            emptyState.className = 'rank-modal__empty';
+            emptyState.setAttribute('role', 'note');
+            rankModalListElement.appendChild(emptyState);
+            return;
+        }
+
+        const currentIndex = Number.isInteger(rankProgressState.currentRankIndex)
+            ? rankProgressState.currentRankIndex
+            : 0;
+
+        config.forEach((rank, index) => {
+            const item = document.createElement('div');
+            item.className = 'rank-modal__item';
+            item.setAttribute('role', 'listitem');
+
+            const isCurrent = index === currentIndex;
+
+            if (isCurrent) {
+                item.classList.add('is-current');
+                item.setAttribute('aria-current', 'true');
+            }
+
+            const statusMarkup = isCurrent
+                ? '<span class="rank-modal__status" aria-hidden="false">You are here</span>'
+                : '';
+
+            item.innerHTML = `
+                <span class="rank-modal__emoji" aria-hidden="true">${rank.emoji}</span>
+                <div class="rank-modal__name-group">
+                    <span class="rank-modal__name">${rank.name}</span>
+                    ${statusMarkup}
+                </div>
+                <span class="rank-modal__hours">≥ ${formatHoursDisplay(rank.minHours)} h</span>
+            `;
+
+            rankModalListElement.appendChild(item);
+        });
+    };
+
+    const closeRankModal = () => {
+        if (!rankModalElement || rankModalElement.hidden) {
+            return;
+        }
+
+        rankModalElement.hidden = true;
+        rankModalElement.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('rank-modal-open');
+        if (levelProgressElement) {
+            levelProgressElement.setAttribute('aria-expanded', 'false');
+        }
+
+        if (rankModalPreviouslyFocusedElement && typeof rankModalPreviouslyFocusedElement.focus === 'function') {
+            try {
+                rankModalPreviouslyFocusedElement.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to restore focus after closing rank modal:', error);
+            }
+        }
+        rankModalPreviouslyFocusedElement = null;
+    };
+
+    const openRankModal = () => {
+        if (!rankModalElement) {
+            return;
+        }
+
+        rankModalPreviouslyFocusedElement = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+
+        renderRankModal();
+
+        rankModalElement.hidden = false;
+        rankModalElement.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('rank-modal-open');
+        if (levelProgressElement) {
+            levelProgressElement.setAttribute('aria-expanded', 'true');
+        }
+
+        const currentItem = rankModalListElement?.querySelector('.rank-modal__item.is-current');
+        if (currentItem && typeof currentItem.scrollIntoView === 'function') {
+            currentItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+
+        const focusTarget = rankModalCloseButton || currentItem;
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            try {
+                focusTarget.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to focus rank modal control:', error);
+            }
+        }
+    };
 
     const formatDistance = (km) => {
         if (!Number.isFinite(km)) return '0.00 km';
@@ -2304,7 +2429,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeChartKey = nextChartKey || activeChartKey;
         renderWalletChart(activeChartKey);
 
-        updateWalletProgressBar();
+        updateRankProgressBar();
     };
 
     function calculateActivityCalories(activity = {}) {
@@ -5521,9 +5646,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+
+    if (rankModalDismissElements.length > 0) {
+        rankModalDismissElements.forEach((element) => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeRankModal();
+            });
+        });
+    }
+
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        if (weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
             hideWeeklySnapshotModal();
+            return;
+        }
+
+        if (rankModalElement && !rankModalElement.hidden) {
+            closeRankModal();
         }
     });
 
@@ -5915,14 +6059,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Ranking System ===
         let currentRank = rankConfig[0];
+        let currentRankIndex = 0;
 
         // Find the current rank
         for (let i = rankConfig.length - 1; i >= 0; i--) {
             if (totalHours >= rankConfig[i].minHours) {
                 currentRank = rankConfig[i];
+                currentRankIndex = i;
                 break;
             }
         }
+
+        const nextRank = currentRankIndex < rankConfig.length - 1
+            ? rankConfig[currentRankIndex + 1]
+            : null;
+
+        rankProgressState = {
+            totalHours: Number.isFinite(totalHours) ? totalHours : 0,
+            currentRankIndex,
+            currentRank,
+            nextRank,
+        };
+        updateRankProgressBar();
 
         // Update the ranking progress bar
         if (currentRankElement) {
@@ -6932,6 +7090,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updateToggleStates(null);
+
+    if (levelProgressElement) {
+        levelProgressElement.setAttribute('tabindex', '0');
+        levelProgressElement.setAttribute('role', 'button');
+        levelProgressElement.setAttribute('aria-haspopup', 'dialog');
+        levelProgressElement.setAttribute('aria-expanded', 'false');
+
+        const triggerRankModal = () => {
+            if (rankModalElement && !rankModalElement.hidden) {
+                return;
+            }
+            openRankModal();
+        };
+
+        levelProgressElement.addEventListener('click', () => {
+            triggerRankModal();
+        });
+
+        levelProgressElement.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                triggerRankModal();
+            }
+        });
+    } else {
+        console.warn("'level-progress' element not found in the DOM.");
+    }
+
+    if (profileRefreshButton) {
+        profileRefreshButton.addEventListener('click', async () => {
+            if (isFetchingActivities) {
+                return;
+            }
+
+            profileRefreshButton.classList.add('is-loading');
+            profileRefreshButton.setAttribute('aria-busy', 'true');
+            profileRefreshButton.disabled = true;
+            showSpinner();
+
+            try {
+                await fetchData({ forceRefresh: true });
+                if (leaderboardBody) {
+                    await loadLeaderboard();
+                }
+            } finally {
+                profileRefreshButton.classList.remove('is-loading');
+                profileRefreshButton.removeAttribute('aria-busy');
+                profileRefreshButton.disabled = false;
+                if (document.body.contains(profileRefreshButton)) {
+                    try {
+                        profileRefreshButton.focus({ preventScroll: true });
+                    } catch (error) {
+                        console.warn('Unable to restore focus after data refresh:', error);
+                    }
+                }
+            }
+        });
+    } else {
+        console.warn("'profile-refresh' element not found in the DOM.");
+    }
 
     if (loadMoreButton) {
         if (isSharedView) {

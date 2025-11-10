@@ -284,10 +284,11 @@ app.get('/api/strava-data', async (req, res) => {
       if (storedSnapshot?.payload) {
         console.log(`Stored snapshot located for athlete ${userId} from ${storedSnapshot.timestamp}.`);
         const cacheTimestamp = Date.now();
-        userDataCache.set(cacheKey, storedSnapshot.payload);
+        const normalizedPayload = normalizeSnapshotPayload(storedSnapshot.payload);
+        userDataCache.set(cacheKey, normalizedPayload);
 
         return res.json({
-          ...storedSnapshot.payload,
+          ...normalizedPayload,
           cached: true,
           stale: false,
           stored: true,
@@ -353,7 +354,7 @@ app.get('/api/strava-data', async (req, res) => {
     const hasMore = Boolean(hasMoreFromStrava && !reachedConfiguredLimit);
     const nextPageStart = hasMore ? startPage + fetchedPages : null;
 
-    let responsePayload = {
+    let responsePayload = normalizeSnapshotPayload({
       athlete: athleteResponse.data,
       activities: allActivities,
       totals: totals,
@@ -368,7 +369,7 @@ app.get('/api/strava-data', async (req, res) => {
         hasMore,
         nextPageStart,
       },
-    };
+    });
 
     let mergedWithStoredSnapshot = false;
 
@@ -736,23 +737,41 @@ async function fetchSegmentEfforts(segmentId, accessToken) {
 }
 
 // Function to calculate totals from activities
-function calculateTotals(activities) {
-  let totals = {
+function calculateTotals(activities = []) {
+  return activities.reduce((totals, activity) => {
+    if (!activity || typeof activity !== 'object') {
+      return totals;
+    }
+
+    const movingTimeSeconds = Number(activity.moving_time);
+    if (Number.isFinite(movingTimeSeconds) && movingTimeSeconds > 0) {
+      totals.hours += movingTimeSeconds / 3600;
+    }
+
+    const distanceMeters = Number(activity.distance);
+    if (Number.isFinite(distanceMeters) && distanceMeters > 0) {
+      totals.distance += distanceMeters;
+    }
+
+    const elevationGain = Number(activity.total_elevation_gain);
+    if (Number.isFinite(elevationGain) && elevationGain > 0) {
+      totals.elevation += elevationGain;
+    }
+
+    const calories = calculateActivityCalories(activity);
+    if (Number.isFinite(calories) && calories > 0) {
+      totals.calories += calories;
+    }
+
+    totals.activities += 1;
+    return totals;
+  }, {
     hours: 0,
-    distance: 0, // in meters
-    elevation: 0, // in meters
-    calories: 0, // in kilojoules or as per Strava's data
-    activities: activities.length,
-  };
-
-  activities.forEach(activity => {
-    totals.hours += activity.moving_time / 3600;
-    totals.distance += activity.distance;
-    totals.elevation += activity.total_elevation_gain;
-    totals.calories += activity.estimated_calories || 0;
+    distance: 0,
+    elevation: 0,
+    calories: 0,
+    activities: 0,
   });
-
-  return totals;
 }
 
 function buildActivityKey(activity = {}) {
@@ -862,8 +881,6 @@ function mergeSnapshotPayload(existingPayload = {}, incomingPayload = {}) {
 
   const mergedSegments = mergeSegments(existingPayload.segments, incomingPayload.segments);
 
-  const mergedTotals = calculateTotals(mergedActivities);
-
   const existingPageInfo = existingPayload.pageInfo || {};
   const incomingPageInfo = incomingPayload.pageInfo || {};
 
@@ -906,35 +923,200 @@ function mergeSnapshotPayload(existingPayload = {}, incomingPayload = {}) {
     },
     activities: mergedActivities,
     segments: mergedSegments,
-    totals: {
-      ...(existingPayload.totals || {}),
-      ...(incomingPayload.totals || {}),
-      ...mergedTotals,
-    },
     hasMore,
     pageInfo: mergedPageInfo,
   };
 
-  mergedPayload.totals.activities = mergedActivities.length;
-
-  return mergedPayload;
+  return normalizeSnapshotPayload(mergedPayload);
 }
 
 function recalculateSnapshotTotals(payload = {}) {
-  if (!payload || typeof payload !== 'object') {
-    return payload;
+  return normalizeSnapshotPayload(payload);
+}
+
+function normalizeActivities(activities = []) {
+  if (!Array.isArray(activities)) {
+    return [];
   }
 
-  const activities = Array.isArray(payload.activities) ? payload.activities : [];
-  const recalculatedTotals = calculateTotals(activities);
+  return activities
+    .filter(activity => activity && typeof activity === 'object')
+    .map(activity => {
+      const normalized = { ...activity };
 
-  return {
+      const numericFieldsWithZeroFallback = [
+        'moving_time',
+        'distance',
+        'total_elevation_gain',
+      ];
+
+      numericFieldsWithZeroFallback.forEach(field => {
+        if (normalized[field] !== undefined) {
+          const value = Number(normalized[field]);
+          normalized[field] = Number.isFinite(value) && value >= 0 ? value : 0;
+        } else {
+          normalized[field] = 0;
+        }
+      });
+
+      const additionalNumericFields = [
+        'elapsed_time',
+        'average_speed',
+        'max_speed',
+        'average_heartrate',
+        'max_heartrate',
+        'average_watts',
+        'weighted_average_watts',
+        'kilojoules',
+        'calories',
+        'estimated_calories',
+        'suffer_score',
+        'achievement_count',
+      ];
+
+      additionalNumericFields.forEach(field => {
+        if (normalized[field] === undefined) {
+          return;
+        }
+        const value = Number(normalized[field]);
+        if (Number.isFinite(value) && value >= 0) {
+          normalized[field] = value;
+        } else {
+          delete normalized[field];
+        }
+      });
+
+      if (typeof normalized.achievement_count !== 'number') {
+        normalized.achievement_count = 0;
+      }
+
+      if (!normalized.start_date && typeof normalized.start_date_local === 'string') {
+        normalized.start_date = normalized.start_date_local;
+      }
+
+      if (typeof normalized.type !== 'string' && typeof normalized.sport_type === 'string') {
+        normalized.type = normalized.sport_type;
+      }
+
+      return normalized;
+    });
+}
+
+function normalizeSegments(segments = []) {
+  if (!Array.isArray(segments)) {
+    return [];
+  }
+
+  return segments
+    .filter(segment => segment && typeof segment === 'object')
+    .map(segment => {
+      const normalized = { ...segment };
+
+      const completions = Array.isArray(normalized.completions)
+        ? normalized.completions.filter(value => Boolean(value))
+        : [];
+      normalized.completions = Array.from(new Set(completions));
+
+      const count = Number(normalized.count);
+      normalized.count = Number.isFinite(count) && count >= 0
+        ? count
+        : normalized.completions.length;
+
+      const totalCountCandidate = normalized.totalCount ?? normalized.total_count;
+      const totalCount = Number(totalCountCandidate);
+      normalized.totalCount = Number.isFinite(totalCount) && totalCount >= 0
+        ? totalCount
+        : Math.max(normalized.count, normalized.completions.length);
+
+      return normalized;
+    });
+}
+
+function normalizePageInfo(pageInfo) {
+  if (!pageInfo || typeof pageInfo !== 'object') {
+    return undefined;
+  }
+
+  const normalized = { ...pageInfo };
+
+  ['startPage', 'requestedPageCount', 'fetchedPages', 'perPage', 'lastPageSize'].forEach(key => {
+    if (normalized[key] === undefined) {
+      return;
+    }
+    const value = Number(normalized[key]);
+    if (Number.isFinite(value)) {
+      normalized[key] = value;
+    } else {
+      delete normalized[key];
+    }
+  });
+
+  if (normalized.nextPageStart !== undefined) {
+    const nextPageStart = Number(normalized.nextPageStart);
+    if (Number.isFinite(nextPageStart)) {
+      normalized.nextPageStart = nextPageStart;
+    } else {
+      delete normalized.nextPageStart;
+    }
+  }
+
+  if (typeof normalized.hasMore !== 'boolean') {
+    delete normalized.hasMore;
+  }
+
+  return normalized;
+}
+
+function normalizeSnapshotPayload(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      athlete: {},
+      activities: [],
+      segments: [],
+      totals: {
+        hours: 0,
+        distance: 0,
+        elevation: 0,
+        calories: 0,
+        activities: 0,
+      },
+    };
+  }
+
+  const normalizedActivities = normalizeActivities(payload.activities);
+  const normalizedSegments = normalizeSegments(payload.segments);
+  const normalizedTotals = calculateTotals(normalizedActivities);
+  const normalizedPageInfo = normalizePageInfo(payload.pageInfo);
+
+  const normalizedPayload = {
     ...payload,
+    athlete: payload.athlete && typeof payload.athlete === 'object' ? { ...payload.athlete } : {},
+    activities: normalizedActivities,
+    segments: normalizedSegments,
     totals: {
-      ...(payload.totals || {}),
-      ...recalculatedTotals,
+      ...(payload.totals && typeof payload.totals === 'object' ? payload.totals : {}),
+      ...normalizedTotals,
     },
   };
+
+  normalizedPayload.totals.activities = normalizedActivities.length;
+
+  if (normalizedPageInfo) {
+    normalizedPayload.pageInfo = normalizedPageInfo;
+    if (typeof normalizedPageInfo.hasMore === 'boolean') {
+      normalizedPayload.hasMore = normalizedPageInfo.hasMore;
+    }
+  } else if (normalizedPayload.pageInfo) {
+    delete normalizedPayload.pageInfo;
+  }
+
+  if (typeof normalizedPayload.hasMore !== 'boolean' && typeof payload.hasMore === 'boolean') {
+    normalizedPayload.hasMore = payload.hasMore;
+  } else if (typeof normalizedPayload.hasMore !== 'boolean') {
+    delete normalizedPayload.hasMore;
+  }
+
+  return normalizedPayload;
 }
 
 function calculateActivityCalories(activity = {}) {

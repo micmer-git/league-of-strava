@@ -4022,11 +4022,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         let fullIronmanCount = 0;
         const meetsWithFlex = (value, target) => value >= target * 0.97;
 
-        dayBuckets.forEach(bucket => {
-            const meetsHalf =
+        const meetsHalfIronman = (bucket) => {
+            const standardThreshold =
                 meetsWithFlex(bucket.swim, 1900) &&
                 meetsWithFlex(bucket.ride, 90000) &&
                 meetsWithFlex(bucket.run, 21100);
+            const relaxedThreshold =
+                bucket.swim >= 1700 &&
+                bucket.ride >= 80000 &&
+                bucket.run >= 20000;
+            return standardThreshold || relaxedThreshold;
+        };
+
+        dayBuckets.forEach(bucket => {
+            const meetsHalf = meetsHalfIronman(bucket);
             const meetsFull =
                 meetsWithFlex(bucket.swim, 3700) &&
                 meetsWithFlex(bucket.ride, 175000) &&

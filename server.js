@@ -55,6 +55,16 @@ const userDataCache = new PersistentCache({
   storageDir: CACHE_STORAGE_DIR,
 });
 
+const SHARED_SNAPSHOT_CACHE_TTL_MS = Number.parseInt(process.env.SHARED_SNAPSHOT_CACHE_TTL_MS, 10)
+  || 15 * 60 * 1000;
+
+const sharedSnapshotCache = new PersistentCache({
+  namespace: 'strava:shared-snapshots',
+  ttlMs: SHARED_SNAPSHOT_CACHE_TTL_MS,
+  maxEntries: 200,
+  storageDir: CACHE_STORAGE_DIR,
+});
+
 const SEGMENT_CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_SEGMENT_CACHE_TTL_MS, 10) || 60 * 60 * 1000; // 1 hour default
 
 const segmentCache = new PersistentCache({
@@ -213,29 +223,79 @@ app.get('/api/leaderboard', async (req, res) => {
 
 app.get('/api/user-snapshot/:userId', async (req, res) => {
   const { userId } = req.params;
+  const forceRefresh = req.query.refresh === 'true';
 
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
+  }
+
+  const cacheKey = String(userId);
+
+  if (!forceRefresh) {
+    const cachedEntry = sharedSnapshotCache.getEntry(cacheKey);
+    if (cachedEntry?.value && isValidSnapshotPayload(cachedEntry.value)) {
+      return res.json({
+        ...cachedEntry.value,
+        cached: true,
+        stale: false,
+        cacheTimestamp: cachedEntry.timestamp,
+        cacheAgeMs: cachedEntry.ageMs,
+      });
+    }
   }
 
   try {
     const snapshot = await getLatestUserSnapshot(userId);
 
     if (!snapshot?.payload || !isValidSnapshotPayload(snapshot.payload)) {
+      sharedSnapshotCache.delete(cacheKey);
       return res.status(404).json({ error: 'No stored snapshot available for this user.' });
     }
 
     const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
-
-    return res.json({
+    const payloadWithMetadata = {
       ...normalizedPayload,
       stored: true,
       storedTimestamp: snapshot.timestamp || null,
       userId,
+    };
+
+    sharedSnapshotCache.set(cacheKey, payloadWithMetadata);
+
+    const cacheTimestamp = Date.now();
+
+    return res.json({
+      ...payloadWithMetadata,
+      cached: false,
+      stale: false,
+      cacheTimestamp,
+      cacheAgeMs: 0,
     });
   } catch (error) {
     console.error(`Error retrieving stored snapshot for user ${userId}:`, error.message);
-    return res.status(500).json({ error: 'Failed to retrieve stored snapshot' });
+
+    const cachedEntry = sharedSnapshotCache.getEntry(cacheKey);
+    if (cachedEntry?.value && isValidSnapshotPayload(cachedEntry.value)) {
+      return res.status(200).json({
+        ...cachedEntry.value,
+        cached: true,
+        stale: true,
+        cacheTimestamp: cachedEntry.timestamp,
+        cacheAgeMs: cachedEntry.ageMs,
+        stored: true,
+        storedTimestamp: cachedEntry.value.storedTimestamp ?? null,
+        message: 'Returning cached snapshot because the data source is temporarily unavailable. Please try again later.',
+      });
+    }
+
+    const statusCode = error.statusCode || error.response?.status || 503;
+    const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
+    const retryAfter = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : Math.ceil(SHARED_SNAPSHOT_CACHE_TTL_MS / 1000);
+
+    return res.status(statusCode === 404 ? 404 : 503).json({
+      error: 'Failed to retrieve stored snapshot. Please try again shortly.',
+      retryAfter,
+    });
   }
 });
 

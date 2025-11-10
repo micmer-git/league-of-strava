@@ -285,6 +285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentRankElement = document.getElementById('current-rank');
     const nextRankElement = document.getElementById('next-rank');
     const rankingProgressElement = document.getElementById('ranking-progress');
+    const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
     const globeStatButton = document.getElementById('globe-stat');
@@ -876,9 +877,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentRankIndex: 0,
         currentRank: null,
         nextRank: null,
+        currentMonthHours: 0,
+        previousMonthHours: 0,
     };
 
-    const rankTriggerElements = [levelProgressElement, rankProgressTriggerElement].filter(Boolean);
+    const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
 
     const setRankTriggerExpanded = (expanded) => {
         const value = expanded ? 'true' : 'false';
@@ -1437,7 +1440,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const updateRankProgressBar = () => {
-        const { totalHours, currentRank, nextRank } = rankProgressState;
+        const {
+            totalHours,
+            currentRank,
+            nextRank,
+            currentMonthHours,
+        } = rankProgressState;
         const safeTotalHours = Number.isFinite(totalHours) ? totalHours : 0;
         const currentMinHours = Number.isFinite(currentRank?.minHours) ? currentRank.minHours : 0;
         const nextMinHours = Number.isFinite(nextRank?.minHours) ? nextRank.minHours : null;
@@ -1462,6 +1470,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
             rankingProgressLabelElement.textContent = label;
             rankingProgressLabelElement.setAttribute('aria-label', `Lifetime training ${label}`);
+        }
+
+        if (rankingProgressMonthlyElement) {
+            const monthValue = Number.isFinite(currentMonthHours) ? Math.max(0, currentMonthHours) : 0;
+            const formattedMonthly = formatHoursDisplay(monthValue);
+            const prefix = monthValue > 0 ? '+' : '';
+            const monthlyLabel = `${prefix}${formattedMonthly} h last month`;
+            rankingProgressMonthlyElement.textContent = monthlyLabel;
+            rankingProgressMonthlyElement.setAttribute('aria-label', `${formattedMonthly} hours recorded in the last month`);
         }
 
         if (nextRankElement) {
@@ -5076,6 +5093,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
     };
 
+    const calculateRecentMonthlyHours = (activities = [], referenceDate = new Date()) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return { currentMonth: 0, previousMonth: 0 };
+        }
+
+        const now = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+            ? new Date(referenceDate)
+            : new Date();
+        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+        let currentMonth = 0;
+        let previousMonth = 0;
+
+        activities.forEach((activity) => {
+            const startDate = new Date(activity?.start_date || activity?.start_date_local || 0);
+            if (Number.isNaN(startDate.getTime())) {
+                return;
+            }
+
+            const hours = Number(activity?.moving_time || 0) / 3600;
+            if (startDate >= startOfCurrentMonth) {
+                currentMonth += hours;
+            } else if (startDate >= startOfPreviousMonth && startDate < startOfCurrentMonth) {
+                previousMonth += hours;
+            }
+        });
+
+        return { currentMonth, previousMonth };
+    };
+
     let activeRankConfig = null;
 
     const getISOWeekInfo = (inputDate) => {
@@ -6462,7 +6510,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             ingestResponseData(storedData, { isLoadMore: false });
             applyFilters({ preserveVisibleCount: false });
             console.log('Loaded stored snapshot from Google Sheets.');
+            if (errorMessage) {
+                errorMessage.classList.add('hidden');
+                errorMessage.textContent = '';
+            }
             updateInitialLoadingState('snapshot', 'complete', 'Synced your latest saved snapshot');
+            updateInitialLoadingState('finalize', 'active', 'Polishing your saved insights');
             return true;
         } catch (error) {
             hasAttemptedStoredSnapshot = false;
@@ -6665,6 +6718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totals = calculateTotals(activities);
         updateLoadingWeeklyOverview(activities);
         const totalHours = totals.hours;
+        const monthlyHours = calculateRecentMonthlyHours(activities);
 
         const aggregatedSmallStats = activities.reduce((acc, activity) => {
             const stats = computeActivitySmallStats(activity);
@@ -6759,6 +6813,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentRankIndex,
             currentRank,
             nextRank,
+            currentMonthHours: Number.isFinite(monthlyHours?.currentMonth) ? monthlyHours.currentMonth : 0,
+            previousMonthHours: Number.isFinite(monthlyHours?.previousMonth) ? monthlyHours.previousMonth : 0,
         };
         updateRankProgressBar();
 
@@ -7987,10 +8043,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isSharedView) {
         const hydrated = hydrateFromClientCache();
         if (!hydrated) {
-            await loadSharedSnapshot();
+            const sharedLoaded = await loadSharedSnapshot();
+            if (!sharedLoaded) {
+                updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
+                updateInitialLoadingState('finalize', 'active', 'Standing by for shared data');
+                hasCompletedInitialRender = true;
+                completeInitialLoading('Shared snapshot unavailable. Try refreshing later.');
+                fadeOutSpinner();
+            }
         }
     } else {
-        hydrateFromClientCache();
-        fetchData();
+        const hydrated = hydrateFromClientCache();
+        if (!hydrated) {
+            const storedLoaded = await loadStoredSnapshotIfAvailable();
+            if (!storedLoaded) {
+                updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
+                updateInitialLoadingState('snapshot', 'complete', 'Tap refresh to sync the latest data');
+                updateInitialLoadingState('finalize', 'active', 'Standing by for your refresh');
+                if (errorMessage) {
+                    errorMessage.classList.remove('hidden');
+                    errorMessage.textContent = 'Ready when you are — tap refresh to sync your Strava data.';
+                }
+                hasCompletedInitialRender = true;
+                completeInitialLoading('Tap refresh to sync your latest Strava insights.');
+                fadeOutSpinner();
+            }
+        }
     }
 });

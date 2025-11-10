@@ -225,6 +225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
     const loadMoreButton = document.getElementById('load-more-btn');
+    const activityFetchWarning = document.getElementById('activities-fetch-warning');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
     const walletChartCanvas = document.getElementById('wallet-chart');
     const walletChartEmptyState = document.getElementById('wallet-chart-empty');
@@ -783,6 +784,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
+        if ('activityMetadata' in data) {
+            if (data.activityMetadata === null || typeof data.activityMetadata !== 'object') {
+                return false;
+            }
+
+            if ('warnings' in data.activityMetadata && !Array.isArray(data.activityMetadata.warnings)) {
+                return false;
+            }
+
+            if ('errors' in data.activityMetadata && !Array.isArray(data.activityMetadata.errors)) {
+                return false;
+            }
+        }
+
         if ('totals' in data && (data.totals === null || typeof data.totals !== 'object')) {
             return false;
         }
@@ -848,6 +863,80 @@ document.addEventListener('DOMContentLoaded', async () => {
             "'": '&#039;',
         };
         return value.replace(/[&<>"']/g, char => map[char] || char);
+    };
+
+    const formatRetryAfterDuration = (seconds) => {
+        const numericValue = Number(seconds);
+        if (!Number.isFinite(numericValue) || numericValue <= 0) {
+            return '';
+        }
+
+        if (numericValue < 60) {
+            const roundedSeconds = Math.max(1, Math.round(numericValue));
+            return `${roundedSeconds} second${roundedSeconds === 1 ? '' : 's'}`;
+        }
+
+        const minutes = Math.round(numericValue / 60);
+        if (minutes < 60) {
+            return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+        }
+
+        const hours = Math.round(minutes / 60);
+        return `${hours} hour${hours === 1 ? '' : 's'}`;
+    };
+
+    const resolveActivityFetchMessage = (metadata) => {
+        const normalized = normalizeActivityMetadata(metadata);
+
+        const warnings = normalized.warnings || [];
+        const errors = normalized.errors || [];
+
+        const baseMessage = normalized.message
+            || (normalized.rateLimited
+                ? 'Strava temporarily limited activity history, so only the most recent entries are available right now.'
+                : (normalized.partial
+                    ? 'We could only load part of your activity history because Strava returned an error.'
+                    : ''))
+            || warnings[0]
+            || (errors[0]?.message ?? '');
+
+        const retryDuration = formatRetryAfterDuration(normalized.retryAfterSeconds);
+        if (baseMessage && retryDuration) {
+            return `${baseMessage} Try again in about ${retryDuration}.`;
+        }
+
+        return baseMessage;
+    };
+
+    const updateActivityFetchWarning = (metadata) => {
+        if (!activityFetchWarning) {
+            return;
+        }
+
+        const normalized = normalizeActivityMetadata(metadata);
+        const shouldShow = normalized.partial || normalized.rateLimited || normalized.warnings.length > 0;
+
+        if (!shouldShow) {
+            activityFetchWarning.classList.add('hidden');
+            activityFetchWarning.textContent = '';
+            activityFetchWarning.removeAttribute('data-status');
+            return;
+        }
+
+        const message = resolveActivityFetchMessage(normalized)
+            || 'Some activity history could not be loaded from Strava right now.';
+
+        const prefix = normalized.rateLimited
+            ? '<strong>Strava is busy.</strong>'
+            : '<strong>Heads up.</strong>';
+
+        activityFetchWarning.innerHTML = `${prefix} ${escapeHtml(message)}`;
+        activityFetchWarning.classList.remove('hidden');
+        if (normalized.rateLimited) {
+            activityFetchWarning.setAttribute('data-status', 'rate-limited');
+        } else {
+            activityFetchWarning.removeAttribute('data-status');
+        }
     };
 
     const formatRelativeTime = (timestamp) => {
@@ -3326,6 +3415,143 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     };
 
+    const createEmptyActivityMetadata = () => ({
+        warnings: [],
+        errors: [],
+        rateLimited: false,
+        partial: false,
+    });
+
+    const normalizeActivityMetadata = (metadata) => {
+        if (!metadata || typeof metadata !== 'object') {
+            return createEmptyActivityMetadata();
+        }
+
+        const warnings = Array.isArray(metadata.warnings)
+            ? metadata.warnings.map(value => String(value ?? '').trim()).filter(Boolean)
+            : [];
+
+        const errors = Array.isArray(metadata.errors)
+            ? metadata.errors
+                .map((error) => {
+                    if (!error || typeof error !== 'object') {
+                        const message = String(error ?? '').trim();
+                        return message ? { message } : null;
+                    }
+
+                    const message = typeof error.message === 'string'
+                        ? error.message.trim()
+                        : String(error.message ?? '').trim();
+
+                    if (!message) {
+                        return null;
+                    }
+
+                    const statusCode = Number.isFinite(Number(error.statusCode))
+                        ? Number(error.statusCode)
+                        : null;
+
+                    return statusCode !== null
+                        ? { message, statusCode }
+                        : { message };
+                })
+                .filter(Boolean)
+            : [];
+
+        const rateLimited = Boolean(metadata.rateLimited);
+        const partial = Boolean(metadata.partial || metadata.partiallyComplete);
+
+        const retryAfterSeconds = Number.isFinite(Number(metadata.retryAfterSeconds))
+            ? Math.max(0, Math.round(Number(metadata.retryAfterSeconds)))
+            : (Number.isFinite(Number(metadata.retryAfter))
+                ? Math.max(0, Math.round(Number(metadata.retryAfter)))
+                : null);
+
+        const lastSuccessfulPage = Number.isFinite(Number(metadata.lastSuccessfulPage))
+            ? Number(metadata.lastSuccessfulPage)
+            : null;
+
+        const lastAttemptedPage = Number.isFinite(Number(metadata.lastAttemptedPage))
+            ? Number(metadata.lastAttemptedPage)
+            : null;
+
+        const message = typeof metadata.message === 'string'
+            ? metadata.message.trim()
+            : '';
+
+        const normalized = {
+            warnings: Array.from(new Set(warnings)),
+            errors,
+            rateLimited,
+            partial,
+        };
+
+        if (retryAfterSeconds !== null) {
+            normalized.retryAfterSeconds = retryAfterSeconds;
+        }
+
+        if (lastSuccessfulPage !== null) {
+            normalized.lastSuccessfulPage = lastSuccessfulPage;
+        }
+
+        if (lastAttemptedPage !== null) {
+            normalized.lastAttemptedPage = lastAttemptedPage;
+        }
+
+        if (message) {
+            normalized.message = message;
+        }
+
+        return normalized;
+    };
+
+    const mergeActivityMetadata = (existingMetadata, incomingMetadata) => {
+        const existing = normalizeActivityMetadata(existingMetadata);
+        const incoming = normalizeActivityMetadata(incomingMetadata);
+
+        const warnings = Array.from(new Set([
+            ...existing.warnings,
+            ...incoming.warnings,
+        ]));
+
+        const errors = [...existing.errors, ...incoming.errors];
+
+        const merged = {
+            warnings,
+            errors,
+            rateLimited: Boolean(existing.rateLimited || incoming.rateLimited),
+            partial: Boolean(existing.partial || incoming.partial),
+        };
+
+        const retryCandidates = [existing.retryAfterSeconds, incoming.retryAfterSeconds]
+            .map(value => Number.isFinite(Number(value)) ? Number(value) : null)
+            .filter(value => value !== null && value >= 0);
+        if (retryCandidates.length > 0) {
+            merged.retryAfterSeconds = Math.min(...retryCandidates);
+        }
+
+        const lastSuccessfulCandidates = [existing.lastSuccessfulPage, incoming.lastSuccessfulPage]
+            .map(value => Number.isFinite(Number(value)) ? Number(value) : null)
+            .filter(value => value !== null);
+        if (lastSuccessfulCandidates.length > 0) {
+            merged.lastSuccessfulPage = Math.max(...lastSuccessfulCandidates);
+        }
+
+        const lastAttemptedCandidates = [existing.lastAttemptedPage, incoming.lastAttemptedPage]
+            .map(value => Number.isFinite(Number(value)) ? Number(value) : null)
+            .filter(value => value !== null);
+        if (lastAttemptedCandidates.length > 0) {
+            merged.lastAttemptedPage = Math.max(...lastAttemptedCandidates);
+        }
+
+        const message = incoming.message || existing.message;
+        if (message) {
+            merged.message = message;
+        }
+
+        return merged;
+    };
+
     const mergeSegmentEntries = (existingSegments = [], incomingSegments = []) => {
         const segmentMap = new Map();
 
@@ -3402,6 +3628,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         const normalizedExisting = existingPageInfo && typeof existingPageInfo === 'object' ? existingPageInfo : {};
         const normalizedIncoming = incomingPageInfo && typeof incomingPageInfo === 'object' ? incomingPageInfo : {};
 
+        const mergedActivityMetadata = mergeActivityMetadata(
+            {
+                warnings: normalizedExisting.warnings,
+                errors: normalizedExisting.errors,
+                rateLimited: normalizedExisting.rateLimited,
+                partial: normalizedExisting.partial,
+                retryAfterSeconds: normalizedExisting.retryAfterSeconds,
+                lastSuccessfulPage: normalizedExisting.lastSuccessfulPage,
+                lastAttemptedPage: normalizedExisting.lastAttemptedPage,
+            },
+            {
+                warnings: normalizedIncoming.warnings,
+                errors: normalizedIncoming.errors,
+                rateLimited: normalizedIncoming.rateLimited,
+                partial: normalizedIncoming.partial,
+                retryAfterSeconds: normalizedIncoming.retryAfterSeconds,
+                lastSuccessfulPage: normalizedIncoming.lastSuccessfulPage,
+                lastAttemptedPage: normalizedIncoming.lastAttemptedPage,
+            },
+        );
+
         const merged = {
             ...normalizedExisting,
             ...normalizedIncoming,
@@ -3460,6 +3707,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             merged.hasMore = resolvedHasMore;
         } else {
             delete merged.hasMore;
+        }
+
+        if (mergedActivityMetadata.warnings.length > 0) {
+            merged.warnings = mergedActivityMetadata.warnings;
+        } else {
+            delete merged.warnings;
+        }
+
+        if (mergedActivityMetadata.errors.length > 0) {
+            merged.errors = mergedActivityMetadata.errors;
+        } else {
+            delete merged.errors;
+        }
+
+        merged.rateLimited = mergedActivityMetadata.rateLimited;
+        merged.partial = mergedActivityMetadata.partial;
+
+        if (Number.isFinite(Number(mergedActivityMetadata.retryAfterSeconds)) && mergedActivityMetadata.retryAfterSeconds >= 0) {
+            merged.retryAfterSeconds = Math.round(Number(mergedActivityMetadata.retryAfterSeconds));
+        } else {
+            delete merged.retryAfterSeconds;
+        }
+
+        if (Number.isFinite(Number(mergedActivityMetadata.lastSuccessfulPage))) {
+            merged.lastSuccessfulPage = Number(mergedActivityMetadata.lastSuccessfulPage);
+        } else {
+            delete merged.lastSuccessfulPage;
+        }
+
+        if (Number.isFinite(Number(mergedActivityMetadata.lastAttemptedPage))) {
+            merged.lastAttemptedPage = Number(mergedActivityMetadata.lastAttemptedPage);
+        } else {
+            delete merged.lastAttemptedPage;
         }
 
         return merged;
@@ -5859,6 +6139,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const existingPageInfo = allData.pageInfo;
         const existingSegmentMetadata = normalizeSegmentMetadata(allData.segmentMetadata);
         const incomingSegmentMetadata = normalizeSegmentMetadata(data.segmentMetadata);
+        const existingActivityMetadata = normalizeActivityMetadata(allData.activityMetadata);
+        const incomingActivityMetadata = normalizeActivityMetadata(data.activityMetadata);
 
         const shouldMerge = isLoadMore || existingActivities.length > 0;
 
@@ -5871,6 +6153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : [...segmentsFromResponse];
 
         const mergedSegmentMetadata = mergeSegmentMetadata(existingSegmentMetadata, incomingSegmentMetadata);
+        const mergedActivityMetadata = mergeActivityMetadata(existingActivityMetadata, incomingActivityMetadata);
 
         const mergedAthlete = {
             ...(allData.athlete || {}),
@@ -5886,6 +6169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             activities: sortActivitiesDescending(mergedActivities),
             segments: mergedSegments,
             segmentMetadata: mergedSegmentMetadata,
+            activityMetadata: mergedActivityMetadata,
             pageInfo: mergedPageInfo,
         };
 
@@ -5903,6 +6187,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             elevation: aggregatedTotals.elevation,
             calories: aggregatedTotals.calories
         };
+
+        updateActivityFetchWarning(allData.activityMetadata);
 
         writeDashboardCache(allData);
 

@@ -176,6 +176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const profileRefreshButton = document.getElementById('profile-refresh');
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
+    const rankModalSummaryElement = document.getElementById('rank-modal-summary');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
@@ -218,6 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityDistanceMaxInput = document.getElementById('activity-distance-max');
     const activityElevationMinInput = document.getElementById('activity-elevation-min');
     const activityElevationMaxInput = document.getElementById('activity-elevation-max');
+    const rankProgressTriggerElement = document.getElementById('rank-progress-trigger');
     const activityFilterForm = document.getElementById('activities-filter-form');
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
@@ -688,6 +690,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ACTIVITIES_PAGE_SIZE = 20;
     const ACTIVITIES_PER_PAGE = 200;
     const ACTIVITIES_BATCH_PAGES = 3;
+    const LOAD_MORE_MAX_CYCLES = 8;
+    const LOAD_MORE_THROTTLE_MS = 1200;
 
     let visibleActivitiesCount = 0;
     let sortedActivities = [];
@@ -731,6 +735,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentRankIndex: 0,
         currentRank: null,
         nextRank: null,
+    };
+
+    const rankTriggerElements = [levelProgressElement, rankProgressTriggerElement].filter(Boolean);
+
+    const setRankTriggerExpanded = (expanded) => {
+        const value = expanded ? 'true' : 'false';
+        rankTriggerElements.forEach((element) => {
+            element.setAttribute('aria-expanded', value);
+        });
     };
     let rankModalPreviouslyFocusedElement = null;
     const tooltipElement = document.createElement('div');
@@ -1232,6 +1245,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
         rankModalListElement.innerHTML = '';
 
+        if (rankModalSummaryElement) {
+            const totalHours = Number.isFinite(rankProgressState.totalHours)
+                ? rankProgressState.totalHours
+                : 0;
+            const currentRank = rankProgressState.currentRank;
+            const nextRank = rankProgressState.nextRank;
+
+            const summaryFragments = [];
+            summaryFragments.push(`
+                <div class="rank-modal__summary-item">
+                    <span class="rank-modal__summary-label">Lifetime hours logged</span>
+                    <span class="rank-modal__summary-value">${formatHoursDisplay(totalHours)} h</span>
+                </div>
+            `);
+
+            if (currentRank) {
+                summaryFragments.push(`
+                    <div class="rank-modal__summary-item">
+                        <span class="rank-modal__summary-label">Current crest</span>
+                        <span class="rank-modal__summary-value">${currentRank.emoji} ${currentRank.name}</span>
+                    </div>
+                `);
+            }
+
+            if (nextRank) {
+                const hoursRemaining = Math.max(0, nextRank.minHours - totalHours);
+                summaryFragments.push(`
+                    <div class="rank-modal__summary-item">
+                        <span class="rank-modal__summary-label">Hours to next rank</span>
+                        <span class="rank-modal__summary-value">${formatHoursDisplay(hoursRemaining)} h</span>
+                    </div>
+                `);
+            } else if (currentRank) {
+                summaryFragments.push(`
+                    <div class="rank-modal__summary-item">
+                        <span class="rank-modal__summary-label">Hours to next rank</span>
+                        <span class="rank-modal__summary-value">Maxed out — legend!</span>
+                    </div>
+                `);
+            }
+
+            rankModalSummaryElement.innerHTML = summaryFragments
+                .map((fragment) => fragment.trim())
+                .join('');
+            rankModalSummaryElement.hidden = summaryFragments.length === 0;
+        }
+
         if (config.length === 0) {
             const emptyState = document.createElement('p');
             emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
@@ -1282,9 +1342,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         rankModalElement.hidden = true;
         rankModalElement.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('rank-modal-open');
-        if (levelProgressElement) {
-            levelProgressElement.setAttribute('aria-expanded', 'false');
-        }
+        setRankTriggerExpanded(false);
 
         if (rankModalPreviouslyFocusedElement && typeof rankModalPreviouslyFocusedElement.focus === 'function') {
             try {
@@ -1310,9 +1368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         rankModalElement.hidden = false;
         rankModalElement.setAttribute('aria-hidden', 'false');
         document.body.classList.add('rank-modal-open');
-        if (levelProgressElement) {
-            levelProgressElement.setAttribute('aria-expanded', 'true');
-        }
+        setRankTriggerExpanded(true);
 
         const currentItem = rankModalListElement?.querySelector('.rank-modal__item.is-current');
         if (currentItem && typeof currentItem.scrollIntoView === 'function') {
@@ -7091,12 +7147,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateToggleStates(null);
 
-    if (levelProgressElement) {
-        levelProgressElement.setAttribute('tabindex', '0');
-        levelProgressElement.setAttribute('role', 'button');
-        levelProgressElement.setAttribute('aria-haspopup', 'dialog');
-        levelProgressElement.setAttribute('aria-expanded', 'false');
-
+    if (rankTriggerElements.length > 0) {
         const triggerRankModal = () => {
             if (rankModalElement && !rankModalElement.hidden) {
                 return;
@@ -7104,18 +7155,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             openRankModal();
         };
 
-        levelProgressElement.addEventListener('click', () => {
-            triggerRankModal();
-        });
+        rankTriggerElements.forEach((element) => {
+            element.setAttribute('tabindex', '0');
+            element.setAttribute('role', 'button');
+            element.setAttribute('aria-haspopup', 'dialog');
+            element.setAttribute('aria-expanded', 'false');
+            element.classList.add('rank-trigger');
 
-        levelProgressElement.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
+            element.addEventListener('click', () => {
                 triggerRankModal();
-            }
+            });
+
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    triggerRankModal();
+                }
+            });
         });
     } else {
-        console.warn("'level-progress' element not found in the DOM.");
+        console.warn("No rank trigger elements found in the DOM.");
     }
 
     if (profileRefreshButton) {
@@ -7158,24 +7217,69 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadMoreButton.disabled = true;
         } else {
             loadMoreButton.addEventListener('click', async () => {
-                if (activeMedalFilter) {
+                if (activeMedalFilter || isFetchingActivities) {
                     return;
                 }
                 const previousVisibleCount = visibleActivitiesCount;
-
-                visibleActivitiesCount = Math.min(sortedActivities.length, visibleActivitiesCount + ACTIVITIES_PAGE_SIZE);
-                renderActivitiesList();
+                const initialLength = sortedActivities.length;
+                let totalNewActivities = 0;
+                let cycles = 0;
 
                 if (!hasMoreActivities) {
+                    visibleActivitiesCount = Math.min(
+                        sortedActivities.length,
+                        previousVisibleCount + ACTIVITIES_PAGE_SIZE
+                    );
+                    renderActivitiesList();
+
+                    if (visibleActivitiesCount >= sortedActivities.length) {
+                        loadMoreButton.classList.add('hidden');
+                        loadMoreButton.disabled = true;
+                    } else {
+                        loadMoreButton.disabled = false;
+                    }
                     return;
                 }
 
-                await fetchData({ isLoadMore: true });
+                loadMoreButton.disabled = true;
+                loadMoreButton.setAttribute('aria-busy', 'true');
 
-                const updatedSortedLength = sortedActivities.length;
-                if (updatedSortedLength > previousVisibleCount) {
-                    visibleActivitiesCount = Math.min(updatedSortedLength, previousVisibleCount + ACTIVITIES_PAGE_SIZE);
+                try {
+                    do {
+                        await fetchData({ isLoadMore: true });
+                        cycles += 1;
+
+                        const updatedLength = sortedActivities.length;
+                        const newActivities = Math.max(0, updatedLength - (initialLength + totalNewActivities));
+                        totalNewActivities += newActivities;
+
+                        if (!hasMoreActivities || newActivities === 0) {
+                            break;
+                        }
+
+                        await wait(LOAD_MORE_THROTTLE_MS);
+                    } while (hasMoreActivities && cycles < LOAD_MORE_MAX_CYCLES);
+                } finally {
+                    loadMoreButton.removeAttribute('aria-busy');
+
+                    if (!hasMoreActivities) {
+                        visibleActivitiesCount = sortedActivities.length;
+                    } else if (totalNewActivities > 0) {
+                        const pagesLoaded = Math.max(1, Math.ceil(totalNewActivities / ACTIVITIES_PAGE_SIZE));
+                        visibleActivitiesCount = Math.min(
+                            sortedActivities.length,
+                            previousVisibleCount + pagesLoaded * ACTIVITIES_PAGE_SIZE
+                        );
+                    }
+
                     renderActivitiesList();
+
+                    if (!hasMoreActivities) {
+                        loadMoreButton.classList.add('hidden');
+                        loadMoreButton.disabled = true;
+                    } else {
+                        loadMoreButton.disabled = false;
+                    }
                 }
             });
         }

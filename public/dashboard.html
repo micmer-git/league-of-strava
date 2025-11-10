@@ -1118,6 +1118,19 @@
             margin-left: 0.35rem;
         }
 
+        @media (max-width: 1000px) {
+            .profile-card__name-row {
+                flex-wrap: wrap;
+                gap: 0.25rem;
+            }
+
+            .profile-card__name-actions {
+                margin-left: 0;
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+
         .profile-card__icon-button {
             appearance: none;
             border: none;
@@ -1994,6 +2007,14 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
+            align-items: center;
+        }
+
+        .wallet-controls__group {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: stretch;
         }
 
         .wallet-control {
@@ -2022,9 +2043,56 @@
             cursor: pointer;
         }
 
+        .wallet-control--select {
+            border: none;
+            background: transparent;
+            padding: 0;
+            gap: 0.35rem;
+            flex-direction: column;
+            align-items: stretch;
+            min-width: 8.5rem;
+            cursor: default;
+        }
+
+        .wallet-control--select:focus-visible {
+            box-shadow: none;
+        }
+
         .wallet-control__checkbox {
             width: 1rem;
             height: 1rem;
+        }
+
+        .wallet-control__label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .wallet-control__select {
+            width: 100%;
+            border-radius: 0.65rem;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(255, 255, 255, 0.95);
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #1f2937;
+            padding: 0.35rem 0.5rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .wallet-control__select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+
+        .wallet-control__select:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: rgba(226, 232, 240, 0.5);
         }
 
         .wallet-chart {
@@ -3839,6 +3907,21 @@
                                     <input id="balance-year-toggle" type="checkbox" class="wallet-control__checkbox" />
                                     <span>Compare years</span>
                                 </label>
+                                <div class="wallet-controls__group">
+                                    <label class="wallet-control wallet-control--select">
+                                        <span class="wallet-control__label">Range</span>
+                                        <select id="wallet-range-select" class="wallet-control__select">
+                                            <option value="year">Per year</option>
+                                            <option value="rolling">Last 365 days</option>
+                                        </select>
+                                    </label>
+                                    <label class="wallet-control wallet-control--select">
+                                        <span class="wallet-control__label">Interval</span>
+                                        <select id="wallet-interval-select" class="wallet-control__select">
+                                            <option value="month">Monthly</option>
+                                        </select>
+                                    </label>
+                                </div>
                             </div>
                         </header>
                         <div id="wallet-chart-wrapper" class="wallet-chart">

@@ -25,6 +25,7 @@
             --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
             --app-safe-area-left: env(safe-area-inset-left, 0px);
             --pull-indicator-offset: 0px;
+            --dashboard-panel-max-width: min(100%, calc(100vw - clamp(1.5rem, 6vw, 3.5rem)));
         }
 
         @supports (height: 100dvh) {
@@ -1294,6 +1295,15 @@
             cursor: pointer;
         }
 
+        .rank-trigger {
+            cursor: pointer;
+        }
+
+        .rank-trigger:focus-visible {
+            outline: 2px solid rgba(59, 130, 246, 0.45);
+            outline-offset: 2px;
+        }
+
         .profile-card__level:focus-visible {
             outline: 2px solid rgba(59, 130, 246, 0.45);
             outline-offset: 2px;
@@ -1331,7 +1341,7 @@
         .profile-card__progress {
             align-self: flex-start;
             width: var(--profile-stack-max-width);
-            max-width: 100%;
+            max-width: min(100%, var(--dashboard-panel-max-width));
         }
 
         .profile-card__summary-row.profile-card__metrics,
@@ -1352,6 +1362,7 @@
             flex-wrap: wrap;
             gap: 0.4rem;
             width: 100%;
+            max-width: var(--dashboard-panel-max-width);
             justify-content: flex-start;
         }
 
@@ -1366,6 +1377,7 @@
             grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
             gap: 0.4rem;
             width: 100%;
+            max-width: var(--dashboard-panel-max-width);
             justify-content: flex-start;
         }
 
@@ -1612,6 +1624,9 @@
             grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
             gap: 0.75rem;
             align-items: stretch;
+            width: 100%;
+            max-width: var(--dashboard-panel-max-width);
+            margin-inline: auto;
         }
 
         .top-performance-card {
@@ -2186,6 +2201,38 @@
             overflow: hidden;
         }
 
+        .rank-modal__summary {
+            display: grid;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(148, 163, 184, 0.15);
+            border-radius: 20px;
+        }
+
+        .rank-modal__summary[hidden] {
+            display: none;
+        }
+
+        .rank-modal__summary-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .rank-modal__summary-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .rank-modal__summary-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
         .rank-modal__header {
             display: flex;
             align-items: flex-start;
@@ -2309,6 +2356,18 @@
             background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.92));
             border-color: rgba(148, 163, 184, 0.35);
             color: #e2e8f0;
+        }
+
+        .dark .rank-modal__summary {
+            background: rgba(30, 41, 59, 0.6);
+        }
+
+        .dark .rank-modal__summary-label {
+            color: #94a3b8;
+        }
+
+        .dark .rank-modal__summary-value {
+            color: #f1f5f9;
         }
 
         .dark .rank-modal__title-group h2 {
@@ -3298,7 +3357,7 @@
                                             <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
                                             <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
                                         </p>
-                                        <div class="profile-card__progress profile-card__progress--inline">
+                                        <div id="rank-progress-trigger" class="profile-card__progress profile-card__progress--inline">
                                             <div class="profile-card__progress-bar">
                                                 <div id="ranking-progress" class="profile-card__progress-fill" style="width: 0%"></div>
                                                 <div class="profile-card__progress-overlay">
@@ -3606,6 +3665,7 @@
                         <span class="sr-only">Close rank information</span>
                     </button>
                 </header>
+                <div id="rank-modal-summary" class="rank-modal__summary" hidden></div>
                 <div id="rank-modal-list" class="rank-modal__list" role="list"></div>
             </div>
         </div>

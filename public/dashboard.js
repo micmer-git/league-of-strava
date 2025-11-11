@@ -1860,11 +1860,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const buttons = medalsSection.querySelectorAll('button[data-medal-name]');
         buttons.forEach(button => {
-            if (button.dataset.medalName === activeMedalFilter) {
-                button.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
-            } else {
-                button.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
-            }
+            const isActive = button.dataset.medalName === activeMedalFilter;
+            button.classList.toggle('medals-list__button--active', isActive);
+            button.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
         });
     };
 
@@ -1911,6 +1909,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalsByCategory.get(categoryName).push(medal);
         });
 
+        const createDescriptionSnippet = (description, limit = 120) => {
+            const trimmed = (description || '').trim();
+            if (!trimmed) {
+                return '';
+            }
+            if (trimmed.length <= limit) {
+                return trimmed;
+            }
+            const truncated = trimmed.slice(0, limit - 1);
+            const lastSpace = truncated.lastIndexOf(' ');
+            const safeSlice = lastSpace > 40 ? truncated.slice(0, lastSpace) : truncated;
+            return `${safeSlice.trimEnd()}…`;
+        };
+
         categoryOrder.forEach(categoryName => {
             const wrapper = document.createElement('div');
             wrapper.className = 'medals-category';
@@ -1921,23 +1933,57 @@ document.addEventListener('DOMContentLoaded', async () => {
             heading.textContent = categoryName;
             wrapper.appendChild(heading);
 
-            const grid = document.createElement('div');
-            grid.className = 'medals-grid';
+            const list = document.createElement('ol');
+            list.className = 'medals-list';
+            list.setAttribute('role', 'list');
 
-            medalsByCategory.get(categoryName).forEach(medal => {
+            medalsByCategory.get(categoryName).forEach((medal, index) => {
+                const listItem = document.createElement('li');
+                listItem.className = 'medals-list__item';
+
                 const medalButton = document.createElement('button');
                 medalButton.type = 'button';
-                medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
+                medalButton.className = 'tooltip-target medals-list__button';
                 if (!medal.count) {
-                    medalButton.classList.add('medal-badge--unearned');
+                    medalButton.classList.add('medals-list__button--unearned');
                 }
-                medalButton.innerHTML = `
-                    <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
-                    <span class="text-2xl leading-none">${medal.emoji}</span>
-                `;
-                const descriptionText = (medal.description || '').trim();
+
+                const orderSpan = document.createElement('span');
+                orderSpan.className = 'medals-list__order';
+                orderSpan.textContent = `${index + 1}.`;
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'medals-list__count';
                 const countLabel = medal.count.toLocaleString();
-                const earnedDescriptor = medal.count > 0 ? `${countLabel} earned` : 'Not earned yet';
+                countSpan.textContent = `${countLabel}×`;
+                countSpan.setAttribute('aria-label', `${countLabel} medals earned`);
+
+                const emojiSpan = document.createElement('span');
+                emojiSpan.className = 'medals-list__emoji';
+                emojiSpan.textContent = medal.emoji || '🏅';
+
+                const textWrapper = document.createElement('span');
+                textWrapper.className = 'medals-list__text';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'medals-list__name';
+                nameSpan.textContent = medal.name;
+                textWrapper.appendChild(nameSpan);
+
+                const descriptionSnippet = createDescriptionSnippet(medal.description);
+                if (descriptionSnippet) {
+                    const descriptionSpan = document.createElement('span');
+                    descriptionSpan.className = 'medals-list__description';
+                    descriptionSpan.textContent = descriptionSnippet;
+                    textWrapper.appendChild(descriptionSpan);
+                }
+
+                medalButton.append(orderSpan, countSpan, emojiSpan, textWrapper);
+
+                const descriptionText = (medal.description || '').trim();
+                const earnedDescriptor = medal.count > 0
+                    ? `${countLabel} earned`
+                    : 'Not earned yet';
                 const ariaDescription = descriptionText
                     ? `${medal.name}: ${descriptionText} — ${earnedDescriptor}`
                     : `${medal.name} — ${earnedDescriptor}`;
@@ -1952,10 +1998,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalButton.addEventListener('click', () => {
                     toggleMedalFilter(medal);
                 });
-                grid.appendChild(medalButton);
+
+                listItem.appendChild(medalButton);
+                list.appendChild(listItem);
             });
 
-            wrapper.appendChild(grid);
+            wrapper.appendChild(list);
             medalsSection.appendChild(wrapper);
         });
 

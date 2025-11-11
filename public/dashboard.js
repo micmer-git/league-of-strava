@@ -5979,6 +5979,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // === Rank Configuration ===
     const HOURS_PER_LEVEL = 100;
     const MASTER_PRESTIGE_MAX = 100;
+    const LEVEL_PROGRESS_STEPS = 1000;
 
     const baseRankTiers = [
         { name: 'Bronze', emoji: '🥉', levels: 10 },

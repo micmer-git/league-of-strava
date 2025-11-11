@@ -288,6 +288,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
+    const profileClassCardElement = document.getElementById('profile-class-card');
+    const profileClassCrestElement = document.getElementById('profile-class-crest');
+    const profileClassNameElement = document.getElementById('profile-class-name');
+    const profileClassDescriptionElement = document.getElementById('profile-class-description');
+    const profileClassReasonsElement = document.getElementById('profile-class-reasons');
     const globeStatButton = document.getElementById('globe-stat');
     const everestStatButton = document.getElementById('everest-stat');
     const pizzaStatButton = document.getElementById('pizza-stat');
@@ -317,6 +322,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
+    const rankModalClassesElement = document.getElementById('rank-modal-classes');
+    const rankModalDescriptionElement = document.getElementById('rank-modal-description');
+    const rankModalToggleIndicator = document.querySelector('.rank-modal__toggle-indicator');
+    const rankModalToggleButtons = Array.from(document.querySelectorAll('[data-rank-view]'));
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
@@ -880,9 +889,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         nextRank: null,
         currentMonthHours: 0,
         previousMonthHours: 0,
+        totalRanks: 0,
     };
 
-    const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
+    let lotrClassAssignment = {
+        stats: null,
+        selectedClass: null,
+        reasons: [],
+        results: []
+    };
+
+    let rankModalActiveView = 'ranks';
+
+    const rankTriggerElements = [currentRankElement, rankProgressTriggerElement, profileClassCardElement].filter(Boolean);
 
     const setRankTriggerExpanded = (expanded) => {
         const value = expanded ? 'true' : 'false';
@@ -1358,10 +1377,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const formatStatValue = (value) => {
+    const formatStatValue = (value, decimals = null) => {
         if (!Number.isFinite(value) || value <= 0) {
             return '0';
         }
+
+        if (Number.isInteger(decimals) && decimals >= 0) {
+            return value.toFixed(decimals);
+        }
+
         if (value >= 100) {
             return value.toFixed(0);
         }
@@ -1494,100 +1518,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateRankProgressBar();
 
     const renderRankModal = () => {
-        if (!rankModalListElement) {
-            return;
+        updateRankModalToggleState();
+
+        if (rankModalActiveView === 'classes') {
+            renderLotrClassesView();
+        } else {
+            renderRankListView();
         }
 
-        const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
-        rankModalListElement.innerHTML = '';
+        renderRankModalSummary();
 
-        if (rankModalSummaryElement) {
-            const totalHours = Number.isFinite(rankProgressState.totalHours)
-                ? rankProgressState.totalHours
-                : 0;
-            const currentRank = rankProgressState.currentRank;
-            const nextRank = rankProgressState.nextRank;
+        if (rankModalDescriptionElement) {
+            const description = rankModalActiveView === 'classes'
+                ? 'La tua classe della Compagnia riflette abitudini e punti di forza.'
+                : 'Ogni cresta si sblocca al raggiungimento delle ore di allenamento indicate.';
+            rankModalDescriptionElement.textContent = description;
+        }
+    };
 
-            const summaryFragments = [];
-            summaryFragments.push(`
-                <div class="rank-modal__summary-item">
-                    <span class="rank-modal__summary-label">Lifetime hours logged</span>
-                    <span class="rank-modal__summary-value">${formatHoursDisplay(totalHours)} h</span>
-                </div>
-            `);
+    const setRankModalView = (view, { focusToggle = false } = {}) => {
+        const normalizedView = view === 'classes' ? 'classes' : 'ranks';
 
-            if (currentRank) {
-                summaryFragments.push(`
-                    <div class="rank-modal__summary-item">
-                        <span class="rank-modal__summary-label">Current crest</span>
-                        <span class="rank-modal__summary-value">${currentRank.emoji} ${currentRank.name}</span>
-                    </div>
-                `);
-            }
-
-            if (nextRank) {
-                const hoursRemaining = Math.max(0, nextRank.minHours - totalHours);
-                summaryFragments.push(`
-                    <div class="rank-modal__summary-item">
-                        <span class="rank-modal__summary-label">Hours to next rank</span>
-                        <span class="rank-modal__summary-value">${formatHoursDisplay(hoursRemaining)} h</span>
-                    </div>
-                `);
-            } else if (currentRank) {
-                summaryFragments.push(`
-                    <div class="rank-modal__summary-item">
-                        <span class="rank-modal__summary-label">Hours to next rank</span>
-                        <span class="rank-modal__summary-value">Maxed out — legend!</span>
-                    </div>
-                `);
-            }
-
-            rankModalSummaryElement.innerHTML = summaryFragments
-                .map((fragment) => fragment.trim())
-                .join('');
-            rankModalSummaryElement.hidden = summaryFragments.length === 0;
+        if (rankModalActiveView === normalizedView) {
+            updateRankModalToggleState();
+        } else {
+            rankModalActiveView = normalizedView;
+            renderRankModal();
         }
 
-        if (config.length === 0) {
-            const emptyState = document.createElement('p');
-            emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
-            emptyState.className = 'rank-modal__empty';
-            emptyState.setAttribute('role', 'note');
-            rankModalListElement.appendChild(emptyState);
-            return;
-        }
-
-        const currentIndex = Number.isInteger(rankProgressState.currentRankIndex)
-            ? rankProgressState.currentRankIndex
-            : 0;
-
-        config.forEach((rank, index) => {
-            const item = document.createElement('div');
-            item.className = 'rank-modal__item';
-            item.setAttribute('role', 'listitem');
-
-            const isCurrent = index === currentIndex;
-
-            if (isCurrent) {
-                item.classList.add('is-current');
-                item.setAttribute('aria-current', 'true');
+        if (focusToggle) {
+            const targetButton = rankModalToggleButtons.find((button) => button?.dataset?.rankView === normalizedView);
+            if (targetButton && typeof targetButton.focus === 'function') {
+                try {
+                    targetButton.focus({ preventScroll: true });
+                } catch (error) {
+                    console.warn('Unable to focus rank modal toggle:', error);
+                }
             }
+        }
+    };
 
-            const statusMarkup = isCurrent
-                ? '<span class="rank-modal__status" aria-hidden="false">You are here</span>'
-                : '';
+    const assignLotrClass = (stats = null) => {
+        const evaluation = evaluateLotrClass(stats || {});
+        lotrClassAssignment = {
+            stats,
+            selectedClass: evaluation.bestClass,
+            reasons: evaluation.reasons || [],
+            results: evaluation.results || [],
+        };
 
-            item.innerHTML = `
-                <span class="rank-modal__emoji" aria-hidden="true">${rank.emoji}</span>
-                <div class="rank-modal__name-group">
-                    <span class="rank-modal__name">${rank.name}</span>
-                    ${statusMarkup}
-                </div>
-                <span class="rank-modal__hours">≥ ${formatHoursDisplay(rank.minHours)} h</span>
-            `;
+        updateProfileClassCard();
 
-            rankModalListElement.appendChild(item);
-        });
+        if (rankModalElement && !rankModalElement.hidden) {
+            renderRankModal();
+        }
     };
 
     const closeRankModal = () => {
@@ -5176,6 +5160,1850 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     };
 
+    const formatPercentage = (value) => {
+        if (!Number.isFinite(value)) {
+            return '0%';
+        }
+        return `${Math.round(value * 100)}%`;
+    };
+
+    const formatHourOfDay = (value) => {
+        if (!Number.isFinite(value)) {
+            return '—';
+        }
+        const hours = Math.floor(value);
+        const minutes = Math.round((value - hours) * 60);
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    };
+
+    const computeAthleteClassStats = (activities = []) => {
+        const totals = calculateTotals(activities);
+        const now = new Date();
+        const weekStart = new Date(now);
+        weekStart.setHours(0, 0, 0, 0);
+        weekStart.setDate(weekStart.getDate() - 6);
+
+        const stats = {
+            totalHours: totals.hours,
+            totalDistanceKm: totals.distance / 1000,
+            totalElevationM: totals.elevation,
+            totalCalories: totals.calories,
+            totalActivities: activities.length,
+            runDistanceKm: 0,
+            runHours: 0,
+            runActivities: 0,
+            rideDistanceKm: 0,
+            rideHours: 0,
+            rideActivities: 0,
+            swimDistanceKm: 0,
+            swimHours: 0,
+            swimActivities: 0,
+            hikeDistanceKm: 0,
+            hikeHours: 0,
+            hikeActivities: 0,
+            strengthSessions: 0,
+            mindfulSessions: 0,
+            indoorCount: 0,
+            outdoorCount: 0,
+            gravelRideCount: 0,
+            trailRunCount: 0,
+            tempoRunCount: 0,
+            ultraRunCount: 0,
+            hillRideCount: 0,
+            longRideCount: 0,
+            fastRideCount: 0,
+            adventureSessions: 0,
+            commuteCount: 0,
+            kudosTotal: 0,
+            longRunKm: 0,
+            longRideKm: 0,
+            longSwimKm: 0,
+            longActivityHours: 0,
+            averageActivityHours: activities.length > 0 ? totals.hours / activities.length : 0,
+            weekHours: 0,
+            weekDistanceKm: 0,
+            weekElevationM: 0,
+            weekActivities: 0,
+            weekRunDistanceKm: 0,
+            weekRideDistanceKm: 0,
+            weekSwimDistanceKm: 0,
+            weekLongSessions: 0,
+            weekMorningSessions: 0,
+            weekNightSessions: 0,
+            weeklyCommuteCount: 0,
+            morningCount: 0,
+            eveningCount: 0,
+            nightCount: 0,
+            dawnCount: 0,
+            runNightCount: 0,
+            weekendCount: 0,
+            startSamples: 0,
+            averageStartAccumulator: 0,
+            multiSportDays: 0,
+            twoADays: 0,
+            activeDays: 0,
+            longestDayStreak: 0,
+            longestWeekStreak: 0,
+            activeWeeks: 0,
+            averageRunPaceMinPerKm: null,
+            averageRideSpeedKph: null,
+            averageSwimPaceMinPer100m: null,
+            preferredDiscipline: 'balanced',
+            secondaryDiscipline: null,
+            consistencyScore: 0,
+            morningShare: 0,
+            eveningShare: 0,
+            nightShare: 0,
+            dawnShare: 0,
+            weekendShare: 0,
+            indoorShare: 0,
+            averageKudos: 0,
+            runShare: 0,
+            rideShare: 0,
+            swimShare: 0,
+            climbPerKm: 0,
+            averageStartHour: null
+        };
+
+        const dayActivityCounts = new Map();
+        const dayDisciplineSets = new Map();
+        const weekStartTimes = new Set();
+
+        let runPaceTotal = 0;
+        let runPaceSamples = 0;
+        let rideSpeedTotal = 0;
+        let rideSpeedSamples = 0;
+        let swimPaceTotal = 0;
+        let swimPaceSamples = 0;
+
+        activities.forEach((activity) => {
+            if (!activity) {
+                return;
+            }
+
+            const sportTypeRaw = String(activity.sport_type || activity.type || '').toUpperCase();
+            let discipline = 'other';
+            if (sportTypeRaw.includes('RUN')) {
+                discipline = 'run';
+            } else if (sportTypeRaw.includes('RIDE') || sportTypeRaw.includes('VELO') || sportTypeRaw === 'BIKE') {
+                discipline = 'ride';
+            } else if (sportTypeRaw.includes('SWIM')) {
+                discipline = 'swim';
+            } else if (sportTypeRaw.includes('HIKE') || sportTypeRaw.includes('WALK') || sportTypeRaw.includes('SNOW')) {
+                discipline = 'hike';
+            } else if (sportTypeRaw.includes('SKI')) {
+                discipline = 'hike';
+            }
+
+            const movingTimeSeconds = Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
+            const movingHours = movingTimeSeconds / 3600;
+            const distanceMeters = Number.isFinite(activity.distance) ? activity.distance : 0;
+            const distanceKm = distanceMeters / 1000;
+            const elevationGain = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+            const startDateRaw = activity.start_date_local || activity.start_date;
+            const startDate = startDateRaw ? new Date(startDateRaw) : null;
+            const hasValidStart = startDate instanceof Date && !Number.isNaN(startDate.getTime());
+
+            stats.kudosTotal += getActivityLikesCount(activity);
+            if (activity.commute) {
+                stats.commuteCount += 1;
+            }
+
+            const isIndoor = Boolean(activity.trainer) || /INDOOR|VIRTUAL/.test(sportTypeRaw);
+            if (isIndoor) {
+                stats.indoorCount += 1;
+            } else {
+                stats.outdoorCount += 1;
+            }
+
+            if (discipline === 'run') {
+                stats.runDistanceKm += distanceKm;
+                stats.runHours += movingHours;
+                stats.runActivities += 1;
+                stats.longRunKm = Math.max(stats.longRunKm, distanceKm);
+                if (distanceKm >= 42) {
+                    stats.ultraRunCount += 1;
+                }
+                if (sportTypeRaw === 'TRAILRUN' || /TRAIL|VERT|MONT/i.test(activity.name || '')) {
+                    stats.trailRunCount += 1;
+                    stats.adventureSessions += 1;
+                }
+                if (distanceKm >= 5 && movingHours > 0) {
+                    const pace = (movingHours * 60) / Math.max(distanceKm, 0.001);
+                    runPaceTotal += pace;
+                    runPaceSamples += 1;
+                    if (pace <= 4.6) {
+                        stats.tempoRunCount += 1;
+                    }
+                }
+                if (hasValidStart) {
+                    const hour = startDate.getHours();
+                    if (hour >= 21 || hour < 4) {
+                        stats.runNightCount += 1;
+                    }
+                }
+            } else if (discipline === 'ride') {
+                stats.rideDistanceKm += distanceKm;
+                stats.rideHours += movingHours;
+                stats.rideActivities += 1;
+                stats.longRideKm = Math.max(stats.longRideKm, distanceKm);
+                if (distanceKm >= 100) {
+                    stats.longRideCount += 1;
+                }
+                if (elevationGain >= 1500) {
+                    stats.hillRideCount += 1;
+                }
+                if (movingHours > 0 && distanceKm > 0) {
+                    const speed = distanceKm / movingHours;
+                    rideSpeedTotal += speed;
+                    rideSpeedSamples += 1;
+                    if (speed >= 32) {
+                        stats.fastRideCount += 1;
+                    }
+                }
+                if (sportTypeRaw === 'GRAVELRIDE' || /GRAVEL/i.test(activity.name || '')) {
+                    stats.gravelRideCount += 1;
+                    stats.adventureSessions += 1;
+                }
+                if (sportTypeRaw === 'MTBRIDE' || /MTB|MOUNTAIN BIKE/i.test(activity.name || '')) {
+                    stats.adventureSessions += 1;
+                }
+            } else if (discipline === 'swim') {
+                stats.swimDistanceKm += distanceKm;
+                stats.swimHours += movingHours;
+                stats.swimActivities += 1;
+                stats.longSwimKm = Math.max(stats.longSwimKm, distanceKm);
+                if (distanceKm > 0 && movingHours > 0) {
+                    const pacePer100 = (movingHours * 60) / Math.max(distanceKm * 10, 0.001);
+                    swimPaceTotal += pacePer100;
+                    swimPaceSamples += 1;
+                }
+            } else if (discipline === 'hike') {
+                stats.hikeDistanceKm += distanceKm;
+                stats.hikeHours += movingHours;
+                stats.hikeActivities += 1;
+                stats.adventureSessions += 1;
+            }
+
+            if (sportTypeRaw.includes('STRENGTH') || sportTypeRaw.includes('WEIGHT') || sportTypeRaw.includes('CROSSFIT') || sportTypeRaw.includes('WORKOUT')) {
+                stats.strengthSessions += 1;
+            }
+
+            if (sportTypeRaw.includes('YOGA') || sportTypeRaw.includes('MEDITATION') || sportTypeRaw.includes('PILATES') || sportTypeRaw.includes('STRETCH')) {
+                stats.mindfulSessions += 1;
+            }
+
+            stats.longActivityHours = Math.max(stats.longActivityHours, movingHours);
+
+            if (hasValidStart) {
+                const hour = startDate.getHours() + (startDate.getMinutes() / 60);
+                stats.averageStartAccumulator += hour;
+                stats.startSamples += 1;
+                if (hour < 6) {
+                    stats.dawnCount += 1;
+                }
+                if (hour < 8) {
+                    stats.morningCount += 1;
+                }
+                if (hour >= 17 && hour < 21) {
+                    stats.eveningCount += 1;
+                }
+                if (hour >= 21 || hour < 4) {
+                    stats.nightCount += 1;
+                }
+                if (startDate.getDay() === 0 || startDate.getDay() === 6) {
+                    stats.weekendCount += 1;
+                }
+
+                const dayKey = startDate.toISOString().slice(0, 10);
+                dayActivityCounts.set(dayKey, (dayActivityCounts.get(dayKey) || 0) + 1);
+                const existingSet = dayDisciplineSets.get(dayKey) || new Set();
+                existingSet.add(discipline);
+                dayDisciplineSets.set(dayKey, existingSet);
+
+                const weekInfo = getISOWeekInfo(startDate);
+                if (weekInfo) {
+                    weekStartTimes.add(weekInfo.startDate.getTime());
+                }
+            }
+
+            if (hasValidStart && startDate >= weekStart && startDate <= now) {
+                stats.weekActivities += 1;
+                stats.weekHours += movingHours;
+                stats.weekDistanceKm += distanceKm;
+                stats.weekElevationM += elevationGain;
+                if (discipline === 'run') {
+                    stats.weekRunDistanceKm += distanceKm;
+                } else if (discipline === 'ride') {
+                    stats.weekRideDistanceKm += distanceKm;
+                } else if (discipline === 'swim') {
+                    stats.weekSwimDistanceKm += distanceKm;
+                }
+                if (movingHours >= 2) {
+                    stats.weekLongSessions += 1;
+                }
+                const hour = startDate.getHours() + (startDate.getMinutes() / 60);
+                if (hour < 8) {
+                    stats.weekMorningSessions += 1;
+                }
+                if (hour >= 21 || hour < 4) {
+                    stats.weekNightSessions += 1;
+                }
+                if (activity.commute) {
+                    stats.weeklyCommuteCount += 1;
+                }
+            }
+        });
+
+        const dayKeys = Array.from(dayActivityCounts.keys()).sort();
+        let previousDay = null;
+        let currentDayStreak = 0;
+        dayKeys.forEach((key) => {
+            const date = new Date(key);
+            if (previousDay) {
+                const diffDays = Math.round((date - previousDay) / (24 * 60 * 60 * 1000));
+                currentDayStreak = diffDays === 1 ? currentDayStreak + 1 : 1;
+            } else {
+                currentDayStreak = 1;
+            }
+            stats.longestDayStreak = Math.max(stats.longestDayStreak, currentDayStreak);
+            previousDay = date;
+        });
+
+        stats.activeDays = dayActivityCounts.size;
+        stats.twoADays = Array.from(dayActivityCounts.values()).filter(count => count >= 2).length;
+        stats.multiSportDays = Array.from(dayDisciplineSets.values()).filter(set => set.size >= 2).length;
+
+        const sortedWeekTimes = Array.from(weekStartTimes).sort((a, b) => a - b);
+        let previousWeekTime = null;
+        let currentWeekStreak = 0;
+        sortedWeekTimes.forEach((time) => {
+            if (previousWeekTime !== null) {
+                const diffWeeks = Math.round((time - previousWeekTime) / (7 * 24 * 60 * 60 * 1000));
+                currentWeekStreak = diffWeeks === 1 ? currentWeekStreak + 1 : 1;
+            } else {
+                currentWeekStreak = 1;
+            }
+            stats.longestWeekStreak = Math.max(stats.longestWeekStreak, currentWeekStreak);
+            previousWeekTime = time;
+        });
+        stats.activeWeeks = weekStartTimes.size;
+
+        if (stats.startSamples > 0) {
+            stats.averageStartHour = stats.averageStartAccumulator / stats.startSamples;
+        }
+
+        const safeTotalActivities = stats.totalActivities > 0 ? stats.totalActivities : 1;
+        stats.morningShare = stats.morningCount / safeTotalActivities;
+        stats.eveningShare = stats.eveningCount / safeTotalActivities;
+        stats.nightShare = stats.nightCount / safeTotalActivities;
+        stats.dawnShare = stats.dawnCount / safeTotalActivities;
+        stats.weekendShare = stats.weekendCount / safeTotalActivities;
+        stats.indoorShare = stats.indoorCount / safeTotalActivities;
+        stats.averageKudos = stats.kudosTotal / safeTotalActivities;
+
+        stats.runShare = stats.totalDistanceKm > 0 ? stats.runDistanceKm / stats.totalDistanceKm : 0;
+        stats.rideShare = stats.totalDistanceKm > 0 ? stats.rideDistanceKm / stats.totalDistanceKm : 0;
+        stats.swimShare = stats.totalDistanceKm > 0 ? stats.swimDistanceKm / stats.totalDistanceKm : 0;
+        stats.climbPerKm = stats.totalDistanceKm > 0 ? stats.totalElevationM / stats.totalDistanceKm : 0;
+
+        stats.averageRunPaceMinPerKm = runPaceSamples > 0 ? runPaceTotal / runPaceSamples : null;
+        stats.averageRideSpeedKph = rideSpeedSamples > 0 ? rideSpeedTotal / rideSpeedSamples : null;
+        stats.averageSwimPaceMinPer100m = swimPaceSamples > 0 ? swimPaceTotal / swimPaceSamples : null;
+
+        const disciplineHours = [
+            { key: 'run', hours: stats.runHours },
+            { key: 'ride', hours: stats.rideHours },
+            { key: 'swim', hours: stats.swimHours },
+            { key: 'hike', hours: stats.hikeHours }
+        ].sort((a, b) => (b.hours || 0) - (a.hours || 0));
+
+        if (disciplineHours[0] && disciplineHours[0].hours > 0) {
+            stats.preferredDiscipline = disciplineHours[0].key;
+        }
+        if (disciplineHours[1] && disciplineHours[1].hours > 0) {
+            stats.secondaryDiscipline = disciplineHours[1].key;
+        }
+
+        const streakContribution = stats.longestWeekStreak * 6;
+        const multiSportContribution = stats.multiSportDays * 2;
+        stats.consistencyScore = Math.min(100, streakContribution + multiSportContribution);
+
+        return stats;
+    };
+
+                if (sportTypeRaw === "GRAVELRIDE" || /GRAVEL/i.test(activity.name || "")) {
+                    stats.gravelRideCount += 1;
+                    stats.adventureSessions += 1;
+                }
+                if (sportTypeRaw === "MTBRIDE" || /MTB|MOUNTAIN BIKE/i.test(activity.name || "")) {
+                    stats.adventureSessions += 1;
+                }
+            } else if (discipline === "swim") {
+                stats.swimDistanceKm += distanceKm;
+                stats.swimHours += movingHours;
+                stats.swimActivities += 1;
+                stats.longSwimKm = Math.max(stats.longSwimKm, distanceKm);
+                if (distanceKm > 0 && movingHours > 0) {
+                    const pacePer100 = (movingHours * 60) / Math.max(distanceKm * 10, 0.001);
+                    swimPaceTotal += pacePer100;
+                    swimPaceSamples += 1;
+                }
+            } else if (discipline === "hike") {
+                stats.hikeDistanceKm += distanceKm;
+                stats.hikeHours += movingHours;
+                stats.hikeActivities += 1;
+                stats.adventureSessions += 1;
+            }
+
+            if (sportTypeRaw.includes("STRENGTH") || sportTypeRaw.includes("WEIGHT") || sportTypeRaw.includes("CROSSFIT") || sportTypeRaw.includes("WORKOUT")) {
+                stats.strengthSessions += 1;
+            }
+
+            if (sportTypeRaw.includes("YOGA") || sportTypeRaw.includes("MEDITATION") || sportTypeRaw.includes("PILATES") || sportTypeRaw.includes("STRETCH")) {
+                stats.mindfulSessions += 1;
+            }
+
+            stats.longActivityHours = Math.max(stats.longActivityHours, movingHours);
+
+            if (hasValidStart) {
+                const hour = startDate.getHours() + (startDate.getMinutes() / 60);
+                stats.averageStartAccumulator += hour;
+                stats.startSamples += 1;
+                if (hour < 6) {
+                    stats.dawnCount += 1;
+                }
+                if (hour < 8) {
+                    stats.morningCount += 1;
+                }
+                if (hour >= 17 && hour < 21) {
+                    stats.eveningCount += 1;
+                }
+                if (hour >= 21 || hour < 4) {
+                    stats.nightCount += 1;
+                }
+                if (startDate.getDay() === 0 || startDate.getDay() === 6) {
+                    stats.weekendCount += 1;
+                }
+
+                const dayKey = startDate.toISOString().slice(0, 10);
+                dayActivityCounts.set(dayKey, (dayActivityCounts.get(dayKey) || 0) + 1);
+                const existingSet = dayDisciplineSets.get(dayKey) || new Set();
+                existingSet.add(discipline);
+                dayDisciplineSets.set(dayKey, existingSet);
+
+                const weekInfo = getISOWeekInfo(startDate);
+                if (weekInfo) {
+                    weekStartTimes.add(weekInfo.startDate.getTime());
+                }
+            }
+
+            if (hasValidStart && startDate >= weekStart && startDate <= now) {
+                stats.weekActivities += 1;
+                stats.weekHours += movingHours;
+                stats.weekDistanceKm += distanceKm;
+                stats.weekElevationM += elevationGain;
+                if (discipline === "run") {
+                    stats.weekRunDistanceKm += distanceKm;
+                } else if (discipline === "ride") {
+                    stats.weekRideDistanceKm += distanceKm;
+                } else if (discipline === "swim") {
+                    stats.weekSwimDistanceKm += distanceKm;
+                }
+                if (movingHours >= 2) {
+                    stats.weekLongSessions += 1;
+                }
+                const hour = startDate.getHours() + (startDate.getMinutes() / 60);
+                if (hour < 8) {
+                    stats.weekMorningSessions += 1;
+                }
+                if (hour >= 21 || hour < 4) {
+                    stats.weekNightSessions += 1;
+                }
+                if (activity.commute) {
+                    stats.weeklyCommuteCount += 1;
+                }
+            }
+        });
+
+        const dayKeys = Array.from(dayActivityCounts.keys()).sort();
+        let previousDay = null;
+        let currentDayStreak = 0;
+        dayKeys.forEach((key) => {
+            const date = new Date(key);
+            if (previousDay) {
+                const diffDays = Math.round((date - previousDay) / (24 * 60 * 60 * 1000));
+                currentDayStreak = diffDays === 1 ? currentDayStreak + 1 : 1;
+            } else {
+                currentDayStreak = 1;
+            }
+            stats.longestDayStreak = Math.max(stats.longestDayStreak, currentDayStreak);
+            previousDay = date;
+        });
+
+        stats.activeDays = dayActivityCounts.size;
+        stats.twoADays = Array.from(dayActivityCounts.values()).filter(count => count >= 2).length;
+        stats.multiSportDays = Array.from(dayDisciplineSets.values()).filter(set => set.size >= 2).length;
+
+        const sortedWeekTimes = Array.from(weekStartTimes).sort((a, b) => a - b);
+        let previousWeekTime = null;
+        let currentWeekStreak = 0;
+        sortedWeekTimes.forEach((time) => {
+            if (previousWeekTime !== null) {
+                const diffWeeks = Math.round((time - previousWeekTime) / (7 * 24 * 60 * 60 * 1000));
+                currentWeekStreak = diffWeeks === 1 ? currentWeekStreak + 1 : 1;
+            } else {
+                currentWeekStreak = 1;
+            }
+            stats.longestWeekStreak = Math.max(stats.longestWeekStreak, currentWeekStreak);
+            previousWeekTime = time;
+        });
+        stats.activeWeeks = weekStartTimes.size;
+
+        if (stats.startSamples > 0) {
+            stats.averageStartHour = stats.averageStartAccumulator / stats.startSamples;
+        }
+
+        const safeTotalActivities = stats.totalActivities > 0 ? stats.totalActivities : 1;
+        stats.morningShare = stats.morningCount / safeTotalActivities;
+        stats.eveningShare = stats.eveningCount / safeTotalActivities;
+        stats.nightShare = stats.nightCount / safeTotalActivities;
+        stats.dawnShare = stats.dawnCount / safeTotalActivities;
+        stats.weekendShare = stats.weekendCount / safeTotalActivities;
+        stats.indoorShare = stats.indoorCount / safeTotalActivities;
+        stats.averageKudos = stats.kudosTotal / safeTotalActivities;
+
+        stats.runShare = stats.totalDistanceKm > 0 ? stats.runDistanceKm / stats.totalDistanceKm : 0;
+        stats.rideShare = stats.totalDistanceKm > 0 ? stats.rideDistanceKm / stats.totalDistanceKm : 0;
+        stats.swimShare = stats.totalDistanceKm > 0 ? stats.swimDistanceKm / stats.totalDistanceKm : 0;
+        stats.climbPerKm = stats.totalDistanceKm > 0 ? stats.totalElevationM / stats.totalDistanceKm : 0;
+
+        stats.averageRunPaceMinPerKm = runPaceSamples > 0 ? runPaceTotal / runPaceSamples : null;
+        stats.averageRideSpeedKph = rideSpeedSamples > 0 ? rideSpeedTotal / rideSpeedSamples : null;
+        stats.averageSwimPaceMinPer100m = swimPaceSamples > 0 ? swimPaceTotal / swimPaceSamples : null;
+
+        const disciplineHours = [
+            { key: "run", hours: stats.runHours },
+            { key: "ride", hours: stats.rideHours },
+            { key: "swim", hours: stats.swimHours },
+            { key: "hike", hours: stats.hikeHours }
+        ].sort((a, b) => (b.hours || 0) - (a.hours || 0));
+
+        if (disciplineHours[0] && disciplineHours[0].hours > 0) {
+            stats.preferredDiscipline = disciplineHours[0].key;
+        }
+        if (disciplineHours[1] && disciplineHours[1].hours > 0) {
+            stats.secondaryDiscipline = disciplineHours[1].key;
+        }
+
+        const streakContribution = stats.longestWeekStreak * 6;
+        const multiSportContribution = stats.multiSportDays * 2;
+        stats.consistencyScore = Math.min(100, streakContribution + multiSportContribution);
+
+        return stats;
+    };
+
+    const LOTR_CLASSES = [
+        {
+            id: "harvester-of-the-shire",
+            name: "Harvester of the Shire",
+            crest: "🌾",
+            description: "Custode delle colline di Hobbiton con chilometri regolari e albe serene.",
+            focus: "run",
+            baseScore: 0.3,
+            criteria: [
+                {
+                    metric: "weekRunDistanceKm",
+                    min: 45,
+                    weight: 1.4,
+                    reasonBuilder: (stats) => `Settimana da ${formatStatValue(stats.weekRunDistanceKm, 0)} km di corsa.`
+                },
+                {
+                    metric: "morningShare",
+                    min: 0.35,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.morningShare)} delle sessioni iniziano presto.`
+                },
+                {
+                    metric: "longestWeekStreak",
+                    min: 4,
+                    weight: 1,
+                    reason: "Streak di almeno quattro settimane consecutive."
+                }
+            ],
+            fallbackReason: "Allenamenti costanti ti mantengono saldo nei campi della Contea."
+        },
+        {
+            id: "messenger-of-minas-tirith",
+            name: "Messenger of Minas Tirith",
+            crest: "🕊️",
+            description: "Corriere rapido della Cittadella Bianca, sempre pronto a consegnare split brillanti.",
+            focus: "run",
+            baseScore: 0.25,
+            criteria: [
+                {
+                    metric: "averageRunPaceMinPerKm",
+                    max: 4.7,
+                    weight: 1.4,
+                    reasonBuilder: (stats) => `Passo medio da ${formatStatValue(stats.averageRunPaceMinPerKm, 2)} min/km.`
+                },
+                {
+                    metric: "tempoRunCount",
+                    min: 3,
+                    weight: 1.1,
+                    reason: "Ripetute di qualità frequenti."
+                },
+                {
+                    metric: "weekRunDistanceKm",
+                    min: 60,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Volume settimanale di ${formatStatValue(stats.weekRunDistanceKm, 0)} km.`
+                }
+            ],
+            fallbackReason: "Passo veloce e disciplina ti rendono messaggero della capitale."
+        },
+        {
+            id: "strider-of-arnor",
+            name: "Strider of Arnor",
+            crest: "🧭",
+            description: "Ranger indefesso che attraversa ogni frontiera senza perdere ritmo.",
+            focus: "run",
+            baseScore: 0.28,
+            criteria: [
+                {
+                    metric: "longRunKm",
+                    min: 28,
+                    weight: 1.2,
+                    reasonBuilder: (stats) => `Lungo principale da ${formatStatValue(stats.longRunKm, 1)} km.`
+                },
+                {
+                    metric: "longestDayStreak",
+                    min: 10,
+                    weight: 1,
+                    reason: "Dieci o più giorni consecutivi di attività."
+                },
+                {
+                    metric: "totalHours",
+                    min: 120,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.totalHours, 0)} ore totali di avventure.`
+                }
+            ],
+            fallbackReason: "Cammini lunghi e costanza ti fanno meritare il titolo di Strider."
+        },
+        {
+            id: "trail-warden-of-ithilien",
+            name: "Trail-Warden of Ithilien",
+            crest: "🌲",
+            description: "Guardiano delle foreste, agile su salite e sentieri nascosti.",
+            focus: "adventure",
+            baseScore: 0.32,
+            criteria: [
+                {
+                    metric: "trailRunCount",
+                    min: 3,
+                    weight: 1.2,
+                    reason: "Trail frequenti nella settimana."
+                },
+                {
+                    metric: "climbPerKm",
+                    min: 25,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.climbPerKm, 0)} m di dislivello per km.`
+                },
+                {
+                    metric: "weekElevationM",
+                    min: 1600,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Settimana con ${formatStatValue(stats.weekElevationM, 0)} m di salita.`
+                }
+            ],
+            fallbackReason: "La propensione ai sentieri ti rende sentinella di Ithilien."
+        },
+        {
+            id: "sprinter-of-dol-amroth",
+            name: "Sprinter of Dol Amroth",
+            crest: "⚡",
+            description: "Lama costiera che taglia il vento con lavori di velocità eleganti.",
+            focus: "run",
+            baseScore: 0.2,
+            criteria: [
+                {
+                    metric: "tempoRunCount",
+                    min: 5,
+                    weight: 1.1,
+                    reason: "Sessioni intense di ritmo sostenuto."
+                },
+                {
+                    metric: "weekActivities",
+                    min: 7,
+                    weight: 0.9,
+                    reason: "Sette o più attività in una settimana."
+                },
+                {
+                    metric: "averageRunPaceMinPerKm",
+                    max: 4.4,
+                    weight: 1.2,
+                    reasonBuilder: (stats) => `Andatura media da ${formatStatValue(stats.averageRunPaceMinPerKm, 2)} min/km.`
+                }
+            ],
+            fallbackReason: "Rapidità e brillantezza ti consacrano ai moli di Dol Amroth."
+        },
+        {
+            id: "rider-of-the-mark",
+            name: "Rider of the Mark",
+            crest: "🐎",
+            description: "Cavaliere delle pianure di Rohan, instancabile tra lunghe galoppate.",
+            focus: "ride",
+            baseScore: 0.32,
+            criteria: [
+                {
+                    metric: "rideDistanceKm",
+                    min: 350,
+                    weight: 1.2,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.rideDistanceKm, 0)} km pedalati complessivamente.`
+                },
+                {
+                    metric: "longRideCount",
+                    min: 3,
+                    weight: 1.1,
+                    reason: "Almeno tre uscite oltre i 100 km."
+                },
+                {
+                    metric: "averageRideSpeedKph",
+                    min: 28,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Velocità media di ${formatStatValue(stats.averageRideSpeedKph, 1)} km/h.`
+                }
+            ],
+            fallbackReason: "Le ruote instancabili ti fanno cavaliere del Mark."
+        },
+        {
+            id: "stormrider-of-rohan",
+            name: "Stormrider of Rohan",
+            crest: "🌪️",
+            description: "Sfida venti e crinali con salite epiche sulle ruote.",
+            focus: "ride",
+            baseScore: 0.27,
+            criteria: [
+                {
+                    metric: "hillRideCount",
+                    min: 3,
+                    weight: 1.1,
+                    reason: "Più di tre uscite con forte dislivello."
+                },
+                {
+                    metric: "weekElevationM",
+                    min: 2500,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekElevationM, 0)} m di dislivello in settimana.`
+                },
+                {
+                    metric: "longRideKm",
+                    min: 120,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Uscita lunga da ${formatStatValue(stats.longRideKm, 0)} km.`
+                }
+            ],
+            fallbackReason: "Arrivi in cima anche quando le tempeste infuriano."
+        },
+        {
+            id: "courier-of-the-white-city",
+            name: "Courier of the White City",
+            crest: "📯",
+            description: "Messaggero instancabile che tesse la rete urbana di Gondor.",
+            focus: "ride",
+            baseScore: 0.22,
+            criteria: [
+                {
+                    metric: "commuteCount",
+                    min: 8,
+                    weight: 1.2,
+                    reason: "Molti spostamenti quotidiani in sella."
+                },
+                {
+                    metric: "morningShare",
+                    min: 0.3,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.morningShare)} delle uscite iniziano al mattino.`
+                },
+                {
+                    metric: "weekRideDistanceKm",
+                    min: 120,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekRideDistanceKm, 0)} km pedalati nella settimana.`
+                }
+            ],
+            fallbackReason: "Affidabilità e ritmo cittadino ti rendono corriere della capitale."
+        },
+        {
+            id: "gravel-seeker-of-rhovanion",
+            name: "Gravel Seeker of Rhovanion",
+            crest: "🪨",
+            description: "Esploratore di piste sterrate e sentieri granitici nelle Terre Selvagge.",
+            focus: "adventure",
+            baseScore: 0.23,
+            criteria: [
+                {
+                    metric: "gravelRideCount",
+                    min: 4,
+                    weight: 1.1,
+                    reason: "Serie di uscite gravel dedicate."
+                },
+                {
+                    metric: "adventureSessions",
+                    min: 5,
+                    weight: 1,
+                    reason: "Numerose sessioni avventurose fuori strada."
+                },
+                {
+                    test: (stats) => stats.outdoorCount >= stats.totalActivities * 0.7,
+                    weight: 0.8,
+                    reason: "Predilezione per l’aria aperta."
+                }
+            ],
+            fallbackReason: "Le strade selvagge ti chiamano e tu rispondi sempre."
+        },
+        {
+            id: "skybreaker-of-the-eyrie",
+            name: "Skybreaker of the Eyrie",
+            crest: "🦅",
+            description: "Sfreccia veloce come le aquile sui passi più veloci.",
+            focus: "ride",
+            baseScore: 0.21,
+            criteria: [
+                {
+                    metric: "fastRideCount",
+                    min: 3,
+                    weight: 1.1,
+                    reason: "Più di tre uscite ad alta velocità."
+                },
+                {
+                    metric: "averageRideSpeedKph",
+                    min: 32,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `Velocità media di ${formatStatValue(stats.averageRideSpeedKph, 1)} km/h.`
+                },
+                {
+                    metric: "weekRideDistanceKm",
+                    min: 200,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekRideDistanceKm, 0)} km in settimana.`
+                }
+            ],
+            fallbackReason: "La velocità è il tuo elemento naturale sopra le cime."
+        },
+        {
+            id: "shieldmaiden-of-edoras",
+            name: "Shieldmaiden of Edoras",
+            crest: "🛡️",
+            description: "Difendi le mura di Meduseld con disciplina feroce su ruote e pesi.",
+            focus: "ride",
+            baseScore: 0.26,
+            criteria: [
+                {
+                    metric: "weekRideDistanceKm",
+                    min: 160,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `Pedalate settimanali per ${formatStatValue(stats.weekRideDistanceKm, 0)} km.`
+                },
+                {
+                    metric: "strengthSessions",
+                    min: 2,
+                    weight: 0.9,
+                    reason: "Sessioni di forza a supporto della resistenza."
+                },
+                {
+                    metric: "weekLongSessions",
+                    min: 2,
+                    weight: 1,
+                    reason: "Almeno due sessioni lunghe completate questa settimana."
+                }
+            ],
+            fallbackReason: "Cadenza costante e forza ti rendono una scudiera di Rohan."
+        },
+        {
+            id: "mithril-swimmer-of-erebor",
+            name: "Mithril Swimmer of Erebor",
+            crest: "💠",
+            description: "Miniere cristalline ti accompagnano in acque profonde e lucenti.",
+            focus: "swim",
+            baseScore: 0.24,
+            criteria: [
+                {
+                    metric: "swimDistanceKm",
+                    min: 10,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `Hai nuotato ${formatStatValue(stats.swimDistanceKm, 1)} km.`
+                },
+                {
+                    metric: "weekSwimDistanceKm",
+                    min: 4,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Settimana acquatica da ${formatStatValue(stats.weekSwimDistanceKm, 1)} km.`
+                },
+                {
+                    metric: "longSwimKm",
+                    min: 2,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `La nuotata più lunga tocca ${formatStatValue(stats.longSwimKm, 1)} km.`
+                }
+            ],
+            fallbackReason: "Le acque profonde dell’Erebor riflettono la tua costanza."
+        },
+        {
+            id: "guardian-of-fangorn",
+            name: "Guardian of Fangorn",
+            crest: "🌳",
+            description: "Custode delle antiche entità arboree tra sentieri e radure.",
+            focus: "adventure",
+            baseScore: 0.29,
+            criteria: [
+                {
+                    metric: "hikeHours",
+                    min: 6,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.hikeHours, 1)} ore dedicate a trekking e hiking.`
+                },
+                {
+                    metric: "adventureSessions",
+                    min: 6,
+                    weight: 1.1,
+                    reason: "Molte uscite avventurose completate."
+                },
+                {
+                    metric: "weekendShare",
+                    min: 0.4,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.weekendShare)} delle attività cadono nel weekend.`
+                }
+            ],
+            fallbackReason: "Segui le radici degli Ent e difendi i boschi ancestrali."
+        },
+        {
+            id: "warden-of-the-deep",
+            name: "Warden of the Deep",
+            crest: "🏰",
+            description: "Gli abissi di Khazad-dûm riecheggiano con i tuoi allenamenti indoor.",
+            focus: "indoor",
+            baseScore: 0.22,
+            criteria: [
+                {
+                    metric: "indoorShare",
+                    min: 0.6,
+                    weight: 1.2,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.indoorShare)} delle sessioni avviene indoor.`
+                },
+                {
+                    metric: "weekActivities",
+                    min: 5,
+                    weight: 0.8,
+                    reason: "Almeno cinque attività nella settimana corrente."
+                },
+                {
+                    metric: "averageActivityHours",
+                    min: 1.2,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `Sessioni medie da ${formatStatValue(stats.averageActivityHours, 2)} ore.`
+                }
+            ],
+            fallbackReason: "Rafforzi il tuo regno sotterraneo con disciplina ferrea."
+        },
+        {
+            id: "keeper-of-lothlorien",
+            name: "Keeper of Lothlórien",
+            crest: "🍃",
+            description: "La calma degli Eldar guida le tue routine rigeneranti.",
+            focus: "mindful",
+            baseScore: 0.21,
+            criteria: [
+                {
+                    metric: "mindfulSessions",
+                    min: 3,
+                    weight: 1,
+                    reason: "Sessioni dedicate alla cura mentale e mobilità."
+                },
+                {
+                    metric: "weekMorningSessions",
+                    min: 3,
+                    weight: 0.9,
+                    reason: "Mattinate dedicate a rituali e risvegli consapevoli."
+                },
+                {
+                    metric: "consistencyScore",
+                    min: 40,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Consistenza generale: ${formatStatValue(stats.consistencyScore, 0)}.`
+                }
+            ],
+            fallbackReason: "Porti equilibrio e luce argentata nelle tue giornate."
+        },
+        {
+            id: "watcher-of-amon-sul",
+            name: "Watcher of Amon Sûl",
+            crest: "🔥",
+            description: "Torri di guardia illuminate dalle tue corse notturne.",
+            focus: "run",
+            baseScore: 0.24,
+            criteria: [
+                {
+                    metric: "nightShare",
+                    min: 0.3,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.nightShare)} delle attività si svolge di notte.`
+                },
+                {
+                    metric: "runNightCount",
+                    min: 2,
+                    weight: 1,
+                    reason: "Più corse notturne completate di recente."
+                },
+                {
+                    metric: "weekNightSessions",
+                    min: 2,
+                    weight: 0.9,
+                    reason: "Sessioni notturne frequenti nell’ultima settimana."
+                }
+            ],
+            fallbackReason: "Sorvegli le valli al chiaro di luna come un vero ramingo."
+        },
+        {
+            id: "dawnrunner-of-rivendell",
+            name: "Dawnrunner of Rivendell",
+            crest: "🌅",
+            description: "Sveglie elfiche e corridoi dorati guidano i tuoi passi mattinieri.",
+            focus: "run",
+            baseScore: 0.25,
+            criteria: [
+                {
+                    metric: "morningShare",
+                    min: 0.45,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.morningShare)} degli allenamenti parte all’alba.`
+                },
+                {
+                    metric: "weekMorningSessions",
+                    min: 4,
+                    weight: 1,
+                    reason: "Molte sessioni mattutine nella settimana in corso."
+                },
+                {
+                    metric: "averageRunPaceMinPerKm",
+                    max: 5,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `Passo medio di ${formatStatValue(stats.averageRunPaceMinPerKm, 2)} min/km.`
+                }
+            ],
+            fallbackReason: "Ogni alba illumina i tuoi allenamenti più eleganti."
+        },
+        {
+            id: "entish-pathfinder",
+            name: "Entish Pathfinder",
+            crest: "🍂",
+            description: "Pazienza e resistenza ti portano su sentieri lunghi e meditativi.",
+            focus: "hike",
+            baseScore: 0.28,
+            criteria: [
+                {
+                    metric: "longActivityHours",
+                    min: 4,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `Sessioni lunghe da ${formatStatValue(stats.longActivityHours, 1)} ore.`
+                },
+                {
+                    metric: "hikeActivities",
+                    min: 4,
+                    weight: 0.9,
+                    reason: "Numerose escursioni completate."
+                },
+                {
+                    metric: "weekLongSessions",
+                    min: 2,
+                    weight: 1,
+                    reason: "Più giornate con uscite prolungate."
+                }
+            ],
+            fallbackReason: "Ti muovi lento ma inesorabile come gli Ent di Fangorn."
+        },
+        {
+            id: "steward-of-gondor",
+            name: "Steward of Gondor",
+            crest: "🛡️",
+            description: "Amministra con rigore ore, settimane e doppi allenamenti.",
+            focus: "balanced",
+            baseScore: 0.31,
+            criteria: [
+                {
+                    metric: "totalHours",
+                    min: 300,
+                    weight: 1.2,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.totalHours, 0)} ore totali accumulate.`
+                },
+                {
+                    metric: "twoADays",
+                    min: 3,
+                    weight: 1,
+                    reason: "Più giornate con doppia sessione."
+                },
+                {
+                    metric: "activeWeeks",
+                    min: 18,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.activeWeeks, 0)} settimane attive registrate.`
+                }
+            ],
+            fallbackReason: "Governi la tua routine con dedizione degna della Torre Bianca."
+        },
+        {
+            id: "king-under-the-mountain",
+            name: "King under the Mountain",
+            crest: "👑",
+            description: "Forgiato da ferro e fuoco, domini le sessioni più impegnative.",
+            focus: "strength",
+            baseScore: 0.27,
+            criteria: [
+                {
+                    metric: "strengthSessions",
+                    min: 4,
+                    weight: 1.1,
+                    reason: "Allenamenti di forza frequenti."
+                },
+                {
+                    metric: "weekHours",
+                    min: 14,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekHours, 1)} ore di lavoro nell’ultima settimana.`
+                },
+                {
+                    metric: "longActivityHours",
+                    min: 5,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `Sessione più lunga da ${formatStatValue(stats.longActivityHours, 1)} ore.`
+                }
+            ],
+            fallbackReason: "Le profondità di Erebor riconoscono la tua potenza forgiata."
+        },
+        {
+            id: "grey-pilgrim",
+            name: "Grey Pilgrim",
+            crest: "🪄",
+            description: "Viaggiatore instancabile che intreccia discipline e lunghe distanze.",
+            focus: "adventure",
+            baseScore: 0.3,
+            criteria: [
+                {
+                    metric: "multiSportDays",
+                    min: 6,
+                    weight: 1,
+                    reason: "Più giornate con discipline multiple."
+                },
+                {
+                    metric: "weekDistanceKm",
+                    min: 220,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekDistanceKm, 0)} km totali percorsi in settimana.`
+                },
+                {
+                    metric: "activeWeeks",
+                    min: 26,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.activeWeeks, 0)} settimane in viaggio.`
+                }
+            ],
+            fallbackReason: "Conosci tutte le strade della Terra di Mezzo."
+        },
+        {
+            id: "swan-knight-of-belfalas",
+            name: "Swan Knight of Belfalas",
+            crest: "🦢",
+            description: "Cavalca tra coste e onde con eleganza marziale.",
+            focus: "ride",
+            baseScore: 0.29,
+            criteria: [
+                {
+                    metric: "longRideKm",
+                    min: 150,
+                    weight: 1.2,
+                    reasonBuilder: (stats) => `Lungo memorabile da ${formatStatValue(stats.longRideKm, 0)} km.`
+                },
+                {
+                    metric: "averageRideSpeedKph",
+                    min: 30,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Andatura media di ${formatStatValue(stats.averageRideSpeedKph, 1)} km/h.`
+                },
+                {
+                    metric: "weekRideDistanceKm",
+                    min: 220,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekRideDistanceKm, 0)} km cavalcati questa settimana.`
+                }
+            ],
+            fallbackReason: "Onori la tradizione dei Cavalieri del Cigno con raffinatezza."
+        },
+        {
+            id: "halfling-trickster",
+            name: "Halfling Trickster",
+            crest: "🥔",
+            description: "Piccoli passi ma tantissimi: un ritmo da vero hobbit ingegnoso.",
+            focus: "run",
+            baseScore: 0.2,
+            criteria: [
+                {
+                    metric: "totalActivities",
+                    min: 220,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.totalActivities, 0)} attività registrate.`
+                },
+                {
+                    metric: "averageActivityHours",
+                    max: 1.1,
+                    weight: 0.8,
+                    reasonBuilder: (stats) => `Sessioni agili da ${formatStatValue(stats.averageActivityHours, 2)} ore in media.`
+                },
+                {
+                    metric: "weekActivities",
+                    min: 9,
+                    weight: 0.9,
+                    reason: "Nove o più attività svolte questa settimana."
+                }
+            ],
+            fallbackReason: "Le tue continue incursioni ti rendono imprevedibile come gli hobbit."
+        },
+        {
+            id: "ringbearer-of-the-fellowship",
+            name: "Ringbearer of the Fellowship",
+            crest: "💍",
+            description: "Peso sulle spalle ma volontà incrollabile, settimana dopo settimana.",
+            focus: "balanced",
+            baseScore: 0.33,
+            criteria: [
+                {
+                    metric: "consistencyScore",
+                    min: 60,
+                    weight: 1.2,
+                    reasonBuilder: (stats) => `Consistenza elevata: ${formatStatValue(stats.consistencyScore, 0)}.`
+                },
+                {
+                    metric: "longestDayStreak",
+                    min: 21,
+                    weight: 1,
+                    reason: "Streak giornaliero da ventuno giorni o più."
+                },
+                {
+                    metric: "weekHours",
+                    min: 12,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekHours, 1)} ore nell’ultima settimana.`
+                }
+            ],
+            fallbackReason: "Trasporti il fardello con costanza degna di Frodo."
+        },
+        {
+            id: "guardian-of-gondolin",
+            name: "Guardian of Gondolin",
+            crest: "🏔️",
+            description: "Difendi le valli nascoste con corse tecniche e verticali.",
+            focus: "run",
+            baseScore: 0.27,
+            criteria: [
+                {
+                    metric: "weekElevationM",
+                    min: 2200,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekElevationM, 0)} metri di dislivello in sette giorni.`
+                },
+                {
+                    metric: "trailRunCount",
+                    min: 2,
+                    weight: 0.9,
+                    reason: "Trail e percorsi tecnici ricorrenti."
+                },
+                {
+                    metric: "tempoRunCount",
+                    min: 2,
+                    weight: 0.9,
+                    reason: "Lavori di qualità che difendono la città nascosta."
+                }
+            ],
+            fallbackReason: "Le tue corse a quote elevate proteggono Gondolin."
+        },
+        {
+            id: "tidecaller-of-numenor",
+            name: "Tidecaller of Númenor",
+            crest: "🌊",
+            description: "Il mare antico risponde ai tuoi colpi di braccio disciplinati.",
+            focus: "swim",
+            baseScore: 0.25,
+            criteria: [
+                {
+                    metric: "weekSwimDistanceKm",
+                    min: 6,
+                    weight: 1.1,
+                    reasonBuilder: (stats) => `Settimana da ${formatStatValue(stats.weekSwimDistanceKm, 1)} km a nuoto.`
+                },
+                {
+                    metric: "averageSwimPaceMinPer100m",
+                    max: 2.1,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Passo medio di ${formatStatValue(stats.averageSwimPaceMinPer100m, 2)} min/100m.`
+                },
+                {
+                    metric: "swimActivities",
+                    min: 4,
+                    weight: 0.9,
+                    reason: "Più di quattro sessioni in acqua registrate."
+                }
+            ],
+            fallbackReason: "Conduci le maree di Númenor con armonia e precisione."
+        },
+        {
+            id: "torchbearer-of-ithildin",
+            name: "Torchbearer of Ithildin",
+            crest: "🕯️",
+            description: "Illumini le notti con allenamenti silenziosi e determinati.",
+            focus: "adventure",
+            baseScore: 0.22,
+            criteria: [
+                {
+                    test: (stats) => Number.isFinite(stats.averageStartHour) && stats.averageStartHour >= 19,
+                    weight: 1,
+                    reasonBuilder: (stats) => `Orario medio di partenza ${formatHourOfDay(stats.averageStartHour)}.`
+                },
+                {
+                    metric: "nightShare",
+                    min: 0.4,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.nightShare)} delle attività inizia dopo il tramonto.`
+                },
+                {
+                    metric: "weekNightSessions",
+                    min: 3,
+                    weight: 0.8,
+                    reason: "Più sessioni notturne nell’ultima settimana."
+                }
+            ],
+            fallbackReason: "Quando gli altri dormono, tu illumini la via con costanza."
+        },
+        {
+            id: "herbalist-of-ithilien",
+            name: "Herbalist of Ithilien",
+            crest: "🌿",
+            description: "Raccogli energia tra corsi d’acqua e colline aromatiche.",
+            focus: "mindful",
+            baseScore: 0.23,
+            criteria: [
+                {
+                    metric: "mindfulSessions",
+                    min: 5,
+                    weight: 1.1,
+                    reason: "Pratiche rigenerative frequenti."
+                },
+                {
+                    metric: "weekHours",
+                    min: 8,
+                    weight: 0.9,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekHours, 1)} ore totali nell’ultima settimana.`
+                },
+                {
+                    metric: "weekElevationM",
+                    min: 900,
+                    weight: 0.8,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekElevationM, 0)} m di dislivello raccolto sui sentieri.`
+                }
+            ],
+            fallbackReason: "Trasformi la cura del corpo in arte elfica."
+        },
+        {
+            id: "warden-of-angmar",
+            name: "Warden of Angmar",
+            crest: "❄️",
+            description: "Alleni il gelo e le ombre con sessioni indoor affilate.",
+            focus: "indoor",
+            baseScore: 0.24,
+            criteria: [
+                {
+                    metric: "indoorShare",
+                    min: 0.5,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatPercentage(stats.indoorShare)} degli allenamenti restano entro le mura.`
+                },
+                {
+                    metric: "fastRideCount",
+                    min: 2,
+                    weight: 0.9,
+                    reason: "Più sessioni di bici ad alta velocità."
+                },
+                {
+                    metric: "tempoRunCount",
+                    min: 2,
+                    weight: 0.8,
+                    reason: "Ripetute intense che temprano lo spirito."
+                }
+            ],
+            fallbackReason: "Le fortezze di Angmar rispettano la tua determinazione."
+        },
+        {
+            id: "lightfoot-of-bree",
+            name: "Lightfoot of Bree",
+            crest: "🪶",
+            description: "Passi leggeri e frequenti mantengono vivo il villaggio di Bree.",
+            focus: "run",
+            baseScore: 0.22,
+            criteria: [
+                {
+                    metric: "weekRunDistanceKm",
+                    min: 35,
+                    weight: 1,
+                    reasonBuilder: (stats) => `${formatStatValue(stats.weekRunDistanceKm, 0)} km corsi in settimana.`
+                },
+                {
+                    metric: "weekActivities",
+                    min: 6,
+                    weight: 0.9,
+                    reason: "Almeno sei attività registrate negli ultimi sette giorni."
+                },
+                {
+                    metric: "longRunKm",
+                    min: 18,
+                    weight: 0.8,
+                    reasonBuilder: (stats) => `Lungo principale da ${formatStatValue(stats.longRunKm, 1)} km.`
+                }
+            ],
+            fallbackReason: "Agilità quotidiana e costanza ti rendono leggenda di Bree."
+        }
+    ];
+
+    const evaluateLotrClass = (stats = {}) => {
+        const safeStats = stats && typeof stats === 'object' ? stats : {};
+        const results = LOTR_CLASSES.map((lotrClass) => {
+            const classCriteria = Array.isArray(lotrClass.criteria) ? lotrClass.criteria : [];
+            let score = Number.isFinite(lotrClass.baseScore) ? lotrClass.baseScore : 0;
+            let matchedCriteria = 0;
+            const criterionReasons = [];
+
+            classCriteria.forEach((criterion) => {
+                if (!criterion || (typeof criterion !== 'object')) {
+                    return;
+                }
+                const weight = Number.isFinite(criterion.weight) ? criterion.weight : 1;
+                let passed = false;
+
+                if (typeof criterion.test === 'function') {
+                    try {
+                        passed = Boolean(criterion.test(safeStats));
+                    } catch (error) {
+                        passed = false;
+                    }
+                } else if (criterion.metric) {
+                    const value = safeStats[criterion.metric];
+                    if (!Number.isFinite(value)) {
+                        passed = false;
+                    } else {
+                        let meets = true;
+                        if (typeof criterion.min === 'number' && value < criterion.min) {
+                            meets = false;
+                        }
+                        if (typeof criterion.max === 'number' && value > criterion.max) {
+                            meets = false;
+                        }
+                        passed = meets;
+                    }
+                }
+
+                if (passed) {
+                    matchedCriteria += 1;
+                    score += weight;
+                    let reason = null;
+                    if (typeof criterion.reasonBuilder === 'function') {
+                        try {
+                            reason = criterion.reasonBuilder(safeStats);
+                        } catch (error) {
+                            reason = criterion.reason || null;
+                        }
+                    } else if (criterion.reason) {
+                        reason = criterion.reason;
+                    }
+                    if (reason) {
+                        criterionReasons.push(reason);
+                    }
+                }
+            });
+
+            const focus = lotrClass.focus;
+            let focusBonus = 0;
+            let focusReason = null;
+
+            if (['run', 'ride', 'swim', 'hike', 'adventure'].includes(focus)) {
+                if (safeStats.preferredDiscipline === focus) {
+                    focusBonus = 0.35;
+                    focusReason = 'La tua disciplina principale coincide con il focus della classe.';
+                } else if (safeStats.secondaryDiscipline === focus) {
+                    focusBonus = 0.2;
+                    focusReason = 'La tua disciplina di supporto rafforza questa classe.';
+                }
+            } else if (focus === 'balanced') {
+                if (safeStats.preferredDiscipline && safeStats.secondaryDiscipline) {
+                    focusBonus = 0.3;
+                    focusReason = 'Equilibrio tra discipline principali e secondarie.';
+                }
+            } else if (focus === 'mindful' && (safeStats.mindfulSessions || 0) > 0) {
+                focusBonus = 0.2;
+                focusReason = 'Le pratiche rigenerative plasmano questa identità.';
+            } else if (focus === 'indoor' && Number.isFinite(safeStats.indoorShare) && safeStats.indoorShare >= 0.5) {
+                focusBonus = 0.2;
+                focusReason = 'Prediligi l’allenamento indoor, fulcro della classe.';
+            } else if (focus === 'strength' && (safeStats.strengthSessions || 0) > 0) {
+                focusBonus = 0.25;
+                focusReason = 'Il lavoro di forza sostiene questa vocazione.';
+            }
+
+            if (focusBonus > 0) {
+                score += focusBonus;
+                if (focusReason) {
+                    criterionReasons.push(focusReason);
+                }
+            }
+
+            const uniqueReasons = Array.from(new Set(criterionReasons.filter(Boolean)));
+            if (uniqueReasons.length === 0 && lotrClass.fallbackReason) {
+                uniqueReasons.push(lotrClass.fallbackReason);
+            }
+
+            return {
+                lotrClass,
+                score,
+                matchedCriteria,
+                totalCriteria: classCriteria.length,
+                reasons: uniqueReasons,
+            };
+        }).sort((a, b) => {
+            if (b.score !== a.score) {
+                return b.score - a.score;
+            }
+            if (b.matchedCriteria !== a.matchedCriteria) {
+                return b.matchedCriteria - a.matchedCriteria;
+            }
+            return (b.lotrClass.baseScore || 0) - (a.lotrClass.baseScore || 0);
+        });
+
+        const best = results[0] || null;
+
+        return {
+            bestClass: best ? best.lotrClass : null,
+            reasons: best ? best.reasons : [],
+            results,
+        };
+    };
+
+    const updateRankModalToggleState = () => {
+        if (!Array.isArray(rankModalToggleButtons) || rankModalToggleButtons.length === 0) {
+            return;
+        }
+
+        rankModalToggleButtons.forEach((button) => {
+            if (!button) {
+                return;
+            }
+            const view = button.dataset?.rankView || 'ranks';
+            const isActive = view === rankModalActiveView;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            button.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+
+        if (rankModalToggleIndicator) {
+            rankModalToggleIndicator.style.transform = rankModalActiveView === 'classes'
+                ? 'translateX(100%)'
+                : 'translateX(0)';
+        }
+    };
+
+    const renderRankModalSummary = () => {
+        if (!rankModalSummaryElement) {
+            return;
+        }
+
+        const summaryFragments = [];
+        const totalHours = Number.isFinite(rankProgressState.totalHours) ? rankProgressState.totalHours : 0;
+        const totalRanks = rankProgressState.totalRanks || (Array.isArray(activeRankConfig) ? activeRankConfig.length : 0);
+        const rankPosition = Number.isInteger(rankProgressState.currentRankIndex) ? rankProgressState.currentRankIndex + 1 : null;
+        const currentRank = rankProgressState.currentRank;
+        const nextRank = rankProgressState.nextRank;
+        const assignedClass = lotrClassAssignment?.selectedClass || null;
+        const classReasons = Array.isArray(lotrClassAssignment?.reasons) ? lotrClassAssignment.reasons.filter(Boolean) : [];
+        const primaryReason = classReasons.length > 0
+            ? classReasons[0]
+            : (assignedClass ? assignedClass.fallbackReason : null);
+
+        summaryFragments.push(`
+            <div class="rank-modal__summary-item">
+                <span class="rank-modal__summary-label">Ore a vita registrate</span>
+                <span class="rank-modal__summary-value">${formatHoursDisplay(totalHours)} h</span>
+            </div>
+        `);
+
+        if (totalRanks > 0 && rankPosition) {
+            summaryFragments.push(`
+                <div class="rank-modal__summary-item">
+                    <span class="rank-modal__summary-label">Posizione rank</span>
+                    <span class="rank-modal__summary-value">${rankPosition}/${totalRanks}</span>
+                </div>
+            `);
+        }
+
+        if (rankModalActiveView === 'ranks' && currentRank) {
+            summaryFragments.push(`
+                <div class="rank-modal__summary-item">
+                    <span class="rank-modal__summary-label">Cresta attuale</span>
+                    <span class="rank-modal__summary-value">${currentRank.emoji} ${currentRank.name}</span>
+                </div>
+            `);
+        }
+
+        if (rankModalActiveView === 'ranks') {
+            if (nextRank) {
+                const hoursRemaining = Math.max(0, nextRank.minHours - totalHours);
+                summaryFragments.push(`
+                    <div class="rank-modal__summary-item">
+                        <span class="rank-modal__summary-label">Ore al prossimo rango</span>
+                        <span class="rank-modal__summary-value">${formatHoursDisplay(hoursRemaining)} h</span>
+                    </div>
+                `);
+            } else if (currentRank) {
+                summaryFragments.push(`
+                    <div class="rank-modal__summary-item">
+                        <span class="rank-modal__summary-label">Ore al prossimo rango</span>
+                        <span class="rank-modal__summary-value">Max raggiunto — leggenda!</span>
+                    </div>
+                `);
+            }
+        }
+
+        if (assignedClass) {
+            summaryFragments.push(`
+                <div class="rank-modal__summary-item">
+                    <span class="rank-modal__summary-label">Classe della Compagnia</span>
+                    <span class="rank-modal__summary-value">${assignedClass.crest} ${assignedClass.name}</span>
+                </div>
+            `);
+
+            if (rankModalActiveView === 'classes' && assignedClass.description) {
+                summaryFragments.push(`
+                    <div class="rank-modal__summary-item">
+                        <span class="rank-modal__summary-label">Descrizione</span>
+                        <span class="rank-modal__summary-value">${assignedClass.description}</span>
+                    </div>
+                `);
+            }
+
+            if (primaryReason) {
+                summaryFragments.push(`
+                    <div class="rank-modal__summary-item">
+                        <span class="rank-modal__summary-label">Punto di forza</span>
+                        <span class="rank-modal__summary-value">${primaryReason}</span>
+                    </div>
+                `);
+            }
+        }
+
+        rankModalSummaryElement.innerHTML = summaryFragments
+            .map((fragment) => fragment.trim())
+            .join('');
+        rankModalSummaryElement.hidden = summaryFragments.length === 0;
+    };
+
+    const renderRankListView = () => {
+        if (!rankModalListElement) {
+            return;
+        }
+
+        rankModalListElement.hidden = false;
+        rankModalListElement.setAttribute('aria-hidden', 'false');
+        if (rankModalClassesElement) {
+            rankModalClassesElement.hidden = true;
+            rankModalClassesElement.setAttribute('aria-hidden', 'true');
+        }
+
+        const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
+        rankModalListElement.innerHTML = '';
+
+        if (config.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.textContent = 'I dati dei ranghi non sono ancora disponibili. Continua ad allenarti per sbloccare la tua prima cresta!';
+            emptyState.className = 'rank-modal__empty';
+            emptyState.setAttribute('role', 'note');
+            rankModalListElement.appendChild(emptyState);
+            return;
+        }
+
+        const currentIndex = Number.isInteger(rankProgressState.currentRankIndex)
+            ? rankProgressState.currentRankIndex
+            : 0;
+
+        config.forEach((rank, index) => {
+            const item = document.createElement('div');
+            item.className = 'rank-modal__item';
+            item.setAttribute('role', 'listitem');
+
+            const isCurrent = index === currentIndex;
+            if (isCurrent) {
+                item.classList.add('is-current');
+                item.setAttribute('aria-current', 'true');
+            }
+
+            const statusMarkup = isCurrent
+                ? '<span class="rank-modal__status" aria-hidden="false">Sei qui</span>'
+                : '';
+
+            item.innerHTML = `
+                <span class="rank-modal__emoji" aria-hidden="true">${rank.emoji}</span>
+                <div class="rank-modal__name-group">
+                    <span class="rank-modal__name">${rank.name}</span>
+                    ${statusMarkup}
+                </div>
+                <span class="rank-modal__hours">≥ ${formatHoursDisplay(rank.minHours)} h</span>
+            `;
+
+            rankModalListElement.appendChild(item);
+        });
+    };
+
+    const renderLotrClassesView = () => {
+        if (!rankModalClassesElement) {
+            return;
+        }
+
+        rankModalClassesElement.hidden = false;
+        rankModalClassesElement.setAttribute('aria-hidden', 'false');
+        rankModalClassesElement.innerHTML = '';
+
+        if (rankModalListElement) {
+            rankModalListElement.hidden = true;
+            rankModalListElement.setAttribute('aria-hidden', 'true');
+        }
+
+        const evaluations = Array.isArray(lotrClassAssignment.results) ? lotrClassAssignment.results : [];
+
+        if (evaluations.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.textContent = 'Ancora nessuna classe assegnata. Continua ad allenarti per scoprire la tua vocazione!';
+            emptyState.className = 'rank-modal__empty';
+            emptyState.setAttribute('role', 'note');
+            rankModalClassesElement.appendChild(emptyState);
+            return;
+        }
+
+        const assignedId = lotrClassAssignment.selectedClass?.id || null;
+
+        evaluations.forEach((evaluation) => {
+            const { lotrClass, matchedCriteria, totalCriteria } = evaluation;
+            if (!lotrClass) {
+                return;
+            }
+
+            const item = document.createElement('div');
+            item.className = 'rank-modal__item rank-modal__item--class';
+            item.setAttribute('role', 'listitem');
+
+            const isCurrent = assignedId && lotrClass.id === assignedId;
+            if (isCurrent) {
+                item.classList.add('is-current');
+                item.setAttribute('aria-current', 'true');
+            }
+
+            const statusMarkup = isCurrent
+                ? '<span class="rank-modal__status" aria-hidden="false">Classe assegnata</span>'
+                : '';
+            const ratioLabel = totalCriteria > 0
+                ? `${matchedCriteria}/${totalCriteria} criteri`
+                : 'Analisi completata';
+
+            item.innerHTML = `
+                <span class="rank-modal__emoji" aria-hidden="true">${lotrClass.crest}</span>
+                <div class="rank-modal__name-group">
+                    <span class="rank-modal__name">${lotrClass.name}</span>
+                    ${statusMarkup}
+                </div>
+                <span class="rank-modal__hours">${ratioLabel}</span>
+            `;
+
+            const reasonsList = document.createElement('ul');
+            reasonsList.className = 'rank-modal__class-reasons';
+            reasonsList.setAttribute('aria-label', `Motivazioni per ${lotrClass.name}`);
+
+            const reasonsToRender = evaluation.reasons && evaluation.reasons.length > 0
+                ? evaluation.reasons.slice(0, 4)
+                : [lotrClass.fallbackReason];
+
+            reasonsToRender.filter(Boolean).forEach((reason) => {
+                const reasonItem = document.createElement('li');
+                reasonItem.textContent = reason;
+                reasonsList.appendChild(reasonItem);
+            });
+
+            item.appendChild(reasonsList);
+            rankModalClassesElement.appendChild(item);
+        });
+    };
+
+    const updateProfileClassCard = () => {
+        if (!profileClassCardElement) {
+            return;
+        }
+
+        const assignedClass = lotrClassAssignment?.selectedClass || null;
+        const reasons = Array.isArray(lotrClassAssignment?.reasons)
+            ? lotrClassAssignment.reasons.filter(Boolean)
+            : [];
+
+        if (!assignedClass) {
+            if (profileClassCrestElement) {
+                profileClassCrestElement.textContent = '🛡️';
+            }
+            if (profileClassNameElement) {
+                profileClassNameElement.textContent = 'Classe della Compagnia in arrivo';
+            }
+            if (profileClassDescriptionElement) {
+                profileClassDescriptionElement.textContent = 'Completa nuove attività per sbloccare la tua classe della Compagnia.';
+            }
+            if (profileClassReasonsElement) {
+                profileClassReasonsElement.innerHTML = '';
+            }
+            profileClassCardElement.removeAttribute('data-class-id');
+            profileClassCardElement.setAttribute('aria-hidden', 'false');
+            profileClassCardElement.setAttribute('aria-label', 'Scopri la tua classe della Compagnia');
+            return;
+        }
+
+        profileClassCardElement.dataset.classId = assignedClass.id;
+        profileClassCardElement.setAttribute('aria-hidden', 'false');
+        profileClassCardElement.setAttribute('aria-label', `${assignedClass.crest} ${assignedClass.name}. ${assignedClass.description}`);
+
+        if (profileClassCrestElement) {
+            profileClassCrestElement.textContent = assignedClass.crest;
+        }
+        if (profileClassNameElement) {
+            profileClassNameElement.textContent = assignedClass.name;
+        }
+        if (profileClassDescriptionElement) {
+            profileClassDescriptionElement.textContent = assignedClass.description;
+        }
+
+        if (profileClassReasonsElement) {
+            profileClassReasonsElement.innerHTML = '';
+            const reasonsToRender = reasons.length > 0
+                ? reasons.slice(0, 3)
+                : [assignedClass.fallbackReason];
+            reasonsToRender.filter(Boolean).forEach((reason) => {
+                const listItem = document.createElement('li');
+                listItem.textContent = reason;
+                profileClassReasonsElement.appendChild(listItem);
+            });
+        }
+    };
+
+
     const renderActivitiesList = () => {
         if (!activitiesContainer) {
             return;
@@ -5970,61 +7798,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === Rank Configuration ===
     const MASTER_PRESTIGE_MAX = 1000;
-    const MASTER_PRESTIGE_START_HOURS = 4000;
-    const MAX_RANK_HOURS = 20000;
+    const MASTER_PRESTIGE_START_HOURS = 6000;
+    const MASTER_PRESTIGE_INCREMENT_HOURS = 100;
+    const MAX_RANK_HOURS = MASTER_PRESTIGE_START_HOURS + (MASTER_PRESTIGE_MAX - 1) * MASTER_PRESTIGE_INCREMENT_HOURS;
 
-    const baseRanks = [
-        { name: 'Bronze 3', emoji: '🥉', minHours: 0 },
-        { name: 'Bronze 2', emoji: '🥉', minHours: 100 },
-        { name: 'Bronze 1', emoji: '🥉', minHours: 200 },
-        { name: 'Silver 3', emoji: '🥈', minHours: 300 },
-        { name: 'Silver 2', emoji: '🥈', minHours: 400 },
-        { name: 'Silver 1', emoji: '🥈', minHours: 500 },
-        { name: 'Gold 3', emoji: '🥇', minHours: 600 },
-        { name: 'Gold 2', emoji: '🥇', minHours: 700 },
-        { name: 'Gold 1', emoji: '🥇', minHours: 800 },
-        { name: 'Platinum 3', emoji: '🏆', minHours: 900 },
-        { name: 'Platinum 2', emoji: '🏆', minHours: 1000 },
-        { name: 'Platinum 1', emoji: '🏆', minHours: 1100 },
-        { name: 'Diamond 3', emoji: '💎', minHours: 1200 },
-        { name: 'Diamond 2', emoji: '💎', minHours: 1300 },
-        { name: 'Diamond 1', emoji: '💎', minHours: 1400 },
-        { name: 'Master 3', emoji: '🔥', minHours: 1500 },
-        { name: 'Master 2', emoji: '🔥', minHours: 1600 },
-        { name: 'Master 1', emoji: '🔥', minHours: 1700 },
-        { name: 'Grandmaster 3', emoji: '🚀', minHours: 1800 },
-        { name: 'Grandmaster 2', emoji: '🚀', minHours: 1900 },
-        { name: 'Grandmaster 1', emoji: '🚀', minHours: 2000 },
-        { name: 'Challenger', emoji: '🌟', minHours: 2100 },
-        { name: 'Ascendant', emoji: '✨', minHours: 2300 },
-        { name: 'Paragon', emoji: '🛡️', minHours: 2600 },
-        { name: 'Mythic', emoji: '🐉', minHours: 2900 },
-        { name: 'Celestial', emoji: '🌠', minHours: 3200 },
-        { name: 'Eternal', emoji: '♾️', minHours: 3500 },
-        { name: 'Transcendent', emoji: '🧬', minHours: 3800 },
-        { name: 'Apex', emoji: '🗻', minHours: 3900 }
+    const tierDefinitions = [
+        { name: 'Wood', emoji: '🌲' },
+        { name: 'Bronze', emoji: '🥉' },
+        { name: 'Silver', emoji: '🥈' },
+        { name: 'Gold', emoji: '🥇' },
+        { name: 'Titanium', emoji: '🛡️' },
+        { name: 'Platinum', emoji: '💎' }
     ];
 
-    const masterPrestigeIncrement = (MASTER_PRESTIGE_MAX > 1)
-        ? (MAX_RANK_HOURS - MASTER_PRESTIGE_START_HOURS) / (MASTER_PRESTIGE_MAX - 1)
-        : 0;
-
-    let lastPrestigeMinHours = MASTER_PRESTIGE_START_HOURS - 1;
-    const masterPrestigeRanks = Array.from({ length: MASTER_PRESTIGE_MAX }, (_, index) => {
-        const computedHours = index === MASTER_PRESTIGE_MAX - 1
-            ? MAX_RANK_HOURS
-            : MASTER_PRESTIGE_START_HOURS + (index * masterPrestigeIncrement);
-        const roundedHours = Math.round(computedHours);
-        const minHours = index === 0
-            ? MASTER_PRESTIGE_START_HOURS
-            : Math.max(lastPrestigeMinHours + 1, roundedHours);
-        lastPrestigeMinHours = minHours;
-        return {
-            name: `Master Prestige ${index + 1}`,
-            emoji: '⭐',
-            minHours
-        };
+    const baseRanks = [];
+    let tierHoursCursor = 0;
+    tierDefinitions.forEach((tier) => {
+        for (let level = 10; level >= 1; level -= 1) {
+            baseRanks.push({
+                name: `${tier.name} ${level}`,
+                emoji: tier.emoji,
+                minHours: tierHoursCursor
+            });
+            tierHoursCursor += 100;
+        }
     });
+
+    const masterPrestigeRanks = Array.from({ length: MASTER_PRESTIGE_MAX }, (_, index) => ({
+        name: `Master Prestige ${index + 1}`,
+        emoji: '⭐',
+        minHours: MASTER_PRESTIGE_START_HOURS + (index * MASTER_PRESTIGE_INCREMENT_HOURS)
+    }));
 
     const rankConfig = [
         ...baseRanks,
@@ -6380,6 +8184,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             element.addEventListener('click', (event) => {
                 event.preventDefault();
                 closeRankModal();
+            });
+        });
+    }
+
+    if (rankModalToggleButtons.length > 0) {
+        rankModalToggleButtons.forEach((button, index) => {
+            if (!button) {
+                return;
+            }
+
+            button.addEventListener('click', () => {
+                setRankModalView(button.dataset?.rankView || 'ranks', { focusToggle: true });
+            });
+
+            button.addEventListener('keydown', (event) => {
+                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+                    return;
+                }
+
+                event.preventDefault();
+                const direction = event.key === 'ArrowLeft' ? -1 : 1;
+                const nextIndex = (index + direction + rankModalToggleButtons.length) % rankModalToggleButtons.length;
+                const target = rankModalToggleButtons[nextIndex];
+                if (target) {
+                    setRankModalView(target.dataset?.rankView || 'ranks', { focusToggle: true });
+                }
             });
         });
     }
@@ -6825,6 +8655,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? rankConfig[currentRankIndex + 1]
             : null;
 
+        const totalRanksCount = Array.isArray(rankConfig) ? rankConfig.length : 0;
+        if (!currentRank) {
+            currentRank = { emoji: '🌱', name: 'Novizio', minHours: 0 };
+        }
+
         rankProgressState = {
             totalHours: Number.isFinite(totalHours) ? totalHours : 0,
             currentRankIndex,
@@ -6832,12 +8667,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             nextRank,
             currentMonthHours: Number.isFinite(monthlyHours?.currentMonth) ? monthlyHours.currentMonth : 0,
             previousMonthHours: Number.isFinite(monthlyHours?.previousMonth) ? monthlyHours.previousMonth : 0,
+            totalRanks: totalRanksCount,
         };
         updateRankProgressBar();
 
         // Update the ranking progress bar
         if (currentRankElement) {
-            currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
+            const currentRankName = currentRank?.name || 'Novizio';
+            const currentRankEmoji = currentRank?.emoji || '🌱';
+            const ratioText = totalRanksCount > 0
+                ? ` · ${currentRankIndex + 1}/${totalRanksCount}`
+                : '';
+            const labelText = `${currentRankEmoji} ${currentRankName}${ratioText}`;
+            currentRankElement.textContent = labelText;
+            currentRankElement.setAttribute('aria-label', `Rango attuale ${currentRankName}${totalRanksCount > 0 ? `, posizione ${currentRankIndex + 1} su ${totalRanksCount}` : ''}.`);
         } else {
             console.warn("'current-rank' element not found in the DOM.");
         }
@@ -6877,31 +8720,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (levelProgressElement) {
-            const levelCap = MASTER_PRESTIGE_MAX;
-            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
-            const level = hasActivities
-                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
-                : 0;
-
             levelProgressElement.innerHTML = '';
-
-            const levelLabelElement = document.createElement('span');
-            levelLabelElement.className = 'profile-card__level-label';
-            levelLabelElement.textContent = 'Current level';
-
-            const levelValueElement = document.createElement('span');
-            levelValueElement.className = 'profile-card__level-value';
-            levelValueElement.textContent = `Level ${level}/${levelCap}`;
-
-            levelProgressElement.append(levelLabelElement, levelValueElement);
-            levelProgressElement.setAttribute('aria-label', `Current level ${level} of ${levelCap}`);
-        } else {
-            console.warn("'level-progress' element not found in the DOM.");
+            levelProgressElement.hidden = true;
+            levelProgressElement.setAttribute('aria-hidden', 'true');
+            levelProgressElement.style.display = 'none';
         }
 
         const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
             ? allData.activities
             : activities;
+        const classStats = computeAthleteClassStats(lifetimeActivities);
+        assignLotrClass(classStats);
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
 
@@ -7905,12 +9734,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             element.classList.add('rank-trigger');
 
             element.addEventListener('click', () => {
+                if (element === profileClassCardElement) {
+                    setRankModalView('classes');
+                } else {
+                    setRankModalView('ranks');
+                }
                 triggerRankModal();
             });
 
             element.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
+                    if (element === profileClassCardElement) {
+                        setRankModalView('classes', { focusToggle: true });
+                    } else {
+                        setRankModalView('ranks', { focusToggle: true });
+                    }
                     triggerRankModal();
                 }
             });

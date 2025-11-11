@@ -91,6 +91,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
     const DASHBOARD_CACHE_MAX_ENTRIES = 6;
 
+    const normalizeUserId = (value) => {
+        if (value === undefined || value === null) {
+            return '';
+        }
+
+        return String(value).replace(/^'+/, '').trim();
+    };
+
     const createEmptyCacheContainer = () => ({
         version: DASHBOARD_CACHE_VERSION,
         entries: {},
@@ -393,6 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     const dashboardPanelsContainer = document.querySelector('[data-dashboard-panels]');
+    const isStackedPanelLayout = dashboardPanelsContainer?.classList?.contains('dashboard-panels--stacked') ?? false;
     const pullToRefreshIndicator = document.getElementById('pull-to-refresh-indicator');
     const pullToRefreshLabel = pullToRefreshIndicator?.querySelector('[data-pull-label]');
     const mobilePanelChangeCallbacks = new Set();
@@ -494,10 +503,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function setActivePanel(panelName, { focusTab = false } = {}) {
+    function setActivePanel(panelName, { focusTab = false, scrollIntoView = isStackedPanelLayout } = {}) {
         if (!panelName || !dashboardPanels.has(panelName)) {
             return;
         }
+
+        const targetPanel = dashboardPanels.get(panelName);
+        const shouldScroll = Boolean(scrollIntoView && isStackedPanelLayout && targetPanel);
+        const scrollPanelIntoView = () => {
+            if (!targetPanel) {
+                return;
+            }
+
+            const prefersReducedMotion = typeof window.matchMedia === 'function'
+                && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const scrollOptions = prefersReducedMotion
+                ? { block: 'start' }
+                : { block: 'start', behavior: 'smooth' };
+
+            try {
+                targetPanel.scrollIntoView(scrollOptions);
+            } catch (error) {
+                const computedStyles = window.getComputedStyle(targetPanel);
+                const scrollMarginTop = Number.parseFloat(
+                    computedStyles.scrollMarginTop
+                    || computedStyles.scrollMarginBlockStart
+                    || '0'
+                ) || 0;
+                const targetTop = window.scrollY + targetPanel.getBoundingClientRect().top - scrollMarginTop;
+                window.scrollTo({
+                    top: targetTop,
+                    behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                });
+            }
+        };
 
         if (activePanelName === panelName) {
             updateMobileNavigation(panelName);
@@ -513,6 +552,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             }
+
+            if (shouldScroll) {
+                scrollPanelIntoView();
+            }
+
             return;
         }
 
@@ -540,13 +584,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         dashboardPanels.forEach((panel, name) => {
-            panel.classList.toggle('is-active', name === panelName);
+            const isActivePanel = name === panelName;
+            panel.classList.toggle('is-active', isActivePanel);
+            if (isStackedPanelLayout) {
+                panel.removeAttribute('aria-hidden');
+            } else {
+                panel.setAttribute('aria-hidden', isActivePanel ? 'false' : 'true');
+            }
         });
+
+        if (shouldScroll) {
+            scrollPanelIntoView();
+        }
 
         notifyPanelChange(panelName);
     }
 
-    setActivePanel(initialPanelName || 'profile');
+    setActivePanel(initialPanelName || 'profile', { focusTab: false, scrollIntoView: false });
 
     const moveToRelativePanel = (direction) => {
         if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {
@@ -597,7 +651,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    if (dashboardPanelsContainer) {
+    if (dashboardPanelsContainer && !isStackedPanelLayout) {
         const SWIPE_THRESHOLD_PX = 56;
         const SWIPE_MAX_OFF_AXIS_PX = 72;
         let swipePointerId = null;
@@ -780,7 +834,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const sharedUserIdParam = (urlParams.get('userId') || '').trim();
+    const sharedUserIdParam = normalizeUserId(urlParams.get('userId'));
     const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
     const isSharedView = Boolean(sharedUserId);
     const rankingProgressLabelElement = document.getElementById('ranking-progress-label');

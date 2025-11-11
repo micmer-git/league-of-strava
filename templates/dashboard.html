@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ user.username }}'s Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        /* Basic Reset */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f4f6f8;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0px;
+            padding: 5px;
+            color: #333;
+        }
+        /* Footer Styles */
+      .footer {
+          padding: 20px 0;
+          border-top: 1px solid #ddd;
+          text-align: center;
+          margin-top: 40px;
+      }
+
+      .footer p {
+          margin: 0 0 10px 0;
+          color: #555;
+          font-size: 0.95em;
+      }
+
+      .powered-by-strava-logo {
+          height: 30px; /* Adjust the size as needed */
+          width: auto;
+      }
+
+      /* Responsive Adjustments */
+      @media (max-width: 576px) {
+          .footer p {
+              font-size: 0.85em;
+          }
+
+          .powered-by-strava-logo {
+              height: 25px;
+          }
+      }
+
+        /* Header Styles */
+        header {
+            background-color: #ff6600;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header .logo img {
+            height: 50px;
+            width: auto;
+        }
+
+        /* Navigation Styles */
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #e0e0e0;
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .hamburger div {
+            width: 25px;
+            height: 3px;
+            background-color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            display: none;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.95);
+            padding: 60px 20px;
+            gap: 30px;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 999;
+        }
+
+        .mobile-nav.active {
+            transform: translateY(0);
+        }
+
+        .mobile-nav a {
+            color: #fff;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        /* Toggle Animation for Hamburger */
+        .hamburger.active div:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active div:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active div:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Dashboard Container */
+        #dashboard-container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Loading Indicator */
+        #loading {
+            text-align: center;
+            font-size: 1.5em;
+            color: #555;
+        }
+
+        /* Overview Section (Always Visible) */
+        .overview-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .overview-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .user-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-width: 280px;
+        }
+
+        .profile-metrics-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .profile-metrics-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .profile-metrics-row {
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+        }
+
+        .profile-metric {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #f1f3f6;
+            border-radius: 14px;
+            padding: 12px 16px;
+            flex: 1 1 180px;
+            min-width: 160px;
+        }
+
+        .profile-metric-emoji {
+            font-size: 1.6em;
+        }
+
+        .profile-metric-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .profile-metric-value {
+            font-weight: 600;
+            font-size: 1.25em;
+            color: #333;
+        }
+
+        .profile-metric-label {
+            font-size: 0.75em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #666;
+        }
+
+        .user-image-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 260px;
+        }
+
+        .user-image {
+            width: 20%;
+            height: 20%;
+            object-fit: cover;
+            max-height: 600px; /* Adjust this value as needed */
+        }
+
+        #athlete-name {
+            margin: 0;
+            font-size: 2em;
+            color: #ff6600;
+        }
+
+        #current-rank {
+            margin: 5px 0 15px;
+            font-size: 1.5em;
+            color: #333;
+        }
+
+        .rank-progress-wrapper {
+            width: 100%;
+        }
+
+        .rank-progress {
+            width: 100%;
+            background-color: #e9ecef;
+            border-radius: 20px;
+            height: 20px;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            background-color: #28a745;
+            height: 100%;
+            border-radius: 20px 0 0 20px;
+            transition: width 0.3s ease-in-out;
+        }
+
+        .rank-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #555;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .overview-content {
+                flex-direction: column;
+            }
+
+            .user-image-container {
+                order: -1; /* Move image to the top on mobile */
+            }
+
+            .user-image {
+                width: 100%;
+                height: auto;
+                max-height: none;
+            }
+        }
+
+        .coin {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: #e9ecef;
+            padding: 6px 12px;
+            border-radius: 8px;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .overview-full-width {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .athlete-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .athlete-info h1 {
+            margin: 0;
+            font-size: 2em;
+            color: #ff6600;
+        }
+
+        .current-rank {
+            font-size: 1em;
+            margin:0px;
+        }
+
+        /* Rank Progress Bar */
+        .rank-progress-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .rank-levels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95em;
+            color: #555;
+        }
+
+        .rank-level {
+            font-weight: 600;
+        }
+
+        .rank-progress {
+            width: 100%;
+            background-color: #e9ecef;
+            border-radius: 20px;
+            height: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background-color: #28a745;
+            height: 100%;
+            border-radius: 20px 0 0 20px;
+            width: {{ rank_info.progress_percent }}%;
+            transition: width 0.3s ease-in-out;
+        }
+
+        .rank-details {
+            text-align: center;
+            font-size: 1em;
+            margin: 0px;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* Section Styles (Toggleable Sections) */
+        .section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .section-header h2 {
+            font-size: 1.8em;
+            color: #ff6600;
+            margin: 0px;
+        }
+
+        .toggle-icon {
+            font-size: 1.5em;
+            transition: transform 0.3s ease;
+        }
+
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease, padding 0.3s ease;
+            padding-top: 0;
+        }
+
+        .section.active .section-content {
+            max-height: 2000px; /* Arbitrary large value */
+            padding-top: 20px;
+        }
+
+        .section.active .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Top Activities Section */
+        .top-activities {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            width: 100%;
+        }
+
+        .top-activity-card {
+            background-color: #ff6600;
+            border-radius: 20px;
+            padding: 8px;
+            text-align: center;
+            font-size: 0.85em;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100px;
+        }
+
+        .top-activity-card:hover {
+            transform: scale(1.05);
+        }
+
+        .top-activity-card h4 {
+            margin: 0px;
+            font-size: 1.2em;
+        }
+
+        .top-activity-card p {
+            margin: 0;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        /* **Integrated Achievements Table Styling Start** */
+        .achievements-table {
+            table-layout: fixed;
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .achievements-table th, .achievements-table td {
+            width: 20%; /* Assuming 5 columns including the category column */
+            text-align: center;
+            vertical-align: middle;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .achievements-table th:first-child, .achievements-table td:first-child {
+            text-align: left;
+        }
+
+        .achievement-card, .medal-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            font-size: 0.9em;
+            padding: 12px 16px;
+            border-radius: 14px;
+            background-color: #f1f3f6;
+            box-shadow: none;
+            text-decoration: none;
+            min-height: 120px;
+        }
+
+        .achievement-card.not-obtained .achievement-count,
+        .medal-card.not-obtained .medal-count {
+            color: #999;
+        }
+
+        .achievement-count, .medal-count {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin:0px;
+            color: #333;
+        }
+
+        .achievement-count {
+            color: #28a745;
+        }
+
+        .achievement-label {
+            font-size: 0.85em;
+            text-align: center;
+            color: #444;
+        }
+
+        .medal-label {
+            font-size: 0.75em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #666;
+        }
+
+        .new-earned {
+            background-color: #28a745;
+            color: #fff;
+            border-radius: 12px;
+            padding: 2px 6px;
+            font-size: 0.75em;
+        }
+        /* **Integrated Achievements Table Styling End** */
+
+        /* Timeframe Buttons Styling */
+        .timeframe-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .timeframe-btn {
+            padding: 8px 16px;
+            background-color: #fff;
+            border: 2px solid #ff6600;
+            border-radius: 25px;
+            color: #ff6600;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+            font-weight: 500;
+            outline: none;
+        }
+
+        .timeframe-btn:hover {
+            background-color: #ff6600;
+            color: #fff;
+        }
+
+        .timeframe-btn.active {
+            background-color: #ff6600;
+            color: #fff;
+        }
+
+        /* Additional Infos Section */
+        .additional-infos h2 {
+            text-align: left;
+            margin-bottom: 0px;
+            font-size: 1.5em;
+            color: #ff6600;
+        }
+
+        .achievements-category {
+            margin-bottom: 20px;
+        }
+
+        .achievements-category h3 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            color: #ff6600;
+        }
+
+        .achievements-list, .medals-slider {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .additional-infos ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .additional-infos li {
+            margin-bottom: 10px;
+            font-size: 1em;
+            color: #555;
+        }
+
+        .additional-infos li strong {
+            color: #333;
+        }
+
+        .activities-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ff6600;
+        }
+
+        .activity-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: box-shadow 0.2s;
+        }
+
+        .activity-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .activity-main h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.2em;
+            color: #ff6600;
+        }
+
+        .activity-main p {
+            margin: 2px 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .activity-coins {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .activity-coins .coin {
+            display: flex;
+            align-items: center;
+            color: green;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: transform 0.2s;
+        }
+
+        .activity-coins .coin:hover {
+            transform: scale(1.1);
+        }
+
+        .activity-medals {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .medal-badge {
+            background-color: #ffe599;
+            color: #7a4f01;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+        }
+
+        /* Load More Button */
+        #load-more-button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #load-more-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .overview-section {
+                padding: 15px;
+                gap: 5px;
+            }
+
+            #dashboard-container h1 {
+                font-size: 2em;
+            }
+
+            .top-activities {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 10px;
+            }
+
+            .top-activity-card {
+                padding: 10px;
+                font-size: 0.95em;
+            }
+
+            .achievements-section h2, .additional-infos h2, .activities-container h2 {
+                font-size: 1.8em;
+            }
+
+            .achievement-card, .medal-card {
+                padding: 5px;
+                font-size: 0.95em;
+            }
+
+            .achievement-count, .medal-count {
+                font-size: 1.2em;
+                margin:0px;
+
+            }
+
+            .additional-infos li {
+                font-size: 0.95em;
+            }
+
+            .activity-main h3 {
+                font-size: 1.1em;
+            }
+
+            .activity-main p, .activity-coins .coin {
+                font-size: 0.85em;
+            }
+
+            .medal-badge {
+                font-size: 0.7em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .overview-full-width {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .profile-metrics-row {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 6px;
+            }
+
+            .profile-metric {
+                flex: 0 0 220px;
+            }
+
+            .rank-progress {
+                height: 15px;
+            }
+
+            .progress-bar {
+                height: 100%;
+                border-radius: 15px 0 0 15px;
+            }
+
+            .top-activities {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 10px;
+            }
+
+            .achievements-category h3 {
+                font-size: 1em;
+            }
+
+            .achievement-card, .medal-card {
+                padding: 3px;
+                font-size: 0.8em;
+            }
+
+            .additional-infos h2 {
+                font-size: 1.2em;
+            }
+
+            .additional-infos li {
+                font-size: 0.9em;
+            }
+
+            .activity-main h3 {
+                font-size: 1em;
+            }
+
+            .activity-main p, .activity-coins .coin {
+                font-size: 0.8em;
+            }
+
+            .activity-medals {
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .overview-section {
+                padding: 10px;
+                gap: 5px;
+            }
+
+            #dashboard-container h1 {
+                font-size: 1.8em;
+            }
+
+            .top-activities {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .top-activity-card {
+                font-size: 0.9em;
+                padding: 8px;
+                height: auto;
+            }
+
+            .achievements-section h2, .additional-infos h2, .activities-container h2 {
+                font-size: 1.5em;
+            }
+
+            .achievement-card, .medal-card {
+                padding: 3px;
+                font-size: 0.8em;
+            }
+
+            .achievement-count, .medal-count {
+                font-size: 0.95em;
+                margin:0px;
+            }
+
+            .additional-infos h2 {
+                font-size: 1em;
+                text-align: center;
+            }
+
+            .additional-infos li {
+                font-size: 0.85em;
+                text-align: center;
+            }
+
+            .activity-main h3 {
+                font-size: 0.95em;
+            }
+
+            .activity-main p, .activity-coins .coin {
+                font-size: 0.75em;
+            }
+
+            .medal-badge {
+                font-size: 0.65em;
+            }
+
+            #load-more-button {
+                padding: 8px 16px;
+                font-size: 0.9em;
+            }
+        }
+                .athlete-info {
+            display: flex;
+            align-items: center;
+            gap: 15px; /* Space between name and image */
+        }
+
+        /* User Image Styling */
+        /* Updated User Image Styling */
+        .user-image {
+            width: 200px; /* Increased size */
+            height: 300px;
+            object-fit: cover; /* Ensures the image covers the container without distortion */
+            transition: transform 0.3s ease; /* Smooth transition for zoom effect */
+            /* Optional: Add a subtle zoom on hover */
+        }
+
+        .user-image:hover {
+            transform: scale(1.05); /* Slightly zooms in the image on hover */
+        }
+
+        /* Ensure profile metrics row is left-justified */
+        .profile-metrics-row {
+            justify-content: flex-start;
+        }
+
+        /* Optional: Adjust overview-section layout */
+        .overview-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px; /* Space between coins and athlete info */
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo" id="logo" tabindex="0">
+            <a href="/">
+                <img src="{{ url_for('static', filename='league-of-strava.png') }}" alt="League of Strava Logo">
+            </a>
+        </div>
+        <nav id="nav-menu">
+            <a href="/about">About</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+        </nav>
+        <div class="hamburger" id="hamburger" aria-label="Toggle navigation" aria-expanded="false" tabindex="0">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="/about">About</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli">Donate</a>
+    </div>
+
+    <div id="dashboard-container">
+        <!-- Loading Indicator -->
+        <div id="loading">Loading your dashboard...</div>
+
+        <!-- Overview Section (Always Visible) -->
+        <div class="overview-section hidden">
+            <div class="overview-content">
+                <div class="user-info">
+                    <div class="profile-metrics-row" aria-label="Key totals">
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">🏔️</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ user.coins.everest | int }}</span>
+                                <span class="profile-metric-label">Everest Coins</span>
+                            </div>
+                        </div>
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">🍕</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ user.coins.pizza | int }}</span>
+                                <span class="profile-metric-label">Pizza Coins</span>
+                            </div>
+                        </div>
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">❤️</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ user.coins.heartbeat | int }}</span>
+                                <span class="profile-metric-label">Heartbeat Coins</span>
+                            </div>
+                        </div>
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">🚴</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ (user.stats.distance/1000) | int }}</span>
+                                <span class="profile-metric-label">100km Blocks</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 id="athlete-name">{{ user.username }}</h1>
+                    <h2 id="current-rank">{{ user.rank_name }}{{ user.rank_emoji }}</h2>
+                    <div class="rank-progress-wrapper">
+                        <div class="rank-levels">
+                            <span class="rank-level">{{ rank_info.current_rank.name }}{{ rank_info.current_rank.emoji }}</span>
+                            <span class="rank-level">{{ rank_info.next_rank.name }}{{ rank_info.next_rank.emoji }}</span>
+                        </div>
+                        <div class="rank-progress">
+                            <div class="progress-bar" style="width: {{ rank_info.progress_percent }}%;"></div>
+                        </div>
+                    </div>
+                    <div class="rank-details">
+                        <span><strong id="current-points">{{ rank_info.current_points }}</strong> hrs</span>
+                        <span id="next-rank-label">Next at <strong>{{ rank_info.next_rank.minPoints }}</strong> hrs</span>
+                    </div>
+                </div>
+                <div class="user-image-container">
+                    <img src="{{ user.image_url }}" alt="{{ user.username }}'s Profile Picture" class="user-image" onerror="this.onerror=null; this.src='static\cards\Gemini_Generated_Image_k1tmr9k1tmr9k1tm.jpg';">
+                </div>
+            </div>
+        </div>
+
+        <!-- Achievements & Medals Section (Toggleable) -->
+        <div class="section achievements-section hidden">
+            <div class="section-header" data-section="achievements" tabindex="0" aria-expanded="false">
+                <h3>Achievements & Medals</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <!-- Timeframe Buttons -->
+                <div class="timeframe-buttons">
+                    {% for tf in timeframes %}
+                        <button class="timeframe-btn {% if loop.first %}active{% endif %}" data-timeframe="{{ tf }}" tabindex="0">{{ timeframe_labels.get(tf, tf.replace('_', ' ').title()) }}</button>
+                    {% endfor %}
+                </div>
+
+                <!-- Achievements Table -->
+                <div class="achievements-table-container">
+                    <table class="achievements-table">
+                        <thead id="achievements-thead">
+                            <!-- Dynamic Headers -->
+                        </thead>
+                        <tbody id="achievements-tbody">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Medals Section -->
+                <div class="achievements-medals">
+                    <h3>Medals</h3>
+                    <div class="medals-slider">
+                        {% for tf in timeframes %}
+                            {% set achievements_tf = achievements[tf] %}
+                            {% if achievements_tf.Medals %}
+                                <div class="medals-data" data-timeframe="{{ tf }}" style="display: none;">
+                                    {% for medal in achievements_tf.Medals %}
+                                        <div class="medal-card {% if medal.count == 0 %}not-obtained{% endif %}" tabindex="0">
+                                            <p class="medal-count">{{ medal.count }}</p>
+                                            <p class="medal-label">{{ medal.emoji }} {{ medal.name }}</p>
+                                            {% if medal.last_month_earned %}
+                                                <span class="new-earned">+{{ medal.last_month_earned }}</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Activities Section (Toggleable) -->
+        <div class="section top-activities-section hidden">
+            <div class="section-header" data-section="top-activities" tabindex="0" aria-expanded="false">
+                <h3>Top Activities</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <div class="top-activities">
+                    <a href="{{ user.max_metrics.max_elevation_link }}" class="top-activity-card" aria-label="Max Elevation Gain Details" tabindex="0">
+                        <h3>Max Elevation Gain</h3>
+                        <p>{{ user.max_metrics.max_elevation | int }} m</p>
+                    </a>
+                    <a href="{{ user.max_metrics.max_duration_link }}" class="top-activity-card" aria-label="Longest Duration Details" tabindex="0">
+                        <h3>Longest Duration</h3>
+                        <p>{{ user.max_metrics.max_duration | format_duration }}</p>
+                    </a>
+                    <a href="{{ user.max_metrics.max_distance_link }}" class="top-activity-card" aria-label="Greatest Distance Details" tabindex="0">
+                        <h3>Greatest Distance</h3>
+                        <p>{{ user.max_metrics.max_distance | int }} km</p>
+                    </a>
+                    <!-- **New Fastest 10K Display** -->
+                    <a href="{{ user.max_metrics.fastest_10k_link }}" class="top-activity-card" aria-label="Fastest 10k Details" tabindex="0">
+                        <h3>Fastest 10K</h3>
+                        <p>{{ user.max_metrics.fastest_10k | format_duration }}</p>
+                    </a>
+                    <a href="{{ user.max_metrics.fastest_half_marathon_link }}" class="top-activity-card" aria-label="Fastest Half Marathon Details" tabindex="0">
+                        <h3>Fastest Half Marathon</h3>
+                        <p>{{ user.max_metrics.fastest_half_marathon | format_duration }}</p>
+                    </a>
+                    <a href="{{ user.max_metrics.fastest_marathon_link }}" class="top-activity-card" aria-label="Fastest Marathon Details" tabindex="0">
+                        <h3>Fastest Marathon</h3>
+                        <p>{{ user.max_metrics.fastest_marathon | format_duration }}</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Races Section (Toggleable) -->
+        <div class="section races-section hidden">
+            <div class="section-header" data-section="races" tabindex="0" aria-expanded="false">
+                <h3>Races</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                {% if user.matched_races %}
+                    <div class="races-list">
+                        {% for race in user.matched_races %}
+                            <div class="race-item">
+                                <h3>{{ race.race_name }}</h3>
+                                <p><strong>Name:</strong> <a href="{{ race.link }}" target="_blank">{{ race.name }}</a></p>
+                                <p><strong>Date:</strong> {{ race.date }}</p>
+                                <p><strong>Distance:</strong> {{ race.distance }} km</p>
+                                <p><strong>Ascent:</strong> {{ race.elevation_gain }} m</p>
+                                <p><strong>Duration:</strong> {{ race.duration | round(1) }} h {{ race.duration_minutes | round(0) }} m</p>
+                                <p><strong>Calories:</strong> {{ race.calories }} kcal</p>
+                                <p><strong>Activity Type:</strong> {{ race.additional_data.Activity_Type or 'N/A' }}</p>
+                                <!-- Add more details as needed -->
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No races completed yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+
+        <!-- Recent Activities Section (Toggleable) -->
+        <div class="section activities-container hidden">
+            <div class="section-header" data-section="activities" tabindex="0" aria-expanded="false">
+                <h3>Recent Activities</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <div id="activities-list">
+                    {% for activity in user.activities[:10] %}
+                        <div class="activity-item">
+                            <div class="activity-main">
+                                <h3><a href="{{ activity.link }}" target="_blank">{{ activity.name }}</a> | {{ activity.distance | round(1) }} km | {{ activity.duration | int }} h {{ activity.duration_minutes | round(0) }} m</h3>
+                                <p>{{ activity.date }}</p>
+                                <p>{{ activity.elevation_gain | round(0) }} vertical m</p>
+                                <p>{{ activity.calories | round(0) }} kcal</p>
+                                <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
+                            </div>
+                            <div class="activity-coins">
+                                <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
+                                <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
+                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                            </div>
+                            {% set activity_medals = [] %}
+                            {% if activity.additional_data %}
+                                {% set activity_medals = activity.additional_data.get('medals', activity.additional_data.get('Medals', [])) %}
+                            {% endif %}
+                            {% if activity_medals %}
+                                <div class="activity-medals">
+                                    {% for medal in activity_medals %}
+                                        <span class="medal-badge">{{ medal }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if user.activities|length > 10 %}
+                    <button id="load-more-button" tabindex="0">Load More</button>
+                {% endif %}
+            </div>
+        </div>
+
+
+        <!-- Additional Infos Section (Toggleable) -->
+        <div class="section additional-infos hidden">
+            <div class="section-header" data-section="additional-infos" tabindex="0" aria-expanded="false">
+                <h3>Additional Infos</h3>
+                <i class="fas fa-chevron-down toggle-icon"></i>
+            </div>
+            <div class="section-content">
+                <ul>
+                    <li><strong>Average Temperature:</strong> {{ user.stats.average_temperature }}°C</li>
+                    <li><strong>Total Distance:</strong> {{ user.stats.distance }} km</li>
+                    <li><strong>Total Elevation Gain:</strong> {{ user.stats.elevation }} m</li>
+                    <li><strong>Total Calories Burned:</strong> {{ user.stats.calories }} kcal</li>
+                    <li><strong>Average Heart Rate:</strong> {{ user.stats.bpm }} bpm</li>
+                    <!-- Add more stats as needed -->
+                </ul>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <div class="container">
+                <a href="https://www.strava.com/" target="_blank" rel="noopener">
+                    <img src="{{ url_for('static', filename='powered-by-strava.png') }}" alt="Powered by Strava" class="powered-by-strava-logo">
+                </a>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- JavaScript for Interactivity -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const hamburger = document.getElementById('hamburger');
+            const mobileNav = document.getElementById('mobile-nav');
+            const logo = document.getElementById('logo');
+
+            const toggleMenu = () => {
+                hamburger.classList.toggle('active');
+                mobileNav.classList.toggle('active');
+                const isExpanded = hamburger.classList.contains('active');
+                hamburger.setAttribute('aria-expanded', isExpanded);
+                mobileNav.setAttribute('aria-hidden', !isExpanded);
+            };
+
+            hamburger.addEventListener('click', toggleMenu);
+            hamburger.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    toggleMenu();
+                }
+            });
+
+            logo.addEventListener('click', toggleMenu);
+            logo.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    toggleMenu();
+                }
+            });
+
+            // Hide loading indicator and show content
+            document.getElementById('loading').style.display = 'none';
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => {
+                section.classList.remove('hidden');
+            });
+            // Show Overview section (which does not have the 'section' class and toggle)
+            const overviewSection = document.querySelector('.overview-section');
+            overviewSection.classList.remove('hidden');
+
+            // Section Toggles
+            const sectionHeaders = document.querySelectorAll('.section-header');
+            sectionHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const section = header.parentElement;
+                    const isActive = section.classList.toggle('active');
+                    header.setAttribute('aria-expanded', isActive);
+                });
+
+                header.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        const section = header.parentElement;
+                        const isActive = section.classList.toggle('active');
+                        header.setAttribute('aria-expanded', isActive);
+                    }
+                });
+            });
+
+            // Pop-up Functionality
+            // Make top-activity-cards clickable and redirect
+            const topActivityCards = document.querySelectorAll('.top-activity-card');
+            topActivityCards.forEach(card => {
+                card.addEventListener('click', (e) => {
+                    // Prevent triggering pop-up if it's inside a link
+                    if (card.tagName.toLowerCase() === 'a') {
+                        // Allow default link behavior
+                        return;
+                    }
+                    const href = card.getAttribute('href');
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            });
+
+            // Load More functionality
+            const loadMoreButton = document.getElementById('load-more-button');
+            if (loadMoreButton) {
+                let currentCount = 10;
+                const totalActivities = {{ user.activities|length }};
+                const additionalActivities = {{ user.activities|tojson }};
+                loadMoreButton.addEventListener('click', function() {
+                    const activitiesList = document.getElementById('activities-list');
+                    const nextCount = currentCount + 10;
+                    for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
+                        const activity = additionalActivities[i];
+                        const medals = activity.additional_data ? (activity.additional_data.medals || activity.additional_data.Medals || []) : [];
+                        const medalsMarkup = medals.length ? `
+                                <div class="activity-medals">
+                                    ${medals.map(medal => `<span class="medal-badge">${medal}</span>`).join('')}
+                                </div>
+                            ` : '';
+                        const activityItem = document.createElement('div');
+                        activityItem.classList.add('activity-item');
+                        activityItem.innerHTML = `
+                            <div class="activity-main">
+                                <h3><a href="${activity.link}" target="_blank">${activity.name}</a> | ${Math.round(activity.distance)} km | ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</h3>
+                                <p>${activity.date}</p>
+                                <p>${Math.round(activity.elevation_gain)} vertical m</p>
+                                <p>${Math.round(activity.calories)} kcal</p>
+                                <p>${activity.additional_data.Activity_Type}</p>
+                            </div>
+                            <div class="activity-coins">
+                                <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
+                                <span class="coin">+${Math.round(activity.coins.pizza)} 🍕</span>
+                                <span class="coin">+${Math.round(activity.coins.heartbeat)} ❤️</span>
+                            </div>
+                            ${medalsMarkup}
+                        `;
+                        activitiesList.appendChild(activityItem);
+                    }
+                    currentCount = nextCount;
+                    if (currentCount >= totalActivities) {
+                        loadMoreButton.style.display = 'none';
+                    }
+                });
+
+                loadMoreButton.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        loadMoreButton.click();
+                    }
+                });
+            }
+
+            // Timeframe Buttons Interactivity and Achievements Table
+            const timeframeButtons = document.querySelectorAll('.timeframe-btn');
+            const achievementsTbody = document.getElementById('achievements-tbody');
+            const achievementsThead = document.getElementById('achievements-thead');
+
+            // Prepare achievements data safely encoded as JSON
+            const achievementsData = {{ (achievements or {}) | tojson }};
+
+            // Function to render achievements table based on timeframe
+            const renderAchievementsTable = (timeframe) => {
+                const data = achievementsData[timeframe];
+                const categories = data && Array.isArray(data.categories) ? data.categories : [];
+                if (!categories.length) {
+                    achievementsThead.innerHTML = '<tr><th>Category</th><th colspan="4">No Achievements Found</th></tr>';
+                    achievementsTbody.innerHTML = '';
+                    return;
+                }
+
+                // Determine the maximum number of badges across categories
+                let maxBadges = 0;
+                categories.forEach(category => {
+                    if (category.achievements.length > maxBadges) {
+                        maxBadges = category.achievements.length;
+                    }
+                });
+
+                // Build table headers
+                let theadHTML = '<tr><th>Category</th>';
+                for (let i = 0; i < maxBadges; i++) {
+                    theadHTML += `<th>Milestone ${i + 1}</th>`;
+                }
+                theadHTML += '</tr>';
+                achievementsThead.innerHTML = theadHTML;
+
+                // Build table body
+                let tbodyHTML = '';
+                categories.forEach(category => {
+                    tbodyHTML += `<tr><th><h3>${category.name}</h3></th>`;
+                    for (let i = 0; i < maxBadges; i++) {
+                        if (category.achievements[i]) {
+                            const badge = category.achievements[i];
+                            tbodyHTML += `
+                                <td>
+                                    <div class="achievement-card ${badge.count === 0 ? 'not-obtained' : ''}">
+                                        <p class="achievement-count">${badge.count}</p>
+                                        <p class="achievement-label">${badge.emoji ? `${badge.emoji} ` : ''}${badge.name}</p>
+                                        ${badge.last_month_earned ? `<span class="new-earned">+${badge.last_month_earned}</span>` : ''}
+                                    </div>
+                                </td>
+                            `;
+                        } else {
+                            tbodyHTML += `<td></td>`;
+                        }
+                    }
+                    tbodyHTML += `</tr>`;
+                });
+                achievementsTbody.innerHTML = tbodyHTML;
+
+                // Update Medals Display
+                updateMedalsDisplay(timeframe);
+            };
+
+            // Function to update medals based on timeframe
+            const updateMedalsDisplay = (timeframe) => {
+                const medalsDataElements = document.querySelectorAll('.medals-data');
+                medalsDataElements.forEach(element => {
+                    if (element.getAttribute('data-timeframe') === timeframe) {
+                        element.style.display = 'flex';
+                    } else {
+                        element.style.display = 'none';
+                    }
+                });
+            };
+
+            // Initialize table with default timeframe
+            const defaultTimeframe = 'all_time';
+            renderAchievementsTable(defaultTimeframe);
+
+            // Update legacy button copy where needed
+            const renameLegacyButtons = () => {
+                document.querySelectorAll('button').forEach(button => {
+                    const label = button.textContent.trim().toUpperCase();
+                    if (label === 'WINS') {
+                        button.textContent = 'COINS';
+                    } else if (label === 'LOG') {
+                        button.textContent = 'ACTIVITIES';
+                    }
+                });
+            };
+
+            renameLegacyButtons();
+
+            // Event listeners for timeframe buttons
+            timeframeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Remove 'active' class from all buttons
+                    timeframeButtons.forEach(btn => btn.classList.remove('active'));
+                    // Add 'active' class to clicked button
+                    button.classList.add('active');
+
+                    // Get selected timeframe
+                    const selectedTimeframe = button.getAttribute('data-timeframe');
+
+                    // Render table for selected timeframe
+                    renderAchievementsTable(selectedTimeframe);
+                });
+
+                button.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        button.click();
+                    }
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>

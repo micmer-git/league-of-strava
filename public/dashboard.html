@@ -1051,12 +1051,53 @@
             --profile-card-inline-padding: clamp(1rem, 5vw, 1.75rem);
         }
 
+        .profile-card,
+        .profile-card *,
+        .profile-card *::before,
+        .profile-card *::after {
+            box-sizing: border-box;
+        }
+
         .profile-card__header,
         .profile-card__meta {
             box-sizing: border-box;
             width: 100%;
             margin-inline: 0;
             padding-inline: 0;
+        }
+
+        .profile-card :where(
+            .profile-card__headline,
+            .profile-card__identity,
+            .profile-card__summary-row,
+            .profile-card__meta,
+            .profile-card__level-stack,
+            .profile-card__progress,
+            .profile-card__progress-overlay,
+            .profile-card__progress-detail,
+            .profile-card__badges,
+            .profile-card__coins,
+            .profile-card__wallet-totals
+        ) {
+            max-width: min(var(--profile-stack-max-width, 100%), 100%);
+            width: min(var(--profile-stack-max-width, 100%), 100%);
+        }
+
+        .profile-card :where(
+            .profile-card__summary-row,
+            .profile-card__meta,
+            .profile-card__level-stack,
+            .profile-card__progress
+        ) > * {
+            min-width: 0;
+        }
+
+        .profile-card__progress-overlay {
+            grid-template-columns: minmax(0, max-content) minmax(0, 1fr) minmax(0, max-content);
+        }
+
+        .profile-card__progress-overlay > * {
+            min-width: 0;
         }
 
         .profile-card__header {
@@ -3676,7 +3717,7 @@
                         </header>
                         <div id="wallet-chart-wrapper" class="wallet-chart">
                             <canvas id="wallet-chart" class="w-full h-full"></canvas>
-                            <p id="wallet-chart-empty" class="wallet-chart__empty hidden">No wallet data available for this view.</p>
+                            <p id="wallet-chart-empty" class="wallet-chart__empty hidden"></p>
                         </div>
                     </div>
                 </section>

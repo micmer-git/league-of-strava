@@ -2,13 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusEl = document.getElementById('leaderboard-status');
   const tableBody = document.getElementById('leaderboard-body');
   const cardsContainer = document.getElementById('leaderboard-cards');
-  const usdFormatter = new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const isValidLeaderboardPayload = (data) => {
@@ -91,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);
         const pizzaCount = formatDecimal(entry.pizzas ?? entry['🍕']);
         const coinTotals = getCoinTotals(entry);
-        const totalHaulValue = formatCurrency(entry.totalHaulValue);
         const relativeUpdated = formatRelativeTime(entry.timestamp);
 
         row.innerHTML = `
@@ -99,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="name-cell">${nameCellContent}</td>
           <td class="level-cell">Level ${levelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}</td>
           <td class="wallet-cell">${walletBalance}</td>
-          <td>${totalHaulValue}</td>
           <td class="stat-cell stat-cell--wallet">${formatStatPill(worldTrips)}</td>
           <td class="stat-cell stat-cell--wallet">${formatStatPill(everestSummits)}</td>
           <td class="stat-cell stat-cell--wallet">${formatStatPill(pizzaCount)}</td>
@@ -120,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
           levelLabel,
           levelEmoji,
           walletBalance,
-          totalHaulValue,
           worldTrips,
           everestSummits,
           pizzaCount,
@@ -167,18 +157,17 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="leaderboard-card__meta">
           <span>Level ${escapeHtml(view.levelLabel)}${view.levelEmoji ? ` <span aria-hidden="true">${view.levelEmoji}</span>` : ''}</span>
           <span>Wallet ${escapeHtml(view.walletBalance)}</span>
-          <span>Total ${escapeHtml(view.totalHaulValue)}</span>
           <span>Updated ${escapeHtml(view.relativeUpdated)}</span>
         </div>
         <div class="leaderboard-card__stats">
-          ${buildCardStat('🌍 World trips', view.worldTrips, { usePill: true })}
-          ${buildCardStat('🏔️ Everests', view.everestSummits, { usePill: true })}
-          ${buildCardStat('🍕 Pizzas', view.pizzaCount, { usePill: true })}
-          ${buildCardStat('💲 Coins', view.coinTotals['💲'], { usePill: true })}
-          ${buildCardStat('💰 Coins', view.coinTotals['💰'], { usePill: true })}
-          ${buildCardStat('🧈 Coins', view.coinTotals['🧈'], { usePill: true })}
-          ${buildCardStat('💎 Coins', view.coinTotals['💎'], { usePill: true })}
-          ${buildCardStat('👑 Crowns', view.coinTotals['👑'], { usePill: true })}
+          ${buildCardStat('🌍 World trips', view.worldTrips)}
+          ${buildCardStat('🏔️ Everests', view.everestSummits)}
+          ${buildCardStat('🍕 Pizzas', view.pizzaCount)}
+          ${buildCardStat('💲 Coins', view.coinTotals['💲'])}
+          ${buildCardStat('💰 Coins', view.coinTotals['💰'])}
+          ${buildCardStat('🧈 Coins', view.coinTotals['🧈'])}
+          ${buildCardStat('💎 Coins', view.coinTotals['💎'])}
+          ${buildCardStat('👑 Crowns', view.coinTotals['👑'])}
         </div>
       `;
 
@@ -190,36 +179,24 @@ document.addEventListener('DOMContentLoaded', () => {
     cardsContainer.hidden = false;
   }
 
-  function buildCardStat(label, value, { usePill = false, tone = 'wallet' } = {}) {
-    const valueClasses = ['leaderboard-card__stat-value'];
-    if (tone === 'wallet') {
-      valueClasses.push('leaderboard-card__stat-value--wallet');
-    }
-    const safeLabel = escapeHtml(label);
-    const valueMarkup = usePill ? formatStatPill(value) : escapeHtml(String(value));
+  function buildCardStat(label, value) {
+    const parts = String(label).trim().split(' ');
+    const emojiPart = parts.shift() || '';
+    const textLabel = parts.join(' ').trim() || label;
+    const safeEmoji = escapeHtml(emojiPart);
+    const safeTextLabel = escapeHtml(textLabel);
+    const safeValue = escapeHtml(String(value));
     return `
       <div class="leaderboard-card__stat">
-        <span class="leaderboard-card__stat-label">${safeLabel}</span>
-        <span class="${valueClasses.join(' ')}">${valueMarkup}</span>
+        <span class="leaderboard-card__stat-emoji" aria-hidden="true">${safeEmoji}</span>
+        <span class="sr-only">${safeTextLabel}</span>
+        <span class="leaderboard-card__stat-value">${safeValue}</span>
       </div>
     `;
   }
 
-  function formatStatPill(value, tone = 'coin') {
-    const classNames = ['stat-value-pill'];
-    if (tone) {
-      classNames.push(`stat-value-pill--${tone}`);
-    }
-    return `<span class="${classNames.join(' ')}">${escapeHtml(String(value))}</span>`;
-  }
-
-  function formatCurrency(value) {
-    const numericValue = Number(value);
-    if (!Number.isFinite(numericValue)) {
-      return usdFormatter.format(0);
-    }
-
-    return usdFormatter.format(numericValue);
+  function formatStatPill(value) {
+    return `<span class="stat-value">${escapeHtml(String(value))}</span>`;
   }
 
   function formatWalletBalance(value) {

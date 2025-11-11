@@ -868,6 +868,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activityFilterUniverseCount = 0;
 
     let tooltipHideTimeout = null;
+    let activeInsight = null;
     let spinnerHideTimeout = null;
     let hasInitializedLoadingProgress = false;
     let isInitialLoadComplete = false;
@@ -890,11 +891,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
     let rankModalPreviouslyFocusedElement = null;
-    const tooltipElement = document.createElement('div');
-    tooltipElement.id = 'dashboard-tooltip';
-    tooltipElement.className = 'tooltip-bubble hidden';
-    document.body.appendChild(tooltipElement);
-
     // === Utility Functions ===
 
     const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -4445,113 +4441,134 @@ document.addEventListener('DOMContentLoaded', async () => {
         return totals;
     };
 
+    const ensureInsightAnchor = (element) => {
+        if (!element || !element.parentElement) {
+            return null;
+        }
+        if (element.dataset.insightWrapped === 'true' && element.parentElement.classList.contains('insight-anchor')) {
+            return element.parentElement;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'insight-anchor';
+        const parent = element.parentElement;
+        parent.insertBefore(wrapper, element);
+        wrapper.appendChild(element);
+        element.dataset.insightWrapped = 'true';
+
+        const display = window.getComputedStyle(element).display;
+        if (display === 'block' || display === 'flex' || display === 'grid') {
+            wrapper.classList.add('insight-anchor--block');
+        }
+
+        return wrapper;
+    };
+
     const hideTooltip = () => {
         if (tooltipHideTimeout) {
             clearTimeout(tooltipHideTimeout);
             tooltipHideTimeout = null;
         }
-        tooltipElement.classList.remove('visible');
-        tooltipElement.classList.add('hidden');
-        tooltipElement.dataset.anchorId = '';
-        tooltipElement.textContent = '';
-    };
-
-    const positionTooltip = (element) => {
-        const rect = element.getBoundingClientRect();
-        const targetTop = window.scrollY + rect.top + (rect.height / 2);
-        const targetLeft = window.scrollX + rect.left + (rect.width / 2);
-
-        tooltipElement.style.top = `${targetTop}px`;
-        tooltipElement.style.left = `${targetLeft}px`;
-
-        const tooltipRect = tooltipElement.getBoundingClientRect();
-        let adjustedLeft = targetLeft;
-        let adjustedTop = targetTop;
-
-        if (tooltipRect.left < 12) {
-            adjustedLeft += 12 - tooltipRect.left;
-        }
-        if (tooltipRect.right > window.innerWidth - 12) {
-            adjustedLeft -= tooltipRect.right - (window.innerWidth - 12);
-        }
-        if (tooltipRect.top < 12) {
-            adjustedTop += 12 - tooltipRect.top;
-        }
-        if (tooltipRect.bottom > window.innerHeight - 12) {
-            adjustedTop -= tooltipRect.bottom - (window.innerHeight - 12);
+        if (!activeInsight) {
+            return;
         }
 
-        tooltipElement.style.left = `${adjustedLeft}px`;
-        tooltipElement.style.top = `${adjustedTop}px`;
+        const { popover, trigger } = activeInsight;
+        popover.classList.remove('is-visible');
+        popover.setAttribute('aria-hidden', 'true');
+        trigger.setAttribute('aria-expanded', 'false');
+        activeInsight = null;
     };
 
     const showTooltip = (element, text) => {
-        if (!element || !text) return;
-
-        if (!element.dataset.tooltipId) {
-            element.dataset.tooltipId = `tooltip-${Math.random().toString(36).slice(2, 9)}`;
+        if (!element || !text) {
+            return;
         }
 
-        tooltipElement.textContent = text;
-        tooltipElement.dataset.anchorId = element.dataset.tooltipId;
-        tooltipElement.classList.remove('hidden');
-        tooltipElement.classList.add('visible');
-        positionTooltip(element);
+        const anchor = ensureInsightAnchor(element);
+        if (!anchor) {
+            return;
+        }
+
+        let popover = anchor.querySelector('.insight-popover');
+        if (!popover) {
+            popover = document.createElement('div');
+            popover.className = 'insight-popover';
+            popover.setAttribute('role', 'dialog');
+            popover.setAttribute('aria-live', 'polite');
+            popover.setAttribute('aria-hidden', 'true');
+            anchor.appendChild(popover);
+        }
+
+        popover.textContent = text;
+        popover.setAttribute('aria-hidden', 'false');
+
+        requestAnimationFrame(() => {
+            popover.classList.add('is-visible');
+        });
+
+        element.setAttribute('aria-expanded', 'true');
+        activeInsight = { trigger: element, popover, anchor };
 
         if (tooltipHideTimeout) {
             clearTimeout(tooltipHideTimeout);
         }
         tooltipHideTimeout = setTimeout(() => {
             hideTooltip();
-        }, 2800);
+        }, 4000);
+    };
+
+    const toggleTooltip = (element, text) => {
+        if (!element) {
+            return;
+        }
+
+        if (activeInsight?.trigger === element) {
+            hideTooltip();
+        } else {
+            hideTooltip();
+            showTooltip(element, text);
+        }
     };
 
     const attachTooltip = (element, text) => {
-        if (!element) return;
+        if (!element) {
+            return;
+        }
+
         element.dataset.tooltipText = text || '';
         if (element.dataset.tooltipBound) {
             return;
         }
 
-        const handleShow = () => {
-            const tooltipText = element.dataset.tooltipText || '';
-            showTooltip(element, tooltipText);
-        };
-        const handleHide = () => {
-            if (tooltipElement.dataset.anchorId === element.dataset.tooltipId) {
-                hideTooltip();
-            }
-        };
+        element.setAttribute('aria-haspopup', 'dialog');
+        element.setAttribute('aria-expanded', 'false');
 
-        element.addEventListener('mouseenter', handleShow);
-        element.addEventListener('mouseleave', handleHide);
-        element.addEventListener('focus', handleShow);
-        element.addEventListener('blur', handleHide);
         element.addEventListener('click', (event) => {
+            event.preventDefault();
             event.stopPropagation();
-            if (tooltipElement.dataset.anchorId === element.dataset.tooltipId &&
-                tooltipElement.classList.contains('visible')) {
-                hideTooltip();
-            } else {
-                showTooltip(element, text);
+            toggleTooltip(element, element.dataset.tooltipText);
+        });
+
+        element.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleTooltip(element, element.dataset.tooltipText);
             }
         });
-        element.addEventListener('touchstart', (event) => {
-            event.stopPropagation();
-            if (tooltipElement.dataset.anchorId === element.dataset.tooltipId &&
-                tooltipElement.classList.contains('visible')) {
+
+        element.addEventListener('blur', () => {
+            if (activeInsight?.trigger === element) {
                 hideTooltip();
-            } else {
-                showTooltip(element, text);
             }
-        }, { passive: true });
+        });
 
         element.dataset.tooltipBound = 'true';
         element.classList.add('tooltip-target');
     };
 
     document.addEventListener('click', (event) => {
-        if (!event.target.closest('.tooltip-target')) {
+        if (!event.target.closest('.insight-anchor')) {
             hideTooltip();
         }
     });

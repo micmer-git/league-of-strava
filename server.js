@@ -48,6 +48,14 @@ const CACHE_STORAGE_DIR = process.env.CACHE_STORAGE_DIR
   ? path.resolve(process.env.CACHE_STORAGE_DIR)
   : path.join(__dirname, 'static', 'cache');
 
+const normalizeUserId = (value) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  return String(value).replace(/^'+/, '').trim();
+};
+
 const userDataCache = new PersistentCache({
   namespace: 'strava:user-snapshots',
   ttlMs: CACHE_TTL_MS,
@@ -222,14 +230,15 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 app.get('/api/user-snapshot/:userId', async (req, res) => {
-  const { userId } = req.params;
+  const requestedUserId = req.params.userId;
   const forceRefresh = req.query.refresh === 'true';
+  const userId = normalizeUserId(requestedUserId);
 
   if (!userId) {
     return res.status(400).json({ error: 'userId is required' });
   }
 
-  const cacheKey = String(userId);
+  const cacheKey = userId;
 
   if (!forceRefresh) {
     const cachedEntry = sharedSnapshotCache.getEntry(cacheKey);

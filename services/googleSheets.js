@@ -99,6 +99,24 @@ const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
 const SNAPSHOT_CHUNK_PREFIX = '__CHUNK__';
 
+function normalizeLeaderboardUserId(value) {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  return String(value).replace(/^'+/, '').trim();
+}
+
+function formatUserIdForSheet(value) {
+  const normalized = normalizeLeaderboardUserId(value);
+
+  if (normalized && /^\d+$/.test(normalized)) {
+    return `'${normalized}`;
+  }
+
+  return normalized;
+}
+
 function sanitizeSheetTitle(value) {
   const fallback = 'user';
   const raw = typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
@@ -424,6 +442,9 @@ async function appendLeaderboardEntry({
 
   const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
   const timestamp = new Date().toISOString();
+  const normalizedUserId = normalizeLeaderboardUserId(userId);
+  const sheetUserId = formatUserIdForSheet(normalizedUserId);
+  const normalizedDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -434,8 +455,8 @@ async function appendLeaderboardEntry({
       values: [
         [
           timestamp,
-          userId ?? '',
-          displayName ?? '',
+          sheetUserId,
+          normalizedDisplayName,
           level !== undefined && level !== null ? Number(level) : '',
           emoji ?? '',
           totalHaulValue !== undefined && totalHaulValue !== null ? Number(totalHaulValue) : '',
@@ -464,8 +485,8 @@ async function appendLeaderboardEntry({
 
   return {
     timestamp,
-    userId,
-    displayName,
+    userId: normalizedUserId,
+    displayName: normalizedDisplayName,
     level: Number(level) || 0,
     dollars: Number(dollars) || 0,
     emoji,
@@ -505,6 +526,15 @@ async function getLeaderboardRows() {
     headerMap.forEach((key, index) => {
       record[key] = row[index] ?? '';
     });
+
+    if (Object.prototype.hasOwnProperty.call(record, 'userId')) {
+      record.userId = normalizeLeaderboardUserId(record.userId);
+    }
+
+    if (typeof record.timestamp === 'string') {
+      record.timestamp = record.timestamp.trim();
+    }
+
     return record;
   });
 }
@@ -514,13 +544,13 @@ async function getLeaderboardLatestEntries() {
   const latestByUser = new Map();
 
   for (const row of rows) {
-    const { userId } = row;
-    if (!userId) {
+    const normalizedUserId = normalizeLeaderboardUserId(row.userId);
+    if (!normalizedUserId) {
       continue;
     }
 
     const timestamp = row.timestamp ? Date.parse(row.timestamp) : Number.NaN;
-    const current = latestByUser.get(userId);
+    const current = latestByUser.get(normalizedUserId);
 
     if (!current || (Number.isFinite(timestamp) && timestamp > (current.parsedTimestamp ?? Number.NEGATIVE_INFINITY))) {
         const walletBalance = Number(row.walletBalance) || 0;
@@ -533,9 +563,11 @@ async function getLeaderboardLatestEntries() {
           return acc;
         }, {});
 
-        latestByUser.set(userId, {
-          userId,
-          displayName: row.displayName || '',
+        const displayName = typeof row.displayName === 'string' ? row.displayName.trim() : '';
+
+        latestByUser.set(normalizedUserId, {
+          userId: normalizedUserId,
+          displayName,
           level: Number(row.level) || 0,
           totalHaulValue: Number(row.totalHaulValue) || 0,
           dollars: Number(row.dollars) || 0,
@@ -786,16 +818,17 @@ function deserializeSnapshotPayload(rawValue) {
 }
 
 async function getUserEntries(userId) {
-  if (!userId) {
+  const normalizedLookupId = normalizeLeaderboardUserId(userId);
+  if (!normalizedLookupId) {
     return [];
   }
 
   const rows = await getLeaderboardRows();
   return rows
-    .filter(row => row.userId === userId)
+    .filter(row => normalizeLeaderboardUserId(row.userId) === normalizedLookupId)
     .map(row => ({
-      userId: row.userId,
-      displayName: row.displayName || '',
+      userId: normalizeLeaderboardUserId(row.userId),
+      displayName: typeof row.displayName === 'string' ? row.displayName.trim() : '',
       level: Number(row.level) || 0,
       dollars: Number(row.dollars) || 0,
       emoji: row.emoji || '',

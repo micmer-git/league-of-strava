@@ -6885,16 +6885,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             levelProgressElement.innerHTML = '';
 
+            const levelLabelElement = document.createElement('span');
+            levelLabelElement.className = 'profile-card__level-label';
+            levelLabelElement.textContent = 'Current level';
+
             const levelValueElement = document.createElement('span');
             levelValueElement.className = 'profile-card__level-value';
-            levelValueElement.textContent = `Level ${level}`;
+            levelValueElement.textContent = `Level ${level}/${levelCap}`;
 
-            const levelTargetElement = document.createElement('span');
-            levelTargetElement.className = 'profile-card__level-progress';
-            levelTargetElement.textContent = `• ${level}/${levelCap}`;
-
-            levelProgressElement.append(levelValueElement, levelTargetElement);
-            levelProgressElement.setAttribute('aria-label', `Level ${level} of ${levelCap}`);
+            levelProgressElement.append(levelLabelElement, levelValueElement);
+            levelProgressElement.setAttribute('aria-label', `Current level ${level} of ${levelCap}`);
         } else {
             console.warn("'level-progress' element not found in the DOM.");
         }

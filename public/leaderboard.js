@@ -50,6 +50,31 @@ document.addEventListener('DOMContentLoaded', () => {
     throw lastError;
   };
 
+  const getRankEmoji = (rank) => {
+    const position = Number(rank);
+    if (!Number.isFinite(position)) {
+      return '';
+    }
+
+    if (position === 1) {
+      return '🥇';
+    }
+
+    if (position === 2) {
+      return '🥈';
+    }
+
+    if (position === 3) {
+      return '🥉';
+    }
+
+    if (position <= 10) {
+      return '🏅';
+    }
+
+    return '🎖️';
+  };
+
   async function loadLeaderboard() {
     try {
       const data = await fetchAndValidateJson(
@@ -78,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : safeDisplayName;
         const levelValue = Number(entry.level ?? 0);
         const levelLabel = Number.isFinite(levelValue) ? levelValue.toLocaleString() : '0';
-        const levelEmoji = escapeHtml(entry.emoji || '');
+        const levelEmoji = escapeHtml(entry.emoji || getRankEmoji(index + 1));
         const walletBalance = formatWalletBalance(entry.walletBalance ?? entry.totalHaulValue ?? 0);
         const worldTrips = formatDecimal(entry.worldTrips ?? entry['🌍']);
         const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);

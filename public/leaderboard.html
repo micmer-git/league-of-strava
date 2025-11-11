@@ -35,13 +35,12 @@
   <main class="leaderboard-main">
     <section class="leaderboard-intro">
       <h1 id="leaderboard-heading">Global Leaderboard</h1>
-      <p id="leaderboard-summary">Track the latest progress from every athlete. The table below shows the most recent level, total haul, pizza coins, medals, and other wallet stats submitted for each user.</p>
     </section>
 
     <section class="leaderboard-container">
       <div id="leaderboard-status" class="leaderboard-status" role="status" aria-live="polite">Loading leaderboard…</div>
       <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
-        <table class="leaderboard-table" aria-describedby="leaderboard-summary">
+        <table class="leaderboard-table">
           <thead>
             <tr>
               <th scope="col">
@@ -53,12 +52,10 @@
                 <span class="sr-only">Athlete</span>
               </th>
               <th scope="col">
-                <span aria-hidden="true">🎚️</span>
-                <span class="sr-only">Level</span>
+                <span>Level</span>
               </th>
               <th scope="col">
-                <span aria-hidden="true">👛</span>
-                <span class="sr-only">Wallet</span>
+                <span>Balance</span>
               </th>
               <th scope="col" class="stat-cell">
                 <span aria-hidden="true">🌍</span>

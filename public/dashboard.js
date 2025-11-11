@@ -69,11 +69,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             '25k Elevation/Month': '25k m/month'
         },
         Calories: {
-            '1000 kcal Activity': '1,000 per activity',
-            '2000 kcal Activity': '2,000 per activity',
-            '4000 kcal Activity': '4,000 per activity',
-            '7500 kcal Activity': '7,500 per activity',
-            '8000 kcal Activity': '8,000 per activity',
+            '1000 kcal Activity': '1,000',
+            '2000 kcal Activity': '2,000',
+            '4000 kcal Activity': '4,000',
+            '7500 kcal Activity': '7,500',
+            '8000 kcal Activity': '8,000',
             '12000 kcal Week': '12,000/week',
             '24000 kcal Week': '24,000/week'
         }
@@ -1748,7 +1748,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (timeframeMatch) {
             const timeframe = timeframeMatch[1].toLowerCase();
             if (timeframe === 'activity') {
-                timeframeSuffix = ' per activity';
+                timeframeSuffix = '';
             } else {
                 timeframeSuffix = `/${timeframe}`;
             }

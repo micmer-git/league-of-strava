@@ -1561,20 +1561,22 @@
 
         @media (max-width: 640px) {
             .profile-card__badges {
-                flex-wrap: wrap;
-                overflow-x: visible;
-                row-gap: 0.4rem;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                row-gap: 0;
+                padding-inline: clamp(0.35rem, 4vw, 0.85rem);
+                margin-inline: calc(-1 * clamp(0.35rem, 4vw, 0.85rem));
             }
 
             .profile-card__badge-item {
-                flex: 1 1 calc(50% - 0.4rem);
-                min-width: min(9.5rem, 100%);
+                flex: 0 0 auto;
+                min-width: min(12rem, 80vw);
                 padding: 0.45rem 0.65rem;
                 font-size: 0.8rem;
             }
 
             .profile-card__badge-label {
-                white-space: normal;
+                white-space: nowrap;
             }
         }
 
@@ -1601,6 +1603,7 @@
             gap: 0.35rem;
             font-size: 0.9rem;
             color: #475569;
+            min-width: 0;
         }
 
         .profile-card__level-stack .profile-card__rank {
@@ -1621,6 +1624,7 @@
             align-self: stretch;
             width: 100%;
             max-width: 100%;
+            min-width: 0;
         }
 
         .profile-card__coins {
@@ -1704,6 +1708,8 @@
             display: flex;
             flex-direction: column;
             gap: 0.6rem;
+            width: 100%;
+            min-width: 0;
         }
 
         .profile-card__progress--inline {
@@ -1714,6 +1720,7 @@
         .profile-card__level-stack .profile-card__progress {
             width: 100%;
             max-width: 100%;
+            min-width: 0;
         }
 
         .profile-card__rank {
@@ -2175,15 +2182,15 @@
         }
 
         .wallet-table__label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
 
         .wallet-table__cell > span:first-child {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
 
         .wallet-table__cell > span:last-child {
-            font-size: 0.65rem;
+            font-size: 0.6rem;
         }
 
         #achievement-wallet .text-gray-500,

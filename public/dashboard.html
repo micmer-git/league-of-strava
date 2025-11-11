@@ -1367,14 +1367,15 @@
             flex-wrap: nowrap;
             gap: 0.5rem;
             width: 100%;
+            max-width: 100%;
             overflow-x: auto;
             scroll-snap-type: x proximity;
-            padding: 0 0.35rem 0.35rem;
-            margin: 0 -0.35rem;
+            padding: 0 clamp(0.5rem, 3vw, 1.25rem) clamp(0.5rem, 2vw, 1rem);
+            margin: 0 calc(-1 * clamp(0.5rem, 3vw, 1.25rem));
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
             overscroll-behavior-x: contain;
-            scroll-padding-inline: 0.35rem;
+            scroll-padding-inline: clamp(0.5rem, 3vw, 1.25rem);
             scrollbar-gutter: stable both-edges;
             touch-action: pan-x;
         }
@@ -1422,18 +1423,25 @@
         .profile-card__level {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.5rem;
             font-weight: 700;
             color: #0f172a;
             cursor: pointer;
+            width: 100%;
         }
 
-        .profile-card__level-value,
-        .profile-card__level-progress {
+        .profile-card__level-label,
+        .profile-card__level-value {
             display: inline-flex;
             align-items: center;
             font: inherit;
             color: inherit;
+        }
+
+        .profile-card__level-value {
+            white-space: nowrap;
         }
 
         .rank-trigger {
@@ -1453,8 +1461,9 @@
         .profile-card__level-stack {
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
-            align-items: flex-start;
+            gap: 0.6rem;
+            align-items: stretch;
+            width: 100%;
         }
 
         .profile-card__level-stack > span:not(.profile-card__level) {
@@ -1479,11 +1488,16 @@
 
         .profile-card__metrics,
         .profile-card__coins,
-        .profile-card__wallet-totals,
-        .profile-card__progress {
+        .profile-card__wallet-totals {
             align-self: flex-start;
             width: var(--profile-stack-max-width);
             max-width: min(100%, var(--dashboard-panel-max-width));
+        }
+
+        .profile-card__progress {
+            align-self: stretch;
+            width: 100%;
+            max-width: 100%;
         }
 
         .profile-card__summary-row.profile-card__metrics,
@@ -1782,12 +1796,16 @@
             gap: 0.75rem;
             align-items: stretch;
             width: 100%;
-            max-width: var(--dashboard-panel-max-width);
-            margin-inline: auto;
+            max-width: 100%;
+            margin-inline: calc(-1 * clamp(0.75rem, 4vw, 1.5rem));
+            padding: 0 clamp(0.75rem, 4vw, 1.5rem) clamp(0.75rem, 3vw, 1.25rem);
             overflow-x: auto;
-            padding-bottom: 0.5rem;
             scroll-snap-type: x proximity;
             -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scroll-padding-inline: clamp(0.75rem, 4vw, 1.5rem);
+            scrollbar-gutter: stable both-edges;
+            touch-action: pan-x;
         }
 
         .top-performances-grid::-webkit-scrollbar {

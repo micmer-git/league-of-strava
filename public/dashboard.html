@@ -1368,11 +1368,15 @@
             gap: 0.5rem;
             width: 100%;
             overflow-x: auto;
-            scroll-snap-type: x mandatory;
-            padding-bottom: 0.25rem;
+            scroll-snap-type: x proximity;
+            padding: 0 0.35rem 0.35rem;
+            margin: 0 -0.35rem;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
             overscroll-behavior-x: contain;
+            scroll-padding-inline: 0.35rem;
+            scrollbar-gutter: stable both-edges;
+            touch-action: pan-x;
         }
 
         .profile-card__badges::-webkit-scrollbar {
@@ -1416,9 +1420,20 @@
         }
 
         .profile-card__level {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             font-weight: 700;
             color: #0f172a;
             cursor: pointer;
+        }
+
+        .profile-card__level-value,
+        .profile-card__level-progress {
+            display: inline-flex;
+            align-items: center;
+            font: inherit;
+            color: inherit;
         }
 
         .rank-trigger {
@@ -1442,7 +1457,7 @@
             align-items: flex-start;
         }
 
-        .profile-card__level-stack span {
+        .profile-card__level-stack > span:not(.profile-card__level) {
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
@@ -1484,88 +1499,49 @@
             gap: 0.5rem;
         }
 
-        .profile-card__coins .profile-metrics__row {
-            display: flex;
-            gap: 0.6rem;
-            width: 100%;
-            overflow-x: auto;
-            padding-bottom: 0.35rem;
-            scroll-snap-type: x proximity;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .profile-card__coins .profile-metric-pill {
-            flex: 0 0 clamp(7.5rem, 30vw, 10.25rem);
-            width: auto;
-            max-width: 100%;
-            border-radius: var(--radius-md);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            background: rgba(15, 23, 42, 0.6);
-            color: var(--color-text);
-            flex-direction: column;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.85rem 0.9rem;
-            box-shadow: none;
-            scroll-snap-align: center;
-        }
-
-        .profile-card__coins .profile-metric-pill span:first-child {
-            font-size: 1.15rem;
-            font-weight: 600;
-        }
-
-        .profile-card__coins .profile-metric-pill span:last-child {
-            font-size: 1.5rem;
-            line-height: 1;
-        }
-
+        .profile-card__coins .profile-metrics__row,
         .profile-card__wallet-totals {
             display: flex;
-            gap: 0.6rem;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
             width: 100%;
             overflow-x: auto;
             padding-bottom: 0.35rem;
-            scroll-snap-type: x proximity;
             -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
 
+        .profile-card__coins .profile-metrics__row::-webkit-scrollbar,
+        .profile-card__wallet-totals::-webkit-scrollbar {
+            height: 0.35rem;
+        }
+
+        .profile-card__coins .profile-metric-pill,
         .wallet-total-pill {
             cursor: pointer;
-            flex: 0 0 clamp(7.5rem, 30vw, 10rem);
+            flex: 0 0 auto;
             width: auto;
-            max-width: 100%;
-            border-radius: var(--radius-md);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            background: rgba(15, 23, 42, 0.6);
-            color: var(--color-text);
-            flex-direction: column;
+            min-width: 3rem;
+            padding: 0.4rem 0.65rem;
+            flex-direction: row;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.85rem 0.9rem;
-            box-shadow: none;
-            scroll-snap-align: center;
-        }
-
-        .wallet-total-pill[data-panel-target="medals"] {
-            border-color: rgba(251, 191, 36, 0.4);
+            justify-content: center;
+            gap: 0.35rem;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
         }
 
         .wallet-total-pill__icon {
-            font-size: 1.4rem;
+            display: inline-flex;
+            align-items: center;
+            font-size: 1.05rem;
             line-height: 1;
         }
 
         .wallet-total-pill__value {
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             color: inherit;
-        }
-
-        .dark .profile-card__coins .profile-metric-pill,
-        .dark .wallet-total-pill {
-            background: rgba(15, 23, 42, 0.82);
-            border-color: rgba(148, 163, 184, 0.4);
         }
 
         .profile-card__progress {
@@ -3619,11 +3595,11 @@
                                     </div>
                                 </div>
                                 <div class="profile-card__wallet-totals profile-card__summary-row">
-                                    <button type="button" class="wallet-total-pill profile-metric-pill" data-panel-target="achievements" aria-label="Open achievements panel">
+                                    <button type="button" class="wallet-total-pill profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200" data-panel-target="achievements" aria-label="Open achievements panel">
                                         <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
                                         <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
                                     </button>
-                                    <button type="button" class="wallet-total-pill profile-metric-pill" data-panel-target="medals" aria-label="Open medals view">
+                                    <button type="button" class="wallet-total-pill profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200" data-panel-target="medals" aria-label="Open medals view">
                                         <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
                                         <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
                                     </button>
@@ -3841,14 +3817,6 @@
 
             </div>
         </div>
-        <div id="segment-completions" class="mt-6 hidden">
-            <h2 class="text-xl font-bold mb-4">Segment Completions</h2>
-            <p id="segment-status" class="text-sm text-amber-600 hidden mb-3" role="status" aria-live="polite"></p>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Multiple segments will be populated here -->
-            </div>
-        </div>
-
         <div id="rank-modal" class="rank-modal" hidden aria-hidden="true">
             <div class="rank-modal__backdrop" data-rank-modal-dismiss></div>
             <div class="rank-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="rank-modal-title" aria-describedby="rank-modal-description">

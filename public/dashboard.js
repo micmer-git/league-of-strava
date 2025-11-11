@@ -295,7 +295,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankingProgressElement = document.getElementById('ranking-progress');
     const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
     const rankDetailsElement = document.getElementById('rank-details');
-    const levelProgressElement = document.getElementById('level-progress');
     const globeStatButton = document.getElementById('globe-stat');
     const everestStatButton = document.getElementById('everest-stat');
     const pizzaStatButton = document.getElementById('pizza-stat');
@@ -6967,29 +6966,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } else {
             console.warn("'rank-details' element not found in the DOM.");
-        }
-
-        if (levelProgressElement) {
-            const levelCap = MASTER_PRESTIGE_MAX;
-            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
-            const level = hasActivities
-                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
-                : 0;
-
-            levelProgressElement.innerHTML = '';
-
-            const levelLabelElement = document.createElement('span');
-            levelLabelElement.className = 'profile-card__level-label';
-            levelLabelElement.textContent = 'Current level';
-
-            const levelValueElement = document.createElement('span');
-            levelValueElement.className = 'profile-card__level-value';
-            levelValueElement.textContent = `Level ${level}/${levelCap}`;
-
-            levelProgressElement.append(levelLabelElement, levelValueElement);
-            levelProgressElement.setAttribute('aria-label', `Current level ${level} of ${levelCap}`);
-        } else {
-            console.warn("'level-progress' element not found in the DOM.");
         }
 
         const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0

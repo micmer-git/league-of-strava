@@ -240,6 +240,24 @@
                                                 </button>
                                             </div>
                                         </div>
+                                        <div class="profile-card__statline" id="profile-statline">
+                                            <button id="globe-stat" type="button" class="profile-statline__item" aria-label="Total globe trips">
+                                                <span aria-hidden="true" class="profile-statline__emoji">🌍</span>
+                                                <span id="globe-total" class="profile-statline__value">0</span>
+                                            </button>
+                                            <button id="everest-stat" type="button" class="profile-statline__item" aria-label="Everest climbs equivalent">
+                                                <span aria-hidden="true" class="profile-statline__emoji">🏔️</span>
+                                                <span id="everest-total" class="profile-statline__value">0</span>
+                                            </button>
+                                            <button id="pizza-stat" type="button" class="profile-statline__item" aria-label="Pizza coins earned">
+                                                <span aria-hidden="true" class="profile-statline__emoji">🍕</span>
+                                                <span id="pizza-total" class="profile-statline__value">0</span>
+                                            </button>
+                                            <button id="likes-stat" type="button" class="profile-statline__item" aria-label="Kudos received">
+                                                <span aria-hidden="true" class="profile-statline__emoji">👍</span>
+                                                <span id="likes-total" class="profile-statline__value">0</span>
+                                            </button>
+                                        </div>
                                         <p class="profile-card__balance" data-wallet-balance-container>
                                             <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
                                             <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
@@ -258,28 +276,7 @@
                                                 </div>
                                                 <div id="rank-details" class="profile-card__progress-detail"></div>
                                             </div>
-                                            <span id="level-progress" class="profile-card__level"></span>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="profile-metrics profile-card__summary-row" id="profile-metric-pills">
-                                    <div class="profile-metrics__row">
-                                        <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                            <span aria-hidden="true" class="text-lg leading-none fa-solid fa-globe"></span>
-                                            <span id="globe-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                            <span aria-hidden="true" class="text-lg leading-none fa-solid fa-mountain"></span>
-                                            <span id="everest-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
-                                            <span aria-hidden="true" class="text-lg leading-none fa-solid fa-pizza-slice"></span>
-                                            <span id="pizza-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                            <span aria-hidden="true" class="text-lg leading-none fa-solid fa-thumbs-up"></span>
-                                            <span id="likes-total" class="font-semibold">0</span>
-                                        </button>
                                     </div>
                                 </div>
                                 <div class="profile-card__coins profile-card__summary-row" id="coin-summary">

@@ -90,6 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const DASHBOARD_CACHE_STORAGE_KEY = `los:dashboard-cache:${DASHBOARD_CACHE_VERSION}`;
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
     const DASHBOARD_CACHE_MAX_ENTRIES = 6;
+    const LEVEL_PROGRESS_STEPS = 1000;
 
     const createEmptyCacheContainer = () => ({
         version: DASHBOARD_CACHE_VERSION,

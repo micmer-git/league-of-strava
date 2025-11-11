@@ -662,8 +662,20 @@ img {
 }
 
 .panel-stack {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: clamp(1.25rem, 3vw, 2rem);
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  align-items: stretch;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.panel-stack > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .panel-card {

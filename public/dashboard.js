@@ -1948,10 +1948,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     medalButton.classList.add('medals-list__button--unearned');
                 }
 
-                const orderSpan = document.createElement('span');
-                orderSpan.className = 'medals-list__order';
-                orderSpan.textContent = `${index + 1}.`;
-
                 const countSpan = document.createElement('span');
                 countSpan.className = 'medals-list__count';
                 const countLabel = medal.count.toLocaleString();
@@ -1978,7 +1974,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     textWrapper.appendChild(descriptionSpan);
                 }
 
-                medalButton.append(orderSpan, countSpan, emojiSpan, textWrapper);
+                medalButton.append(countSpan, emojiSpan, textWrapper);
 
                 const descriptionText = (medal.description || '').trim();
                 const earnedDescriptor = medal.count > 0

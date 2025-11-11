@@ -44,10 +44,10 @@
             </div>
             <div class="profile-card__class">
               <span class="profile-card__class-label">Classe della Compagnia</span>
-              <div class="profile-card__class-name">
+              <button type="button" class="profile-card__class-name" id="profile-class-trigger" aria-describedby="profile-class-description">
                 <span class="profile-card__class-crest" id="profile-class-crest" aria-hidden="true">🛡️</span>
                 <span id="profile-class-name">—</span>
-              </div>
+              </button>
             </div>
           </header>
           <div class="profile-card__chips" role="list">
@@ -205,6 +205,45 @@
     </footer>
   </div>
 
+  <div class="class-modal" id="class-modal" aria-hidden="true">
+    <div class="class-modal__overlay" data-modal-action="close"></div>
+    <div class="class-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="class-modal-title">
+      <button type="button" class="class-modal__close" id="class-modal-close" aria-label="Chiudi dettagli classe">
+        <span aria-hidden="true">×</span>
+      </button>
+      <div class="class-modal__header">
+        <span class="class-modal__crest" id="class-modal-crest" aria-hidden="true">🛡️</span>
+        <div class="class-modal__titles">
+          <h3 id="class-modal-title">Classe della Compagnia</h3>
+          <p id="class-modal-subtitle" class="class-modal__subtitle"></p>
+        </div>
+      </div>
+      <p id="class-modal-description" class="class-modal__description"></p>
+      <div class="class-modal__controls">
+        <label for="class-modal-slider">Scorri tra le classi suggerite</label>
+        <input type="range" id="class-modal-slider" min="1" value="1" />
+        <div class="class-modal__slider-legend">
+          <span id="class-modal-slider-label"></span>
+          <span id="class-modal-score"></span>
+        </div>
+      </div>
+      <ul id="class-modal-reasons" class="class-modal__reasons" aria-live="polite"></ul>
+      <div class="class-modal__insight">
+        <h4>Metriche chiave</h4>
+        <ul id="class-modal-metrics" class="class-modal__metrics"></ul>
+      </div>
+      <div class="class-modal__rank">
+        <h4>Proiezione Rank</h4>
+        <label for="rank-modal-slider" class="sr-only">Seleziona un livello di rank</label>
+        <input type="range" id="rank-modal-slider" min="0" value="0" />
+        <div class="class-modal__rank-legend">
+          <span id="rank-modal-label"></span>
+          <span id="rank-modal-threshold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
     <script>
     (() => {
       const locale = 'it-IT';
@@ -269,6 +308,25 @@
         gravelRides: 14,
         mindfulnessSessions: 4,
         altitudeWorkouts: 6,
+        coinsTotal: 112,
+        coinDollar: 32,
+        coinMoney: 26,
+        coinButter: 22,
+        coinDiamond: 18,
+        coinCrown: 14,
+        weeklyCoinMint: 16,
+        coinValueDollars: 1480,
+        totalSeasonHours: 486,
+        avgActivityMinutes: 84,
+        longestActivityMinutes: 310,
+        goldMedals: 9,
+        silverMedals: 12,
+        bronzeMedals: 8,
+        questMedals: 5,
+        totalMedals: 34,
+        medalDiversity: 9,
+        legendaryMedals: 3,
+        mobilitySessions: 5,
       };
 
       const weeklySnapshot = {
@@ -300,12 +358,18 @@
         { name: 'Signore delle Quattro Strade', minPoints: 2300, emoji: '👑' },
       ];
 
+      let classRankingCache = [];
+      let currentClassAssignment = null;
+      let currentUserAdjectives = [];
+
+
       const fellowshipClasses = [
         {
           id: 'cavaliere-di-rohan',
           name: 'Cavaliere di Rohan',
           crest: '🐎',
           focus: 'ride',
+          adjectives: ['impetuosa', 'fedelissima'],
           description: 'Domina le pianure ventose con tirate lunghe, dislivelli robusti e cambi di ritmo da vero scudiero di Edoras.',
           baseScore: 0.8,
           criteria: [
@@ -321,6 +385,7 @@
           name: 'Mitrillo Maratoneta',
           crest: '💎',
           focus: 'run',
+          adjectives: ['resiliente', 'lucente'],
           description: 'Un corridore resistente come il mitril: chilometri macinati, passo brillante e finali lucenti in gara.',
           baseScore: 0.6,
           criteria: [
@@ -335,6 +400,7 @@
           name: 'Custode di Lórien',
           crest: '🌿',
           focus: 'swim',
+          adjectives: ['armoniosa', 'fluida'],
           description: 'Tra acque immacolate e respirazioni consapevoli mantieni l’equilibrio di ogni elfo della foresta dorata.',
           baseScore: 0.5,
           criteria: [
@@ -349,6 +415,7 @@
           name: 'Sentinella di Gondor',
           crest: '🛡️',
           focus: 'run',
+          adjectives: ['vigile', 'solida'],
           description: 'Sorvegli le mura con corse collinari e un’intensità sempre pronta a difendere Minas Tirith.',
           baseScore: 0.4,
           criteria: [
@@ -363,6 +430,7 @@
           name: 'Passolungo della Contea',
           crest: '🥾',
           focus: 'run',
+          adjectives: ['costante', 'serena'],
           description: 'Costanza da hobbit e passi sempre pronti per nuove strade sterrate.',
           baseScore: 0.5,
           criteria: [
@@ -377,6 +445,7 @@
           name: 'Fabbro di Khazad-dûm',
           crest: '⛏️',
           focus: 'multi',
+          adjectives: ['potente', 'laboriosa'],
           description: 'Forgi potenza e resistenza con wattaggi solidi e salite degne delle miniere naniche.',
           baseScore: 0.5,
           criteria: [
@@ -391,6 +460,7 @@
           name: 'Guardiano di Fangorn',
           crest: '🌲',
           focus: 'trail',
+          adjectives: ['radicata', 'paziente'],
           description: 'Cammini con gli Ent: trail tecnici, avventure lente ma inesorabili.',
           baseScore: 0.4,
           criteria: [
@@ -405,6 +475,7 @@
           name: 'Arciere di Bosco Atro',
           crest: '🏹',
           focus: 'run',
+          adjectives: ['precisa', 'affilata'],
           description: 'Precisione e ritmo sempre sotto controllo, come le frecce di Legolas.',
           baseScore: 0.4,
           criteria: [
@@ -419,6 +490,7 @@
           name: 'Scalatore di Monte Fato',
           crest: '🔥',
           focus: 'climb',
+          adjectives: ['ardita', 'resistente'],
           description: 'Affronti il calore e le pendenze come Frodo sul sentiero per Orodruin.',
           baseScore: 0.4,
           criteria: [
@@ -433,6 +505,7 @@
           name: 'Messaggero di Gran Burrone',
           crest: '📜',
           focus: 'multi',
+          adjectives: ['agile', 'organizzata'],
           description: 'Organizzi spedizioni rapide fra città e montagne con agilità elfica.',
           baseScore: 0.5,
           criteria: [
@@ -447,6 +520,7 @@
           name: 'Corridore delle Montagne Nebbiose',
           crest: '⛰️',
           focus: 'trail',
+          adjectives: ['incrollabile', 'temprata'],
           description: 'Salite lunghe, meteo incerto e un ritmo che buca le nuvole.',
           baseScore: 0.4,
           criteria: [
@@ -461,6 +535,7 @@
           name: 'Marinaio dei Porti Grigi',
           crest: '⚓',
           focus: 'swim',
+          adjectives: ['placida', 'profonda'],
           description: 'Navighi in acque fredde e spazi aperti con calma da elfo dei mari.',
           baseScore: 0.4,
           criteria: [
@@ -475,6 +550,7 @@
           name: 'Guida di Edoras',
           crest: '🛞',
           focus: 'ride',
+          adjectives: ['carismatica', 'trainante'],
           description: 'Conduci gruppi e percorri le steppe come guida fedele dei Rohirrim.',
           baseScore: 0.5,
           criteria: [
@@ -489,6 +565,7 @@
           name: 'Veggente di Palantír',
           crest: '🔮',
           focus: 'multi',
+          adjectives: ['strategica', 'lungimirante'],
           description: 'Programmi con anticipo e leggi ogni dato per guidare il futuro.',
           baseScore: 0.4,
           criteria: [
@@ -496,6 +573,7 @@
             { metric: 'intensityScore', min: 80, weight: 1.2, description: 'Bilanci intensità e recupero con precisione.' },
             { metric: 'weeklyActivities', min: 8, weight: 1, description: 'Otto attività o più per settimana.' },
             { metric: 'mindfulnessSessions', min: 4, weight: 0.9, description: 'Sessioni di riflessione e planning ogni settimana.' },
+            { metric: 'medalDiversity', min: 8, weight: 1, description: 'Tracci almeno otto tipologie di medaglie.' },
           ],
         },
         {
@@ -503,6 +581,7 @@
           name: 'Assaltatore di Helm',
           crest: '🛡️',
           focus: 'multi',
+          adjectives: ['combattiva', 'audace'],
           description: 'Potenza esplosiva e strategie da battaglia nelle tappe più dure.',
           baseScore: 0.4,
           criteria: [
@@ -510,6 +589,7 @@
             { metric: 'intensityScore', min: 82, weight: 1.4, description: 'Indice d’intensità sopra quota 82.' },
             { metric: 'ftpWatts', min: 245, weight: 1.2, description: 'FTP vicino ai 245 watt o superiore.' },
             { metric: 'weeklyHours', min: 11, weight: 0.9, description: 'Volumi totali oltre le 11 ore.' },
+            { metric: 'totalSeasonHours', min: 450, weight: 1, description: 'Accumuli oltre 450 ore stagionali di lavoro.' },
           ],
         },
         {
@@ -517,6 +597,7 @@
           name: 'Intervallista di Isengard',
           crest: '⚙️',
           focus: 'ride',
+          adjectives: ['metodica', 'scattante'],
           description: 'Segmenti ad alta intensità e potenza disciplinata come gli ingranaggi di Saruman.',
           baseScore: 0.4,
           criteria: [
@@ -531,6 +612,7 @@
           name: 'Ombra di Gollum',
           crest: '🕳️',
           focus: 'run',
+          adjectives: ['furtiva', 'tenace'],
           description: 'Allenamenti notturni e movimenti furtivi sui sentieri più oscuri.',
           baseScore: 0.4,
           criteria: [
@@ -545,6 +627,7 @@
           name: 'Sputafuoco di Smaug',
           crest: '🐉',
           focus: 'heat',
+          adjectives: ['ardente', 'implacabile'],
           description: 'Ti alleni nelle condizioni più calde bruciando come un drago sulla montagna solitaria.',
           baseScore: 0.4,
           criteria: [
@@ -559,6 +642,7 @@
           name: 'Viandante di Númenor',
           crest: '🌊',
           focus: 'multi',
+          adjectives: ['versatile', 'avventurosa'],
           description: 'Dalle onde alle creste porti l’eredità dei sovrani del mare.',
           baseScore: 0.4,
           criteria: [
@@ -573,6 +657,7 @@
           name: 'Eremita di Amon Hen',
           crest: '🪨',
           focus: 'balance',
+          adjectives: ['riflessiva', 'equilibrata'],
           description: 'Sai isolarti per rigenerarti e tornare lucido come un guardiano dei Sette Troni.',
           baseScore: 0.4,
           criteria: [
@@ -587,6 +672,7 @@
           name: 'Pellegrino di Anduin',
           crest: '🛶',
           focus: 'multi',
+          adjectives: ['scorrevole', 'poliattiva'],
           description: 'Scorri lungo il grande fiume alternando remate, corsa e nuoto.',
           baseScore: 0.4,
           criteria: [
@@ -601,6 +687,7 @@
           name: 'Custode di Minas Tirith',
           crest: '⚔️',
           focus: 'community',
+          adjectives: ['protettiva', 'generosa'],
           description: 'Guida la città bianca con esempio e supporto al gruppo.',
           baseScore: 0.5,
           criteria: [
@@ -608,6 +695,7 @@
             { metric: 'weeklyActivities', min: 8, weight: 1.2, description: 'Ottieni almeno otto sessioni per ispirare gli altri.' },
             { metric: 'consistencyScore', min: 88, weight: 1, description: 'Affidi la leadership alla tua costanza elevata.' },
             { metric: 'travelAdventures', min: 4, weight: 0.8, description: 'Porti la squadra in trasferte epiche.' },
+            { metric: 'coinsTotal', min: 80, weight: 1, description: 'Garantisci un tesoro cittadino con più di 80 monete.' },
           ],
         },
         {
@@ -615,6 +703,7 @@
           name: 'Ambasciatore di Dol Amroth',
           crest: '🕊️',
           focus: 'community',
+          adjectives: ['elegante', 'diplomatica'],
           description: 'Porti eleganza e spirito marinaro agli eventi più prestigiosi.',
           baseScore: 0.4,
           criteria: [
@@ -622,6 +711,7 @@
             { metric: 'travelAdventures', min: 5, weight: 1.2, description: 'Viaggi frequenti per incontrare altri club.' },
             { metric: 'multiSportDays', min: 3, weight: 0.9, description: 'Dimostri versatilità in più discipline.' },
             { metric: 'weeklyHours', min: 10, weight: 0.8, description: 'Mantieni alta la presenza alle uscite.' },
+            { metric: 'coinDiamond', min: 15, weight: 1, description: 'Porti almeno 15 diamanti alle alleanze.' },
           ],
         },
         {
@@ -629,6 +719,7 @@
           name: 'Diadema di Valinor',
           crest: '👑',
           focus: 'multi',
+          adjectives: ['sublime', 'completa'],
           description: 'Eccellenza assoluta: equilibrio tra forza, resistenza e mente lucida.',
           baseScore: 0.6,
           criteria: [
@@ -636,6 +727,7 @@
             { metric: 'intensityScore', min: 82, weight: 1.6, description: 'Indice di intensità sopra 82.' },
             { metric: 'multiSportDays', min: 3, weight: 1.3, description: 'Tre o più giorni multi-sport.' },
             { metric: 'consistencyScore', min: 90, weight: 1.2, description: 'Costanza elevatissima nel corso dell’anno.' },
+            { metric: 'totalMedals', min: 30, weight: 1.3, description: 'Collezioni almeno trenta medaglie complessive.' },
           ],
         },
         {
@@ -643,6 +735,7 @@
           name: 'Battitore di Osgiliath',
           crest: '🏰',
           focus: 'multi',
+          adjectives: ['instancabile', 'ritmica'],
           description: 'Tieni il ponte fra corsa e bici con ritmo incalzante e gestione dei watt.',
           baseScore: 0.4,
           criteria: [
@@ -650,6 +743,7 @@
             { metric: 'ftpWatts', min: 245, weight: 1.2, description: 'FTP superiore a 245 watt.' },
             { metric: 'weeklyActivities', min: 8, weight: 1, description: 'Almeno otto sessioni per settimana.' },
             { metric: 'runKm', min: 65, weight: 0.9, description: 'Carichi di corsa oltre 65 km.' },
+            { metric: 'avgActivityMinutes', min: 80, weight: 0.8, description: 'Mantieni una durata media attività sopra gli 80 minuti.' },
           ],
         },
         {
@@ -657,6 +751,7 @@
           name: 'Sentiero di Lembas',
           crest: '🍞',
           focus: 'balance',
+          adjectives: ['nutrita', 'centrata'],
           description: 'Alimentazione, recupero e movimento si intrecciano come pane elfico.',
           baseScore: 0.4,
           criteria: [
@@ -671,6 +766,7 @@
           name: 'Cacciatore di Shelob',
           crest: '🕷️',
           focus: 'trail',
+          adjectives: ['guardinga', 'risoluta'],
           description: 'Affronti notturne tecniche e terreni scivolosi con sangue freddo.',
           baseScore: 0.4,
           criteria: [
@@ -685,6 +781,7 @@
           name: 'Sprint degli Ent',
           crest: '🌳',
           focus: 'balance',
+          adjectives: ['elastica', 'pronta'],
           description: 'Reattività sorprendente per chi appare pacato: mobilità e forza esplosiva.',
           baseScore: 0.4,
           criteria: [
@@ -699,6 +796,7 @@
           name: 'Camminatore di Ithilien',
           crest: '🌿',
           focus: 'run',
+          adjectives: ['silente', 'perseverante'],
           description: 'Esplori sentieri verdi con passo costante e spirito ranger.',
           baseScore: 0.4,
           criteria: [
@@ -713,6 +811,7 @@
           name: 'Tempesta di Silmaril',
           crest: '💠',
           focus: 'multi',
+          adjectives: ['abbagliante', 'onnipotente'],
           description: 'Raccogli ogni luce delle Silmaril: disciplina totale e brillantezza in gara.',
           baseScore: 0.7,
           criteria: [
@@ -720,6 +819,8 @@
             { metric: 'runKm', min: 70, weight: 1.5, description: 'Carichi di corsa notevoli.' },
             { metric: 'rideKm', min: 170, weight: 1.5, description: 'Pedali oltre 170 km.' },
             { metric: 'swimKm', min: 5, weight: 1.2, description: 'Nuoti più di 5 km a settimana.' },
+            { metric: 'coinsTotal', min: 110, weight: 1, description: 'Mantieni un tesoro di oltre 110 monete stagionali.' },
+            { metric: 'goldMedals', min: 8, weight: 1.2, description: 'Custodisci almeno otto medaglie d’oro.' },
           ],
         },
       ];
@@ -745,6 +846,95 @@
         return { score, satisfied };
       };
 
+      const rankFellowshipClasses = (profile) => {
+        return fellowshipClasses
+          .map((entry) => {
+            const evaluation = evaluateClass(profile, entry);
+            return { entry, ...evaluation };
+          })
+          .sort((a, b) => {
+            if (b.score !== a.score) {
+              return b.score - a.score;
+            }
+            const aLength = Array.isArray(a.satisfied) ? a.satisfied.length : 0;
+            const bLength = Array.isArray(b.satisfied) ? b.satisfied.length : 0;
+            return bLength - aLength;
+          });
+      };
+
+      const formatNameWithAdjectives = (name, adjectives = []) => {
+        if (!Array.isArray(adjectives) || adjectives.length === 0) {
+          return name;
+        }
+        return `${name} · ${adjectives.join(' · ')}`;
+      };
+
+      const deriveUserAdjectives = (profile, assignment) => {
+        const adjectives = [];
+        const totalMedals =
+          profile.totalMedals ??
+          ((profile.goldMedals || 0) + (profile.silverMedals || 0) + (profile.bronzeMedals || 0) + (profile.questMedals || 0));
+        if (profile.coinsTotal >= 110 || (profile.coinCrown || 0) >= 10) {
+          adjectives.push('opulenta');
+        }
+        if (profile.totalSeasonHours >= 450 || profile.weeklyHours >= 12) {
+          adjectives.push('instancabile');
+        }
+        if (totalMedals >= 30 || (profile.goldMedals || 0) >= 8) {
+          adjectives.push('medagliata');
+        }
+        if (profile.multiSportDays >= 3) {
+          adjectives.push('poliedrica');
+        }
+        if (profile.intensityScore >= 80) {
+          adjectives.push('tenace');
+        }
+        if (profile.communityActivities >= 3) {
+          adjectives.push('carismatica');
+        }
+        if (profile.consistencyScore >= 88) {
+          adjectives.push('costante');
+        }
+        if (profile.adventureDays >= 8) {
+          adjectives.push('avventurosa');
+        }
+        if (profile.avgActivityMinutes >= 80) {
+          adjectives.push('metodica');
+        }
+        const unique = [];
+        adjectives.forEach((adjective) => {
+          if (!unique.includes(adjective)) {
+            unique.push(adjective);
+          }
+        });
+        const fallback = assignment?.entry?.adjectives || [];
+        fallback.forEach((adjective) => {
+          if (unique.length >= 3) return;
+          if (!unique.includes(adjective)) {
+            unique.push(adjective);
+          }
+        });
+        ['risoluta', 'lucente', 'versatile', 'indomita'].forEach((adjective) => {
+          if (unique.length >= 2) return;
+          if (!unique.includes(adjective)) {
+            unique.push(adjective);
+          }
+        });
+        return unique.slice(0, 2);
+      };
+
+      const getCurrentRankIndex = (points) => {
+        let currentIndex = 0;
+        for (let i = 0; i < rankLevels.length; i += 1) {
+          const nextLevel = rankLevels[i + 1];
+          if (!nextLevel || points < nextLevel.minPoints) {
+            currentIndex = i;
+            break;
+          }
+        }
+        return currentIndex;
+      };
+
       const createProfileHighlights = (profile) => {
         const highlights = [];
         if (profile.longestStreakWeeks >= 12) {
@@ -765,20 +955,30 @@
         if (profile.communityActivities >= 3) {
           highlights.push('Coinvolgimento costante negli eventi di community.');
         }
+        if (profile.coinsTotal >= 100) {
+          highlights.push(`Tesoro da ${formatMetric(profile.coinsTotal, { decimals: 0, suffix: ' monete forgiate' })}.`);
+        }
+        if (profile.weeklyCoinMint >= 12) {
+          highlights.push(`Settimana con ${formatMetric(profile.weeklyCoinMint, { decimals: 0, suffix: ' monete coniate' })}.`);
+        }
+        const totalMedals =
+          profile.totalMedals ??
+          ((profile.goldMedals || 0) + (profile.silverMedals || 0) + (profile.bronzeMedals || 0) + (profile.questMedals || 0));
+        if (totalMedals >= 25) {
+          highlights.push(`Bacheca da ${formatMetric(totalMedals, { decimals: 0, suffix: ' medaglie' })}.`);
+        }
+        if (profile.totalSeasonHours >= 450) {
+          highlights.push(`Stagione da ${formatMetric(profile.totalSeasonHours, { decimals: 0, suffix: ' ore cumulative' })}.`);
+        }
         return highlights;
       };
 
       const pickFellowshipClass = (profile) => {
-        return fellowshipClasses.reduce((best, entry) => {
-          const evaluation = evaluateClass(profile, entry);
-          if (
-            evaluation.score > best.score ||
-            (evaluation.score === best.score && evaluation.satisfied.length > best.satisfied.length)
-          ) {
-            return { entry, ...evaluation };
-          }
-          return best;
-        }, { entry: fellowshipClasses[0], score: -Infinity, satisfied: [] });
+        const ranking = rankFellowshipClasses(profile);
+        if (ranking.length === 0) {
+          return { entry: fellowshipClasses[0], score: 0, satisfied: [], ranking };
+        }
+        return { ...ranking[0], ranking };
       };
 
       const renderProfile = () => {
@@ -821,11 +1021,15 @@
         setText('calories-week-gain', formatSignedMetric(lifetimeSnapshot.caloriesWeekGain, { decimals: 0, suffix: ' kcal in 7 giorni' }));
 
         const classAssignment = pickFellowshipClass(athleteProfile);
+        currentClassAssignment = classAssignment;
+        classRankingCache = Array.isArray(classAssignment.ranking) ? classAssignment.ranking : [];
+        currentUserAdjectives = deriveUserAdjectives(athleteProfile, classAssignment);
+        const decoratedClassName = formatNameWithAdjectives(classAssignment.entry.name, currentUserAdjectives);
         setText('profile-class-crest', classAssignment.entry.crest);
-        setText('profile-class-name', classAssignment.entry.name);
+        setText('profile-class-name', decoratedClassName);
         setText('profile-class-description', classAssignment.entry.description);
         setText('current-season', `Equinozio d'autunno · ${athleteProfile.longestStreakWeeks} settimane in scia`);
-        setText('current-highlight', `Classe: ${classAssignment.entry.name}`);
+        setText('current-highlight', `Classe: ${decoratedClassName}`);
 
         const reasonsList = document.getElementById('profile-class-reasons');
         if (reasonsList) {
@@ -842,18 +1046,12 @@
 
       const renderRank = () => {
         const points = rankProgress.points;
-        let currentIndex = 0;
-        for (let i = 0; i < rankLevels.length; i += 1) {
-          const nextLevel = rankLevels[i + 1];
-          if (!nextLevel || points < nextLevel.minPoints) {
-            currentIndex = i;
-            break;
-          }
-        }
+        const currentIndex = getCurrentRankIndex(points);
         const currentRank = rankLevels[currentIndex];
         const nextRank = rankLevels[currentIndex + 1] || currentRank;
 
-        setText('current-rank', `${currentRank.emoji} ${currentRank.name}`);
+        const adjectiveSuffix = currentUserAdjectives.length ? ` · ${currentUserAdjectives.join(' · ')}` : '';
+        setText('current-rank', `${currentRank.emoji} ${currentRank.name}${adjectiveSuffix}`);
         setText('current-rank-label', currentRank.name);
         setText('next-rank-label', nextRank.name);
         setText('current-points', formatMetric(points, { decimals: 0 }));
@@ -990,6 +1188,178 @@
         container.appendChild(fragment);
       };
 
+      const initClassModal = () => {
+        const trigger = document.getElementById('profile-class-trigger');
+        const modal = document.getElementById('class-modal');
+        if (!trigger || !modal) {
+          return;
+        }
+
+        const overlay = modal.querySelector('[data-modal-action="close"]');
+        const closeButton = document.getElementById('class-modal-close');
+        const slider = document.getElementById('class-modal-slider');
+        const sliderLabel = document.getElementById('class-modal-slider-label');
+        const scoreLabel = document.getElementById('class-modal-score');
+        const crest = document.getElementById('class-modal-crest');
+        const title = document.getElementById('class-modal-title');
+        const subtitle = document.getElementById('class-modal-subtitle');
+        const description = document.getElementById('class-modal-description');
+        const reasonsList = document.getElementById('class-modal-reasons');
+        const metricsList = document.getElementById('class-modal-metrics');
+        const rankSlider = document.getElementById('rank-modal-slider');
+        const rankLabel = document.getElementById('rank-modal-label');
+        const rankThreshold = document.getElementById('rank-modal-threshold');
+
+        const focusLabels = {
+          run: 'Corsa',
+          ride: 'Ciclismo',
+          swim: 'Nuoto',
+          multi: 'Multisport',
+          trail: 'Trail',
+          climb: 'Salita',
+          heat: 'Calore',
+          community: 'Community',
+          balance: 'Equilibrio',
+        };
+
+        const updateRankDetails = (index) => {
+          if (!rankLabel || !rankThreshold) return;
+          const level = rankLevels[index];
+          if (!level) {
+            rankLabel.textContent = '';
+            rankThreshold.textContent = '';
+            return;
+          }
+          rankLabel.textContent = `${level.emoji} ${level.name}`;
+          rankThreshold.textContent = `Da ${formatMetric(level.minPoints, { decimals: 0 })} pt`;
+        };
+
+        const buildMetricItems = () => {
+          if (!metricsList) return;
+          metricsList.innerHTML = '';
+          const totalMedals =
+            athleteProfile.totalMedals ??
+            ((athleteProfile.goldMedals || 0) + (athleteProfile.silverMedals || 0) + (athleteProfile.bronzeMedals || 0) + (athleteProfile.questMedals || 0));
+          const metrics = [
+            ['Monete forgiate', formatMetric(athleteProfile.coinsTotal, { decimals: 0 })],
+            ['Coniate questa settimana', formatMetric(athleteProfile.weeklyCoinMint, { decimals: 0 })],
+            ['Medaglie in bacheca', formatMetric(totalMedals, { decimals: 0 })],
+            ['Ore stagionali', formatMetric(athleteProfile.totalSeasonHours, { decimals: 0, suffix: ' h' })],
+            ['Media attività', formatMetric(athleteProfile.avgActivityMinutes, { decimals: 0, suffix: ' min' })],
+          ];
+          metrics.forEach(([label, value]) => {
+            const li = document.createElement('li');
+            li.className = 'class-modal__metric-item';
+            li.innerHTML = `<span>${label}</span><span>${value}</span>`;
+            metricsList.appendChild(li);
+          });
+        };
+
+        const updateModalForIndex = (candidateIndex) => {
+          if (!classRankingCache.length) {
+            classRankingCache = rankFellowshipClasses(athleteProfile);
+          }
+          const candidate = classRankingCache[candidateIndex];
+          if (!candidate || !candidate.entry) {
+            return;
+          }
+          if (crest) crest.textContent = candidate.entry.crest;
+          if (title) title.textContent = candidate.entry.name;
+          const adjectives = deriveUserAdjectives(athleteProfile, candidate);
+          const adjectivesLabel = adjectives.length ? ` · ${adjectives.join(' · ')}` : '';
+          if (subtitle) {
+            const focusLabel = focusLabels[candidate.entry.focus] || 'Multidisciplina';
+            subtitle.textContent = `${focusLabel}${adjectivesLabel}`;
+          }
+          if (description) description.textContent = candidate.entry.description;
+          if (sliderLabel) {
+            sliderLabel.textContent = `Suggerimento ${candidateIndex + 1} di ${classRankingCache.length}`;
+          }
+          if (scoreLabel) {
+            const score = Number.isFinite(candidate.score) ? candidate.score.toFixed(1) : '—';
+            scoreLabel.textContent = `Punteggio ${score}`;
+          }
+          if (reasonsList) {
+            reasonsList.innerHTML = '';
+            const satisfied = Array.isArray(candidate.satisfied) ? candidate.satisfied : [];
+            if (satisfied.length) {
+              satisfied.slice(0, 5).forEach((reason) => {
+                const li = document.createElement('li');
+                li.textContent = reason;
+                reasonsList.appendChild(li);
+              });
+            } else {
+              const li = document.createElement('li');
+              li.textContent = 'Questa classe attende criteri completati: segui le missioni suggerite.';
+              reasonsList.appendChild(li);
+            }
+          }
+          buildMetricItems();
+        };
+
+        const openModal = () => {
+          if (!classRankingCache.length) {
+            classRankingCache = rankFellowshipClasses(athleteProfile);
+          }
+          if (!classRankingCache.length) {
+            return;
+          }
+          modal.classList.add('is-active');
+          modal.setAttribute('aria-hidden', 'false');
+          document.body.classList.add('modal-open');
+          if (slider) {
+            const total = Math.max(1, classRankingCache.length);
+            slider.max = String(total);
+            slider.value = '1';
+          }
+          updateModalForIndex(0);
+          if (rankSlider) {
+            rankSlider.max = String(Math.max(0, rankLevels.length - 1));
+            const currentIndex = getCurrentRankIndex(rankProgress.points);
+            rankSlider.value = String(currentIndex);
+            updateRankDetails(currentIndex);
+          } else {
+            updateRankDetails(getCurrentRankIndex(rankProgress.points));
+          }
+          if (closeButton) {
+            closeButton.focus();
+          }
+        };
+
+        const closeModal = () => {
+          modal.classList.remove('is-active');
+          modal.setAttribute('aria-hidden', 'true');
+          document.body.classList.remove('modal-open');
+          trigger.focus();
+        };
+
+        if (slider) {
+          slider.addEventListener('input', () => {
+            const index = Math.max(0, Math.min(classRankingCache.length - 1, Number(slider.value) - 1));
+            updateModalForIndex(index);
+          });
+        }
+
+        if (rankSlider) {
+          rankSlider.addEventListener('input', () => {
+            updateRankDetails(Number(rankSlider.value));
+          });
+        }
+
+        trigger.addEventListener('click', openModal);
+        if (closeButton) {
+          closeButton.addEventListener('click', closeModal);
+        }
+        if (overlay) {
+          overlay.addEventListener('click', closeModal);
+        }
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && modal.classList.contains('is-active')) {
+            closeModal();
+          }
+        });
+      };
+
       const initNavigation = () => {
         const sectionButtons = Array.from(document.querySelectorAll('[data-section-target]'));
         const sections = Array.from(document.querySelectorAll('[data-section]'));
@@ -1046,6 +1416,7 @@
       renderProfile();
       renderRank();
       renderMedals();
+      initClassModal();
       initNavigation();
     })();
   </script>

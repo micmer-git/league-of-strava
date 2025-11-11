@@ -475,49 +475,67 @@
                 grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr));
             }
         }
-        /* Tooltip Styling */
-        .tooltip {
+        /* Insight popovers */
+        .insight-anchor {
             position: relative;
-            display: inline-block;
-        }
-        [title] {
-            position: relative;
-        }
-        [title]:hover::after {
-            content: attr(title);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 6px 8px;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: pre-line;
-            z-index: 10;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-        }
-        [title]:hover::after {
-            opacity: 1;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            width: max-content;
+            max-width: 100%;
         }
 
-        .tooltip-bubble {
-            position: fixed;
-            z-index: 9999;
-            background-color: rgba(15, 23, 42, 0.95);
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 12px;
-            font-size: 0.875rem;
-            max-width: 240px;
-            pointer-events: none;
-            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
+        .insight-anchor--block {
+            display: block;
+            width: 100%;
+        }
+
+        .insight-anchor--block > * {
+            width: 100%;
+        }
+
+        .insight-popover {
+            position: absolute;
+            bottom: calc(100% + 0.6rem);
+            left: 50%;
+            transform: translate(-50%, 8px);
+            background: rgba(255, 255, 255, 0.95);
+            color: #0f172a;
+            border-radius: 0.75rem;
+            padding: 0.55rem 0.75rem;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+            font-size: 0.8rem;
+            line-height: 1.35;
+            min-width: max(10rem, 60%);
+            max-width: min(14rem, 80vw);
             opacity: 0;
-            transform: translate(-50%, -50%);
-            transition: opacity 0.15s ease-in-out;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 40;
+        }
+
+        .insight-popover::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            background: inherit;
+            transform: translate(-50%, -6px) rotate(45deg);
+            box-shadow: 0 12px 18px rgba(15, 23, 42, 0.12);
+        }
+
+        .insight-popover.is-visible {
+            opacity: 1;
+            transform: translate(-50%, 0);
+            pointer-events: auto;
+        }
+
+        .dark .insight-popover {
+            background: rgba(15, 23, 42, 0.95);
+            color: #f8fafc;
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.4);
         }
 
         .weekly-snapshot {
@@ -787,12 +805,6 @@
                 grid-template-columns: minmax(0, 1fr);
             }
         }
-
-
-        .tooltip-bubble.visible {
-            opacity: 1;
-        }
-
         .profile-metrics {
             display: flex;
             flex-direction: column;
@@ -1056,7 +1068,7 @@
         }
 
         .profile-card__headline {
-            --profile-stack-max-width: min(100%, 420px);
+            --profile-stack-max-width: 100%;
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
@@ -1469,54 +1481,91 @@
         .profile-card__coins {
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
+            gap: 0.5rem;
         }
 
         .profile-card__coins .profile-metrics__row {
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.4rem;
+            gap: 0.6rem;
             width: 100%;
-            max-width: var(--dashboard-panel-max-width);
-            justify-content: flex-start;
+            overflow-x: auto;
+            padding-bottom: 0.35rem;
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
         }
 
         .profile-card__coins .profile-metric-pill {
-            width: fit-content;
+            flex: 0 0 clamp(7.5rem, 30vw, 10.25rem);
+            width: auto;
             max-width: 100%;
-            flex: 0 1 auto;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--color-text);
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.85rem 0.9rem;
+            box-shadow: none;
+            scroll-snap-align: center;
+        }
+
+        .profile-card__coins .profile-metric-pill span:first-child {
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+
+        .profile-card__coins .profile-metric-pill span:last-child {
+            font-size: 1.5rem;
+            line-height: 1;
         }
 
         .profile-card__wallet-totals {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
-            gap: 0.4rem;
+            display: flex;
+            gap: 0.6rem;
             width: 100%;
-            max-width: var(--dashboard-panel-max-width);
-            justify-content: flex-start;
+            overflow-x: auto;
+            padding-bottom: 0.35rem;
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
         }
 
         .wallet-total-pill {
-            background: rgba(250, 204, 21, 0.2);
-            border: 1px solid rgba(250, 204, 21, 0.35);
-            color: #b45309;
             cursor: pointer;
-            width: fit-content;
+            flex: 0 0 clamp(7.5rem, 30vw, 10rem);
+            width: auto;
             max-width: 100%;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--color-text);
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.85rem 0.9rem;
+            box-shadow: none;
+            scroll-snap-align: center;
         }
 
         .wallet-total-pill[data-panel-target="medals"] {
-            background: rgba(251, 191, 36, 0.24);
-            border-color: rgba(251, 191, 36, 0.35);
-            color: #92400e;
+            border-color: rgba(251, 191, 36, 0.4);
         }
 
         .wallet-total-pill__icon {
-            font-size: 1.1rem;
+            font-size: 1.4rem;
+            line-height: 1;
         }
 
         .wallet-total-pill__value {
-            font-size: 0.95rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: inherit;
+        }
+
+        .dark .profile-card__coins .profile-metric-pill,
+        .dark .wallet-total-pill {
+            background: rgba(15, 23, 42, 0.82);
+            border-color: rgba(148, 163, 184, 0.4);
         }
 
         .profile-card__progress {
@@ -1753,33 +1802,25 @@
         }
 
         .top-performances-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+            display: flex;
             gap: 0.75rem;
             align-items: stretch;
             width: 100%;
             max-width: var(--dashboard-panel-max-width);
             margin-inline: auto;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
         }
 
-        @media (max-width: 768px) {
-            .top-performances-grid {
-                display: flex;
-                overflow-x: auto;
-                gap: 0.75rem;
-                padding-bottom: 0.5rem;
-                scroll-snap-type: x mandatory;
-                -webkit-overflow-scrolling: touch;
-            }
+        .top-performances-grid::-webkit-scrollbar {
+            height: 0.4rem;
+        }
 
-            .top-performances-grid::-webkit-scrollbar {
-                height: 0.4rem;
-            }
-
-            .top-performance-card {
-                flex: 0 0 clamp(15rem, 80vw, 18rem);
-                scroll-snap-align: start;
-            }
+        .top-performance-card {
+            flex: 0 0 clamp(16rem, 45vw, 18rem);
+            scroll-snap-align: start;
         }
 
         .top-performance-card {
@@ -3834,7 +3875,7 @@
                 </button>
                 <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="achievements" aria-pressed="false">
                     <span class="dashboard-bottom-nav__icon fa-solid fa-flag-checkered" aria-hidden="true"></span>
-                    <span class="dashboard-bottom-nav__label">Wins</span>
+                    <span class="dashboard-bottom-nav__label">Coins</span>
                 </button>
                 <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="wallet" aria-pressed="false">
                     <span class="dashboard-bottom-nav__icon fa-solid fa-wallet" aria-hidden="true"></span>
@@ -3842,7 +3883,7 @@
                 </button>
                 <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="activities" aria-pressed="false">
                     <span class="dashboard-bottom-nav__icon fa-solid fa-chart-line" aria-hidden="true"></span>
-                    <span class="dashboard-bottom-nav__label">Log</span>
+                    <span class="dashboard-bottom-nav__label">Activities</span>
                 </button>
                 <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="medals" aria-pressed="false">
                     <span class="dashboard-bottom-nav__icon fa-solid fa-medal" aria-hidden="true"></span>

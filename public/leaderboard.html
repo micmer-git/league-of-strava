@@ -33,12 +33,10 @@
   </header>
 
   <main class="leaderboard-main">
-    <section class="leaderboard-intro">
-      <h1 id="leaderboard-heading">Global Leaderboard</h1>
-    </section>
-
-    <section class="leaderboard-container">
-      <div id="leaderboard-status" class="leaderboard-status" role="status" aria-live="polite">Loading leaderboard…</div>
+    <section class="leaderboard-container" aria-labelledby="leaderboard-heading">
+      <header class="leaderboard-header">
+        <h1 id="leaderboard-heading">Global Leaderboard</h1>
+      </header>
       <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
         <table class="leaderboard-table">
           <thead>

@@ -1053,22 +1053,27 @@
         .profile-card__header {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
-            gap: clamp(1rem, 3vw, 1.75rem);
-            align-items: stretch;
+            gap: 1rem;
+            align-items: start;
             width: 100%;
         }
 
-        .profile-card__content {
-            display: flex;
-            flex-direction: column;
-            gap: clamp(1rem, 2.5vw, 1.5rem);
-            width: 100%;
+        .profile-card__avatar {
+            width: 5rem;
+            height: 5rem;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+            justify-self: center;
         }
 
-        .profile-card__wealth {
+        .profile-card__headline {
+            --profile-stack-max-width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 0.35rem;
+            gap: 0.75rem;
+            min-width: 0;
+            align-items: flex-start;
             width: 100%;
         }
 
@@ -1080,39 +1085,33 @@
             margin-top: 0.35rem;
         }
 
-        .profile-card__visual {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-        }
-
-        .profile-card__avatar {
-            width: clamp(6rem, 35vw, 11rem);
-            height: clamp(6rem, 35vw, 11rem);
-            border-radius: 50%;
-            object-fit: cover;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
-        }
-
         @media (max-width: 639px) {
-            .profile-card__visual {
-                justify-content: flex-start;
-            }
-        }
-
-        @media (min-width: 768px) {
             .profile-card__header {
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            }
-
-            .profile-card__visual {
-                min-height: 100%;
+                justify-items: start;
             }
 
             .profile-card__avatar {
-                width: clamp(7rem, 22vw, 12rem);
-                height: clamp(7rem, 22vw, 12rem);
+                justify-self: start;
+            }
+        }
+
+        @media (min-width: 640px) {
+            .profile-card__header {
+                grid-template-columns: auto 1fr;
+                gap: 1.25rem;
+            }
+
+            .profile-card__avatar {
+                grid-row: 1 / span 4;
+                justify-self: flex-start;
+            }
+
+            .profile-card__headline {
+                grid-column: 2;
+            }
+
+            .profile-card__summary-row {
+                grid-column: 1 / -1;
             }
         }
 
@@ -1120,16 +1119,16 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 0.75rem;
+            gap: 0.4rem;
             width: 100%;
         }
 
         .profile-card__name-row {
             display: flex;
-            align-items: baseline;
-            gap: 0.5rem 0.75rem;
+            align-items: center;
+            gap: 0.35rem;
             width: 100%;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .profile-card__name-row .profile-card__name {
@@ -1137,11 +1136,11 @@
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: normal;
+            white-space: nowrap;
         }
 
         .profile-card__name {
-            font-size: clamp(1.5rem, 4vw, 2.15rem);
+            font-size: clamp(1.15rem, 3vw, 1.65rem);
             font-weight: 600;
             margin: 0;
             color: #000;
@@ -1441,7 +1440,6 @@
             flex-direction: column;
             gap: 0.4rem;
             align-items: flex-start;
-            width: 100%;
         }
 
         .profile-card__level-stack span {
@@ -2292,6 +2290,10 @@
             .profile-card__actions {
                 width: 100%;
                 justify-content: flex-start;
+            }
+
+            .profile-card__headline {
+                gap: 0.85rem;
             }
 
             .share-card {
@@ -3534,14 +3536,8 @@
                     <div class="panel-stack">
                         <article class="panel-card profile-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
                             <div class="profile-card__header">
-                                <div class="profile-card__content">
-                                    <div class="profile-card__wealth">
-                                        <p class="profile-card__balance" data-wallet-balance-container>
-                                            <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
-                                            <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
-                                            <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
-                                        </p>
-                                    </div>
+                                <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar" loading="lazy">
+                                <div class="profile-card__headline">
                                     <div class="profile-card__identity">
                                         <div class="profile-card__name-row">
                                             <h2 id="athlete-name" class="profile-card__name"></h2>
@@ -3556,6 +3552,11 @@
                                                 </button>
                                             </div>
                                         </div>
+                                        <p class="profile-card__balance" data-wallet-balance-container>
+                                            <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value">$0.0M</span>
+                                            <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite">—</span>
+                                            <span id="profile-wallet-change-year" class="profile-card__balance-change" aria-live="polite">—</span>
+                                        </p>
                                         <div class="profile-card__level-stack">
                                             <span id="current-rank" class="profile-card__rank"></span>
                                             <div id="rank-progress-trigger" class="profile-card__progress profile-card__progress--inline">
@@ -3572,63 +3573,60 @@
                                             <span id="level-progress" class="profile-card__level"></span>
                                         </div>
                                     </div>
-                                    <div class="profile-metrics profile-card__summary-row" id="profile-metric-pills">
-                                        <div class="profile-metrics__row">
-                                            <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">🌍</span>
-                                                <span id="globe-total" class="font-semibold">0</span>
-                                            </button>
-                                            <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
-                                                <span id="everest-total" class="font-semibold">0</span>
-                                            </button>
-                                            <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">🍕</span>
-                                                <span id="pizza-total" class="font-semibold">0</span>
-                                            </button>
-                                            <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                                <span aria-hidden="true" class="text-lg leading-none">👍</span>
-                                                <span id="likes-total" class="font-semibold">0</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="profile-card__coins profile-card__summary-row" id="coin-summary">
-                                        <div class="profile-metrics__row">
-                                            <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
-                                                <span id="coin-dollar" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">💲</span>
-                                            </button>
-                                            <button type="button" data-coin-type="💰" class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                                                <span id="coin-money" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">💰</span>
-                                            </button>
-                                            <button type="button" data-coin-type="🧈" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                                <span id="coin-butter" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">🧈</span>
-                                            </button>
-                                            <button type="button" data-coin-type="💎" class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
-                                                <span id="coin-diamond" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">💎</span>
-                                            </button>
-                                            <button type="button" data-coin-type="👑" class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
-                                                <span id="coin-king" class="font-semibold">0</span>
-                                                <span class="text-base leading-none" aria-hidden="true">👑</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="profile-card__wallet-totals profile-card__summary-row">
-                                        <button type="button" class="wallet-total-pill profile-metric-pill" data-panel-target="achievements" aria-label="Open achievements panel">
-                                            <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
-                                            <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
+                                </div>
+                                <div class="profile-metrics profile-card__summary-row" id="profile-metric-pills">
+                                    <div class="profile-metrics__row">
+                                        <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                                            <span aria-hidden="true" class="text-lg leading-none">🌍</span>
+                                            <span id="globe-total" class="font-semibold">0</span>
                                         </button>
-                                        <button type="button" class="wallet-total-pill profile-metric-pill" data-panel-target="medals" aria-label="Open medals view">
-                                            <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
-                                            <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
+                                        <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                            <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
+                                            <span id="everest-total" class="font-semibold">0</span>
+                                        </button>
+                                        <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
+                                            <span aria-hidden="true" class="text-lg leading-none">🍕</span>
+                                            <span id="pizza-total" class="font-semibold">0</span>
+                                        </button>
+                                        <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                            <span aria-hidden="true" class="text-lg leading-none">👍</span>
+                                            <span id="likes-total" class="font-semibold">0</span>
                                         </button>
                                     </div>
                                 </div>
-                                <div class="profile-card__visual">
-                                    <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar" loading="lazy">
+                                <div class="profile-card__coins profile-card__summary-row" id="coin-summary">
+                                    <div class="profile-metrics__row">
+                                        <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
+                                            <span id="coin-dollar" class="font-semibold">0</span>
+                                            <span class="text-base leading-none" aria-hidden="true">💲</span>
+                                        </button>
+                                        <button type="button" data-coin-type="💰" class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                                            <span id="coin-money" class="font-semibold">0</span>
+                                            <span class="text-base leading-none" aria-hidden="true">💰</span>
+                                        </button>
+                                        <button type="button" data-coin-type="🧈" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                            <span id="coin-butter" class="font-semibold">0</span>
+                                            <span class="text-base leading-none" aria-hidden="true">🧈</span>
+                                        </button>
+                                        <button type="button" data-coin-type="💎" class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
+                                            <span id="coin-diamond" class="font-semibold">0</span>
+                                            <span class="text-base leading-none" aria-hidden="true">💎</span>
+                                        </button>
+                                        <button type="button" data-coin-type="👑" class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
+                                            <span id="coin-king" class="font-semibold">0</span>
+                                            <span class="text-base leading-none" aria-hidden="true">👑</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="profile-card__wallet-totals profile-card__summary-row">
+                                    <button type="button" class="wallet-total-pill profile-metric-pill" data-panel-target="achievements" aria-label="Open achievements panel">
+                                        <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
+                                        <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
+                                    </button>
+                                    <button type="button" class="wallet-total-pill profile-metric-pill" data-panel-target="medals" aria-label="Open medals view">
+                                        <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
+                                        <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
+                                    </button>
                                 </div>
                             </div>
                             <div class="profile-card__meta">

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./public/assets/tailwind.css --minify"
   },
   "keywords": [
     "Strava",
@@ -14,15 +15,19 @@
     "Express",
     "Node.js"
   ],
-  "author": "Your Name",
+  "author": "Michele Merelli",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.7.7",
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.4.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "googleapis": "^105.0.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "autoprefixer": "^10.4.21",
+    "nodemon": "^2.0.22",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.13"
   }
 }

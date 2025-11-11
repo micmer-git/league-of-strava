@@ -44,10 +44,10 @@
             </div>
             <div class="profile-card__class">
               <span class="profile-card__class-label">Classe della Compagnia</span>
-              <button type="button" class="profile-card__class-name" id="profile-class-trigger" aria-describedby="profile-class-description">
+              <div class="profile-card__class-name">
                 <span class="profile-card__class-crest" id="profile-class-crest" aria-hidden="true">🛡️</span>
                 <span id="profile-class-name">—</span>
-              </button>
+              </div>
             </div>
           </header>
           <div class="profile-card__chips" role="list">
@@ -205,45 +205,6 @@
     </footer>
   </div>
 
-  <div class="class-modal" id="class-modal" aria-hidden="true">
-    <div class="class-modal__overlay" data-modal-action="close"></div>
-    <div class="class-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="class-modal-title">
-      <button type="button" class="class-modal__close" id="class-modal-close" aria-label="Chiudi dettagli classe">
-        <span aria-hidden="true">×</span>
-      </button>
-      <div class="class-modal__header">
-        <span class="class-modal__crest" id="class-modal-crest" aria-hidden="true">🛡️</span>
-        <div class="class-modal__titles">
-          <h3 id="class-modal-title">Classe della Compagnia</h3>
-          <p id="class-modal-subtitle" class="class-modal__subtitle"></p>
-        </div>
-      </div>
-      <p id="class-modal-description" class="class-modal__description"></p>
-      <div class="class-modal__controls">
-        <label for="class-modal-slider">Scorri tra le classi suggerite</label>
-        <input type="range" id="class-modal-slider" min="1" value="1" />
-        <div class="class-modal__slider-legend">
-          <span id="class-modal-slider-label"></span>
-          <span id="class-modal-score"></span>
-        </div>
-      </div>
-      <ul id="class-modal-reasons" class="class-modal__reasons" aria-live="polite"></ul>
-      <div class="class-modal__insight">
-        <h4>Metriche chiave</h4>
-        <ul id="class-modal-metrics" class="class-modal__metrics"></ul>
-      </div>
-      <div class="class-modal__rank">
-        <h4>Proiezione Rank</h4>
-        <label for="rank-modal-slider" class="sr-only">Seleziona un livello di rank</label>
-        <input type="range" id="rank-modal-slider" min="0" value="0" />
-        <div class="class-modal__rank-legend">
-          <span id="rank-modal-label"></span>
-          <span id="rank-modal-threshold"></span>
-        </div>
-      </div>
-    </div>
-  </div>
-
     <script>
     (() => {
       const locale = 'it-IT';
@@ -308,25 +269,6 @@
         gravelRides: 14,
         mindfulnessSessions: 4,
         altitudeWorkouts: 6,
-        coinsTotal: 112,
-        coinDollar: 32,
-        coinMoney: 26,
-        coinButter: 22,
-        coinDiamond: 18,
-        coinCrown: 14,
-        weeklyCoinMint: 16,
-        coinValueDollars: 1480,
-        totalSeasonHours: 486,
-        avgActivityMinutes: 84,
-        longestActivityMinutes: 310,
-        goldMedals: 9,
-        silverMedals: 12,
-        bronzeMedals: 8,
-        questMedals: 5,
-        totalMedals: 34,
-        medalDiversity: 9,
-        legendaryMedals: 3,
-        mobilitySessions: 5,
       };
 
       const weeklySnapshot = {
@@ -358,163 +300,430 @@
         { name: 'Signore delle Quattro Strade', minPoints: 2300, emoji: '👑' },
       ];
 
-      let classRankingCache = [];
-      let currentClassAssignment = null;
-      let currentUserAdjectives = [];
-
-
       const fellowshipClasses = [
         {
-          id: 'ranger-of-arnor',
-          name: 'Ranger of Arnor',
-          crest: '🏹',
-          focus: 'multi',
-          adjectives: ['watchful', 'steady'],
-          description: 'Tracks every road from the Shire to the North with balanced miles and relentless grit.',
-          baseScore: 0.85,
-          criteria: [
-            { metric: 'rideKm', min: 130, weight: 1.3, description: 'Ride beyond 130 km during the week.' },
-            { metric: 'runKm', min: 55, weight: 1.2, description: 'Log more than 55 km on foot.' },
-            { metric: 'multiSportDays', min: 3, weight: 1.4, description: 'Blend disciplines at least three days each week.' },
-            { metric: 'elevationGain', min: 1700, weight: 1.0, description: 'Climb over 1,700 m across your sessions.' },
-          ],
-        },
-        {
-          id: 'white-council-wizard',
-          name: 'Wizard of the White Council',
-          crest: '🔮',
-          focus: 'swim',
-          adjectives: ['mystic', 'composed'],
-          description: 'Weaves endurance, breathwork and patient hours like spells cast over long seasons.',
-          baseScore: 0.75,
-          criteria: [
-            { metric: 'weeklyHours', min: 12, weight: 1.4, description: 'Sustain at least 12 training hours in the week.' },
-            { metric: 'swimKm', min: 4.5, weight: 1.2, description: 'Glide through 4.5 km or more in the water.' },
-            { metric: 'mindfulnessSessions', min: 3, weight: 1.0, description: 'Anchor three recovery or mindfulness rituals.' },
-            { metric: 'intensityScore', min: 80, weight: 1.0, description: 'Channel focused efforts with intensity above 80.' },
-          ],
-        },
-        {
-          id: 'warrior-of-gondor',
-          name: 'Warrior of Gondor',
-          crest: '🛡️',
-          focus: 'run',
-          adjectives: ['valiant', 'unyielding'],
-          description: 'Storms city walls with fearless tempo runs and disciplined race craft.',
-          baseScore: 0.7,
-          criteria: [
-            { metric: 'runKm', min: 70, weight: 1.4, description: 'Hold weekly running mileage above 70 km.' },
-            { metric: 'weeklyActivities', min: 7, weight: 1.1, description: 'Stack at least seven activities across the week.' },
-            { metric: 'raceFinishes', min: 5, weight: 1.0, description: 'Finish five races in the current season.' },
-            { metric: 'consistencyScore', min: 88, weight: 0.9, description: 'Keep consistency above 88 to defend the realm.' },
-          ],
-        },
-        {
-          id: 'rogue-of-mirkwood',
-          name: 'Rogue of Mirkwood',
-          crest: '🌲',
-          focus: 'multi',
-          adjectives: ['elusive', 'swift'],
-          description: 'Dances through shadowed trails with agility, night runs and nimble recovery.',
-          baseScore: 0.65,
-          criteria: [
-            { metric: 'trailSessions', min: 4, weight: 1.2, description: 'Complete four trail-focused sessions.' },
-            { metric: 'multiSportDays', min: 2, weight: 1.0, description: 'Mix disciplines on at least two days.' },
-            { metric: 'nightSessions', min: 2, weight: 0.9, description: 'Log two twilight or night efforts.' },
-            { metric: 'avgActivityMinutes', min: 75, weight: 0.8, description: 'Keep average activity duration above 75 minutes.' },
-          ],
-        },
-        {
-          id: 'paladin-of-the-shire',
-          name: 'Paladin of the Shire',
-          crest: '🍞',
-          focus: 'multi',
-          adjectives: ['steadfast', 'kindhearted'],
-          description: 'Guards the hearth with community miles, restorative rituals and generous coin minting.',
-          baseScore: 0.6,
-          criteria: [
-            { metric: 'communityActivities', min: 3, weight: 1.3, description: 'Lead or join three community adventures.' },
-            { metric: 'recoverySessions', min: 2, weight: 1.0, description: 'Hold two or more recovery-focused sessions.' },
-            { metric: 'coinsTotal', min: 110, weight: 0.9, description: 'Carry a seasonal coin hoard above 110.' },
-            { metric: 'weeklyCoinMint', min: 14, weight: 0.8, description: 'Forge at least 14 coins during the week.' },
-          ],
-        },
-        {
-          id: 'guardian-of-fangorn',
-          name: 'Guardian of Fangorn',
-          crest: '🌳',
-          focus: 'ride',
-          adjectives: ['ancient', 'resilient'],
-          description: 'Climbs deep forest roads with heavy elevation, gravel grinds and altitude rites.',
-          baseScore: 0.7,
-          criteria: [
-            { metric: 'elevationGain', min: 2200, weight: 1.4, description: 'Accumulate more than 2,200 m of gain.' },
-            { metric: 'adventureDays', min: 8, weight: 1.0, description: 'Dedicate eight days to adventure-focused outings.' },
-            { metric: 'gravelRides', min: 12, weight: 0.9, description: 'Tackle a dozen gravel rides this season.' },
-            { metric: 'altitudeWorkouts', min: 5, weight: 0.8, description: 'Complete five altitude or hill-top efforts.' },
-          ],
-        },
-        {
-          id: 'shieldmaiden-of-rohan',
-          name: 'Shieldmaiden of Rohan',
+          id: 'cavaliere-di-rohan',
+          name: 'Cavaliere di Rohan',
           crest: '🐎',
           focus: 'ride',
-          adjectives: ['fierce', 'fearless'],
-          description: 'Rides the Riddermark winds with long pulls, mighty watts and precise pacing.',
+          description: 'Domina le pianure ventose con tirate lunghe, dislivelli robusti e cambi di ritmo da vero scudiero di Edoras.',
           baseScore: 0.8,
           criteria: [
-            { metric: 'rideKm', min: 180, weight: 1.3, description: 'Cover at least 180 km in the saddle.' },
-            { metric: 'longestSingleRideKm', min: 200, weight: 1.1, description: 'Hold a single ride above 200 km.' },
-            { metric: 'weeklyHours', min: 11, weight: 1.0, description: 'Invest eleven or more hours this week.' },
-            { metric: 'ftpWatts', min: 250, weight: 0.8, description: 'Sustain an FTP at or above 250 watts.' },
+            { metric: 'rideKm', min: 150, weight: 3, description: 'Percorri oltre 150 km di bici in una settimana.' },
+            { metric: 'weeklyHours', min: 10, weight: 1.5, description: 'Dedichi più di 10 ore agli allenamenti.' },
+            { metric: 'multiSportDays', min: 2, weight: 1, description: 'Accorpi più discipline almeno due giorni a settimana.' },
+            { metric: 'elevationGain', min: 1800, weight: 1.5, description: 'Superi 1.800 m di dislivello settimanale.' },
+            { metric: 'gravelRides', min: 10, weight: 0.8, description: 'Inserisci sessioni gravel per cavalcare ogni terreno.' },
           ],
         },
         {
-          id: 'pathfinder-of-erebor',
-          name: 'Pathfinder of Erebor',
-          crest: '⛰️',
-          focus: 'multi',
-          adjectives: ['adventurous', 'curious'],
-          description: 'Charts distant peaks, stage routes and new coins across Middle-earth.',
-          baseScore: 0.65,
-          criteria: [
-            { metric: 'travelAdventures', min: 5, weight: 1.2, description: 'Embark on five travel adventures.' },
-            { metric: 'stageRaces', min: 2, weight: 1.0, description: 'Complete two multi-stage events.' },
-            { metric: 'weeklyHours', min: 10, weight: 0.9, description: 'Keep training volume at ten hours or more.' },
-            { metric: 'coinsTotal', min: 100, weight: 0.8, description: 'Maintain a treasure of at least 100 coins.' },
-          ],
-        },
-        {
-          id: 'loremaster-of-rivendell',
-          name: 'Loremaster of Rivendell',
-          crest: '📜',
-          focus: 'swim',
-          adjectives: ['wise', 'harmonious'],
-          description: 'Balances lore, recovery and discipline to keep knowledge flowing like rivers.',
+          id: 'mitrillo-maratoneta',
+          name: 'Mitrillo Maratoneta',
+          crest: '💎',
+          focus: 'run',
+          description: 'Un corridore resistente come il mitril: chilometri macinati, passo brillante e finali lucenti in gara.',
           baseScore: 0.6,
           criteria: [
-            { metric: 'consistencyScore', min: 90, weight: 1.2, description: 'Hold consistency at 90 or above.' },
-            { metric: 'longestStreakWeeks', min: 16, weight: 1.1, description: 'Maintain a 16-week streak without falter.' },
-            { metric: 'mindfulnessSessions', min: 4, weight: 0.9, description: 'Guide four mindfulness or breath sessions.' },
-            { metric: 'avgActivityMinutes', min: 80, weight: 0.8, description: 'Keep average activity time above 80 minutes.' },
+            { metric: 'runKm', min: 70, weight: 2.5, description: 'Macini almeno 70 km di corsa ogni settimana.' },
+            { metric: 'weeklyActivities', min: 6, weight: 1.4, description: 'Collezioni sei o più attività settimanali.' },
+            { metric: 'averagePaceMinKm', max: 4.4, weight: 1.6, description: 'Mantieni un passo medio sotto i 4:24 min/km.' },
+            { metric: 'raceFinishes', min: 5, weight: 1.2, description: 'Hai concluso cinque o più gare in stagione.' },
           ],
         },
         {
-          id: 'sentinel-of-minas-tirith',
-          name: 'Sentinel of Minas Tirith',
-          crest: '🏰',
+          id: 'custode-di-lorien',
+          name: 'Custode di Lórien',
+          crest: '🌿',
+          focus: 'swim',
+          description: 'Tra acque immacolate e respirazioni consapevoli mantieni l’equilibrio di ogni elfo della foresta dorata.',
+          baseScore: 0.5,
+          criteria: [
+            { metric: 'swimKm', min: 4, weight: 2.2, description: 'Nuoti almeno 4 km a settimana.' },
+            { metric: 'openWaterKm', min: 6, weight: 1.6, description: 'Affronti sessioni in acque libere oltre i 6 km.' },
+            { metric: 'mindfulnessSessions', min: 3, weight: 1.2, description: 'Integra rituali di respiro o mindfulness tre volte a settimana.' },
+            { metric: 'weeklyHours', min: 8, weight: 0.8, description: 'Sostieni volumi totali oltre le 8 ore.' },
+          ],
+        },
+        {
+          id: 'sentinella-di-gondor',
+          name: 'Sentinella di Gondor',
+          crest: '🛡️',
           focus: 'run',
-          adjectives: ['resolute', 'vigilant'],
-          description: 'Stands at the White City ramparts with towering seasonal hours and sharp intensity.',
+          description: 'Sorvegli le mura con corse collinari e un’intensità sempre pronta a difendere Minas Tirith.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'elevationGain', min: 2000, weight: 2, description: 'Affronti oltre 2.000 m di dislivello settimanale.' },
+            { metric: 'intensityScore', min: 80, weight: 1.6, description: 'Mantieni un indice di intensità sopra quota 80.' },
+            { metric: 'runKm', min: 65, weight: 1.4, description: 'Corri più di 65 km in sette giorni.' },
+            { metric: 'altitudeWorkouts', min: 5, weight: 1.1, description: 'Inserisci almeno cinque allenamenti in quota.' },
+          ],
+        },
+        {
+          id: 'passolungo-della-contea',
+          name: 'Passolungo della Contea',
+          crest: '🥾',
+          focus: 'run',
+          description: 'Costanza da hobbit e passi sempre pronti per nuove strade sterrate.',
+          baseScore: 0.5,
+          criteria: [
+            { metric: 'consistencyScore', min: 85, weight: 1.8, description: 'Costanza stagionale oltre quota 85/100.' },
+            { metric: 'weeklyActivities', min: 7, weight: 1.4, description: 'Sette o più uscite settimanali.' },
+            { metric: 'trailSessions', min: 3, weight: 1, description: 'Includi almeno tre sessioni trail.' },
+            { metric: 'weeklyHours', min: 9, weight: 0.9, description: 'Mantieni più di 9 ore di volume.' },
+          ],
+        },
+        {
+          id: 'fabbro-di-khazad-dum',
+          name: 'Fabbro di Khazad-dûm',
+          crest: '⛏️',
+          focus: 'multi',
+          description: 'Forgi potenza e resistenza con wattaggi solidi e salite degne delle miniere naniche.',
+          baseScore: 0.5,
+          criteria: [
+            { metric: 'ftpWatts', min: 250, weight: 2.2, description: 'FTP oltre 250 watt.' },
+            { metric: 'elevationGain', min: 2200, weight: 1.8, description: 'Dislivello oltre 2.200 m a settimana.' },
+            { metric: 'weeklyHours', min: 11, weight: 1.1, description: 'Più di 11 ore di lavoro totale.' },
+            { metric: 'rideKm', min: 150, weight: 1, description: 'Percorri almeno 150 km in bici.' },
+          ],
+        },
+        {
+          id: 'guardiano-di-fangorn',
+          name: 'Guardiano di Fangorn',
+          crest: '🌲',
+          focus: 'trail',
+          description: 'Cammini con gli Ent: trail tecnici, avventure lente ma inesorabili.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'trailSessions', min: 4, weight: 1.8, description: 'Quattro sessioni trail o gravel nella settimana.' },
+            { metric: 'adventureDays', min: 8, weight: 1.4, description: 'Otto giornate avventura programmate quest’anno.' },
+            { metric: 'weeklyHours', min: 10, weight: 1, description: 'Volume settimanale oltre le 10 ore.' },
+            { metric: 'travelAdventures', min: 4, weight: 0.9, description: 'Viaggi sportivi verso nuove foreste o sentieri.' },
+          ],
+        },
+        {
+          id: 'arciere-di-bosco-atro',
+          name: 'Arciere di Bosco Atro',
+          crest: '🏹',
+          focus: 'run',
+          description: 'Precisione e ritmo sempre sotto controllo, come le frecce di Legolas.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'averagePaceMinKm', max: 4.5, weight: 1.6, description: 'Passo medio settimanale sotto i 4:30 min/km.' },
+            { metric: 'intensityScore', min: 78, weight: 1.2, description: 'Indice di intensità mantenuto oltre 78.' },
+            { metric: 'raceFinishes', min: 4, weight: 1.1, description: 'Quattro o più gare centrate al millimetro.' },
+            { metric: 'weeklyActivities', min: 7, weight: 0.9, description: 'Frequenza costante di sessioni quotidiane.' },
+          ],
+        },
+        {
+          id: 'scalatore-di-monte-fato',
+          name: 'Scalatore di Monte Fato',
+          crest: '🔥',
+          focus: 'climb',
+          description: 'Affronti il calore e le pendenze come Frodo sul sentiero per Orodruin.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'elevationGain', min: 2500, weight: 2.4, description: 'Dislivello oltre 2.500 m settimanali.' },
+            { metric: 'heatAdaptationSessions', min: 4, weight: 1.3, description: 'Sessioni in climi caldi o indoor termici.' },
+            { metric: 'longestSingleRunKm', min: 32, weight: 1.2, description: 'Lungo oltre 32 km completato di recente.' },
+            { metric: 'coldWeatherSessions', min: 5, weight: 0.9, description: 'Preparazione in condizioni estreme bilanciata durante l’anno.' },
+          ],
+        },
+        {
+          id: 'messaggero-di-gran-burrone',
+          name: 'Messaggero di Gran Burrone',
+          crest: '📜',
+          focus: 'multi',
+          description: 'Organizzi spedizioni rapide fra città e montagne con agilità elfica.',
+          baseScore: 0.5,
+          criteria: [
+            { metric: 'travelAdventures', min: 5, weight: 1.7, description: 'Cinque viaggi sportivi fuori sede nell’anno.' },
+            { metric: 'multiSportDays', min: 3, weight: 1.2, description: 'Tre giorni multi-sport nella settimana.' },
+            { metric: 'weeklyActivities', min: 8, weight: 1.1, description: 'Almeno otto sessioni nei sette giorni.' },
+            { metric: 'weeklyHours', min: 11, weight: 0.9, description: 'Volume superiore a 11 ore.' },
+          ],
+        },
+        {
+          id: 'corridore-montagne-nebbiose',
+          name: 'Corridore delle Montagne Nebbiose',
+          crest: '⛰️',
+          focus: 'trail',
+          description: 'Salite lunghe, meteo incerto e un ritmo che buca le nuvole.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'trailSessions', min: 4, weight: 1.5, description: 'Quattro sessioni in quota o trail tecnico.' },
+            { metric: 'longestStreakWeeks', min: 16, weight: 1.4, description: 'Streak attiva oltre le 16 settimane.' },
+            { metric: 'elevationGain', min: 2100, weight: 1.2, description: 'Più di 2.100 m di dislivello alla settimana.' },
+            { metric: 'weeklyHours', min: 10, weight: 1, description: 'Almeno dieci ore di allenamenti complessivi.' },
+          ],
+        },
+        {
+          id: 'marinaio-porti-grigi',
+          name: 'Marinaio dei Porti Grigi',
+          crest: '⚓',
+          focus: 'swim',
+          description: 'Navighi in acque fredde e spazi aperti con calma da elfo dei mari.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'openWaterKm', min: 7, weight: 1.8, description: 'Più di 7 km in acque libere nel periodo recente.' },
+            { metric: 'swimKm', min: 5, weight: 1.5, description: 'Volumi di nuoto superiori a 5 km settimanali.' },
+            { metric: 'weeklyHours', min: 9, weight: 0.9, description: 'Tempo in acqua e a secco oltre le 9 ore.' },
+            { metric: 'mindfulnessSessions', min: 3, weight: 0.8, description: 'Rituali di respirazione per restare fluido nella tempesta.' },
+          ],
+        },
+        {
+          id: 'guida-di-edoras',
+          name: 'Guida di Edoras',
+          crest: '🛞',
+          focus: 'ride',
+          description: 'Conduci gruppi e percorri le steppe come guida fedele dei Rohirrim.',
+          baseScore: 0.5,
+          criteria: [
+            { metric: 'rideKm', min: 160, weight: 2, description: 'Oltre 160 km in sella settimanalmente.' },
+            { metric: 'communityActivities', min: 3, weight: 1.3, description: 'Coinvolgi la community in tre o più eventi.' },
+            { metric: 'gravelRides', min: 12, weight: 1.1, description: 'Dodici uscite gravel curate nell’anno.' },
+            { metric: 'weeklyHours', min: 11, weight: 0.9, description: 'Volume totale oltre 11 ore.' },
+          ],
+        },
+        {
+          id: 'veggente-di-palantir',
+          name: 'Veggente di Palantír',
+          crest: '🔮',
+          focus: 'multi',
+          description: 'Programmi con anticipo e leggi ogni dato per guidare il futuro.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'consistencyScore', min: 88, weight: 1.7, description: 'Indice di costanza oltre 88/100.' },
+            { metric: 'intensityScore', min: 80, weight: 1.2, description: 'Bilanci intensità e recupero con precisione.' },
+            { metric: 'weeklyActivities', min: 8, weight: 1, description: 'Otto attività o più per settimana.' },
+            { metric: 'mindfulnessSessions', min: 4, weight: 0.9, description: 'Sessioni di riflessione e planning ogni settimana.' },
+          ],
+        },
+        {
+          id: 'assaltatore-di-helm',
+          name: 'Assaltatore di Helm',
+          crest: '🛡️',
+          focus: 'multi',
+          description: 'Potenza esplosiva e strategie da battaglia nelle tappe più dure.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'stageRaces', min: 2, weight: 1.8, description: 'Completi almeno due gare a tappe l’anno.' },
+            { metric: 'intensityScore', min: 82, weight: 1.4, description: 'Indice d’intensità sopra quota 82.' },
+            { metric: 'ftpWatts', min: 245, weight: 1.2, description: 'FTP vicino ai 245 watt o superiore.' },
+            { metric: 'weeklyHours', min: 11, weight: 0.9, description: 'Volumi totali oltre le 11 ore.' },
+          ],
+        },
+        {
+          id: 'intervallista-di-isengard',
+          name: 'Intervallista di Isengard',
+          crest: '⚙️',
+          focus: 'ride',
+          description: 'Segmenti ad alta intensità e potenza disciplinata come gli ingranaggi di Saruman.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'ftpWatts', min: 240, weight: 1.7, description: 'Potenza di soglia oltre i 240 watt.' },
+            { metric: 'intensityScore', min: 80, weight: 1.3, description: 'Indice d’intensità che rimane sopra 80.' },
+            { metric: 'weeklyHours', min: 10, weight: 1, description: 'Dieci ore dedicate a lavori specifici.' },
+            { metric: 'rideKm', min: 140, weight: 0.8, description: 'Accumuli almeno 140 km di bici.' },
+          ],
+        },
+        {
+          id: 'ombra-di-gollum',
+          name: 'Ombra di Gollum',
+          crest: '🕳️',
+          focus: 'run',
+          description: 'Allenamenti notturni e movimenti furtivi sui sentieri più oscuri.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'nightSessions', min: 2, weight: 1.5, description: 'Due o più sessioni notturne a settimana.' },
+            { metric: 'trailSessions', min: 3, weight: 1.1, description: 'Integra trail tecnici in scarsa luminosità.' },
+            { metric: 'runKm', min: 60, weight: 1, description: 'Più di 60 km di corsa totali.' },
+            { metric: 'weeklyActivities', min: 7, weight: 0.8, description: 'Sessioni frequenti anche a orari improbabili.' },
+          ],
+        },
+        {
+          id: 'sputafuoco-di-smaug',
+          name: 'Sputafuoco di Smaug',
+          crest: '🐉',
+          focus: 'heat',
+          description: 'Ti alleni nelle condizioni più calde bruciando come un drago sulla montagna solitaria.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'heatAdaptationSessions', min: 5, weight: 1.8, description: 'Cinque sessioni di adattamento al caldo.' },
+            { metric: 'weeklyHours', min: 10, weight: 1.1, description: 'Mantieni almeno dieci ore di volume.' },
+            { metric: 'intensityScore', min: 78, weight: 1, description: 'Gestisci intensità elevate senza calare.' },
+            { metric: 'coldWeatherSessions', min: 6, weight: 0.8, description: 'Bilanci con preparazione in climi freddi.' },
+          ],
+        },
+        {
+          id: 'viandante-di-numenor',
+          name: 'Viandante di Númenor',
+          crest: '🌊',
+          focus: 'multi',
+          description: 'Dalle onde alle creste porti l’eredità dei sovrani del mare.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'travelAdventures', min: 5, weight: 1.5, description: 'Organizzi cinque spedizioni sportive lontano da casa.' },
+            { metric: 'swimKm', min: 4.5, weight: 1.2, description: 'Volumi di nuoto oltre i 4,5 km.' },
+            { metric: 'rideKm', min: 150, weight: 1.1, description: 'Accumuli oltre 150 km in bici durante la settimana.' },
+            { metric: 'multiSportDays', min: 3, weight: 0.9, description: 'Più discipline nello stesso giorno per tre volte.' },
+          ],
+        },
+        {
+          id: 'eremita-di-amon-hen',
+          name: 'Eremita di Amon Hen',
+          crest: '🪨',
+          focus: 'balance',
+          description: 'Sai isolarti per rigenerarti e tornare lucido come un guardiano dei Sette Troni.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'mindfulnessSessions', min: 4, weight: 1.4, description: 'Quattro sessioni mentali a settimana.' },
+            { metric: 'recoverySessions', min: 2, weight: 1.1, description: 'Almeno due sedute di recupero guidato.' },
+            { metric: 'weeklyHours', min: 9, weight: 0.9, description: 'Volume equilibrato oltre le 9 ore.' },
+            { metric: 'consistencyScore', min: 85, weight: 0.9, description: 'Mantieni la rotta con costanza sopra 85.' },
+          ],
+        },
+        {
+          id: 'pellegrino-di-anduin',
+          name: 'Pellegrino di Anduin',
+          crest: '🛶',
+          focus: 'multi',
+          description: 'Scorri lungo il grande fiume alternando remate, corsa e nuoto.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'swimKm', min: 5, weight: 1.5, description: 'Almeno 5 km di nuoto settimanali.' },
+            { metric: 'runKm', min: 60, weight: 1.2, description: 'Corsa settimanale oltre i 60 km.' },
+            { metric: 'multiSportDays', min: 3, weight: 1, description: 'Tre giorni consecutivi con sessioni doppie.' },
+            { metric: 'stageRaces', min: 2, weight: 0.8, description: 'Partecipi a più gare multisport stagionali.' },
+          ],
+        },
+        {
+          id: 'custode-di-minas-tirith',
+          name: 'Custode di Minas Tirith',
+          crest: '⚔️',
+          focus: 'community',
+          description: 'Guida la città bianca con esempio e supporto al gruppo.',
+          baseScore: 0.5,
+          criteria: [
+            { metric: 'communityActivities', min: 3, weight: 1.6, description: 'Coordini tre eventi comunitari nel mese.' },
+            { metric: 'weeklyActivities', min: 8, weight: 1.2, description: 'Ottieni almeno otto sessioni per ispirare gli altri.' },
+            { metric: 'consistencyScore', min: 88, weight: 1, description: 'Affidi la leadership alla tua costanza elevata.' },
+            { metric: 'travelAdventures', min: 4, weight: 0.8, description: 'Porti la squadra in trasferte epiche.' },
+          ],
+        },
+        {
+          id: 'ambasciatore-di-dol-amroth',
+          name: 'Ambasciatore di Dol Amroth',
+          crest: '🕊️',
+          focus: 'community',
+          description: 'Porti eleganza e spirito marinaro agli eventi più prestigiosi.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'communityActivities', min: 3, weight: 1.5, description: 'Eventi sociali organizzati con cura.' },
+            { metric: 'travelAdventures', min: 5, weight: 1.2, description: 'Viaggi frequenti per incontrare altri club.' },
+            { metric: 'multiSportDays', min: 3, weight: 0.9, description: 'Dimostri versatilità in più discipline.' },
+            { metric: 'weeklyHours', min: 10, weight: 0.8, description: 'Mantieni alta la presenza alle uscite.' },
+          ],
+        },
+        {
+          id: 'diadema-di-valinor',
+          name: 'Diadema di Valinor',
+          crest: '👑',
+          focus: 'multi',
+          description: 'Eccellenza assoluta: equilibrio tra forza, resistenza e mente lucida.',
+          baseScore: 0.6,
+          criteria: [
+            { metric: 'weeklyHours', min: 12, weight: 2, description: 'Oltre dodici ore di allenamento settimanale.' },
+            { metric: 'intensityScore', min: 82, weight: 1.6, description: 'Indice di intensità sopra 82.' },
+            { metric: 'multiSportDays', min: 3, weight: 1.3, description: 'Tre o più giorni multi-sport.' },
+            { metric: 'consistencyScore', min: 90, weight: 1.2, description: 'Costanza elevatissima nel corso dell’anno.' },
+          ],
+        },
+        {
+          id: 'battitore-di-osgiliath',
+          name: 'Battitore di Osgiliath',
+          crest: '🏰',
+          focus: 'multi',
+          description: 'Tieni il ponte fra corsa e bici con ritmo incalzante e gestione dei watt.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'multiSportDays', min: 3, weight: 1.3, description: 'Tre giorni consecutivi di combo run-bike.' },
+            { metric: 'ftpWatts', min: 245, weight: 1.2, description: 'FTP superiore a 245 watt.' },
+            { metric: 'weeklyActivities', min: 8, weight: 1, description: 'Almeno otto sessioni per settimana.' },
+            { metric: 'runKm', min: 65, weight: 0.9, description: 'Carichi di corsa oltre 65 km.' },
+          ],
+        },
+        {
+          id: 'sentiero-di-lembas',
+          name: 'Sentiero di Lembas',
+          crest: '🍞',
+          focus: 'balance',
+          description: 'Alimentazione, recupero e movimento si intrecciano come pane elfico.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'recoverySessions', min: 2, weight: 1.3, description: 'Due sessioni dedicate al recupero guidato.' },
+            { metric: 'mindfulnessSessions', min: 4, weight: 1.1, description: 'Rituali di presenza mentale costanti.' },
+            { metric: 'weeklyHours', min: 9, weight: 0.9, description: 'Volume sostenibile ma generoso oltre 9 ore.' },
+            { metric: 'intensityScore', min: 75, weight: 0.8, description: 'Gestione intelligente dell’intensità.' },
+          ],
+        },
+        {
+          id: 'cacciatore-di-shelob',
+          name: 'Cacciatore di Shelob',
+          crest: '🕷️',
+          focus: 'trail',
+          description: 'Affronti notturne tecniche e terreni scivolosi con sangue freddo.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'nightSessions', min: 2, weight: 1.4, description: 'Due sessioni in notturna per settimana.' },
+            { metric: 'trailSessions', min: 4, weight: 1.2, description: 'Trail tecnici affrontati con regolarità.' },
+            { metric: 'adventureDays', min: 7, weight: 1, description: 'Almeno sette giornate avventura nell’anno.' },
+            { metric: 'intensityScore', min: 78, weight: 0.8, description: 'Intensità mantenuta anche nel buio.' },
+          ],
+        },
+        {
+          id: 'sprint-degli-ent',
+          name: 'Sprint degli Ent',
+          crest: '🌳',
+          focus: 'balance',
+          description: 'Reattività sorprendente per chi appare pacato: mobilità e forza esplosiva.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'mobilitySessions', min: 5, weight: 1.3, description: 'Cinque sessioni di mobilità e forza funzionale.' },
+            { metric: 'intensityScore', min: 80, weight: 1.1, description: 'Equilibrio tra sprint e recupero.' },
+            { metric: 'weeklyActivities', min: 8, weight: 0.9, description: 'Frequenza elevata di allenamenti.' },
+            { metric: 'weeklyHours', min: 9, weight: 0.8, description: 'Volumi oltre le 9 ore.' },
+          ],
+        },
+        {
+          id: 'camminatore-di-ithilien',
+          name: 'Camminatore di Ithilien',
+          crest: '🌿',
+          focus: 'run',
+          description: 'Esplori sentieri verdi con passo costante e spirito ranger.',
+          baseScore: 0.4,
+          criteria: [
+            { metric: 'runKm', min: 55, weight: 1.3, description: 'Più di 55 km di corsa a settimana.' },
+            { metric: 'longestStreakWeeks', min: 14, weight: 1.1, description: 'Streak lunga almeno 14 settimane.' },
+            { metric: 'trailSessions', min: 3, weight: 0.9, description: 'Trail regolari in natura.' },
+            { metric: 'weeklyActivities', min: 7, weight: 0.8, description: 'Presenza giornaliera o quasi.' },
+          ],
+        },
+        {
+          id: 'tempesta-di-silmaril',
+          name: 'Tempesta di Silmaril',
+          crest: '💠',
+          focus: 'multi',
+          description: 'Raccogli ogni luce delle Silmaril: disciplina totale e brillantezza in gara.',
           baseScore: 0.7,
           criteria: [
-            { metric: 'weeklyHours', min: 13, weight: 1.3, description: 'Record thirteen or more hours of training.' },
-            { metric: 'totalSeasonHours', min: 480, weight: 1.1, description: 'Guard a season totaling at least 480 hours.' },
-            { metric: 'intensityScore', min: 85, weight: 1.0, description: 'Keep intensity score at 85 or higher.' },
-            { metric: 'communityActivities', min: 2, weight: 0.8, description: 'Support the fellowship in two gatherings.' },
+            { metric: 'weeklyHours', min: 13, weight: 2.1, description: 'Superi le tredici ore settimanali.' },
+            { metric: 'runKm', min: 70, weight: 1.5, description: 'Carichi di corsa notevoli.' },
+            { metric: 'rideKm', min: 170, weight: 1.5, description: 'Pedali oltre 170 km.' },
+            { metric: 'swimKm', min: 5, weight: 1.2, description: 'Nuoti più di 5 km a settimana.' },
           ],
         },
       ];
+
       const evaluateClass = (profile, entry) => {
         let score = entry.baseScore || 0;
         const satisfied = [];
@@ -534,95 +743,6 @@
           score += 0.9;
         }
         return { score, satisfied };
-      };
-
-      const rankFellowshipClasses = (profile) => {
-        return fellowshipClasses
-          .map((entry) => {
-            const evaluation = evaluateClass(profile, entry);
-            return { entry, ...evaluation };
-          })
-          .sort((a, b) => {
-            if (b.score !== a.score) {
-              return b.score - a.score;
-            }
-            const aLength = Array.isArray(a.satisfied) ? a.satisfied.length : 0;
-            const bLength = Array.isArray(b.satisfied) ? b.satisfied.length : 0;
-            return bLength - aLength;
-          });
-      };
-
-      const formatNameWithAdjectives = (name, adjectives = []) => {
-        if (!Array.isArray(adjectives) || adjectives.length === 0) {
-          return name;
-        }
-        return `${name} · ${adjectives.join(' · ')}`;
-      };
-
-      const deriveUserAdjectives = (profile, assignment) => {
-        const adjectives = [];
-        const totalMedals =
-          profile.totalMedals ??
-          ((profile.goldMedals || 0) + (profile.silverMedals || 0) + (profile.bronzeMedals || 0) + (profile.questMedals || 0));
-        if (profile.coinsTotal >= 110 || (profile.coinCrown || 0) >= 10) {
-          adjectives.push('opulenta');
-        }
-        if (profile.totalSeasonHours >= 450 || profile.weeklyHours >= 12) {
-          adjectives.push('instancabile');
-        }
-        if (totalMedals >= 30 || (profile.goldMedals || 0) >= 8) {
-          adjectives.push('medagliata');
-        }
-        if (profile.multiSportDays >= 3) {
-          adjectives.push('poliedrica');
-        }
-        if (profile.intensityScore >= 80) {
-          adjectives.push('tenace');
-        }
-        if (profile.communityActivities >= 3) {
-          adjectives.push('carismatica');
-        }
-        if (profile.consistencyScore >= 88) {
-          adjectives.push('costante');
-        }
-        if (profile.adventureDays >= 8) {
-          adjectives.push('avventurosa');
-        }
-        if (profile.avgActivityMinutes >= 80) {
-          adjectives.push('metodica');
-        }
-        const unique = [];
-        adjectives.forEach((adjective) => {
-          if (!unique.includes(adjective)) {
-            unique.push(adjective);
-          }
-        });
-        const fallback = assignment?.entry?.adjectives || [];
-        fallback.forEach((adjective) => {
-          if (unique.length >= 3) return;
-          if (!unique.includes(adjective)) {
-            unique.push(adjective);
-          }
-        });
-        ['valiant', 'radiant', 'versatile', 'unyielding'].forEach((adjective) => {
-          if (unique.length >= 2) return;
-          if (!unique.includes(adjective)) {
-            unique.push(adjective);
-          }
-        });
-        return unique.slice(0, 2);
-      };
-
-      const getCurrentRankIndex = (points) => {
-        let currentIndex = 0;
-        for (let i = 0; i < rankLevels.length; i += 1) {
-          const nextLevel = rankLevels[i + 1];
-          if (!nextLevel || points < nextLevel.minPoints) {
-            currentIndex = i;
-            break;
-          }
-        }
-        return currentIndex;
       };
 
       const createProfileHighlights = (profile) => {
@@ -645,30 +765,20 @@
         if (profile.communityActivities >= 3) {
           highlights.push('Coinvolgimento costante negli eventi di community.');
         }
-        if (profile.coinsTotal >= 100) {
-          highlights.push(`Tesoro da ${formatMetric(profile.coinsTotal, { decimals: 0, suffix: ' monete forgiate' })}.`);
-        }
-        if (profile.weeklyCoinMint >= 12) {
-          highlights.push(`Settimana con ${formatMetric(profile.weeklyCoinMint, { decimals: 0, suffix: ' monete coniate' })}.`);
-        }
-        const totalMedals =
-          profile.totalMedals ??
-          ((profile.goldMedals || 0) + (profile.silverMedals || 0) + (profile.bronzeMedals || 0) + (profile.questMedals || 0));
-        if (totalMedals >= 25) {
-          highlights.push(`Bacheca da ${formatMetric(totalMedals, { decimals: 0, suffix: ' medaglie' })}.`);
-        }
-        if (profile.totalSeasonHours >= 450) {
-          highlights.push(`Stagione da ${formatMetric(profile.totalSeasonHours, { decimals: 0, suffix: ' ore cumulative' })}.`);
-        }
         return highlights;
       };
 
       const pickFellowshipClass = (profile) => {
-        const ranking = rankFellowshipClasses(profile);
-        if (ranking.length === 0) {
-          return { entry: fellowshipClasses[0], score: 0, satisfied: [], ranking };
-        }
-        return { ...ranking[0], ranking };
+        return fellowshipClasses.reduce((best, entry) => {
+          const evaluation = evaluateClass(profile, entry);
+          if (
+            evaluation.score > best.score ||
+            (evaluation.score === best.score && evaluation.satisfied.length > best.satisfied.length)
+          ) {
+            return { entry, ...evaluation };
+          }
+          return best;
+        }, { entry: fellowshipClasses[0], score: -Infinity, satisfied: [] });
       };
 
       const renderProfile = () => {
@@ -711,15 +821,11 @@
         setText('calories-week-gain', formatSignedMetric(lifetimeSnapshot.caloriesWeekGain, { decimals: 0, suffix: ' kcal in 7 giorni' }));
 
         const classAssignment = pickFellowshipClass(athleteProfile);
-        currentClassAssignment = classAssignment;
-        classRankingCache = Array.isArray(classAssignment.ranking) ? classAssignment.ranking : [];
-        currentUserAdjectives = deriveUserAdjectives(athleteProfile, classAssignment);
-        const decoratedClassName = formatNameWithAdjectives(classAssignment.entry.name, currentUserAdjectives);
         setText('profile-class-crest', classAssignment.entry.crest);
-        setText('profile-class-name', decoratedClassName);
+        setText('profile-class-name', classAssignment.entry.name);
         setText('profile-class-description', classAssignment.entry.description);
         setText('current-season', `Equinozio d'autunno · ${athleteProfile.longestStreakWeeks} settimane in scia`);
-        setText('current-highlight', `Classe: ${decoratedClassName}`);
+        setText('current-highlight', `Classe: ${classAssignment.entry.name}`);
 
         const reasonsList = document.getElementById('profile-class-reasons');
         if (reasonsList) {
@@ -736,12 +842,18 @@
 
       const renderRank = () => {
         const points = rankProgress.points;
-        const currentIndex = getCurrentRankIndex(points);
+        let currentIndex = 0;
+        for (let i = 0; i < rankLevels.length; i += 1) {
+          const nextLevel = rankLevels[i + 1];
+          if (!nextLevel || points < nextLevel.minPoints) {
+            currentIndex = i;
+            break;
+          }
+        }
         const currentRank = rankLevels[currentIndex];
         const nextRank = rankLevels[currentIndex + 1] || currentRank;
 
-        const adjectiveSuffix = currentUserAdjectives.length ? ` · ${currentUserAdjectives.join(' · ')}` : '';
-        setText('current-rank', `${currentRank.emoji} ${currentRank.name}${adjectiveSuffix}`);
+        setText('current-rank', `${currentRank.emoji} ${currentRank.name}`);
         setText('current-rank-label', currentRank.name);
         setText('next-rank-label', nextRank.name);
         setText('current-points', formatMetric(points, { decimals: 0 }));
@@ -878,178 +990,6 @@
         container.appendChild(fragment);
       };
 
-      const initClassModal = () => {
-        const trigger = document.getElementById('profile-class-trigger');
-        const modal = document.getElementById('class-modal');
-        if (!trigger || !modal) {
-          return;
-        }
-
-        const overlay = modal.querySelector('[data-modal-action="close"]');
-        const closeButton = document.getElementById('class-modal-close');
-        const slider = document.getElementById('class-modal-slider');
-        const sliderLabel = document.getElementById('class-modal-slider-label');
-        const scoreLabel = document.getElementById('class-modal-score');
-        const crest = document.getElementById('class-modal-crest');
-        const title = document.getElementById('class-modal-title');
-        const subtitle = document.getElementById('class-modal-subtitle');
-        const description = document.getElementById('class-modal-description');
-        const reasonsList = document.getElementById('class-modal-reasons');
-        const metricsList = document.getElementById('class-modal-metrics');
-        const rankSlider = document.getElementById('rank-modal-slider');
-        const rankLabel = document.getElementById('rank-modal-label');
-        const rankThreshold = document.getElementById('rank-modal-threshold');
-
-        const focusLabels = {
-          run: 'Corsa',
-          ride: 'Ciclismo',
-          swim: 'Nuoto',
-          multi: 'Multisport',
-          trail: 'Trail',
-          climb: 'Salita',
-          heat: 'Calore',
-          community: 'Community',
-          balance: 'Equilibrio',
-        };
-
-        const updateRankDetails = (index) => {
-          if (!rankLabel || !rankThreshold) return;
-          const level = rankLevels[index];
-          if (!level) {
-            rankLabel.textContent = '';
-            rankThreshold.textContent = '';
-            return;
-          }
-          rankLabel.textContent = `${level.emoji} ${level.name}`;
-          rankThreshold.textContent = `Da ${formatMetric(level.minPoints, { decimals: 0 })} pt`;
-        };
-
-        const buildMetricItems = () => {
-          if (!metricsList) return;
-          metricsList.innerHTML = '';
-          const totalMedals =
-            athleteProfile.totalMedals ??
-            ((athleteProfile.goldMedals || 0) + (athleteProfile.silverMedals || 0) + (athleteProfile.bronzeMedals || 0) + (athleteProfile.questMedals || 0));
-          const metrics = [
-            ['Monete forgiate', formatMetric(athleteProfile.coinsTotal, { decimals: 0 })],
-            ['Coniate questa settimana', formatMetric(athleteProfile.weeklyCoinMint, { decimals: 0 })],
-            ['Medaglie in bacheca', formatMetric(totalMedals, { decimals: 0 })],
-            ['Ore stagionali', formatMetric(athleteProfile.totalSeasonHours, { decimals: 0, suffix: ' h' })],
-            ['Media attività', formatMetric(athleteProfile.avgActivityMinutes, { decimals: 0, suffix: ' min' })],
-          ];
-          metrics.forEach(([label, value]) => {
-            const li = document.createElement('li');
-            li.className = 'class-modal__metric-item';
-            li.innerHTML = `<span>${label}</span><span>${value}</span>`;
-            metricsList.appendChild(li);
-          });
-        };
-
-        const updateModalForIndex = (candidateIndex) => {
-          if (!classRankingCache.length) {
-            classRankingCache = rankFellowshipClasses(athleteProfile);
-          }
-          const candidate = classRankingCache[candidateIndex];
-          if (!candidate || !candidate.entry) {
-            return;
-          }
-          if (crest) crest.textContent = candidate.entry.crest;
-          if (title) title.textContent = candidate.entry.name;
-          const adjectives = deriveUserAdjectives(athleteProfile, candidate);
-          const adjectivesLabel = adjectives.length ? ` · ${adjectives.join(' · ')}` : '';
-          if (subtitle) {
-            const focusLabel = focusLabels[candidate.entry.focus] || 'Multidisciplina';
-            subtitle.textContent = `${focusLabel}${adjectivesLabel}`;
-          }
-          if (description) description.textContent = candidate.entry.description;
-          if (sliderLabel) {
-            sliderLabel.textContent = `Suggerimento ${candidateIndex + 1} di ${classRankingCache.length}`;
-          }
-          if (scoreLabel) {
-            const score = Number.isFinite(candidate.score) ? candidate.score.toFixed(1) : '—';
-            scoreLabel.textContent = `Punteggio ${score}`;
-          }
-          if (reasonsList) {
-            reasonsList.innerHTML = '';
-            const satisfied = Array.isArray(candidate.satisfied) ? candidate.satisfied : [];
-            if (satisfied.length) {
-              satisfied.slice(0, 5).forEach((reason) => {
-                const li = document.createElement('li');
-                li.textContent = reason;
-                reasonsList.appendChild(li);
-              });
-            } else {
-              const li = document.createElement('li');
-              li.textContent = 'Questa classe attende criteri completati: segui le missioni suggerite.';
-              reasonsList.appendChild(li);
-            }
-          }
-          buildMetricItems();
-        };
-
-        const openModal = () => {
-          if (!classRankingCache.length) {
-            classRankingCache = rankFellowshipClasses(athleteProfile);
-          }
-          if (!classRankingCache.length) {
-            return;
-          }
-          modal.classList.add('is-active');
-          modal.setAttribute('aria-hidden', 'false');
-          document.body.classList.add('modal-open');
-          if (slider) {
-            const total = Math.max(1, classRankingCache.length);
-            slider.max = String(total);
-            slider.value = '1';
-          }
-          updateModalForIndex(0);
-          if (rankSlider) {
-            rankSlider.max = String(Math.max(0, rankLevels.length - 1));
-            const currentIndex = getCurrentRankIndex(rankProgress.points);
-            rankSlider.value = String(currentIndex);
-            updateRankDetails(currentIndex);
-          } else {
-            updateRankDetails(getCurrentRankIndex(rankProgress.points));
-          }
-          if (closeButton) {
-            closeButton.focus();
-          }
-        };
-
-        const closeModal = () => {
-          modal.classList.remove('is-active');
-          modal.setAttribute('aria-hidden', 'true');
-          document.body.classList.remove('modal-open');
-          trigger.focus();
-        };
-
-        if (slider) {
-          slider.addEventListener('input', () => {
-            const index = Math.max(0, Math.min(classRankingCache.length - 1, Number(slider.value) - 1));
-            updateModalForIndex(index);
-          });
-        }
-
-        if (rankSlider) {
-          rankSlider.addEventListener('input', () => {
-            updateRankDetails(Number(rankSlider.value));
-          });
-        }
-
-        trigger.addEventListener('click', openModal);
-        if (closeButton) {
-          closeButton.addEventListener('click', closeModal);
-        }
-        if (overlay) {
-          overlay.addEventListener('click', closeModal);
-        }
-        document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && modal.classList.contains('is-active')) {
-            closeModal();
-          }
-        });
-      };
-
       const initNavigation = () => {
         const sectionButtons = Array.from(document.querySelectorAll('[data-section-target]'));
         const sections = Array.from(document.querySelectorAll('[data-section]'));
@@ -1106,7 +1046,6 @@
       renderProfile();
       renderRank();
       renderMedals();
-      initClassModal();
       initNavigation();
     })();
   </script>

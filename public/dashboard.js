@@ -90,7 +90,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const DASHBOARD_CACHE_STORAGE_KEY = `los:dashboard-cache:${DASHBOARD_CACHE_VERSION}`;
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
     const DASHBOARD_CACHE_MAX_ENTRIES = 6;
-    const LEVEL_PROGRESS_STEPS = 1000;
 
     const createEmptyCacheContainer = () => ({
         version: DASHBOARD_CACHE_VERSION,
@@ -1467,13 +1466,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
             rankingProgressLabelElement.textContent = label;
             rankingProgressLabelElement.setAttribute('aria-label', `Lifetime training ${label}`);
-        }
-
-        if (levelProgressElement) {
-            const levelLabel = currentRank ? currentRank.name : 'Unranked';
-            const progressSteps = Math.max(0, Math.min(LEVEL_PROGRESS_STEPS, Math.round(progressRatio * LEVEL_PROGRESS_STEPS)));
-            levelProgressElement.textContent = `${levelLabel} ${progressSteps} / ${LEVEL_PROGRESS_STEPS}`;
-            levelProgressElement.setAttribute('aria-label', `${levelLabel} progress ${progressSteps} out of ${LEVEL_PROGRESS_STEPS}`);
         }
 
         if (rankingProgressMonthlyElement) {
@@ -5977,38 +5969,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     const medalOrderMap = new Map(medalsConfig.map((medal, index) => [medal.name, index]));
 
     // === Rank Configuration ===
-    const HOURS_PER_LEVEL = 100;
-    const MASTER_PRESTIGE_MAX = 100;
-    const LEVEL_PROGRESS_STEPS = 1000;
+    const MASTER_PRESTIGE_MAX = 1000;
+    const MASTER_PRESTIGE_START_HOURS = 4000;
+    const MAX_RANK_HOURS = 20000;
 
-    const baseRankTiers = [
-        { name: 'Bronze', emoji: '🥉', levels: 10 },
-        { name: 'Silver', emoji: '🥈', levels: 10 },
-        { name: 'Gold', emoji: '🥇', levels: 10 },
-        { name: 'Platinum', emoji: '🏆', levels: 10 }
+    const baseRanks = [
+        { name: 'Bronze 3', emoji: '🥉', minHours: 0 },
+        { name: 'Bronze 2', emoji: '🥉', minHours: 100 },
+        { name: 'Bronze 1', emoji: '🥉', minHours: 200 },
+        { name: 'Silver 3', emoji: '🥈', minHours: 300 },
+        { name: 'Silver 2', emoji: '🥈', minHours: 400 },
+        { name: 'Silver 1', emoji: '🥈', minHours: 500 },
+        { name: 'Gold 3', emoji: '🥇', minHours: 600 },
+        { name: 'Gold 2', emoji: '🥇', minHours: 700 },
+        { name: 'Gold 1', emoji: '🥇', minHours: 800 },
+        { name: 'Platinum 3', emoji: '🏆', minHours: 900 },
+        { name: 'Platinum 2', emoji: '🏆', minHours: 1000 },
+        { name: 'Platinum 1', emoji: '🏆', minHours: 1100 },
+        { name: 'Diamond 3', emoji: '💎', minHours: 1200 },
+        { name: 'Diamond 2', emoji: '💎', minHours: 1300 },
+        { name: 'Diamond 1', emoji: '💎', minHours: 1400 },
+        { name: 'Master 3', emoji: '🔥', minHours: 1500 },
+        { name: 'Master 2', emoji: '🔥', minHours: 1600 },
+        { name: 'Master 1', emoji: '🔥', minHours: 1700 },
+        { name: 'Grandmaster 3', emoji: '🚀', minHours: 1800 },
+        { name: 'Grandmaster 2', emoji: '🚀', minHours: 1900 },
+        { name: 'Grandmaster 1', emoji: '🚀', minHours: 2000 },
+        { name: 'Challenger', emoji: '🌟', minHours: 2100 },
+        { name: 'Ascendant', emoji: '✨', minHours: 2300 },
+        { name: 'Paragon', emoji: '🛡️', minHours: 2600 },
+        { name: 'Mythic', emoji: '🐉', minHours: 2900 },
+        { name: 'Celestial', emoji: '🌠', minHours: 3200 },
+        { name: 'Eternal', emoji: '♾️', minHours: 3500 },
+        { name: 'Transcendent', emoji: '🧬', minHours: 3800 },
+        { name: 'Apex', emoji: '🗻', minHours: 3900 }
     ];
 
-    let cumulativeHours = 0;
-    const baseRanks = baseRankTiers.flatMap((tier) => {
-        return Array.from({ length: tier.levels }, (_, index) => {
-            const rank = {
-                name: `${tier.name} ${index + 1}`,
-                emoji: tier.emoji,
-                minHours: cumulativeHours
-            };
-            cumulativeHours += HOURS_PER_LEVEL;
-            return rank;
-        });
+    const masterPrestigeIncrement = (MASTER_PRESTIGE_MAX > 1)
+        ? (MAX_RANK_HOURS - MASTER_PRESTIGE_START_HOURS) / (MASTER_PRESTIGE_MAX - 1)
+        : 0;
+
+    let lastPrestigeMinHours = MASTER_PRESTIGE_START_HOURS - 1;
+    const masterPrestigeRanks = Array.from({ length: MASTER_PRESTIGE_MAX }, (_, index) => {
+        const computedHours = index === MASTER_PRESTIGE_MAX - 1
+            ? MAX_RANK_HOURS
+            : MASTER_PRESTIGE_START_HOURS + (index * masterPrestigeIncrement);
+        const roundedHours = Math.round(computedHours);
+        const minHours = index === 0
+            ? MASTER_PRESTIGE_START_HOURS
+            : Math.max(lastPrestigeMinHours + 1, roundedHours);
+        lastPrestigeMinHours = minHours;
+        return {
+            name: `Master Prestige ${index + 1}`,
+            emoji: '⭐',
+            minHours
+        };
     });
-
-    const MASTER_PRESTIGE_START_HOURS = cumulativeHours;
-    const MAX_RANK_HOURS = MASTER_PRESTIGE_START_HOURS + ((MASTER_PRESTIGE_MAX - 1) * HOURS_PER_LEVEL);
-
-    const masterPrestigeRanks = Array.from({ length: MASTER_PRESTIGE_MAX }, (_, index) => ({
-        name: `Master ${index + 1}`,
-        emoji: '⭐',
-        minHours: MASTER_PRESTIGE_START_HOURS + (index * HOURS_PER_LEVEL)
-    }));
 
     const rankConfig = [
         ...baseRanks,
@@ -6860,7 +6876,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'rank-details' element not found in the DOM.");
         }
 
-        if (!levelProgressElement) {
+        if (levelProgressElement) {
+            const levelCap = MASTER_PRESTIGE_MAX;
+            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
+            const level = hasActivities
+                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
+                : 0;
+            levelProgressElement.textContent = `Level ${level}/${levelCap}`;
+        } else {
             console.warn("'level-progress' element not found in the DOM.");
         }
 

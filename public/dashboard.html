@@ -25,7 +25,6 @@
             --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
             --app-safe-area-left: env(safe-area-inset-left, 0px);
             --pull-indicator-offset: 0px;
-            --dashboard-panel-max-width: min(100%, calc(100vw - clamp(1.5rem, 6vw, 3.5rem)));
         }
 
         @supports (height: 100dvh) {
@@ -955,18 +954,15 @@
         @media (min-width: 1024px) {
             .dashboard-panels {
                 margin-inline: auto;
-                max-width: var(--dashboard-panel-max-width);
             }
 
             .dashboard-panel {
                 margin-inline: auto;
-                max-width: var(--dashboard-panel-max-width);
             }
 
             .dashboard-panel .panel-stack,
             .dashboard-panel .panel-card {
                 margin-inline: auto;
-                max-width: var(--dashboard-panel-max-width);
             }
         }
 
@@ -1094,16 +1090,6 @@
 
         .profile-card__summary-row + .profile-card__summary-row {
             margin-top: 0.35rem;
-        }
-
-        @media (max-width: 639px) {
-            .profile-card__header {
-                justify-items: start;
-            }
-
-            .profile-card__avatar {
-                justify-self: start;
-            }
         }
 
         @media (min-width: 640px) {
@@ -1506,7 +1492,6 @@
         .profile-card__wallet-totals {
             align-self: flex-start;
             width: var(--profile-stack-max-width);
-            max-width: min(100%, var(--dashboard-panel-max-width));
         }
 
         .profile-card__progress {
@@ -3176,6 +3161,18 @@
             .dashboard-panels {
                 margin-top: 0;
             }
+
+            .profile-card__header {
+                justify-items: start;
+            }
+
+            .profile-card__avatar {
+                justify-self: start;
+            }
+
+            .filter-form__grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .filter-banner {
@@ -3641,54 +3638,6 @@
                             <div class="profile-card__meta">
                                 <div id="premium-achievements" class="profile-card__badges"></div>
                             </div>
-                            <div id="share-card-preview" class="share-card" hidden>
-                                <div class="share-card__header">
-                                    <span class="share-card__badge" aria-hidden="true">⚡</span>
-                                    <div>
-                                        <p id="share-card-athlete" class="share-card__name"></p>
-                                        <p id="share-card-rank" class="share-card__meta"></p>
-                                    </div>
-                                </div>
-                                <ul class="share-card__stats">
-                                    <li>
-                                        <span class="share-card__stat-label">Wallet</span>
-                                        <span id="share-card-wallet" class="share-card__stat-value">—</span>
-                                    </li>
-                                    <li>
-                                        <span class="share-card__stat-label">Coins minted</span>
-                                        <span id="share-card-coins" class="share-card__stat-value">0</span>
-                                    </li>
-                                    <li>
-                                        <span class="share-card__stat-label">Medals unlocked</span>
-                                        <span id="share-card-medals" class="share-card__stat-value">0</span>
-                                    </li>
-                                    <li>
-                                        <span class="share-card__stat-label">Latest activity</span>
-                                        <div class="share-card__activity">
-                                            <span id="share-card-latest-name" class="share-card__stat-value">—</span>
-                                            <span id="share-card-latest-meta" class="share-card__stat-meta" hidden>—</span>
-                                        </div>
-                                    </li>
-                                    <li>
-                                        <span class="share-card__stat-label">Oldest activity</span>
-                                        <div class="share-card__activity">
-                                            <span id="share-card-oldest-name" class="share-card__stat-value">—</span>
-                                            <span id="share-card-oldest-meta" class="share-card__stat-meta" hidden>—</span>
-                                        </div>
-                                    </li>
-                                </ul>
-                                <div class="share-card__actions">
-                                    <button type="button" id="share-whatsapp" class="share-card__button">
-                                        <span aria-hidden="true">🟢</span>
-                                        <span>WhatsApp</span>
-                                    </button>
-                                    <button type="button" id="share-copy" class="share-card__button share-card__button--ghost">
-                                        <span aria-hidden="true">📋</span>
-                                        <span>Copy summary</span>
-                                    </button>
-                                </div>
-                                <p id="share-feedback" class="share-card__feedback" role="status" aria-live="polite"></p>
-                            </div>
                         </article>
 
                         <article class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
@@ -3850,6 +3799,70 @@
 
             </div>
         </div>
+        <div id="share-modal" class="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title" aria-describedby="share-modal-description" hidden aria-hidden="true">
+            <div class="share-modal__backdrop" data-share-modal-dismiss></div>
+            <div class="share-modal__dialog" role="document" tabindex="-1">
+                <header class="share-modal__header">
+                    <div>
+                        <h2 id="share-modal-title" class="share-modal__title">Share your highlight</h2>
+                        <p id="share-modal-description" class="share-modal__description">Preview your latest stats before sending them to friends.</p>
+                    </div>
+                    <button type="button" class="share-modal__close" data-share-modal-dismiss data-share-modal-initial>
+                        <span aria-hidden="true">✕</span>
+                        <span class="sr-only">Close share modal</span>
+                    </button>
+                </header>
+                <div id="share-card-preview" class="share-card" hidden>
+                    <div class="share-card__header">
+                        <span class="share-card__badge" aria-hidden="true">⚡</span>
+                        <div>
+                            <p id="share-card-athlete" class="share-card__name"></p>
+                            <p id="share-card-rank" class="share-card__meta"></p>
+                        </div>
+                    </div>
+                    <ul class="share-card__stats">
+                        <li>
+                            <span class="share-card__stat-label">Wallet</span>
+                            <span id="share-card-wallet" class="share-card__stat-value">—</span>
+                        </li>
+                        <li>
+                            <span class="share-card__stat-label">Coins minted</span>
+                            <span id="share-card-coins" class="share-card__stat-value">0</span>
+                        </li>
+                        <li>
+                            <span class="share-card__stat-label">Medals unlocked</span>
+                            <span id="share-card-medals" class="share-card__stat-value">0</span>
+                        </li>
+                        <li>
+                            <span class="share-card__stat-label">Latest activity</span>
+                            <div class="share-card__activity">
+                                <span id="share-card-latest-name" class="share-card__stat-value">—</span>
+                                <span id="share-card-latest-meta" class="share-card__stat-meta" hidden>—</span>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="share-card__stat-label">Oldest activity</span>
+                            <div class="share-card__activity">
+                                <span id="share-card-oldest-name" class="share-card__stat-value">—</span>
+                                <span id="share-card-oldest-meta" class="share-card__stat-meta" hidden>—</span>
+                            </div>
+                        </li>
+                    </ul>
+                    <div class="share-card__actions">
+                        <button type="button" id="share-whatsapp" class="share-card__button">
+                            <span aria-hidden="true">🟢</span>
+                            <span>WhatsApp</span>
+                        </button>
+                        <button type="button" id="share-copy" class="share-card__button share-card__button--ghost">
+                            <span aria-hidden="true">📋</span>
+                            <span>Copy summary</span>
+                        </button>
+                    </div>
+                    <p id="share-feedback" class="share-card__feedback" role="status" aria-live="polite"></p>
+                </div>
+            </div>
+        </div>
+
         <div id="rank-modal" class="rank-modal" hidden aria-hidden="true">
             <div class="rank-modal__backdrop" data-rank-modal-dismiss></div>
             <div class="rank-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="rank-modal-title" aria-describedby="rank-modal-description">

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>League of Strava – Upload Your Activities</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/kTcX2a6gVgkG3M3OQ/OQ5rQeM1gq6p5Zb5xM8Z5iw8m1vZ8ENJkKHLYb9YQho4ELtB1AmPrkCl/wg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <script src="/site-header.js" defer></script>
+</head>
+<body class="landing-body">
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a href="/" class="site-header__brand">
+                <img src="/static/league-of-strava.png" alt="League of Strava logo">
+                <span class="site-header__brand-text">League of Strava</span>
+            </a>
+            <button id="site-nav-toggle" class="site-header__toggle" type="button" aria-expanded="false" aria-controls="site-primary-nav">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="site-header__toggle-bars" aria-hidden="true"></span>
+                <span aria-hidden="true">Menu</span>
+            </button>
+            <nav id="site-primary-nav" class="site-header__nav" aria-label="Primary navigation">
+                <a href="/" aria-current="page">Home</a>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/leaderboard">Leaderboard</a>
+                <a href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">Donate</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="landing-shell">
+        <section class="landing-hero">
+            <h2>Welcome to League of Strava</h2>
+            <p>Plug in your Strava profile and watch every medal, coin and lifetime stat settle into a tactile neuromorphic hub.</p>
+            <p>Our refreshed interface keeps the familiar building blocks—weekly stats, medals and wallet—while giving them clearer hierarchy and quicker access on any device.</p>
+            <ul>
+                <li>See lifetime medals, rank progress and coins with instant context.</li>
+                <li>Navigate wallet insights, activities and medals with mobile-optimised tabs.</li>
+                <li>Stay focused with soft-depth surfaces, legible Rubik typography and an orange accent glow.</li>
+            </ul>
+        </section>
+
+        <section class="landing-grid">
+            <article class="landing-card">
+                <h3>Connect your training</h3>
+                <p>Authenticate once with Strava to sync activities, ranks, medals and wallets into the dashboard in seconds.</p>
+                <a href="/auth/strava" class="strava-connect-btn">
+                    <i class="fab fa-strava" aria-hidden="true"></i>
+                    <span>Connect with Strava</span>
+                </a>
+            </article>
+            <article class="landing-card">
+                <h3>What you get</h3>
+                <p>Responsive charts, best-activity highlights, medal filters and wallet insights styled for clarity from desktop to phone.</p>
+                <p>Neuromorphic cards keep attention on the numbers you chase while gentle orange glows guide key actions.</p>
+            </article>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <a href="https://www.strava.com/" target="_blank" rel="noopener">
+            <img src="static/powered-by-strava.png" alt="Powered by Strava" class="powered-by-strava-logo" loading="lazy" decoding="async">
+        </a>
+    </footer>
+</body>
+</html>

@@ -39,6 +39,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         { border: '#f59e0b', background: 'rgba(245, 158, 11, 0.18)' },
         { border: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' }
     ];
+    const MONTH_COMPARISON_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const HUNDRED_THOUSAND = 100_000;
+    const WALLET_RANGE_OPTIONS = [
+        { value: 'year', label: 'Per year' },
+        { value: 'rolling', label: 'Last 365 days' }
+    ];
+    const WALLET_INTERVAL_OPTIONS = {
+        year: [
+            { value: 'month', label: 'Monthly' }
+        ],
+        rolling: [
+            { value: 'month', label: 'Monthly' },
+            { value: 'week', label: 'Weekly' }
+        ]
+    };
     const QUARTER_COMPARISON_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const MEDALS_PAGE_SIZE = Number.POSITIVE_INFINITY;
@@ -371,11 +386,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
     const balanceYearToggle = document.getElementById('balance-year-toggle');
     const balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
-    const walletTimeframeSelect = document.getElementById('wallet-timeframe');
-    const walletGroupingSelect = document.getElementById('wallet-grouping');
-    const walletOverlayElement = document.getElementById('wallet-chart-overlay');
-    const walletOverlayTitleElement = document.getElementById('wallet-chart-overlay-title');
-    const walletOverlayListElement = document.getElementById('wallet-chart-overlay-list');
+    const walletRangeSelect = document.getElementById('wallet-range-select');
+    const walletIntervalSelect = document.getElementById('wallet-interval-select');
     const medalsLoadMoreButton = document.getElementById('medals-load-more');
     const leaderboardStatus = document.getElementById('leaderboard-status');
     const leaderboardBody = document.getElementById('leaderboard-body');
@@ -818,154 +830,137 @@ document.addEventListener('DOMContentLoaded', async () => {
     const medalColorAssignments = new Map();
     let medalColorIndex = 0;
 
+    function isValidWalletRange(value) {
+        return WALLET_RANGE_OPTIONS.some(option => option.value === value);
+    }
+
+    function resolveWalletIntervalOptions(range) {
+        return WALLET_INTERVAL_OPTIONS[range] || [];
+    }
+
+    function updateWalletIntervalOptions(range = walletRangeMode) {
+        if (!walletIntervalSelect) {
+            return;
+        }
+
+        const options = resolveWalletIntervalOptions(range);
+        walletIntervalSelect.innerHTML = '';
+
+        options.forEach(option => {
+            const optionElement = document.createElement('option');
+            optionElement.value = option.value;
+            optionElement.textContent = option.label;
+            walletIntervalSelect.appendChild(optionElement);
+        });
+
+        if (options.length === 0) {
+            walletInterval = 'month';
+        } else if (!options.some(option => option.value === walletInterval)) {
+            walletInterval = options[0].value;
+        }
+
+        if (walletIntervalSelect.value !== walletInterval) {
+            walletIntervalSelect.value = walletInterval;
+        }
+
+        walletIntervalSelect.disabled = options.length <= 1;
+    }
+
+    function initializeWalletRangeControls() {
+        if (walletRangeSelect) {
+            walletRangeSelect.innerHTML = '';
+            WALLET_RANGE_OPTIONS.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option.value;
+                optionElement.textContent = option.label;
+                walletRangeSelect.appendChild(optionElement);
+            });
+
+            if (!isValidWalletRange(walletRangeMode)) {
+                walletRangeMode = WALLET_RANGE_OPTIONS[0]?.value || 'year';
+            }
+
+            walletRangeSelect.value = walletRangeMode;
+        } else if (!isValidWalletRange(walletRangeMode)) {
+            walletRangeMode = WALLET_RANGE_OPTIONS[0]?.value || 'year';
+        }
+
+        updateWalletIntervalOptions(walletRangeMode);
+    }
+
+    initializeWalletRangeControls();
+
+    if (walletRangeSelect) {
+        walletRangeSelect.addEventListener('change', (event) => {
+            const nextValue = typeof event?.target?.value === 'string' ? event.target.value : '';
+            if (isValidWalletRange(nextValue)) {
+                walletRangeMode = nextValue;
+            } else if (!isValidWalletRange(walletRangeMode)) {
+                walletRangeMode = WALLET_RANGE_OPTIONS[0]?.value || 'year';
+            }
+
+            updateWalletIntervalOptions(walletRangeMode);
+            refreshWalletChart();
+        });
+    }
+
+    if (walletIntervalSelect) {
+        walletIntervalSelect.addEventListener('change', (event) => {
+            const nextValue = typeof event?.target?.value === 'string' ? event.target.value : '';
+            const options = resolveWalletIntervalOptions(walletRangeMode);
+            const match = options.find(option => option.value === nextValue);
+
+            if (match) {
+                walletInterval = match.value;
+            } else if (options.length > 0) {
+                walletInterval = options[0].value;
+                walletIntervalSelect.value = walletInterval;
+            }
+
+            refreshWalletChart();
+        });
+    }
+
     let activeChartKey = 'balance';
     let walletChartInstance = null;
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
-
-    const WALLET_VIEW_TIMEFRAMES = Object.freeze({
-        ALL: 'all',
-        YEAR: 'year',
-        ROLLING: 'rolling',
-    });
-
-    const WALLET_VIEW_GROUPINGS = Object.freeze({
-        QUARTER: 'quarter',
-        MONTH: 'month',
-        WEEK: 'week',
-    });
-
-    const HUNDRED_THOUSAND = 100_000;
-
-    let walletViewTimeframe = WALLET_VIEW_TIMEFRAMES.ALL;
-    let walletViewGrouping = WALLET_VIEW_GROUPINGS.QUARTER;
-
-    let walletChartContext = {
-        filteredMetrics: [],
-        lifetimeMetrics: [],
-        selectedYear: 'all',
-        latestDate: null,
-        availableYears: [],
-    };
-
-    let walletContextVersion = 0;
-    let walletAggregationCache = { version: -1, timeframe: null, grouping: null, result: { aggregation: [], metadata: {} } };
-    const walletDatasetCache = new Map();
-    let walletOverlayLastContentKey = null;
-
-    const walletOverlayDefaultContent = {
-        title: 'Wallet insights',
-        lines: [{ label: 'Explore', value: 'Hover over the chart to explore totals.' }],
-    };
-
-    const WALLET_TIMEFRAME_GROUPING_MAP = Object.freeze({
-        [WALLET_VIEW_TIMEFRAMES.ALL]: [WALLET_VIEW_GROUPINGS.QUARTER],
-        [WALLET_VIEW_TIMEFRAMES.YEAR]: [WALLET_VIEW_GROUPINGS.MONTH],
-        [WALLET_VIEW_TIMEFRAMES.ROLLING]: [
-            WALLET_VIEW_GROUPINGS.MONTH,
-            WALLET_VIEW_GROUPINGS.WEEK,
-        ],
-    });
-
-    const WALLET_GROUPING_LABELS = Object.freeze({
-        [WALLET_VIEW_GROUPINGS.QUARTER]: 'Quarter',
-        [WALLET_VIEW_GROUPINGS.MONTH]: 'Month',
-        [WALLET_VIEW_GROUPINGS.WEEK]: 'Week',
-    });
-
-    const resetWalletAggregationCache = () => {
-        walletAggregationCache = {
-            version: -1,
-            timeframe: null,
-            grouping: null,
-            result: { aggregation: [], metadata: {} },
-        };
-    };
-
-    const resetWalletDatasetCache = () => {
-        walletDatasetCache.clear();
-        walletOverlayLastContentKey = null;
-    };
-
-    const getAllowedGroupingsForTimeframe = (timeframe) => {
-        const defaultGroupings = [WALLET_VIEW_GROUPINGS.QUARTER];
-        if (!timeframe || !Object.prototype.hasOwnProperty.call(WALLET_TIMEFRAME_GROUPING_MAP, timeframe)) {
-            return defaultGroupings;
-        }
-        const configured = WALLET_TIMEFRAME_GROUPING_MAP[timeframe];
-        return Array.isArray(configured) && configured.length > 0 ? configured.slice() : defaultGroupings;
-    };
-
-    const clampWalletGrouping = (timeframe, grouping) => {
-        const allowed = getAllowedGroupingsForTimeframe(timeframe);
-        if (allowed.includes(grouping)) {
-            return grouping;
-        }
-        return allowed[0] || WALLET_VIEW_GROUPINGS.QUARTER;
-    };
-
-    const updateWalletViewControls = () => {
-        const metricsForAvailability = [
-            Array.isArray(walletChartContext.filteredMetrics) ? walletChartContext.filteredMetrics.length : 0,
-            Array.isArray(walletChartContext.lifetimeMetrics) ? walletChartContext.lifetimeMetrics.length : 0,
-        ];
-
-        const hasAnyMetrics = metricsForAvailability.some(length => Number.isFinite(length) && length > 0);
-        const hasYearMetrics = Array.isArray(walletChartContext.availableYears)
-            && walletChartContext.availableYears.length > 0;
-        const hasRollingMetrics = Array.isArray(walletChartContext.filteredMetrics)
-            && walletChartContext.filteredMetrics.length > 0;
-
-        if (walletTimeframeSelect) {
-            walletTimeframeSelect.disabled = !hasAnyMetrics;
-
-            Array.from(walletTimeframeSelect.options).forEach(option => {
-                if (!option) {
-                    return;
-                }
-
-                if (option.value === WALLET_VIEW_TIMEFRAMES.ALL) {
-                    option.disabled = !hasAnyMetrics;
-                } else if (option.value === WALLET_VIEW_TIMEFRAMES.YEAR) {
-                    option.disabled = !hasYearMetrics;
-                } else if (option.value === WALLET_VIEW_TIMEFRAMES.ROLLING) {
-                    option.disabled = !hasRollingMetrics;
-                }
-            });
-
-            if (!hasAnyMetrics) {
-                walletViewTimeframe = WALLET_VIEW_TIMEFRAMES.ALL;
-            } else if (!hasYearMetrics && walletViewTimeframe === WALLET_VIEW_TIMEFRAMES.YEAR) {
-                walletViewTimeframe = WALLET_VIEW_TIMEFRAMES.ALL;
-            } else if (!hasRollingMetrics && walletViewTimeframe === WALLET_VIEW_TIMEFRAMES.ROLLING) {
-                walletViewTimeframe = hasYearMetrics ? WALLET_VIEW_TIMEFRAMES.YEAR : WALLET_VIEW_TIMEFRAMES.ALL;
-            }
-
-            walletTimeframeSelect.value = walletViewTimeframe;
-        }
-
-        walletViewGrouping = clampWalletGrouping(walletViewTimeframe, walletViewGrouping);
-
-        if (walletGroupingSelect) {
-            const allowedGroupings = getAllowedGroupingsForTimeframe(walletViewTimeframe);
-            walletGroupingSelect.innerHTML = '';
-
-            allowedGroupings.forEach(groupingValue => {
-                const option = document.createElement('option');
-                option.value = groupingValue;
-                option.textContent = WALLET_GROUPING_LABELS[groupingValue] || groupingValue;
-                walletGroupingSelect.appendChild(option);
-            });
-
-            walletGroupingSelect.disabled = allowedGroupings.length <= 1 || !hasAnyMetrics;
-            walletGroupingSelect.value = walletViewGrouping;
+    const walletChartData = {
+        coins: { labels: [], coinBreakdown: {}, medalBreakdown: [], bucketSummaries: [], timelineLabels: [], coinTimeline: {} },
+        balance: {
+            labels: [],
+            values: [],
+            hundredKTotals: [],
+            periodRawTotals: [],
+            periodSummaries: [],
+            compareLabels: MONTH_COMPARISON_LABELS,
+            compareDatasets: []
         }
     };
+
+    let walletRangeMode = 'year';
+    let walletInterval = 'month';
+    let walletChangePeriodLabel = 'month';
+    let walletChangeYearLabel = 'year';
 
     // === Data Storage ===
     let allData = {}; // To store all fetched data
     let filteredData = {}; // To store filtered data based on date
+
+    function refreshWalletChart() {
+        const activities = Array.isArray(filteredData.activities) ? filteredData.activities : [];
+        const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
+            ? allData.activities
+            : activities;
+        const selectedYear = yearSelect ? yearSelect.value : 'all';
+
+        updateWalletChartData({
+            activities,
+            lifetimeActivities,
+            selectedYear
+        });
+    }
 
     const ACTIVITIES_PAGE_SIZE = 20;
     const ACTIVITIES_PER_PAGE = 200;
@@ -2704,8 +2699,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const hasWalletChartData = (key) => {
-        const dataset = getWalletDataset(key);
-        return Boolean(dataset && Array.isArray(dataset.labels) && dataset.labels.length > 0);
+        const dataset = walletChartData[key];
+        if (!dataset || !Array.isArray(dataset.labels) || dataset.labels.length === 0) {
+            return false;
+        }
+
+        if (key === 'coins') {
+            const coinBreakdown = dataset.coinBreakdown || {};
+            const medalBreakdown = dataset.medalBreakdown || [];
+            const coinTimeline = dataset.coinTimeline || {};
+            const timelineLabels = Array.isArray(dataset.timelineLabels) ? dataset.timelineLabels : [];
+
+            const hasCoinValues = Object.values(coinBreakdown).some(values =>
+                Array.isArray(values) && values.some(value => value > 0)
+            );
+            const hasMedalValues = Array.isArray(medalBreakdown) && medalBreakdown.some(entry =>
+                Array.isArray(entry?.data) && entry.data.some(value => value > 0)
+            );
+            const hasTimelineValues = timelineLabels.length > 0 && COIN_EMOJIS.some(emoji => {
+                const values = coinTimeline[emoji];
+                return Array.isArray(values) && values.some(value => value > 0);
+            });
+
+            return hasCoinValues || hasMedalValues || hasTimelineValues;
+        }
+
+        if (key === 'balance') {
+            const hasValues = Array.isArray(dataset.values) && dataset.values.some(value => value > 0);
+            const hasGains = Array.isArray(dataset.hundredKTotals)
+                && dataset.hundredKTotals.some(value => Number.isFinite(value) && value > 0);
+            const hasCompare = Array.isArray(dataset.compareDatasets)
+                && dataset.compareDatasets.some(entry => Array.isArray(entry?.data) && entry.data.some(value => value > 0));
+            return hasValues || hasGains || hasCompare;
+        }
+
+        return false;
     };
 
     const updateBalanceCompareToggleState = () => {
@@ -2713,10 +2741,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        balanceCompareYears = false;
-        balanceYearToggle.disabled = true;
-        balanceYearToggle.checked = false;
-        balanceYearToggle.setAttribute('aria-disabled', 'true');
+        const dataset = walletChartData.balance || {};
+        const availableCompareDatasets = Array.isArray(dataset.compareDatasets)
+            ? dataset.compareDatasets.filter(entry => Array.isArray(entry?.data) && entry.data.some(value => value > 0))
+            : [];
+        const hasCompareData = availableCompareDatasets.length > 1;
+
+        const isYearlyView = walletRangeMode === 'year' && walletInterval === 'month';
+        const shouldEnable = activeChartKey === 'balance' && hasCompareData && isYearlyView;
+
+        if (!shouldEnable) {
+            balanceCompareYears = false;
+        }
+
+        balanceYearToggle.disabled = !shouldEnable;
+        balanceYearToggle.checked = shouldEnable && balanceCompareYears;
+        balanceYearToggle.setAttribute('aria-disabled', shouldEnable ? 'false' : 'true');
 
         if (balanceYearToggleLabel) {
             balanceYearToggleLabel.classList.add('opacity-60', 'pointer-events-none');
@@ -2869,11 +2909,88 @@ document.addEventListener('DOMContentLoaded', async () => {
                     layout: {
                         padding: { top: 18, right: 16, bottom: 12, left: 16 },
                     },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            enabled: false,
-                            external: createExternalTooltipHandler(dataset.formatOverlay, dataset.overlayDefault || walletOverlayDefaultContent),
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: { top: 18, right: 18, bottom: 12, left: 18 }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: axisColor,
+                                    font: tickFont
+                                }
+                            },
+                            tooltip: {
+                                bodyFont: tooltipBodyFont,
+                                titleFont: tooltipTitleFont,
+                                callbacks: {
+                                    label: (context) => {
+                                        const value = context.parsed.y || 0;
+                                        const label = context.dataset.label || '';
+                                        return `${label}: ${value.toLocaleString()}`;
+                                    },
+                                    afterBody: (items) => {
+                                        if (!Array.isArray(items) || items.length === 0) {
+                                            return [];
+                                        }
+                                        const index = items[0]?.dataIndex;
+                                        if (!Number.isInteger(index) || index < 0) {
+                                            return [];
+                                        }
+                                        const summary = Array.isArray(dataset.bucketSummaries)
+                                            ? dataset.bucketSummaries[index]
+                                            : null;
+                                        if (!summary) {
+                                            return [];
+                                        }
+
+                                        const lines = [];
+                                        if (typeof summary.rangeText === 'string' && summary.rangeText) {
+                                            lines.push(`Range: ${summary.rangeText}`);
+                                        }
+
+                                        if (Number.isFinite(summary.totalValue)) {
+                                            lines.push(`Total minted: ${usdCodeFormatter.format(summary.totalValue)}`);
+                                        }
+
+                                        if (Number.isFinite(summary.coinValue) || Number.isFinite(summary.medalValue)) {
+                                            const coinTotal = Number.isFinite(summary.coinValue) ? summary.coinValue : 0;
+                                            const medalTotal = Number.isFinite(summary.medalValue) ? summary.medalValue : 0;
+                                            if (coinTotal > 0 || medalTotal > 0) {
+                                                lines.push(`Coins: ${usdCodeFormatter.format(coinTotal)}, Medals: ${usdCodeFormatter.format(medalTotal)}`);
+                                            }
+                                        }
+
+                                        const coinCounts = summary.coinCounts && typeof summary.coinCounts === 'object'
+                                            ? Object.entries(summary.coinCounts)
+                                                .filter(([, count]) => Number.isFinite(count) && count > 0)
+                                            : [];
+                                        if (coinCounts.length > 0) {
+                                            const formatted = coinCounts
+                                                .map(([emoji, count]) => `${emoji}×${count}`)
+                                                .join(' • ');
+                                            lines.push(`Coin mix: ${formatted}`);
+                                        }
+
+                                        const medalCounts = summary.medalCounts instanceof Map
+                                            ? Array.from(summary.medalCounts.entries())
+                                                .filter(([, count]) => Number.isFinite(count) && count > 0)
+                                            : [];
+                                        if (medalCounts.length > 0) {
+                                            const formatted = medalCounts
+                                                .slice(0, 4)
+                                                .map(([label, count]) => `${label}×${count}`)
+                                                .join(' • ');
+                                            lines.push(`Top medals: ${formatted}`);
+                                        }
+
+                                        return lines;
+                                    }
+                                }
+                            }
                         },
                     },
                     scales: {
@@ -2903,21 +3020,45 @@ document.addEventListener('DOMContentLoaded', async () => {
                     tension: 0.35,
                     pointRadius: 3,
                     pointHoverRadius: 4,
-                    order: 1,
-                    yAxisID: 'y',
-                },
-            ];
+                }))
+                : [];
 
-            if (includeBars) {
-                baseDatasets.unshift({
+            const chartLabels = useComparison
+                ? (Array.isArray(dataset.compareLabels) && dataset.compareLabels.length > 0
+                    ? dataset.compareLabels
+                    : QUARTER_COMPARISON_LABELS)
+                : dataset.labels;
+
+            const chartDatasets = useComparison
+                ? comparisonDatasets
+                : [
+                    {
+                        label: 'Cumulative balance',
+                        data: dataset.values,
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22, 163, 74, 0.2)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 3,
+                        pointHoverRadius: 4,
+                        order: 1,
+                        yAxisID: 'y'
+                    }
+                ];
+
+            const includeGainBars = !useComparison
+                && Array.isArray(dataset.hundredKTotals)
+                && dataset.hundredKTotals.some(value => Number.isFinite(value) && value > 0);
+
+            if (includeGainBars) {
+                chartDatasets.unshift({
                     type: 'bar',
-                    label: 'Collected (×100k)',
-                    data: dataset.barValues,
+                    label: 'Rewards minted ($100k)',
+                    data: dataset.hundredKTotals,
                     backgroundColor: 'rgba(37, 99, 235, 0.35)',
                     borderRadius: 6,
-                    maxBarThickness: 36,
-                    borderSkipped: false,
-                    yAxisID: 'yBars',
+                    maxBarThickness: 38,
+                    yAxisID: 'yGains',
                     order: 0,
                 });
             }
@@ -2957,20 +3098,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
             };
 
-            if (includeBars) {
-                chartOptions.scales.yBars = {
+            if (includeGainBars) {
+                baseScales.yGains = {
                     beginAtZero: true,
                     position: 'right',
                     ticks: {
                         color: axisColor,
                         font: tickFont,
+                        precision: 0,
                         padding: 6,
                         callback: (value) => {
                             if (!Number.isFinite(value)) {
-                                return '$0';
+                                return '0';
                             }
-                            return `$${Math.round(value * 100_000).toLocaleString()}`;
-                        },
+                            return `${value.toLocaleString()}×$100k`;
+                        }
                     },
                     grid: { color: gridColor, drawOnChartArea: false },
                 };
@@ -2982,7 +3124,74 @@ document.addEventListener('DOMContentLoaded', async () => {
                     labels: dataset.labels,
                     datasets: baseDatasets,
                 },
-                options: chartOptions,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 18, right: 16, bottom: 12, left: 16 }
+                    },
+                    plugins: {
+                        legend: {
+                            display: useComparison,
+                            labels: {
+                                usePointStyle: true,
+                                font: tickFont,
+                            }
+                        },
+                        tooltip: {
+                            bodyFont: tooltipBodyFont,
+                            titleFont: tooltipTitleFont,
+                            callbacks: {
+                                label: (context) => {
+                                    const value = context.parsed.y || 0;
+                                    const label = context.dataset?.label || 'Balance';
+                                    if (context.dataset?.yAxisID === 'yGains') {
+                                        const absolute = value * HUNDRED_THOUSAND;
+                                        const formattedAbsolute = Number.isFinite(absolute)
+                                            ? usdCodeFormatter.format(absolute)
+                                            : usdCodeFormatter.format(0);
+                                        return `${label}: ${value.toLocaleString()} × $100k (${formattedAbsolute})`;
+                                    }
+                                    return useComparison
+                                        ? `${label}: ${formatMillions(value)}`
+                                        : `Balance: ${formatMillions(value)}`;
+                                },
+                                afterBody: (items) => {
+                                    if (useComparison || !Array.isArray(items) || items.length === 0) {
+                                        return [];
+                                    }
+                                    const index = items[0]?.dataIndex;
+                                    if (!Number.isInteger(index) || index < 0) {
+                                        return [];
+                                    }
+                                    const summary = Array.isArray(dataset.periodSummaries)
+                                        ? dataset.periodSummaries[index]
+                                        : null;
+                                    if (!summary) {
+                                        return [];
+                                    }
+
+                                    const lines = [];
+                                    if (typeof summary.rangeText === 'string' && summary.rangeText) {
+                                        lines.push(`Range: ${summary.rangeText}`);
+                                    }
+                                    if (Number.isFinite(summary.totalValue)) {
+                                        lines.push(`Total minted: ${usdCodeFormatter.format(summary.totalValue)}`);
+                                    }
+                                    if (Number.isFinite(summary.coinValue) || Number.isFinite(summary.medalValue)) {
+                                        const coinTotal = Number.isFinite(summary.coinValue) ? summary.coinValue : 0;
+                                        const medalTotal = Number.isFinite(summary.medalValue) ? summary.medalValue : 0;
+                                        if (coinTotal > 0 || medalTotal > 0) {
+                                            lines.push(`Coins: ${usdCodeFormatter.format(coinTotal)}, Medals: ${usdCodeFormatter.format(medalTotal)}`);
+                                        }
+                                    }
+                                    return lines;
+                                }
+                            }
+                        }
+                    },
+                    scales: baseScales
+                }
             });
         }
 
@@ -3024,58 +3233,473 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? metricsForFiltered
             : buildWalletMetrics(lifetimeActivities);
 
-        const determineLatestDate = (metrics) => metrics.reduce((latest, metric) => {
-            if (metric?.date instanceof Date && !Number.isNaN(metric.date.getTime())) {
-                if (!latest || metric.date > latest) {
-                    return metric.date;
+        const yearlyAggregation = new Map();
+        const monthlyTotalsByYear = new Map();
+        const createYearEntry = () => ({
+            coins: 0,
+            medals: 0,
+            coinCounts: COIN_EMOJIS.reduce((acc, emoji) => {
+                acc[emoji] = 0;
+                return acc;
+            }, {}),
+            medalCounts: new Map()
+        });
+
+        metricsForYearly.forEach(metric => {
+            const year = metric.date.getFullYear();
+            if (!Number.isFinite(year)) {
+                return;
+            }
+
+            const entry = yearlyAggregation.get(year) || createYearEntry();
+            entry.coins += metric.coins.length;
+            entry.medals += metric.medals.length;
+            metric.coins.forEach(emoji => {
+                if (!Object.prototype.hasOwnProperty.call(entry.coinCounts, emoji)) {
+                    entry.coinCounts[emoji] = 0;
+                }
+                entry.coinCounts[emoji] += 1;
+            });
+            metric.medals.forEach(medal => {
+                if (!medal) {
+                    return;
                 }
             }
             return latest;
         }, null);
 
-        const latestDate = determineLatestDate(metricsForFiltered) || determineLatestDate(metricsForYearly) || null;
-        const availableYears = Array.from(new Set(metricsForYearly
-            .map(metric => (metric?.date instanceof Date ? metric.date.getFullYear() : null))
-            .filter(year => Number.isFinite(year)))).sort((a, b) => a - b);
+        const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
 
-        walletChartContext = {
-            filteredMetrics: metricsForFiltered,
-            lifetimeMetrics: metricsForYearly,
-            selectedYear,
-            latestDate,
-            availableYears,
+        const buildWalletBuckets = (metricsList, { rangeMode, interval, selectedYear: selectedYearValue }) => {
+            const metrics = Array.isArray(metricsList)
+                ? metricsList.filter(metric => metric && metric.date instanceof Date)
+                : [];
+            metrics.sort((a, b) => a.date - b.date);
+
+            const periodLabel = interval === 'week' ? 'week' : 'month';
+            const yearLabel = rangeMode === 'rolling' ? '365d' : 'year';
+            const periodsPerYear = interval === 'week' ? 52 : 12;
+
+            const emptyCoinCounts = () => COIN_EMOJIS.reduce((acc, emoji) => {
+                acc[emoji] = 0;
+                return acc;
+            }, {});
+
+            if (metrics.length === 0) {
+                const emptyCoinSeries = COIN_EMOJIS.reduce((acc, emoji) => {
+                    acc[emoji] = [];
+                    return acc;
+                }, {});
+                return {
+                    labels: [],
+                    cumulativeTotals: [],
+                    hundredKTotals: [],
+                    rawTotals: [],
+                    bucketSummaries: [],
+                    coinBreakdown: emptyCoinSeries,
+                    medalBreakdown: [],
+                    periodsPerYear,
+                    periodLabel,
+                    yearLabel
+                };
+            }
+
+            const bucketMap = new Map();
+            const registerBucket = (key, descriptor) => {
+                if (bucketMap.has(key)) {
+                    return bucketMap.get(key);
+                }
+                const bucket = {
+                    key,
+                    label: descriptor.label,
+                    start: descriptor.start,
+                    end: descriptor.end,
+                    totalValue: 0,
+                    coinValue: 0,
+                    medalValue: 0,
+                    coinCounts: emptyCoinCounts(),
+                    medalCounts: new Map()
+                };
+                bucketMap.set(key, bucket);
+                return bucket;
+            };
+
+            const startOfWeek = (date) => {
+                const result = new Date(date);
+                const day = result.getDay();
+                const diff = (day + 6) % 7;
+                result.setDate(result.getDate() - diff);
+                result.setHours(0, 0, 0, 0);
+                return result;
+            };
+
+            const getIsoWeek = (date) => {
+                const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                const day = temp.getUTCDay() || 7;
+                temp.setUTCDate(temp.getUTCDate() + 4 - day);
+                const yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1));
+                const week = Math.ceil((((temp - yearStart) / 86400000) + 1) / 7);
+                return { year: temp.getUTCFullYear(), week };
+            };
+
+            const availableYears = Array.from(new Set(metrics.map(metric => metric.date.getFullYear()))).sort((a, b) => a - b);
+            let targetYear = Number(selectedYearValue);
+            if (!Number.isFinite(targetYear)) {
+                targetYear = availableYears.length > 0 ? availableYears[availableYears.length - 1] : new Date().getFullYear();
+            }
+
+            let metricsToProcess = metrics;
+
+            if (rangeMode === 'year') {
+                metricsToProcess = metrics.filter(metric => metric.date.getFullYear() === targetYear);
+                for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+                    const monthStart = new Date(targetYear, monthIndex, 1);
+                    const monthEnd = new Date(targetYear, monthIndex + 1, 0, 23, 59, 59, 999);
+                    const key = `${targetYear}-${String(monthIndex + 1).padStart(2, '0')}`;
+                    registerBucket(key, {
+                        label: monthStart.toLocaleDateString(undefined, { month: 'short' }),
+                        start: monthStart,
+                        end: monthEnd
+                    });
+                }
+            } else {
+                const latestDate = metrics[metrics.length - 1].date;
+                const endDate = new Date(latestDate);
+                endDate.setHours(23, 59, 59, 999);
+                const startDate = new Date(endDate);
+                startDate.setDate(startDate.getDate() - 364);
+                startDate.setHours(0, 0, 0, 0);
+                metricsToProcess = metrics.filter(metric => metric.date >= startDate && metric.date <= endDate);
+
+                if (interval === 'week') {
+                    const includeYear = startDate.getFullYear() !== endDate.getFullYear();
+                    let cursor = startOfWeek(startDate);
+                    const lastWeek = startOfWeek(endDate);
+                    while (cursor <= lastWeek) {
+                        const { year: isoYear, week } = getIsoWeek(cursor);
+                        const bucketStart = new Date(cursor);
+                        const bucketEnd = new Date(cursor);
+                        bucketEnd.setDate(bucketEnd.getDate() + 6);
+                        bucketEnd.setHours(23, 59, 59, 999);
+                        const label = includeYear
+                            ? `W${String(week).padStart(2, '0')} ${isoYear}`
+                            : `W${String(week).padStart(2, '0')}`;
+                        const key = `${isoYear}-W${String(week).padStart(2, '0')}`;
+                        registerBucket(key, { label, start: bucketStart, end: bucketEnd });
+                        cursor.setDate(cursor.getDate() + 7);
+                    }
+                } else {
+                    const includeYear = startDate.getFullYear() !== endDate.getFullYear();
+                    let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+                    const lastMonthCursor = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+                    while (cursor <= lastMonthCursor) {
+                        const year = cursor.getFullYear();
+                        const monthIndex = cursor.getMonth();
+                        const monthStart = new Date(year, monthIndex, 1);
+                        const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+                        const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+                        const labelOptions = includeYear ? { month: 'short', year: 'numeric' } : { month: 'short' };
+                        registerBucket(key, {
+                            label: monthStart.toLocaleDateString(undefined, labelOptions),
+                            start: monthStart,
+                            end: monthEnd
+                        });
+                        cursor.setMonth(cursor.getMonth() + 1);
+                    }
+                }
+            }
+
+            metricsToProcess.forEach(metric => {
+                const metricDate = metric.date;
+                if (!(metricDate instanceof Date) || Number.isNaN(metricDate.getTime())) {
+                    return;
+                }
+
+                let key;
+                if (interval === 'week' && rangeMode !== 'year') {
+                    const { year: isoYear, week } = getIsoWeek(metricDate);
+                    key = `${isoYear}-W${String(week).padStart(2, '0')}`;
+                    if (!bucketMap.has(key)) {
+                        const bucketStart = startOfWeek(metricDate);
+                        const bucketEnd = new Date(bucketStart);
+                        bucketEnd.setDate(bucketEnd.getDate() + 6);
+                        bucketEnd.setHours(23, 59, 59, 999);
+                        const label = `W${String(week).padStart(2, '0')} ${isoYear}`;
+                        registerBucket(key, { label, start: bucketStart, end: bucketEnd });
+                    }
+                } else {
+                    const year = metricDate.getFullYear();
+                    const monthIndex = metricDate.getMonth();
+                    key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+                    if (!bucketMap.has(key)) {
+                        const monthStart = new Date(year, monthIndex, 1);
+                        const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+                        const includeYear = rangeMode !== 'year' || year !== targetYear;
+                        const labelOptions = includeYear ? { month: 'short', year: 'numeric' } : { month: 'short' };
+                        registerBucket(key, {
+                            label: monthStart.toLocaleDateString(undefined, labelOptions),
+                            start: monthStart,
+                            end: monthEnd
+                        });
+                    }
+                }
+
+                const bucket = bucketMap.get(key);
+                if (!bucket) {
+                    return;
+                }
+
+                const coinValue = Number.isFinite(metric.coinValue) ? metric.coinValue : 0;
+                const medalValue = Number.isFinite(metric.medalValue) ? metric.medalValue : 0;
+                bucket.totalValue += coinValue + medalValue;
+                bucket.coinValue += coinValue;
+                bucket.medalValue += medalValue;
+
+                if (Array.isArray(metric.coins)) {
+                    metric.coins.forEach(emoji => {
+                        if (!Object.prototype.hasOwnProperty.call(bucket.coinCounts, emoji)) {
+                            bucket.coinCounts[emoji] = 0;
+                        }
+                        bucket.coinCounts[emoji] += 1;
+                    });
+                }
+
+                if (Array.isArray(metric.medals)) {
+                    metric.medals.forEach(medal => {
+                        if (!medal) {
+                            return;
+                        }
+                        const label = medal.emoji ? `${medal.emoji} ${medal.name}` : (medal.name || 'Medal');
+                        bucket.medalCounts.set(label, (bucket.medalCounts.get(label) || 0) + 1);
+                    });
+                }
+            });
+
+            const sortedKeys = Array.from(bucketMap.keys()).sort();
+            const buckets = sortedKeys.map(key => bucketMap.get(key));
+
+            const labels = buckets.map(bucket => bucket.label);
+            const rawTotals = buckets.map(bucket => Number.isFinite(bucket.totalValue) ? bucket.totalValue : 0);
+            const hundredKTotals = rawTotals.map(value => Number.isFinite(value) ? value / HUNDRED_THOUSAND : 0);
+            let runningTotal = 0;
+            const cumulativeTotals = rawTotals.map(value => {
+                const numeric = Number.isFinite(value) ? value : 0;
+                runningTotal += numeric;
+                return runningTotal;
+            });
+
+            const coinBreakdown = COIN_EMOJIS.reduce((acc, emoji) => {
+                acc[emoji] = buckets.map(bucket => Number.isFinite(bucket.coinCounts?.[emoji]) ? bucket.coinCounts[emoji] : 0);
+                return acc;
+            }, {});
+
+            const medalTotals = new Map();
+            buckets.forEach(bucket => {
+                bucket.medalCounts.forEach((count, label) => {
+                    medalTotals.set(label, (medalTotals.get(label) || 0) + count);
+                });
+            });
+
+            const sortedMedals = Array.from(medalTotals.entries()).sort((a, b) => b[1] - a[1]);
+            const topMedalLabels = new Set();
+            const medalBreakdown = [];
+
+            sortedMedals.slice(0, 5).forEach(([label]) => {
+                topMedalLabels.add(label);
+                medalBreakdown.push({
+                    label,
+                    data: buckets.map(bucket => bucket.medalCounts.get(label) || 0),
+                    color: getMedalColor(label)
+                });
+            });
+
+            if (sortedMedals.length > topMedalLabels.size) {
+                const otherData = buckets.map(bucket => {
+                    let total = 0;
+                    bucket.medalCounts.forEach((count, label) => {
+                        if (!topMedalLabels.has(label)) {
+                            total += count;
+                        }
+                    });
+                    return total;
+                });
+
+                if (otherData.some(value => value > 0)) {
+                    medalBreakdown.push({
+                        label: 'Other medals',
+                        data: otherData,
+                        color: getMedalColor('Other medals', { isOther: true }),
+                        isOther: true,
+                    });
+                }
+            }
+
+            const rangeFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            const bucketSummaries = buckets.map(bucket => {
+                let rangeText = '';
+                if (bucket.start && bucket.end) {
+                    const startText = rangeFormatter.format(bucket.start);
+                    const endText = rangeFormatter.format(bucket.end);
+                    rangeText = startText === endText ? startText : `${startText} – ${endText}`;
+                }
+                return {
+                    label: bucket.label,
+                    rangeText,
+                    startDate: bucket.start,
+                    endDate: bucket.end,
+                    totalValue: bucket.totalValue,
+                    coinValue: bucket.coinValue,
+                    medalValue: bucket.medalValue,
+                    coinCounts: { ...bucket.coinCounts },
+                    medalCounts: new Map(bucket.medalCounts)
+                };
+            });
+
+            return {
+                labels,
+                cumulativeTotals,
+                hundredKTotals,
+                rawTotals,
+                bucketSummaries,
+                coinBreakdown,
+                medalBreakdown,
+                periodsPerYear,
+                periodLabel,
+                yearLabel
+            };
         };
 
-        walletContextVersion += 1;
-        resetWalletAggregationCache();
-        resetWalletDatasetCache();
-        updateWalletViewControls();
-
-        const { aggregation: quarterAggregation } = computeWalletAggregation(
-            walletChartContext,
-            WALLET_VIEW_TIMEFRAMES.ALL,
-            WALLET_VIEW_GROUPINGS.QUARTER,
-        );
-
-        let runningQuarterTotal = 0;
-        const cumulativeQuarterEntries = quarterAggregation.map(entry => {
-            const value = Number.isFinite(entry.totalValue) ? entry.totalValue : 0;
-            runningQuarterTotal += value;
-            return { ...entry, cumulativeValue: runningQuarterTotal };
+        const bucketResult = buildWalletBuckets(metricsForFiltered, {
+            rangeMode: walletRangeMode,
+            interval: walletInterval,
+            selectedYear
         });
 
-        const latestEntry = cumulativeQuarterEntries.at(-1) || null;
-        const previousEntry = cumulativeQuarterEntries.length > 1
-            ? cumulativeQuarterEntries[cumulativeQuarterEntries.length - 2]
-            : null;
-        const yearAgoEntry = cumulativeQuarterEntries.length > 4
-            ? cumulativeQuarterEntries[cumulativeQuarterEntries.length - 5]
+        walletChangePeriodLabel = bucketResult.periodLabel || (walletInterval === 'week' ? 'week' : 'month');
+        walletChangeYearLabel = bucketResult.yearLabel || (walletRangeMode === 'rolling' ? '365d' : 'year');
+
+        const convertMonthlyToCumulative = (monthlyTotals = []) => {
+            let running = 0;
+            return monthlyTotals.map(value => {
+                const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+                running += numericValue;
+                return running;
+            });
+        };
+
+        const compareDatasets = [];
+        sortedYears.forEach((year, index) => {
+            const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
+            const cumulative = convertMonthlyToCumulative(totals);
+
+            if (!cumulative.some(value => value > 0)) {
+                return;
+            }
+
+            const paletteEntry = BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
+            compareDatasets.push({
+                label: String(year),
+                data: cumulative,
+                borderColor: paletteEntry.border,
+                backgroundColor: paletteEntry.background,
+            });
+        });
+
+        const cumulativeTotals = Array.isArray(bucketResult.cumulativeTotals) ? bucketResult.cumulativeTotals : [];
+        const latestValue = cumulativeTotals.length > 0 ? cumulativeTotals[cumulativeTotals.length - 1] : 0;
+        const previousValue = cumulativeTotals.length > 1 ? cumulativeTotals[cumulativeTotals.length - 2] : null;
+        const periodsPerYear = Number.isFinite(bucketResult.periodsPerYear)
+            ? bucketResult.periodsPerYear
+            : (walletInterval === 'week' ? 52 : 12);
+        const yearAgoValue = periodsPerYear && cumulativeTotals.length > periodsPerYear
+            ? cumulativeTotals[cumulativeTotals.length - 1 - periodsPerYear]
             : null;
 
         walletGrowthStats = {
-            currentTotal: Number.isFinite(latestEntry?.cumulativeValue) ? latestEntry.cumulativeValue : 0,
-            quarterChangePct: calculatePercentChange(latestEntry?.cumulativeValue, previousEntry?.cumulativeValue),
-            yearChangePct: calculatePercentChange(latestEntry?.cumulativeValue, yearAgoEntry?.cumulativeValue),
+            currentTotal: Number.isFinite(latestValue) ? latestValue : 0,
+            quarterChangePct: calculatePercentChange(latestValue, previousValue),
+            yearChangePct: calculatePercentChange(latestValue, yearAgoValue)
+        };
+
+        const createCoinCountMap = () => COIN_EMOJIS.reduce((acc, emoji) => {
+            acc[emoji] = 0;
+            return acc;
+        }, {});
+        const timelineBuckets = new Map();
+        metricsForYearly.forEach(metric => {
+            const year = metric.date.getFullYear();
+            const monthIndex = metric.date.getMonth();
+            if (!Number.isFinite(year) || !Number.isInteger(monthIndex)) {
+                return;
+            }
+
+            const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+            const bucket = timelineBuckets.get(key) || { counts: createCoinCountMap(), year, monthIndex };
+            metric.coins.forEach(emoji => {
+                if (!Object.prototype.hasOwnProperty.call(bucket.counts, emoji)) {
+                    bucket.counts[emoji] = 0;
+                }
+                bucket.counts[emoji] += 1;
+            });
+            timelineBuckets.set(key, bucket);
+        });
+
+        const sortedTimelineKeys = Array.from(timelineBuckets.keys()).sort();
+        const coinTimeline = COIN_EMOJIS.reduce((acc, emoji) => {
+            acc[emoji] = [];
+            return acc;
+        }, {});
+        const timelineLabels = [];
+
+        if (sortedTimelineKeys.length > 0) {
+            const parseKey = (key) => {
+                const [yearStr, monthStr] = key.split('-');
+                return { year: Number(yearStr), monthIndex: Number(monthStr) - 1 };
+            };
+
+            const start = parseKey(sortedTimelineKeys[0]);
+            const end = parseKey(sortedTimelineKeys[sortedTimelineKeys.length - 1]);
+            let currentYear = start.year;
+            let currentMonthIndex = start.monthIndex;
+            const runningTotals = createCoinCountMap();
+
+            while (currentYear < end.year || (currentYear === end.year && currentMonthIndex <= end.monthIndex)) {
+                const key = `${currentYear}-${String(currentMonthIndex + 1).padStart(2, '0')}`;
+                const bucket = timelineBuckets.get(key) || { counts: createCoinCountMap() };
+                const labelDate = new Date(currentYear, currentMonthIndex, 1);
+                timelineLabels.push(labelDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }));
+
+                COIN_EMOJIS.forEach(emoji => {
+                    const increment = Number.isFinite(bucket.counts?.[emoji]) ? bucket.counts[emoji] : 0;
+                    runningTotals[emoji] += increment;
+                    coinTimeline[emoji].push(runningTotals[emoji]);
+                });
+
+                currentMonthIndex += 1;
+                if (currentMonthIndex > 11) {
+                    currentMonthIndex = 0;
+                    currentYear += 1;
+                }
+            }
+        }
+
+        walletChartData.coins = {
+            labels: Array.isArray(bucketResult.labels) ? bucketResult.labels : [],
+            coinBreakdown: bucketResult.coinBreakdown || {},
+            medalBreakdown: bucketResult.medalBreakdown || [],
+            bucketSummaries: bucketResult.bucketSummaries || [],
+            timelineLabels,
+            coinTimeline
+        };
+
+        walletChartData.balance = {
+            labels: Array.isArray(bucketResult.labels) ? bucketResult.labels : [],
+            values: bucketResult.cumulativeTotals || [],
+            hundredKTotals: bucketResult.hundredKTotals || [],
+            periodRawTotals: bucketResult.rawTotals || [],
+            periodSummaries: bucketResult.bucketSummaries || [],
+            compareLabels: MONTH_COMPARISON_LABELS,
+            compareDatasets
         };
 
         const nextChartKey = hasWalletChartData(activeChartKey)
@@ -3086,6 +3710,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         updateRankProgressBar();
     };
+
 
     function calculateActivityCalories(activity = {}) {
         const movingTimeSeconds = activity.moving_time || 0;

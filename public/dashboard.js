@@ -939,7 +939,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         previousMonthHours: 0,
     };
 
-    const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
+    const rankTriggerElements = [currentRankElement, rankingProgressLabelElement, rankProgressTriggerElement].filter(Boolean);
 
     const setRankTriggerExpanded = (expanded) => {
         const value = expanded ? 'true' : 'false';
@@ -4976,7 +4976,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const buildShareSummary = () => {
         const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';
         const rankText = (currentRankElement?.textContent || '').trim();
-        const levelText = (levelProgressElement?.textContent || '').trim();
+        const levelText = (rankingProgressLabelElement?.textContent || '').trim();
         const walletText = (profileWalletTotalElement?.textContent || '').trim();
         const coinsCount = (walletSummaryElements.coinsCount?.textContent || '0').trim();
         const medalsCount = (walletSummaryElements.medalCount?.textContent || '0').trim();

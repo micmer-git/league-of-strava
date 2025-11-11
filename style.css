@@ -216,8 +216,8 @@ button,
 .profile-card {
   position: relative;
   overflow: hidden;
-  gap: 1.75rem;
-  padding: clamp(1.75rem, 3vw, 2.85rem);
+  gap: clamp(1.25rem, 2.5vw, 1.75rem);
+  padding: clamp(1.4rem, 2.75vw, 2.6rem);
   border: 1px solid rgba(56, 189, 248, 0.22);
   background: linear-gradient(160deg, rgba(15, 23, 42, 0.75) 0%, rgba(8, 11, 23, 0.92) 100%);
   isolation: isolate;
@@ -240,13 +240,13 @@ button,
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: clamp(1rem, 2vw, 1.75rem);
+  gap: clamp(0.85rem, 1.75vw, 1.5rem);
 }
 
 .profile-card__identity {
   display: flex;
   align-items: center;
-  gap: clamp(1rem, 2vw, 1.5rem);
+  gap: clamp(0.85rem, 1.75vw, 1.35rem);
   min-width: 0;
 }
 
@@ -950,9 +950,13 @@ button,
 }
 
 @media (max-width: 600px) {
+  :root {
+    --bottom-nav-height: 4.25rem;
+  }
+
   .app-shell {
-    padding: 1rem;
-    padding-bottom: calc(1.75rem + var(--bottom-nav-height) + env(safe-area-inset-bottom));
+    padding: 0.85rem;
+    padding-bottom: calc(1.25rem + var(--bottom-nav-height) + env(safe-area-inset-bottom));
   }
 
   .card {
@@ -961,6 +965,19 @@ button,
 
   .dashboard-header {
     padding: 1.35rem;
+  }
+
+  .profile-card {
+    padding: 1.15rem 1.2rem 1.35rem;
+    gap: 1.05rem;
+  }
+
+  .profile-card__metrics {
+    gap: 0.75rem;
+  }
+
+  .profile-metric {
+    padding: 0.95rem;
   }
 
   .header-top {
@@ -1042,12 +1059,12 @@ button,
 
 @media (max-width: 360px) {
   .app-shell {
-    padding: 0.85rem;
+    padding: 0.7rem;
   }
 
   .card,
   .dashboard-header {
-    padding: 1.1rem;
+    padding: 1rem;
   }
 
   .mobile-nav-button {

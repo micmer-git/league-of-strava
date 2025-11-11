@@ -1279,37 +1279,14 @@
             const achievementsTbody = document.getElementById('achievements-tbody');
             const achievementsThead = document.getElementById('achievements-thead');
 
-            // Prepare achievements data
-            const achievementsData = {
-                {% for tf in timeframes %}
-                    "{{ tf }}": {
-                        "categories": [
-                            {% for category in achievements[tf].categories %}
-                                {
-                                    "name": "{{ category.name }}",
-                                    "intro": "{{ category.intro }}",
-                                    "achievements": [
-                                        {% for badge in category.achievements %}
-                                            {
-                                                "name": "{{ badge.name }}",
-                                                "emoji": "{{ badge.emoji }}",
-                                                "count": {{ badge.count }},
-                                                "description": "{{ badge.description or badge.name }}",
-                                                "last_month_earned": {{ badge.last_month_earned or 'null' }}
-                                            }{% if not loop.last %},{% endif %}
-                                        {% endfor %}
-                                    ]
-                                }{% if not loop.last %},{% endif %}
-                            {% endfor %}
-                        ]
-                    }{% if not loop.last %},{% endif %}
-                {% endfor %}
-            };
+            // Prepare achievements data safely encoded as JSON
+            const achievementsData = {{ (achievements or {}) | tojson }};
 
             // Function to render achievements table based on timeframe
             const renderAchievementsTable = (timeframe) => {
                 const data = achievementsData[timeframe];
-                if (!data || !data.categories.length) {
+                const categories = data && Array.isArray(data.categories) ? data.categories : [];
+                if (!categories.length) {
                     achievementsThead.innerHTML = '<tr><th>Category</th><th colspan="4">No Achievements Found</th></tr>';
                     achievementsTbody.innerHTML = '';
                     return;
@@ -1317,7 +1294,7 @@
 
                 // Determine the maximum number of badges across categories
                 let maxBadges = 0;
-                data.categories.forEach(category => {
+                categories.forEach(category => {
                     if (category.achievements.length > maxBadges) {
                         maxBadges = category.achievements.length;
                     }
@@ -1333,7 +1310,7 @@
 
                 // Build table body
                 let tbodyHTML = '';
-                data.categories.forEach(category => {
+                categories.forEach(category => {
                     tbodyHTML += `<tr><th><h3>${category.name}</h3></th>`;
                     for (let i = 0; i < maxBadges; i++) {
                         if (category.achievements[i]) {

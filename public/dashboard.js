@@ -313,6 +313,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareFeedbackElement = document.getElementById('share-feedback');
     const shareCopyButtonLabel = shareCopyButton?.querySelector('span:last-child') || null;
     const shareCopyOriginalLabel = shareCopyButtonLabel?.textContent ?? '';
+    const shareModalElement = document.getElementById('share-modal');
+    const shareModalDialog = shareModalElement?.querySelector('.share-modal__dialog') || null;
+    const shareModalDismissElements = Array.from(document.querySelectorAll('[data-share-modal-dismiss]'));
+    let shareModalLastFocus = null;
     const profileRefreshButton = document.getElementById('profile-refresh');
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
@@ -4880,6 +4884,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const openShareModal = () => {
+        if (shareModalElement) {
+            shareModalLastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            shareModalElement.hidden = false;
+            shareModalElement.setAttribute('aria-hidden', 'false');
+            shareModalElement.classList.add('is-visible');
+            document.body.classList.add('is-share-modal-open');
+        }
+        if (shareCardPreview) {
+            shareCardPreview.hidden = false;
+            shareCardPreview.classList.add('is-visible');
+        }
+        const focusTarget = shareModalElement?.querySelector('.share-modal__close')
+            || shareModalDialog;
+        if (focusTarget instanceof HTMLElement) {
+            window.requestAnimationFrame(() => focusTarget.focus());
+        }
+    };
+
+    const closeShareModal = () => {
+        if (shareCardPreview) {
+            shareCardPreview.classList.remove('is-visible');
+            shareCardPreview.hidden = true;
+        }
+        if (shareModalElement) {
+            shareModalElement.classList.remove('is-visible');
+            shareModalElement.setAttribute('aria-hidden', 'true');
+            shareModalElement.hidden = true;
+        }
+        document.body.classList.remove('is-share-modal-open');
+        if (shareModalLastFocus instanceof HTMLElement) {
+            shareModalLastFocus.focus();
+        }
+        shareModalLastFocus = null;
+    };
+
     const buildShareSummary = () => {
         const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';
         const rankText = (currentRankElement?.textContent || '').trim();
@@ -4981,8 +5021,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const shouldReveal = reveal || shareCardPreview.classList.contains('is-visible');
         if (shouldReveal) {
-            shareCardPreview.hidden = false;
-            shareCardPreview.classList.add('is-visible');
+            openShareModal();
         }
     };
 
@@ -7825,6 +7864,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    if (shareModalDismissElements.length > 0) {
+        shareModalDismissElements.forEach((element) => {
+            element.addEventListener('click', () => {
+                closeShareModal();
+            });
+        });
+    }
+
+    if (shareModalElement) {
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !shareModalElement.hidden) {
+                event.preventDefault();
+                closeShareModal();
+            }
+        });
+    }
+
 
     Object.entries(chartToggleButtons).forEach(([key, button]) => {
         if (!button) {

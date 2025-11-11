@@ -240,6 +240,7 @@
                 -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
                 scroll-behavior: smooth;
                 margin-bottom: 40px;
+                padding-bottom: 12px;
             }
 
             /* Webkit Scrollbar Styles */
@@ -274,6 +275,7 @@
                 border-radius: 8px;
                 overflow: hidden;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                min-width: 640px;
             }
 
             .leaderboard-table thead {
@@ -303,6 +305,7 @@
                 border-bottom: 1px solid #f1f1f1;
                 font-size: 1em;
                 white-space: nowrap; /* Prevent text wrapping */
+                color: #000;
             }
 
             /* Tooltip Styling */
@@ -398,6 +401,12 @@
                     width: 100%;
                     text-align: center;
                     border-top: 1px solid rgba(255, 255, 255, 0.3);
+                }
+            }
+
+            @media (max-width: 768px) {
+                .leaderboard-table {
+                    min-width: 720px;
                 }
             }
 
@@ -592,7 +601,7 @@
                                     </td>
                                     <!-- New Total Achievements Data Cell -->
                                     <td class="col-total-achievements" data-label="Total Achievements">
-                                        🏆 {{ user.total_achievements_count }}
+                                        {{ user.total_achievements_count }}
                                     </td>
                                     {% for achievement in category_achievements[category] %}
                                         <td class="col-achievement" data-label="{{ achievement }}">
@@ -644,7 +653,7 @@
                                 </td>
                                 <!-- New Total Achievements Data Cell -->
                                 <td class="col-total-achievements" data-label="Total Achievements">
-                                    🏆 {{ user.total_achievements_count }}
+                                    {{ user.total_achievements_count }}
                                 </td>
                                 {% for achievement in sorted_all_other_achievements %}
                                     <td class="col-achievement" data-label="{{ achievement }}">

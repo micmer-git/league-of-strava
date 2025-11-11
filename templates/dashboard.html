@@ -176,6 +176,7 @@
             justify-content: space-between;
             align-items: stretch;
             gap: 20px;
+            flex-wrap: wrap;
         }
 
         .user-info {
@@ -183,13 +184,58 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            min-width: 280px;
         }
 
-        .coin-metrics-inline {
+        .profile-metrics-row {
             display: flex;
             flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .profile-metrics-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .profile-metrics-row {
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+        }
+
+        .profile-metric {
+            display: flex;
+            align-items: center;
             gap: 10px;
-            margin-bottom: 15px;
+            background-color: #f1f3f6;
+            border-radius: 14px;
+            padding: 12px 16px;
+            flex: 1 1 180px;
+            min-width: 160px;
+        }
+
+        .profile-metric-emoji {
+            font-size: 1.6em;
+        }
+
+        .profile-metric-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .profile-metric-value {
+            font-weight: 600;
+            font-size: 1.25em;
+            color: #333;
+        }
+
+        .profile-metric-label {
+            font-size: 0.75em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #666;
         }
 
         .user-image-container {
@@ -197,6 +243,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            min-width: 260px;
         }
 
         .user-image {
@@ -216,6 +263,10 @@
             margin: 5px 0 15px;
             font-size: 1.5em;
             color: #333;
+        }
+
+        .rank-progress-wrapper {
+            width: 100%;
         }
 
         .rank-progress {
@@ -238,6 +289,8 @@
             justify-content: space-between;
             font-size: 0.9em;
             color: #555;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         /* Responsive adjustments */
@@ -251,46 +304,22 @@
             }
 
             .user-image {
-                max-height: 300px; /* Adjust for mobile */
+                width: 100%;
+                height: auto;
+                max-height: none;
             }
         }
 
-        /* **Integrated Coins Styling Start** */
-        .coin-metrics-inline {
-            display: flex;
-            gap: 10px;
-            flex-wrap: nowrap;
-            font-size: 1em;
-            justify-content: flex-start;
-            overflow-x: auto;
-            padding-bottom: 5px;
-            width: 100%;
-        }
-
-        .coin-metrics-inline::-webkit-scrollbar {
-            display: none;
-        }
-
         .coin {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 6px;
             background-color: #e9ecef;
             padding: 6px 12px;
             border-radius: 8px;
             white-space: nowrap;
-        }
-
-        .coin-value {
             font-weight: 600;
         }
-
-        .coin-label {
-            font-size: 0.85em;
-            color: #555;
-            text-transform: uppercase;
-        }
-        /* **Integrated Coins Styling End** */
 
         .overview-full-width {
             display: flex;
@@ -475,13 +504,13 @@
         .achievement-card, .medal-card {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
             gap: 6px;
             font-size: 0.9em;
-            padding: 10px;
-            border-radius: 8px;
-            background-color: #f7f7f7;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            padding: 12px 16px;
+            border-radius: 14px;
+            background-color: #f1f3f6;
+            box-shadow: none;
             text-decoration: none;
             min-height: 120px;
         }
@@ -495,6 +524,10 @@
             font-size: 1.4em;
             font-weight: bold;
             margin:0px;
+            color: #333;
+        }
+
+        .achievement-count {
             color: #28a745;
         }
 
@@ -505,8 +538,10 @@
         }
 
         .medal-label {
-            font-size: 0.85em;
-            color: #444;
+            font-size: 0.75em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #666;
         }
 
         .new-earned {
@@ -737,9 +772,14 @@
                 align-items: flex-start;
             }
 
-            .coin-metrics-inline {
+            .profile-metrics-row {
                 flex-wrap: nowrap;
                 overflow-x: auto;
+                padding-bottom: 6px;
+            }
+
+            .profile-metric {
+                flex: 0 0 220px;
             }
 
             .rank-progress {
@@ -868,8 +908,8 @@
             transform: scale(1.05); /* Slightly zooms in the image on hover */
         }
 
-        /* Ensure coin-metrics-inline is left-justified */
-        .coin-metrics-inline {
+        /* Ensure profile metrics row is left-justified */
+        .profile-metrics-row {
             justify-content: flex-start;
         }
 
@@ -917,26 +957,34 @@
         <div class="overview-section hidden">
             <div class="overview-content">
                 <div class="user-info">
-                    <div class="coin-metrics-inline" aria-label="Key totals">
-                        <div class="coin">
-                            <span class="coin-value">🏔️ {{ user.coins.everest | int }}</span>
-                            <span class="coin-label">Everest</span>
+                    <div class="profile-metrics-row" aria-label="Key totals">
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">🏔️</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ user.coins.everest | int }}</span>
+                                <span class="profile-metric-label">Everest Coins</span>
+                            </div>
                         </div>
-                        <div class="coin">
-                            <span class="coin-value">🍕 {{ user.coins.pizza | int }}</span>
-                            <span class="coin-label">Pizza</span>
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">🍕</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ user.coins.pizza | int }}</span>
+                                <span class="profile-metric-label">Pizza Coins</span>
+                            </div>
                         </div>
-                        <div class="coin">
-                            <span class="coin-value">❤️ {{ user.coins.heartbeat | int }}</span>
-                            <span class="coin-label">Heartbeat</span>
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">❤️</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ user.coins.heartbeat | int }}</span>
+                                <span class="profile-metric-label">Heartbeat Coins</span>
+                            </div>
                         </div>
-                        <div class="coin">
-                            <span class="coin-value">🚴 {{ (user.stats.distance/1000) | int }}</span>
-                            <span class="coin-label">100km Blocks</span>
-                        </div>
-                        <div class="coin">
-                            <span class="coin-value">💵 {{ "{:,.0f}".format(user.dollars) }}</span>
-                            <span class="coin-label">Dollars</span>
+                        <div class="profile-metric">
+                            <span class="profile-metric-emoji" aria-hidden="true">🚴</span>
+                            <div class="profile-metric-copy">
+                                <span class="profile-metric-value">{{ (user.stats.distance/1000) | int }}</span>
+                                <span class="profile-metric-label">100km Blocks</span>
+                            </div>
                         </div>
                     </div>
                     <h1 id="athlete-name">{{ user.username }}</h1>
@@ -1351,6 +1399,20 @@
             // Initialize table with default timeframe
             const defaultTimeframe = 'all_time';
             renderAchievementsTable(defaultTimeframe);
+
+            // Update legacy button copy where needed
+            const renameLegacyButtons = () => {
+                document.querySelectorAll('button').forEach(button => {
+                    const label = button.textContent.trim().toUpperCase();
+                    if (label === 'WINS') {
+                        button.textContent = 'COINS';
+                    } else if (label === 'LOG') {
+                        button.textContent = 'ACTIVITIES';
+                    }
+                });
+            };
+
+            renameLegacyButtons();
 
             // Event listeners for timeframe buttons
             timeframeButtons.forEach(button => {

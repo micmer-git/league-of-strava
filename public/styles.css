@@ -795,7 +795,7 @@ img {
   }
 
   .dashboard-tabs {
-    display: none !important;
+    display: none;
   }
 
   .panel-card__header {

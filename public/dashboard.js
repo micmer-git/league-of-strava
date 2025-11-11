@@ -91,14 +91,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
     const DASHBOARD_CACHE_MAX_ENTRIES = 6;
 
-    const normalizeUserId = (value) => {
-        if (value === undefined || value === null) {
-            return '';
-        }
-
-        return String(value).replace(/^'+/, '').trim();
-    };
-
     const createEmptyCacheContainer = () => ({
         version: DASHBOARD_CACHE_VERSION,
         entries: {},
@@ -295,6 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankingProgressElement = document.getElementById('ranking-progress');
     const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
     const rankDetailsElement = document.getElementById('rank-details');
+    const levelProgressElement = document.getElementById('level-progress');
     const globeStatButton = document.getElementById('globe-stat');
     const everestStatButton = document.getElementById('everest-stat');
     const pizzaStatButton = document.getElementById('pizza-stat');
@@ -320,10 +313,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareFeedbackElement = document.getElementById('share-feedback');
     const shareCopyButtonLabel = shareCopyButton?.querySelector('span:last-child') || null;
     const shareCopyOriginalLabel = shareCopyButtonLabel?.textContent ?? '';
-    const shareModalElement = document.getElementById('share-modal');
-    const shareModalDialog = shareModalElement?.querySelector('.share-modal__dialog') || null;
-    const shareModalDismissElements = Array.from(document.querySelectorAll('[data-share-modal-dismiss]'));
-    let shareModalLastFocus = null;
     const profileRefreshButton = document.getElementById('profile-refresh');
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
@@ -400,7 +389,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     const dashboardPanelsContainer = document.querySelector('[data-dashboard-panels]');
-    const isStackedPanelLayout = dashboardPanelsContainer?.classList?.contains('dashboard-panels--stacked') ?? false;
     const pullToRefreshIndicator = document.getElementById('pull-to-refresh-indicator');
     const pullToRefreshLabel = pullToRefreshIndicator?.querySelector('[data-pull-label]');
     const mobilePanelChangeCallbacks = new Set();
@@ -502,40 +490,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function setActivePanel(panelName, { focusTab = false, scrollIntoView = isStackedPanelLayout } = {}) {
+    function setActivePanel(panelName, { focusTab = false } = {}) {
         if (!panelName || !dashboardPanels.has(panelName)) {
             return;
         }
-
-        const targetPanel = dashboardPanels.get(panelName);
-        const shouldScroll = Boolean(scrollIntoView && isStackedPanelLayout && targetPanel);
-        const scrollPanelIntoView = () => {
-            if (!targetPanel) {
-                return;
-            }
-
-            const prefersReducedMotion = typeof window.matchMedia === 'function'
-                && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            const scrollOptions = prefersReducedMotion
-                ? { block: 'start' }
-                : { block: 'start', behavior: 'smooth' };
-
-            try {
-                targetPanel.scrollIntoView(scrollOptions);
-            } catch (error) {
-                const computedStyles = window.getComputedStyle(targetPanel);
-                const scrollMarginTop = Number.parseFloat(
-                    computedStyles.scrollMarginTop
-                    || computedStyles.scrollMarginBlockStart
-                    || '0'
-                ) || 0;
-                const targetTop = window.scrollY + targetPanel.getBoundingClientRect().top - scrollMarginTop;
-                window.scrollTo({
-                    top: targetTop,
-                    behavior: prefersReducedMotion ? 'auto' : 'smooth',
-                });
-            }
-        };
 
         if (activePanelName === panelName) {
             updateMobileNavigation(panelName);
@@ -551,11 +509,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             }
-
-            if (shouldScroll) {
-                scrollPanelIntoView();
-            }
-
             return;
         }
 
@@ -583,23 +536,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         dashboardPanels.forEach((panel, name) => {
-            const isActivePanel = name === panelName;
-            panel.classList.toggle('is-active', isActivePanel);
-            if (isStackedPanelLayout) {
-                panel.removeAttribute('aria-hidden');
-            } else {
-                panel.setAttribute('aria-hidden', isActivePanel ? 'false' : 'true');
-            }
+            panel.classList.toggle('is-active', name === panelName);
         });
-
-        if (shouldScroll) {
-            scrollPanelIntoView();
-        }
 
         notifyPanelChange(panelName);
     }
 
-    setActivePanel(initialPanelName || 'profile', { focusTab: false, scrollIntoView: false });
+    setActivePanel(initialPanelName || 'profile');
 
     const moveToRelativePanel = (direction) => {
         if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {
@@ -650,7 +593,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    if (dashboardPanelsContainer && !isStackedPanelLayout) {
+    if (dashboardPanelsContainer) {
         const SWIPE_THRESHOLD_PX = 56;
         const SWIPE_MAX_OFF_AXIS_PX = 72;
         let swipePointerId = null;
@@ -833,7 +776,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const sharedUserIdParam = normalizeUserId(urlParams.get('userId'));
+    const sharedUserIdParam = (urlParams.get('userId') || '').trim();
     const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
     const isSharedView = Boolean(sharedUserId);
     const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
@@ -939,7 +882,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         previousMonthHours: 0,
     };
 
-    const rankTriggerElements = [currentRankElement, rankingProgressLabelElement, rankProgressTriggerElement].filter(Boolean);
+    const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
 
     const setRankTriggerExpanded = (expanded) => {
         const value = expanded ? 'true' : 'false';
@@ -4937,46 +4880,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const openShareModal = () => {
-        if (shareModalElement) {
-            shareModalLastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            shareModalElement.hidden = false;
-            shareModalElement.setAttribute('aria-hidden', 'false');
-            shareModalElement.classList.add('is-visible');
-            document.body.classList.add('is-share-modal-open');
-        }
-        if (shareCardPreview) {
-            shareCardPreview.hidden = false;
-            shareCardPreview.classList.add('is-visible');
-        }
-        const focusTarget = shareModalElement?.querySelector('.share-modal__close')
-            || shareModalDialog;
-        if (focusTarget instanceof HTMLElement) {
-            window.requestAnimationFrame(() => focusTarget.focus());
-        }
-    };
-
-    const closeShareModal = () => {
-        if (shareCardPreview) {
-            shareCardPreview.classList.remove('is-visible');
-            shareCardPreview.hidden = true;
-        }
-        if (shareModalElement) {
-            shareModalElement.classList.remove('is-visible');
-            shareModalElement.setAttribute('aria-hidden', 'true');
-            shareModalElement.hidden = true;
-        }
-        document.body.classList.remove('is-share-modal-open');
-        if (shareModalLastFocus instanceof HTMLElement) {
-            shareModalLastFocus.focus();
-        }
-        shareModalLastFocus = null;
-    };
-
     const buildShareSummary = () => {
         const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';
         const rankText = (currentRankElement?.textContent || '').trim();
-        const levelText = (rankingProgressLabelElement?.textContent || '').trim();
+        const levelText = (levelProgressElement?.textContent || '').trim();
         const walletText = (profileWalletTotalElement?.textContent || '').trim();
         const coinsCount = (walletSummaryElements.coinsCount?.textContent || '0').trim();
         const medalsCount = (walletSummaryElements.medalCount?.textContent || '0').trim();
@@ -5074,7 +4981,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const shouldReveal = reveal || shareCardPreview.classList.contains('is-visible');
         if (shouldReveal) {
-            openShareModal();
+            shareCardPreview.hidden = false;
+            shareCardPreview.classList.add('is-visible');
         }
     };
 
@@ -6968,6 +6876,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'rank-details' element not found in the DOM.");
         }
 
+        if (levelProgressElement) {
+            const levelCap = MASTER_PRESTIGE_MAX;
+            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
+            const level = hasActivities
+                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
+                : 0;
+
+            levelProgressElement.innerHTML = '';
+
+            const levelLabelElement = document.createElement('span');
+            levelLabelElement.className = 'profile-card__level-label';
+            levelLabelElement.textContent = 'Current level';
+
+            const levelValueElement = document.createElement('span');
+            levelValueElement.className = 'profile-card__level-value';
+            levelValueElement.textContent = `Level ${level}/${levelCap}`;
+
+            levelProgressElement.append(levelLabelElement, levelValueElement);
+            levelProgressElement.setAttribute('aria-label', `Current level ${level} of ${levelCap}`);
+        } else {
+            console.warn("'level-progress' element not found in the DOM.");
+        }
+
         const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
             ? allData.activities
             : activities;
@@ -7894,23 +7825,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
-    if (shareModalDismissElements.length > 0) {
-        shareModalDismissElements.forEach((element) => {
-            element.addEventListener('click', () => {
-                closeShareModal();
-            });
-        });
-    }
-
-    if (shareModalElement) {
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && !shareModalElement.hidden) {
-                event.preventDefault();
-                closeShareModal();
-            }
-        });
-    }
-
 
     Object.entries(chartToggleButtons).forEach(([key, button]) => {
         if (!button) {

@@ -4,14 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const cardsContainer = document.getElementById('leaderboard-cards');
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  const normalizeUserId = (value) => {
-    if (value === undefined || value === null) {
-      return '';
-    }
-
-    return String(value).replace(/^'+/, '').trim();
-  };
-
   const isValidLeaderboardPayload = (data) => {
     if (!data || typeof data !== 'object') {
       return false;
@@ -78,10 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       entries.forEach((entry, index) => {
         const row = document.createElement('tr');
-        const normalizedUserId = normalizeUserId(entry.userId);
-        const hasUserLink = normalizedUserId.length > 0;
-        const dashboardUrl = hasUserLink ? `/dashboard?userId=${encodeURIComponent(normalizedUserId)}` : null;
-        const safeDisplayName = escapeHtml(entry.displayName || normalizedUserId || 'Unknown');
+        const hasUserLink = typeof entry.userId === 'string' && entry.userId.trim().length > 0;
+        const dashboardUrl = hasUserLink ? `/dashboard?userId=${encodeURIComponent(entry.userId)}` : null;
+        const safeDisplayName = escapeHtml(entry.displayName || entry.userId || 'Unknown');
         const nameCellContent = hasUserLink
           ? `<a class="leaderboard-athlete-link" href="${dashboardUrl}">${safeDisplayName}</a>`
           : safeDisplayName;

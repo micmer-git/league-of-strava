@@ -313,6 +313,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareFeedbackElement = document.getElementById('share-feedback');
     const shareCopyButtonLabel = shareCopyButton?.querySelector('span:last-child') || null;
     const shareCopyOriginalLabel = shareCopyButtonLabel?.textContent ?? '';
+    const shareModalElement = document.getElementById('share-modal');
+    const shareModalDialog = shareModalElement?.querySelector('.share-modal__dialog') || null;
+    const shareModalDismissElements = shareModalElement
+        ? Array.from(shareModalElement.querySelectorAll('[data-share-modal-dismiss]'))
+        : [];
+    let shareModalReturnFocusTo = null;
     const profileRefreshButton = document.getElementById('profile-refresh');
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
@@ -4880,6 +4886,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const isShareModalVisible = () => Boolean(shareModalElement && !shareModalElement.hidden && shareModalElement.classList.contains('is-visible'));
+
+    const openShareModal = () => {
+        if (!shareModalElement) {
+            return;
+        }
+
+        shareModalReturnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        shareModalElement.hidden = false;
+        shareModalElement.setAttribute('aria-hidden', 'false');
+        window.requestAnimationFrame(() => {
+            shareModalElement.classList.add('is-visible');
+        });
+        document.body.classList.add('is-share-modal-open');
+
+        const initialFocusTarget = shareModalElement.querySelector('[data-share-modal-initial]');
+        if (initialFocusTarget instanceof HTMLElement) {
+            initialFocusTarget.focus();
+        } else if (shareModalDialog instanceof HTMLElement) {
+            shareModalDialog.focus();
+        }
+    };
+
+    const closeShareModal = () => {
+        if (!shareModalElement) {
+            return;
+        }
+
+        shareModalElement.classList.remove('is-visible');
+        shareModalElement.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('is-share-modal-open');
+
+        window.setTimeout(() => {
+            if (shareModalElement && !shareModalElement.classList.contains('is-visible')) {
+                shareModalElement.hidden = true;
+                if (shareModalReturnFocusTo instanceof HTMLElement) {
+                    shareModalReturnFocusTo.focus();
+                }
+                shareModalReturnFocusTo = null;
+            }
+        }, 260);
+    };
+
     const buildShareSummary = () => {
         const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';
         const rankText = (currentRankElement?.textContent || '').trim();
@@ -6375,6 +6424,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (shareModalDismissElements.length > 0) {
+        shareModalDismissElements.forEach((element) => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeShareModal();
+            });
+        });
+    }
+
+    if (shareModalElement) {
+        shareModalElement.addEventListener('click', (event) => {
+            if (event.target === shareModalElement) {
+                closeShareModal();
+            }
+        });
+    }
+
     if (rankModalDismissElements.length > 0) {
         rankModalDismissElements.forEach((element) => {
             element.addEventListener('click', (event) => {
@@ -6386,6 +6452,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') {
+            return;
+        }
+
+        if (isShareModalVisible()) {
+            closeShareModal();
             return;
         }
 
@@ -7761,6 +7832,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const shareData = buildShareSummary();
             lastShareData = shareData;
             updateShareCard(shareData, { reveal: true });
+            openShareModal();
             setShareFeedback('');
 
             if (navigator.share) {

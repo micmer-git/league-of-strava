@@ -900,6 +900,14 @@
                 margin-top: 0;
             }
 
+            .profile-card__header {
+                justify-items: start;
+            }
+
+            .profile-card__avatar {
+                justify-self: start;
+            }
+
             #loading-spinner {
                 align-items: flex-start;
             }
@@ -985,7 +993,7 @@
                 gap: 0.85rem;
             }
 
-        .share-card {
+            .share-card {
                 padding: 1rem;
             }
 
@@ -1203,16 +1211,6 @@
 
         .profile-card__summary-row + .profile-card__summary-row {
             margin-top: 0.35rem;
-        }
-
-        @media (max-width: 639px) {
-            .profile-card__header {
-                justify-items: start;
-            }
-
-            .profile-card__avatar {
-                justify-self: start;
-            }
         }
 
         @media (min-width: 640px) {
@@ -1718,6 +1716,10 @@
         .profile-card__progress-detail {
             font-size: 0.8rem;
             color: #64748b;
+        }
+
+        .share-modal[hidden] {
+            display: none;
         }
 
         .share-modal {

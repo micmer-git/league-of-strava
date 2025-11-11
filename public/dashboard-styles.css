@@ -877,10 +877,11 @@
         }
 
         .panel-card {
+            --panel-card-padding: clamp(1.75rem, 3vw, 2.5rem);
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
-            padding: 1.5rem;
+            padding: var(--panel-card-padding);
             border: none !important;
             box-shadow: none !important;
             width: 100%;
@@ -1558,8 +1559,8 @@
         .profile-card__metrics,
         .profile-card__coins,
         .profile-card__wallet-totals {
-            align-self: flex-start;
-            width: var(--profile-stack-max-width);
+            align-self: stretch;
+            width: min(var(--profile-stack-max-width, 100%), 100%);
             max-width: 100%;
         }
 
@@ -3337,7 +3338,7 @@ body.dashboard-body {
         .panel-card {
             background-color: #ffffff;
             border-radius: 1.5rem;
-            padding: 1.5rem;
+            padding: var(--panel-card-padding, clamp(1.75rem, 3vw, 2.5rem));
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 100%;

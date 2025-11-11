@@ -692,8 +692,10 @@ img {
 }
 
 .panel-card {
+  --panel-card-padding: clamp(1.75rem, 3vw, 2.5rem);
   display: grid;
   gap: 1.5rem;
+  padding: var(--panel-card-padding);
 }
 
 .panel-card__header {
@@ -861,7 +863,7 @@ img {
   }
 
   .panel-card {
-    padding: clamp(1.75rem, 3vw, 2.5rem);
+    padding: var(--panel-card-padding);
   }
 }
 

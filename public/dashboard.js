@@ -43,39 +43,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         const date = new Date(2000, index, 1);
         return date.toLocaleDateString(undefined, { month: 'short' });
     });
+    const QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const MEDALS_PAGE_SIZE = Number.POSITIVE_INFINITY;
     const COIN_LABEL_OVERRIDES = {
         Run: {
-            '10km Run': '10 km run',
+            '10km Run': '10 km',
             '21km Run': 'Half marathon',
             '42km Run': 'Marathon',
-            '50km Run/Week': '50 km run week',
-            '100km Run/Week': '100 km run week'
+            '50km Run/Week': '50 km/week',
+            '100km Run/Week': '100 km/week'
         },
         Ride: {
-            '100km Ride': '100 km ride',
-            '150km Ride': '150 km ride',
-            '200km Ride': 'Double century (200 km)',
-            '300km Ride/Week': '300 km ride week',
-            '600km Ride/Week': '600 km ride week'
+            '100km Ride': '100 km',
+            '150km Ride': '150 km',
+            '200km Ride': '200 km',
+            '300km Ride/Week': '300 km/week',
+            '600km Ride/Week': '600 km/week'
         },
         Elevation: {
-            '1000m Elevation': '1,000 m climb',
-            '2000m Elevation': '2,000 m climb',
+            '1000m Elevation': '1,000 m',
+            '2000m Elevation': '2,000 m',
             'Half Everest': 'Half Everest',
-            '10k Elevation/Week': '10k m elevation week',
-            '25k Elevation/Month': '25k m elevation month'
+            '10k Elevation/Week': '10k m/week',
+            '25k Elevation/Month': '25k m/month'
         },
         Calories: {
-            '1000 kcal Activity': '1,000 kcal activity',
-            '2000 kcal Activity': '2,000 kcal activity',
-            '4000 kcal Activity': '4,000 kcal activity',
-            '7500 kcal Activity': '7,500 kcal activity',
-            '8000 kcal Activity': '8,000 kcal activity',
-            '12000 kcal Week': '12,000 kcal week',
-            '24000 kcal Week': '24,000 kcal week'
+            '1000 kcal Activity': '1,000 per activity',
+            '2000 kcal Activity': '2,000 per activity',
+            '4000 kcal Activity': '4,000 per activity',
+            '7500 kcal Activity': '7,500 per activity',
+            '8000 kcal Activity': '8,000 per activity',
+            '12000 kcal Week': '12,000/week',
+            '24000 kcal Week': '24,000/week'
         }
+    };
+    const COIN_ROW_DEFAULT_UNITS = {
+        Run: 'km',
+        Ride: 'km',
+        Elevation: 'm',
+        Calories: ''
     };
     const CALORIE_SCALE_FACTOR = 0.65;
     const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
@@ -848,7 +855,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
     let activeMedalMeta = null;
     let medalFilteredActivities = [];
-    let walletGrowthStats = { currentTotal: 0, monthChangePct: null, yearChangePct: null };
+    let walletGrowthStats = { currentTotal: 0, quarterChangePct: null, yearChangePct: null };
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
@@ -1727,29 +1734,65 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!rawName || typeof rawName !== 'string') {
             return null;
         }
+
         const overrides = COIN_LABEL_OVERRIDES[rowLabel];
         if (overrides && overrides[rawName]) {
             return overrides[rawName];
         }
 
-        const formatted = rawName
-            .replace(/(\d+)(km|m|kcal)/gi, (_, value, unit) => {
-                const numericValue = Number(value);
-                const formattedValue = Number.isFinite(numericValue)
-                    ? numericValue.toLocaleString()
-                    : value;
-                const unitLower = unit.toLowerCase();
-                return `${formattedValue} ${unitLower}`;
-            })
-            .replace(/\/week/gi, ' week')
-            .replace(/\/month/gi, ' month')
-            .replace(/Activity/gi, 'activity')
-            .replace(/Run\b/gi, 'run')
-            .replace(/Ride\b/gi, 'ride')
-            .replace(/Elevation/gi, 'elevation')
+        const defaultUnit = COIN_ROW_DEFAULT_UNITS[rowLabel] || '';
+        let label = rawName.trim();
+        let timeframeSuffix = '';
+
+        const timeframeMatch = label.match(/\/(Week|Month|Activity)\b/i);
+        if (timeframeMatch) {
+            const timeframe = timeframeMatch[1].toLowerCase();
+            if (timeframe === 'activity') {
+                timeframeSuffix = ' per activity';
+            } else {
+                timeframeSuffix = `/${timeframe}`;
+            }
+            label = label.replace(/\/(Week|Month|Activity)\b/gi, '').trim();
+        }
+
+        label = label
+            .replace(/\b(Run|Ride|Climb|Elevation|Elevations|Calories|Calorie|Activity)\b/gi, '')
+            .replace(/\bkcal\b/gi, '')
             .trim();
 
-        return formatted || rawName;
+        label = label.replace(/(\d+(?:\.\d+)?)(k)\b/gi, (_, value, suffix) => {
+            const numericValue = Number(value);
+            const formattedValue = Number.isFinite(numericValue)
+                ? numericValue.toLocaleString(undefined, { maximumFractionDigits: Number.isInteger(numericValue) ? 0 : 1 })
+                : value;
+            return `${formattedValue}${suffix.toLowerCase()}`;
+        });
+
+        label = label.replace(/(\d{1,3}(?:,\d{3})*|\d+)(km|m)\b/gi, (_, value, unit) => {
+            const numericValue = Number(value.replace(/,/g, ''));
+            const formattedValue = Number.isFinite(numericValue)
+                ? numericValue.toLocaleString()
+                : value;
+            return `${formattedValue} ${unit.toLowerCase()}`;
+        });
+
+        label = label.replace(/(\d{1,3}(?:,\d{3})*|\d+)(?=(?:\s|$|\/))/g, (match) => {
+            const numericValue = Number(match.replace(/,/g, ''));
+            return Number.isFinite(numericValue) ? numericValue.toLocaleString() : match;
+        });
+
+        if (defaultUnit && /\d/.test(label) && !new RegExp(`\\b${defaultUnit}\\b`, 'i').test(label)) {
+            label = `${label} ${defaultUnit}`.trim();
+        }
+
+        label = label.replace(/\s{2,}/g, ' ').trim();
+
+        if (!label) {
+            label = rawName.trim();
+        }
+
+        const output = `${label}${timeframeSuffix}`.trim();
+        return output || rawName;
     };
 
     const updateMedalFilterBanner = () => {
@@ -2156,7 +2199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletChartCanvas.classList.add('hidden');
             if (walletChartEmptyState) {
                 walletChartEmptyState.classList.remove('hidden');
-                walletChartEmptyState.textContent = 'No wallet data available for this view.';
+                walletChartEmptyState.textContent = '';
             }
             updateToggleStates(null);
             return;
@@ -2395,12 +2438,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             const chartLabels = useComparison
                 ? (Array.isArray(dataset.compareLabels) && dataset.compareLabels.length > 0
                     ? dataset.compareLabels
-                    : MONTH_COMPARISON_LABELS)
+                    : QUARTER_LABELS)
                 : dataset.labels;
 
             const chartDatasets = useComparison
                 ? comparisonDatasets
                 : [
+                    {
+                        type: 'bar',
+                        label: 'Quarterly balance',
+                        data: Array.isArray(dataset.perPeriodValues) ? dataset.perPeriodValues : [],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.28)',
+                        borderRadius: 6,
+                        maxBarThickness: 36,
+                        yAxisID: 'yQuarter',
+                        order: 1,
+                    },
                     {
                         label: 'Cumulative balance',
                         data: dataset.values,
@@ -2410,6 +2464,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         tension: 0.35,
                         pointRadius: 3,
                         pointHoverRadius: 4,
+                        yAxisID: 'y',
+                        order: 2,
                     }
                 ];
 
@@ -2439,10 +2495,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                             callbacks: {
                                 label: (context) => {
                                     const value = context.parsed.y || 0;
-                                    const label = context.dataset?.label || 'Balance';
-                                    return useComparison
-                                        ? `${label}: ${formatMillions(value)}`
-                                        : `Balance: ${formatMillions(value)}`;
+                                    const datasetLabel = context.dataset?.label || 'Balance';
+                                    const isQuarterDataset = context.dataset?.yAxisID === 'yQuarter';
+                                    if (useComparison) {
+                                        return `${datasetLabel}: ${formatMillions(value)}`;
+                                    }
+                                    if (isQuarterDataset) {
+                                        return `${datasetLabel}: ${usdCodeFormatter.format(value)}`;
+                                    }
+                                    return `${datasetLabel}: ${formatMillions(value)}`;
                                 }
                             }
                         }
@@ -2473,6 +2534,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                             },
                             grid: {
                                 color: gridColor
+                            }
+                        },
+                        yQuarter: {
+                            position: 'right',
+                            beginAtZero: true,
+                            ticks: {
+                                color: axisColor,
+                                font: tickFont,
+                                padding: 6,
+                                stepSize: 100_000,
+                                callback: (value) => {
+                                    if (!Number.isFinite(value)) {
+                                        return '$0k';
+                                    }
+                                    const thousands = Math.round(value / 1_000);
+                                    return `$${thousands}k`;
+                                }
+                            },
+                            grid: {
+                                color: gridColor,
+                                drawOnChartArea: false
                             }
                         }
                     }
@@ -2518,7 +2600,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : buildWalletMetrics(lifetimeActivities);
 
         const yearlyAggregation = new Map();
-        const monthlyTotalsByYear = new Map();
+        const quarterlyTotalsByYear = new Map();
         const createYearEntry = () => ({
             coins: 0,
             medals: 0,
@@ -2554,9 +2636,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const monthIndex = metric.date.getMonth();
             if (Number.isInteger(monthIndex) && monthIndex >= 0 && monthIndex < 12) {
-                const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
-                totals[monthIndex] += metric.coinValue + metric.medalValue;
-                monthlyTotalsByYear.set(year, totals);
+                const quarterIndex = Math.floor(monthIndex / 3);
+                const totals = quarterlyTotalsByYear.get(year) || Array(4).fill(0);
+                totals[quarterIndex] += metric.coinValue + metric.medalValue;
+                quarterlyTotalsByYear.set(year, totals);
             }
         });
 
@@ -2660,7 +2743,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const compareDatasets = [];
         sortedYears.forEach((year, index) => {
-            const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
+            const totals = quarterlyTotalsByYear.get(year) || Array(4).fill(0);
             let runningTotal = 0;
             const cumulative = totals.map(value => {
                 const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -2681,7 +2764,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        const monthlyAggregation = new Map();
+        const quarterlyAggregation = new Map();
         metricsForFiltered.forEach(metric => {
             const year = metric.date.getFullYear();
             const month = metric.date.getMonth() + 1;
@@ -2689,55 +2772,56 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            const key = `${year}-${String(month).padStart(2, '0')}`;
-            monthlyAggregation.set(key, (monthlyAggregation.get(key) || 0) + metric.coinValue + metric.medalValue);
+            const quarterIndex = Math.floor((month - 1) / 3) + 1;
+            const key = `${year}-Q${quarterIndex}`;
+            quarterlyAggregation.set(key, (quarterlyAggregation.get(key) || 0) + metric.coinValue + metric.medalValue);
         });
 
-        const sortedMonths = Array.from(monthlyAggregation.keys()).sort();
+        const sortedQuarters = Array.from(quarterlyAggregation.keys()).sort();
         let runningTotal = 0;
-        const balanceValues = sortedMonths.map(key => {
-            runningTotal += monthlyAggregation.get(key) || 0;
+        const balanceValues = sortedQuarters.map(key => {
+            runningTotal += quarterlyAggregation.get(key) || 0;
             return runningTotal;
         });
-        const monthlySeries = sortedMonths.map((key, index) => {
-            const [yearStr, monthStr] = key.split('-');
-            const date = new Date(Number(yearStr), Number(monthStr) - 1, 1);
+        const quarterlySeries = sortedQuarters.map((key, index) => {
+            const [yearStr, quarterStr] = key.split('-Q');
+            const quarterIndex = Number(quarterStr) - 1;
+            const date = new Date(Number(yearStr), Math.max(quarterIndex, 0) * 3, 1);
             return { date, value: balanceValues[index] };
         }).filter(entry => Number.isFinite(entry.value));
-        const latestEntry = monthlySeries.length > 0 ? monthlySeries[monthlySeries.length - 1] : null;
-        const previousEntry = monthlySeries.length > 1 ? monthlySeries[monthlySeries.length - 2] : null;
+        const latestEntry = quarterlySeries.length > 0 ? quarterlySeries[quarterlySeries.length - 1] : null;
+        const previousEntry = quarterlySeries.length > 1 ? quarterlySeries[quarterlySeries.length - 2] : null;
         let yearAgoEntry = null;
         if (latestEntry?.date instanceof Date && !Number.isNaN(latestEntry.date.getTime())) {
             const yearAgoThreshold = new Date(latestEntry.date);
             yearAgoThreshold.setFullYear(yearAgoThreshold.getFullYear() - 1);
-            for (let index = monthlySeries.length - 1; index >= 0; index -= 1) {
-                const candidate = monthlySeries[index];
+            for (let index = quarterlySeries.length - 1; index >= 0; index -= 1) {
+                const candidate = quarterlySeries[index];
                 if (candidate.date <= yearAgoThreshold) {
                     yearAgoEntry = candidate;
                     break;
                 }
             }
         }
-        const monthPercentChange = calculatePercentChange(latestEntry?.value, previousEntry?.value);
+        const quarterPercentChange = calculatePercentChange(latestEntry?.value, previousEntry?.value);
         const yearPercentChange = calculatePercentChange(latestEntry?.value, yearAgoEntry?.value);
         walletGrowthStats = {
             currentTotal: Number.isFinite(latestEntry?.value) ? latestEntry.value : 0,
-            monthChangePct: monthPercentChange,
+            quarterChangePct: quarterPercentChange,
             yearChangePct: yearPercentChange
         };
-        const monthLabels = sortedMonths.map(key => {
-            const [yearStr, monthStr] = key.split('-');
-            const date = new Date(Number(yearStr), Number(monthStr) - 1, 1);
-            if (Number.isNaN(date.getTime())) {
+        const quarterLabels = sortedQuarters.map(key => {
+            const [yearStr, quarterStr] = key.split('-Q');
+            if (!yearStr || !quarterStr) {
                 return key;
             }
-            return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+            return `Q${quarterStr} ${yearStr}`;
         });
-        const normalizedBalance = normalizeSeriesLength(monthLabels, balanceValues, 15);
         walletChartData.balance = {
-            labels: normalizedBalance.labels,
-            values: normalizedBalance.values,
-            compareLabels: MONTH_COMPARISON_LABELS,
+            labels: quarterLabels,
+            values: balanceValues,
+            perPeriodValues: sortedQuarters.map(key => quarterlyAggregation.get(key) || 0),
+            compareLabels: QUARTER_LABELS,
             compareDatasets,
         };
 
@@ -4441,7 +4525,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        applyPercentChangeToElement(walletBalanceChangeElements.month, walletGrowthStats?.monthChangePct ?? null, '30d');
+        applyPercentChangeToElement(walletBalanceChangeElements.month, walletGrowthStats?.quarterChangePct ?? null, 'Quarter');
         applyPercentChangeToElement(walletBalanceChangeElements.year, walletGrowthStats?.yearChangePct ?? null, '365d');
 
         return totals;
@@ -7338,8 +7422,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             COIN_EMOJIS.forEach(emoji => {
                 const headerCell = document.createElement('th');
-                headerCell.className = 'px-2 py-1 text-center text-sm';
-                headerCell.textContent = emoji;
+                headerCell.scope = 'col';
+                headerCell.className = 'px-2 py-1 text-center';
+                headerCell.innerHTML = `<span class="text-2xl leading-none">${emoji}</span>`;
                 headerRow.appendChild(headerCell);
             });
 
@@ -7406,8 +7491,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ? descriptionCandidates.join(' • ')
                         : '—';
                     cellWrapper.innerHTML = `
-                        <span class="leading-none">${countValue}</span>
-                        <span class="text-[10px] sm:text-[11px] font-medium text-gray-500 dark:text-gray-300">${descriptionText}</span>
+                        <span class="text-lg leading-tight sm:text-xl">${countValue}</span>
+                        <span class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-300">${descriptionText}</span>
                     `;
 
                     cell.appendChild(cellWrapper);

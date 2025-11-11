@@ -291,7 +291,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const athleteAvatarElement = document.getElementById('athlete-avatar');
     const currentRankElement = document.getElementById('current-rank');
     const nextRankElement = document.getElementById('next-rank');
-    const rankingProgressElement = document.getElementById('ranking-progress');
     const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
@@ -366,7 +365,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityFilterSummary = document.getElementById('activity-filter-summary');
     const activityFilterActive = document.getElementById('activity-filter-active');
     const activityTypeFilter = document.getElementById('activity-type-filter');
-    const activityCountryFilter = document.getElementById('activity-country-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
     const activityDistanceMinInput = document.getElementById('activity-distance-min');
@@ -377,6 +375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityFilterForm = document.getElementById('activities-filter-form');
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
+    const filterCollapsibleElements = Array.from(document.querySelectorAll('[data-filter-collapsible]'));
     const loadMoreButton = document.getElementById('load-more-btn');
     const activityFetchWarning = document.getElementById('activities-fetch-warning');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
@@ -855,7 +854,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
     let activeMedalMeta = null;
     let medalFilteredActivities = [];
-    let walletGrowthStats = { currentTotal: 0, quarterChangePct: null, yearChangePct: null };
+    let walletGrowthStats = {
+        currentTotal: 0,
+        quarterChangePct: null,
+        yearChangePct: null,
+        quarterChangeValue: null,
+        yearChangeValue: null
+    };
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
@@ -866,10 +871,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let hasShownWeeklySnapshot = false;
     let hasHydratedFromClientCache = false;
 
-    const DEFAULT_COUNTRY_LABEL = 'Unknown location';
     const DEFAULT_ACTIVITY_FILTERS = {
         type: 'all',
-        country: 'all',
         minHours: null,
         maxHours: null,
         minDistance: null,
@@ -1399,37 +1402,77 @@ document.addEventListener('DOMContentLoaded', async () => {
         return ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
     };
 
-    const applyPercentChangeToElement = (element, percentValue, periodLabel) => {
+    const formatThousandChange = (value) => {
+        if (!Number.isFinite(value)) {
+            return null;
+        }
+
+        if (value === 0) {
+            return '$0k';
+        }
+
+        const thousands = Math.abs(value) / 1_000;
+        const decimals = thousands >= 100 ? 0 : 1;
+        const formatted = `$${thousands.toFixed(decimals)}k`;
+        return value > 0 ? `+${formatted}` : `-${formatted}`;
+    };
+
+    const formatPercentLabel = (percentValue) => {
+        if (!Number.isFinite(percentValue)) {
+            return null;
+        }
+
+        const absoluteValue = Math.abs(percentValue);
+        const decimals = absoluteValue >= 100 ? 0 : 1;
+        const prefix = percentValue > 0 ? '+' : percentValue < 0 ? '-' : '';
+        return `${prefix}${absoluteValue.toFixed(decimals)}%`;
+    };
+
+    const applyWalletChangeToElement = (element, valueChange, percentValue, { shortLabel, longLabel }) => {
         if (!element) {
             return;
         }
 
         element.classList.remove('profile-card__balance-change--negative', 'profile-card__balance-change--neutral');
 
-        if (!Number.isFinite(percentValue)) {
-            element.textContent = `— ${periodLabel}`;
+        const formattedValue = formatThousandChange(valueChange);
+        const formattedPercent = formatPercentLabel(percentValue);
+
+        if (!formattedValue && !formattedPercent) {
+            element.textContent = `${shortLabel} —`;
             element.classList.add('profile-card__balance-change--neutral');
-            element.setAttribute('aria-label', `${periodLabel} change unavailable`);
+            element.setAttribute('aria-label', `${longLabel} change unavailable`);
             return;
         }
 
-        const absoluteValue = Math.abs(percentValue);
-        const decimals = absoluteValue >= 100 ? 0 : 1;
-        const formatted = `${percentValue > 0 ? '+' : percentValue < 0 ? '-' : ''}${absoluteValue.toFixed(decimals)}% ${periodLabel}`;
-        element.textContent = formatted;
+        const valuePart = formattedValue ?? '—';
+        let displayText = `${shortLabel} ${valuePart}`;
 
-        if (percentValue < 0) {
-            element.classList.add('profile-card__balance-change--negative');
-        } else if (percentValue === 0) {
+        if (formattedPercent) {
+            displayText += ` (${formattedPercent})`;
+        }
+
+        element.textContent = displayText;
+
+        if (formattedValue) {
+            if (formattedValue.startsWith('-')) {
+                element.classList.add('profile-card__balance-change--negative');
+            } else if (formattedValue === '$0k') {
+                element.classList.add('profile-card__balance-change--neutral');
+            }
+        } else if (formattedPercent) {
+            if (percentValue < 0) {
+                element.classList.add('profile-card__balance-change--negative');
+            } else if (percentValue === 0) {
+                element.classList.add('profile-card__balance-change--neutral');
+            }
+        } else {
             element.classList.add('profile-card__balance-change--neutral');
         }
 
-        const direction = percentValue > 0
-            ? 'increase'
-            : percentValue < 0
-                ? 'decrease'
-                : 'no change';
-        element.setAttribute('aria-label', `${direction} of ${absoluteValue.toFixed(decimals)} percent over ${periodLabel}`);
+        const ariaValue = formattedValue ?? 'not available';
+        const ariaPercent = formattedPercent ? ` (${formattedPercent})` : '';
+        element.setAttribute('aria-label', `${longLabel} change ${ariaValue}${ariaPercent}`);
     };
 
     const formatHoursDisplay = (hours) => {
@@ -1461,23 +1504,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const spanHours = Number.isFinite(nextMinHours) && nextMinHours > currentMinHours
             ? nextMinHours - currentMinHours
             : null;
-        const earnedWithinLevel = Math.max(0, safeTotalHours - currentMinHours);
-        const progressRatio = spanHours
-            ? Math.min(1, Math.max(0, earnedWithinLevel / spanHours))
-            : 1;
-
-        if (rankingProgressElement) {
-            rankingProgressElement.style.width = `${(progressRatio * 100).toFixed(2)}%`;
-            rankingProgressElement.classList.remove('is-negative', 'is-neutral');
-            rankingProgressElement.setAttribute('aria-valuemin', currentMinHours.toFixed(1));
-            const maxValue = spanHours ? nextMinHours : safeTotalHours;
-            rankingProgressElement.setAttribute('aria-valuemax', Number.isFinite(maxValue) ? maxValue.toFixed(1) : safeTotalHours.toFixed(1));
-            rankingProgressElement.setAttribute('aria-valuenow', safeTotalHours.toFixed(1));
-        }
 
         if (rankingProgressLabelElement) {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
-            rankingProgressLabelElement.textContent = label;
+            const text = `Lifetime · ${label}`;
+            rankingProgressLabelElement.textContent = text;
             rankingProgressLabelElement.setAttribute('aria-label', `Lifetime training ${label}`);
         }
 
@@ -1485,9 +1516,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const monthValue = Number.isFinite(currentMonthHours) ? Math.max(0, currentMonthHours) : 0;
             const formattedMonthly = formatHoursDisplay(monthValue);
             const prefix = monthValue > 0 ? '+' : '';
-            const monthlyLabel = `${prefix}${formattedMonthly} h last month`;
+            const hasMonthlyHours = monthValue > 0;
+            const monthlyLabel = hasMonthlyHours
+                ? `${prefix}${formattedMonthly} h last month`
+                : 'No hours logged last month';
             rankingProgressMonthlyElement.textContent = monthlyLabel;
-            rankingProgressMonthlyElement.setAttribute('aria-label', `${formattedMonthly} hours recorded in the last month`);
+            rankingProgressMonthlyElement.setAttribute(
+                'aria-label',
+                hasMonthlyHours
+                    ? `${formattedMonthly} hours recorded in the last month`
+                    : 'No hours recorded in the last month'
+            );
+            rankingProgressMonthlyElement.classList.toggle('is-empty', !hasMonthlyHours);
         }
 
         if (nextRankElement) {
@@ -2849,10 +2889,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const quarterPercentChange = calculatePercentChange(latestEntry?.value, previousEntry?.value);
         const yearPercentChange = calculatePercentChange(latestEntry?.value, yearAgoEntry?.value);
+        const quarterChangeValue = Number.isFinite(latestEntry?.value) && Number.isFinite(previousEntry?.value)
+            ? latestEntry.value - previousEntry.value
+            : null;
+        const yearChangeValue = Number.isFinite(latestEntry?.value) && Number.isFinite(yearAgoEntry?.value)
+            ? latestEntry.value - yearAgoEntry.value
+            : null;
         walletGrowthStats = {
             currentTotal: Number.isFinite(latestEntry?.value) ? latestEntry.value : 0,
             quarterChangePct: quarterPercentChange,
-            yearChangePct: yearPercentChange
+            yearChangePct: yearPercentChange,
+            quarterChangeValue,
+            yearChangeValue
         };
         const quarterLabels = sortedQuarters.map(key => {
             const [yearStr, quarterStr] = key.split('-Q');
@@ -4569,8 +4617,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        applyPercentChangeToElement(walletBalanceChangeElements.month, walletGrowthStats?.quarterChangePct ?? null, 'Quarter');
-        applyPercentChangeToElement(walletBalanceChangeElements.year, walletGrowthStats?.yearChangePct ?? null, '365d');
+        applyWalletChangeToElement(
+            walletBalanceChangeElements.month,
+            walletGrowthStats?.quarterChangeValue ?? null,
+            walletGrowthStats?.quarterChangePct ?? null,
+            { shortLabel: '3M', longLabel: 'Three-month' }
+        );
+        applyWalletChangeToElement(
+            walletBalanceChangeElements.year,
+            walletGrowthStats?.yearChangeValue ?? null,
+            walletGrowthStats?.yearChangePct ?? null,
+            { shortLabel: '1Y', longLabel: 'One-year' }
+        );
 
         return totals;
     };
@@ -4769,30 +4827,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const extractActivityCountry = (activity = {}) => {
-        if (!activity || typeof activity !== 'object') {
-            return DEFAULT_COUNTRY_LABEL;
-        }
-
-        const rawCountry = (activity.location_country || activity.country || '').trim();
-        if (rawCountry) {
-            return rawCountry;
-        }
-
-        return DEFAULT_COUNTRY_LABEL;
-    };
-
     const getActivityFilterValues = () => {
         const filters = { ...DEFAULT_ACTIVITY_FILTERS };
 
         if (activityTypeFilter) {
             const typeValue = (activityTypeFilter.value || '').trim();
             filters.type = typeValue.length > 0 ? typeValue : 'all';
-        }
-
-        if (activityCountryFilter) {
-            const countryValue = (activityCountryFilter.value || '').trim();
-            filters.country = countryValue.length > 0 ? countryValue : 'all';
         }
 
         filters.minHours = parseNumberInputValue(activityHoursMinInput);
@@ -4818,17 +4858,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const updateActivityFilterOptions = (activities = []) => {
         const availableTypes = new Set();
-        const availableCountries = new Set();
 
         activities.forEach((activity) => {
             const typeValue = typeof activity?.type === 'string' ? activity.type.trim() : '';
             if (typeValue) {
                 availableTypes.add(typeValue);
-            }
-
-            const countryValue = extractActivityCountry(activity);
-            if (countryValue) {
-                availableCountries.add(countryValue);
             }
         });
 
@@ -4865,36 +4899,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        if (activityCountryFilter) {
-            const currentCountryValue = (activityCountryFilter.value || '').trim() || 'all';
-            if (currentCountryValue !== 'all' && !availableCountries.has(currentCountryValue)) {
-                availableCountries.add(currentCountryValue);
-            }
-
-            const sortedCountries = Array.from(availableCountries).sort((a, b) => a.localeCompare(b));
-
-            const countryFragment = document.createDocumentFragment();
-            const allCountriesOption = document.createElement('option');
-            allCountriesOption.value = 'all';
-            allCountriesOption.textContent = 'All nations';
-            countryFragment.appendChild(allCountriesOption);
-
-            sortedCountries.forEach((country) => {
-                const option = document.createElement('option');
-                option.value = country;
-                option.textContent = country;
-                countryFragment.appendChild(option);
-            });
-
-            activityCountryFilter.innerHTML = '';
-            activityCountryFilter.appendChild(countryFragment);
-
-            if (currentCountryValue === 'all' || sortedCountries.includes(currentCountryValue)) {
-                activityCountryFilter.value = currentCountryValue;
-            } else {
-                activityCountryFilter.value = 'all';
-            }
-        }
     };
 
     const formatRangeDescription = (minValue = null, maxValue = null, label = '', decimals = 0, unitSuffix = '') => {
@@ -4920,10 +4924,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (filters.type && filters.type !== 'all') {
             descriptions.push(`Type: ${formatActivityTypeLabel(filters.type)}`);
-        }
-
-        if (filters.country && filters.country !== 'all') {
-            descriptions.push(`Nation: ${filters.country}`);
         }
 
         const hoursDescription = formatRangeDescription(filters.minHours, filters.maxHours, 'Hours', 1, 'h');
@@ -5167,9 +5167,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activityTypeFilter) {
             activityTypeFilter.value = 'all';
         }
-        if (activityCountryFilter) {
-            activityCountryFilter.value = 'all';
-        }
         [
             activityHoursMinInput,
             activityHoursMaxInput,
@@ -5228,13 +5225,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const normalizedType = typeof activity.type === 'string' ? activity.type.toLowerCase() : '';
         if (filters.type && filters.type !== 'all') {
             if (normalizedType !== filters.type.toLowerCase()) {
-                return false;
-            }
-        }
-
-        if (filters.country && filters.country !== 'all') {
-            const activityCountry = extractActivityCountry(activity);
-            if (activityCountry !== filters.country) {
                 return false;
             }
         }
@@ -7863,6 +7853,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, FILTER_APPLY_DELAY_MS);
     };
 
+    filterCollapsibleElements.forEach((collapsible, index) => {
+        if (!collapsible) {
+            return;
+        }
+
+        const trigger = collapsible.querySelector('[data-filter-toggle]');
+        const content = collapsible.querySelector('[data-filter-content]');
+
+        if (!trigger || !content) {
+            return;
+        }
+
+        if (!content.id) {
+            content.id = `filter-content-${index + 1}`;
+        }
+
+        trigger.setAttribute('aria-controls', content.id);
+
+        const setExpanded = (expanded) => {
+            collapsible.classList.toggle('is-open', expanded);
+            trigger.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            content.hidden = !expanded;
+        };
+
+        setExpanded(false);
+
+        trigger.addEventListener('click', () => {
+            const expanded = collapsible.classList.contains('is-open');
+            setExpanded(!expanded);
+        });
+
+        trigger.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setExpanded(false);
+                trigger.focus();
+            }
+        });
+    });
+
     if (yearSelect) {
         yearSelect.addEventListener('change', () => {
             scheduleFilterApply({ preserveVisibleCount: false });
@@ -7871,12 +7900,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (activityTypeFilter) {
         activityTypeFilter.addEventListener('change', () => {
-            scheduleFilterApply({ preserveVisibleCount: false });
-        });
-    }
-
-    if (activityCountryFilter) {
-        activityCountryFilter.addEventListener('change', () => {
             scheduleFilterApply({ preserveVisibleCount: false });
         });
     }

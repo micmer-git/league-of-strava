@@ -1002,19 +1002,6 @@ button,
     gap: 1.1rem;
   }
 
-  .profile-card__header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .profile-card__class {
-    align-items: flex-start;
-  }
-
-  .profile-card__metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .lifetime-stats {
     grid-template-columns: minmax(0, 1fr);
   }

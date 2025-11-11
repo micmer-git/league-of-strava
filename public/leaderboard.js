@@ -1,8 +1,29 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const statusEl = document.getElementById('leaderboard-status');
   const tableBody = document.getElementById('leaderboard-body');
   const cardsContainer = document.getElementById('leaderboard-cards');
+  const tableElement = document.querySelector('.leaderboard-table');
+  const tableColumnCount = tableElement ? tableElement.querySelectorAll('thead th').length : 1;
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const renderMessageRow = (message) => {
+    if (!tableBody) {
+      return;
+    }
+
+    tableBody.innerHTML = '';
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = tableColumnCount;
+    cell.className = 'leaderboard-empty';
+    cell.textContent = message;
+    row.appendChild(cell);
+    tableBody.appendChild(row);
+  };
+
+  if (!tableBody) {
+    console.warn('Leaderboard table body element is missing.');
+    return;
+  }
 
   const isValidLeaderboardPayload = (data) => {
     if (!data || typeof data !== 'object') {
@@ -76,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   async function loadLeaderboard() {
+    renderMessageRow('Loading leaderboard…');
     try {
       const data = await fetchAndValidateJson(
         () => fetch('/api/leaderboard', { cache: 'no-store' }),
@@ -84,12 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const entries = Array.isArray(data.leaderboard) ? data.leaderboard : [];
 
       if (entries.length === 0) {
-        statusEl.textContent = 'No leaderboard entries yet. Submit user data to get started!';
+        renderMessageRow('No leaderboard entries yet. Submit user data to get started!');
         renderLeaderboardCards([]);
         return;
       }
 
-      statusEl.textContent = '';
       tableBody.innerHTML = '';
       const cardViewModels = [];
 
@@ -104,6 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const levelValue = Number(entry.level ?? 0);
         const levelLabel = Number.isFinite(levelValue) ? levelValue.toLocaleString() : '0';
         const levelEmoji = escapeHtml(entry.emoji || getRankEmoji(index + 1));
+        const safeLevelLabel = escapeHtml(levelLabel);
+        const levelCellMarkup = `<span class="sr-only">Level </span>${safeLevelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}`;
         const walletBalance = formatWalletBalance(entry.walletBalance ?? entry.totalHaulValue ?? 0);
         const worldTrips = formatDecimal(entry.worldTrips ?? entry['🌍']);
         const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);
@@ -114,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.innerHTML = `
           <td class="rank-cell">${index + 1}</td>
           <td class="name-cell">${nameCellContent}</td>
-          <td class="level-cell">Level ${levelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}</td>
+          <td class="level-cell">${levelCellMarkup}</td>
           <td class="wallet-cell">${walletBalance}</td>
           <td class="stat-cell stat-cell--wallet">${formatStatPill(worldTrips)}</td>
           <td class="stat-cell stat-cell--wallet">${formatStatPill(everestSummits)}</td>
@@ -147,9 +170,10 @@ document.addEventListener('DOMContentLoaded', () => {
       renderLeaderboardCards(cardViewModels);
     } catch (error) {
       console.error('Failed to load leaderboard', error);
-      statusEl.textContent = error?.message
+      const message = error?.message
         ? `Failed to load the leaderboard: ${error.message}.`
         : 'Failed to load the leaderboard. Please try again later.';
+      renderMessageRow(message);
       renderLeaderboardCards([]);
     }
   }

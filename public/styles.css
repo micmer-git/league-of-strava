@@ -450,19 +450,6 @@ img {
   gap: clamp(1.25rem, 3vw, 2.25rem);
 }
 
-.leaderboard-intro {
-  text-align: center;
-  display: grid;
-  gap: 0.5rem;
-}
-
-.leaderboard-intro h1 {
-  margin: 0;
-  font-size: clamp(1.85rem, 4vw, 2.5rem);
-  color: var(--color-text-strong);
-  font-weight: 700;
-}
-
 .leaderboard-container {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -473,11 +460,16 @@ img {
   max-width: 100%;
 }
 
-.leaderboard-status {
-  text-align: center;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: var(--color-text-soft);
+.leaderboard-header {
+  text-align: left;
+  margin-bottom: 0;
+}
+
+.leaderboard-header h1 {
+  margin: 0;
+  font-size: clamp(1.85rem, 4vw, 2.5rem);
+  color: var(--color-text-strong);
+  font-weight: 700;
 }
 
 .leaderboard-table {
@@ -516,6 +508,17 @@ img {
 .rank-cell {
   font-weight: 700;
   color: var(--color-accent-strong);
+}
+
+.leaderboard-empty {
+  text-align: center;
+  padding: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-soft);
+}
+
+.dark .leaderboard-empty {
+  color: rgba(226, 232, 240, 0.85);
 }
 
 .name-cell {
@@ -864,19 +867,6 @@ img {
   gap: clamp(1.25rem, 4vw, 2.5rem);
 }
 
-.leaderboard-intro {
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-elevated);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  padding: clamp(1.25rem, 3vw, 2rem);
-}
-
-.dark .leaderboard-intro {
-  background: rgba(15, 23, 42, 0.78);
-  border-color: rgba(148, 163, 184, 0.25);
-}
-
 .leaderboard-container {
   background: rgba(255, 255, 255, 0.9);
   border-radius: var(--radius-lg);
@@ -884,7 +874,7 @@ img {
   box-shadow: var(--shadow-elevated);
   padding: clamp(1rem, 3vw, 1.75rem);
   display: grid;
-  gap: 1.15rem;
+  gap: clamp(0.75rem, 2vw, 1rem);
 }
 
 .dark .leaderboard-container {
@@ -892,13 +882,19 @@ img {
   border-color: rgba(148, 163, 184, 0.25);
 }
 
-.leaderboard-status {
-  font-weight: 600;
-  color: #2563eb;
+.leaderboard-header {
+  text-align: left;
 }
 
-.dark .leaderboard-status {
-  color: #bfdbfe;
+.leaderboard-header h1 {
+  margin: 0;
+  font-size: clamp(1.85rem, 4vw, 2.5rem);
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.dark .leaderboard-header h1 {
+  color: var(--color-inverse);
 }
 
 .leaderboard-table-wrapper {
@@ -1047,10 +1043,6 @@ img {
   .leaderboard-main {
     width: min(100%, 100% - clamp(1rem, 5vw, 2.5rem));
     padding: clamp(1.25rem, 5vw, 2.25rem) 0 clamp(1.5rem, 5vw, 2.75rem);
-  }
-
-  .leaderboard-intro {
-    padding: clamp(0.9rem, 5vw, 1.5rem);
   }
 
   .leaderboard-table-wrapper {

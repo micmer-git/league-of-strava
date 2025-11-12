@@ -55,6 +55,7 @@
     --surface-success-border: rgba(34, 197, 94, 0.45);
     --shadow-accent: 0 12px 28px rgba(59, 130, 246, 0.15);
     --shadow-success: 0 6px 12px rgba(16, 185, 129, 0.32);
+    --dashboard-content-max-width: 1120px;
 
     --app-viewport-height: 100vh;
     --app-safe-area-top: env(safe-area-inset-top, 0px);
@@ -917,8 +918,11 @@ button,
     flex-direction: column;
     gap: 1.75rem;
     flex: 1 1 auto;
-    width: 100%;
+    width: min(100%, var(--dashboard-content-max-width));
+    max-width: 100%;
+    margin-inline: auto;
     min-height: 0;
+    box-sizing: border-box;
 }
 
 .dashboard-tabs {
@@ -982,6 +986,9 @@ button,
     flex-direction: column;
     flex: 1 1 auto;
     width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+    box-sizing: border-box;
 }
 
 .dashboard-panel {
@@ -3136,13 +3143,13 @@ body.dashboard-body {
 .dashboard-shell {
     position: relative;
     flex: 1;
-    width: 100%;
+    width: min(100%, var(--dashboard-content-max-width));
+    max-width: 100%;
     margin: 0 auto;
     padding: calc(var(--app-safe-area-top) + clamp(1.75rem, 4vw, 3.5rem)) clamp(max(var(--app-safe-area-left), 0.75rem), 5vw, 1.75rem) calc(var(--app-safe-area-bottom) + clamp(2.25rem, 6vw, 4.25rem));
     display: grid;
     grid-template-rows: auto auto 1fr;
     gap: clamp(1.75rem, 4vw, 3rem);
-    max-width: 100%;
     box-sizing: border-box;
     min-height: calc(var(--app-viewport-height) - var(--app-safe-area-top) - var(--app-safe-area-bottom));
 }
@@ -3183,6 +3190,10 @@ body.dashboard-body {
 
 .dashboard-onepage {
     gap: clamp(1.75rem, 4vw, 2.6rem);
+    width: min(100%, var(--dashboard-content-max-width));
+    max-width: 100%;
+    margin-inline: auto;
+    box-sizing: border-box;
 }
 
 .dashboard-tabs {
@@ -3461,8 +3472,8 @@ body.dashboard-body {
 }
 
 .dashboard-shell {
-    width: 100%;
-    margin: 0;
+    width: min(100%, var(--dashboard-content-max-width));
+    margin: 0 auto;
     padding: var(--spacing-lg) var(--spacing-md);
     box-sizing: border-box;
 }
@@ -3471,6 +3482,10 @@ body.dashboard-body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
+    width: min(100%, var(--dashboard-content-max-width));
+    max-width: 100%;
+    margin-inline: auto;
+    box-sizing: border-box;
 }
 
 .dashboard-tabs {
@@ -3518,6 +3533,10 @@ body.dashboard-body {
 .dashboard-panels {
     position: relative;
     margin-top: 0;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+    box-sizing: border-box;
 }
 
 .dashboard-panel {

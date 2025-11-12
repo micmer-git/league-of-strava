@@ -237,7 +237,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === DOM Elements ===
     const bodyElement = document.body;
-    const loadingSpinner = document.getElementById('loading-spinner');
+    const shellElement = document.querySelector('[data-dashboard-shell]');
+    const isShellLoading = () => Boolean(shellElement?.classList.contains('is-loading'));
+    const setShellLoadingState = (isLoading) => {
+        if (!shellElement) {
+            return;
+        }
+        shellElement.classList.toggle('is-loading', Boolean(isLoading));
+    };
     const closeSpinnerButton = document.getElementById('close-spinner');
     const loadingProgressBar = document.getElementById('loading-progress-bar');
     const loadingProgressBarFill = document.getElementById('loading-progress-bar-fill');
@@ -325,6 +332,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? Array.from(shareModalElement.querySelectorAll('[data-share-modal-dismiss]'))
         : [];
     let shareModalReturnFocusTo = null;
+    let activitiesFilterReturnFocusTo = null;
+    let pendingActivitiesOptions = null;
+    let pendingWalletRender = false;
     const profileRefreshButton = document.getElementById('profile-refresh');
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
@@ -373,6 +383,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityElevationMaxInput = document.getElementById('activity-elevation-max');
     const rankProgressTriggerElement = document.getElementById('rank-progress-trigger');
     const activityFilterForm = document.getElementById('activities-filter-form');
+    const activitiesFilterModal = document.getElementById('activities-filter-modal');
+    const activitiesFilterOpenButton = document.getElementById('activities-filter-open');
+    const activitiesFilterDismissButtons = Array.from(document.querySelectorAll('[data-activities-filter-dismiss]'));
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
     const filterCollapsibleElements = Array.from(document.querySelectorAll('[data-filter-collapsible]'));
@@ -550,6 +563,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         dashboardPanels.forEach((panel, name) => {
             panel.classList.toggle('is-active', name === panelName);
         });
+
+        if (panelName === 'activities' && pendingActivitiesOptions) {
+            const options = pendingActivitiesOptions;
+            pendingActivitiesOptions = null;
+            applyFilters(options);
+        }
+
+        if (panelName === 'wallet' && pendingWalletRender) {
+            renderWalletChart(activeChartKey);
+            pendingWalletRender = false;
+        }
 
         notifyPanelChange(panelName);
     }
@@ -885,7 +909,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let tooltipHideTimeout = null;
     let activeInsight = null;
-    let spinnerHideTimeout = null;
     let hasInitializedLoadingProgress = false;
     let isInitialLoadComplete = false;
     let hasCompletedInitialRender = false;
@@ -2921,7 +2944,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? activeChartKey
             : (hasWalletChartData('balance') ? 'balance' : (hasWalletChartData('coins') ? 'coins' : null));
         activeChartKey = nextChartKey || activeChartKey;
-        renderWalletChart(activeChartKey);
+        requestWalletRender();
 
         updateRankProgressBar();
     };
@@ -3293,7 +3316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!weeklySnapshotModalQueued || hasShownWeeklySnapshot || !weeklySnapshotModal || !weeklySnapshotData) {
             return;
         }
-        if (loadingSpinner && !loadingSpinner.classList.contains('hidden') && !loadingSpinner.classList.contains('opacity-0')) {
+        if (isShellLoading()) {
             return;
         }
 
@@ -3320,7 +3343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         weeklySnapshotModalQueued = true;
-        if (weeklySnapshotData && (!loadingSpinner || loadingSpinner.classList.contains('hidden') || loadingSpinner.classList.contains('opacity-0'))) {
+        if (weeklySnapshotData && !isShellLoading()) {
             showWeeklySnapshotModal();
         }
     };
@@ -3457,7 +3480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        if (weeklySnapshotModalQueued && (!loadingSpinner || loadingSpinner.classList.contains('hidden') || loadingSpinner.classList.contains('opacity-0'))) {
+        if (weeklySnapshotModalQueued && !isShellLoading()) {
             showWeeklySnapshotModal();
         }
 
@@ -3466,58 +3489,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Function to fade out the spinner
     const fadeOutSpinner = () => {
-        if (loadingSpinner) {
-            loadingSpinner.classList.remove('opacity-100');
-            loadingSpinner.classList.add('opacity-0');
-            loadingSpinner.classList.add('pointer-events-none');
-            loadingSpinner.setAttribute('aria-hidden', 'true');
-
-            const finalizeHide = () => {
-                if (!loadingSpinner.classList.contains('opacity-0')) {
-                    loadingSpinner.removeEventListener('transitionend', finalizeHide);
-                    return;
-                }
-                if (spinnerHideTimeout) {
-                    clearTimeout(spinnerHideTimeout);
-                    spinnerHideTimeout = null;
-                }
-                loadingSpinner.classList.add('hidden');
-                loadingSpinner.classList.add('pointer-events-none');
-                loadingSpinner.classList.remove('opacity-100');
-                loadingSpinner.setAttribute('aria-hidden', 'true');
-                loadingSpinner.removeEventListener('transitionend', finalizeHide);
-                if (weeklySnapshotModalQueued) {
-                    showWeeklySnapshotModal();
-                }
-            };
-
-            loadingSpinner.addEventListener('transitionend', finalizeHide, { once: true });
-
-            // Fallback in case the transition event does not fire
-            if (spinnerHideTimeout) {
-                clearTimeout(spinnerHideTimeout);
-            }
-            spinnerHideTimeout = setTimeout(finalizeHide, 600);
+        setShellLoadingState(false);
+        if (weeklySnapshotModalQueued && !isShellLoading()) {
+            showWeeklySnapshotModal();
         }
     };
 
     // Function to show the spinner with fade-in effect
     const showSpinner = () => {
-        if (loadingSpinner) {
-            if (spinnerHideTimeout) {
-                clearTimeout(spinnerHideTimeout);
-                spinnerHideTimeout = null;
-            }
-            loadingSpinner.classList.remove('hidden');
-            loadingSpinner.classList.remove('pointer-events-none');
-            loadingSpinner.classList.remove('opacity-0');
-            // Trigger reflow to ensure the transition works
-            void loadingSpinner.offsetWidth;
-            loadingSpinner.classList.add('opacity-100');
-            loadingSpinner.setAttribute('aria-hidden', 'false');
-            if (!hasInitializedLoadingProgress) {
-                initializeLoadingProgress();
-            }
+        setShellLoadingState(true);
+        if (!hasInitializedLoadingProgress) {
+            initializeLoadingProgress();
         }
     };
 
@@ -3641,7 +3623,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             ingestResponseData(cachedPayload, { isLoadMore: false });
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
             updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
             updateInitialLoadingState('snapshot', 'complete', 'Loaded cached dashboard snapshot');
             updateInitialLoadingState('fetch', 'complete', 'Restored cached dashboard data');
@@ -5006,6 +4988,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         activityFilterSummary.innerHTML = summaryLines
             .map(line => `<span class="panel-card__summary-line">${escapeHtml(line)}</span>`)
             .join('');
+    };
+
+    const requestActivitiesRender = (options = {}) => {
+        pendingActivitiesOptions = options;
+        if (activePanelName === 'activities') {
+            applyFilters(options);
+            pendingActivitiesOptions = null;
+        }
+    };
+
+    const requestWalletRender = () => {
+        pendingWalletRender = true;
+        if (activePanelName === 'wallet') {
+            renderWalletChart(activeChartKey);
+            pendingWalletRender = false;
+        }
+    };
+
+    const openActivitiesFilterModal = () => {
+        if (!activitiesFilterModal) {
+            return;
+        }
+
+        activitiesFilterReturnFocusTo = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        activitiesFilterModal.hidden = false;
+        activitiesFilterModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('is-filter-modal-open');
+        const sheet = activitiesFilterModal.querySelector('.filter-modal__sheet');
+        if (sheet instanceof HTMLElement) {
+            sheet.focus({ preventScroll: true });
+        }
+    };
+
+    const closeActivitiesFilterModal = () => {
+        if (!activitiesFilterModal) {
+            return;
+        }
+
+        activitiesFilterModal.setAttribute('aria-hidden', 'true');
+        window.setTimeout(() => {
+            activitiesFilterModal.hidden = true;
+            if (activitiesFilterReturnFocusTo instanceof HTMLElement) {
+                activitiesFilterReturnFocusTo.focus({ preventScroll: true });
+            }
+            activitiesFilterReturnFocusTo = null;
+        }, 180);
+        document.body.classList.remove('is-filter-modal-open');
     };
 
     const setShareFeedback = (message = '') => {
@@ -6714,7 +6745,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             ingestResponseData(storedData, { isLoadMore: false });
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
             console.log('Loaded stored snapshot from Google Sheets.');
             if (errorMessage) {
                 errorMessage.classList.add('hidden');
@@ -6762,7 +6793,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ingestResponseData(data, { isLoadMore: false });
             hasMoreActivities = false;
             nextActivitiesPageStart = null;
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
             updateInitialLoadingState('fetch', 'complete', 'Shared snapshot synced');
             updateInitialLoadingState('finalize', 'active', 'Polishing the shared experience');
 
@@ -6826,7 +6857,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
 
             ingestResponseData(data, { isLoadMore });
-            applyFilters({ preserveVisibleCount: isLoadMore });
+            requestActivitiesRender({ preserveVisibleCount: isLoadMore });
             updateInitialLoadingState('fetch', 'complete', 'Live Strava data synced');
             updateInitialLoadingState('finalize', 'active', 'Curating achievements and leaderboards');
             if (errorMessage) {
@@ -7441,6 +7472,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (achievementWallet) {
             achievementWallet.innerHTML = '';
 
+            const tableContainer = document.createElement('div');
+            tableContainer.className = 'wallet-table__table';
             const table = document.createElement('table');
             table.className = 'w-full text-xs sm:text-sm border-separate border-spacing-x-2 border-spacing-y-1';
 
@@ -7466,6 +7499,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             table.appendChild(thead);
 
             const tbody = document.createElement('tbody');
+            const cardsContainer = document.createElement('div');
+            cardsContainer.className = 'wallet-cards';
             const walletRows = [
                 { key: 'Distance Run', label: 'Run', icon: '🏃' },
                 { key: 'Distance Ride', label: 'Ride', icon: '🚴' },
@@ -7512,6 +7547,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 labelCell.appendChild(labelWrapper);
                 row.appendChild(labelCell);
 
+                const card = document.createElement('article');
+                card.className = 'achievement-card';
+                const cardTitle = document.createElement('p');
+                cardTitle.className = 'achievement-card__title';
+                cardTitle.textContent = `${rowConfig.icon} ${rowConfig.label}`;
+                card.appendChild(cardTitle);
+                const coinsWrapper = document.createElement('div');
+                coinsWrapper.className = 'achievement-card__coins';
+
                 COIN_EMOJIS.forEach(emoji => {
                     const cell = document.createElement('td');
                     cell.className = 'px-1.5 py-1.5 text-center align-middle';
@@ -7531,13 +7575,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     cell.appendChild(cellWrapper);
                     row.appendChild(cell);
+
+                    const cardCoin = document.createElement('div');
+                    cardCoin.className = 'achievement-card__coin';
+                    const coinValue = document.createElement('span');
+                    coinValue.className = 'achievement-card__coin-value';
+                    coinValue.textContent = countValue;
+                    const coinLabel = document.createElement('span');
+                    coinLabel.className = 'achievement-card__coin-label';
+                    coinLabel.textContent = descriptionText !== '—' ? `${emoji} ${descriptionText}` : emoji;
+                    cardCoin.appendChild(coinValue);
+                    cardCoin.appendChild(coinLabel);
+                    coinsWrapper.appendChild(cardCoin);
                 });
 
+                card.appendChild(coinsWrapper);
+                cardsContainer.appendChild(card);
                 tbody.appendChild(row);
             });
 
             table.appendChild(tbody);
-            achievementWallet.appendChild(table);
+            tableContainer.appendChild(table);
+            achievementWallet.appendChild(tableContainer);
+            achievementWallet.appendChild(cardsContainer);
         } else {
             console.warn("'achievement-wallet' element not found in the DOM.");
         }
@@ -7848,7 +7908,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearTimeout(filterApplyTimeout);
         }
         filterApplyTimeout = setTimeout(() => {
-            applyFilters({ preserveVisibleCount });
+            requestActivitiesRender({ preserveVisibleCount });
             filterApplyTimeout = null;
         }, FILTER_APPLY_DELAY_MS);
     };
@@ -7922,6 +7982,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+    if (activitiesFilterOpenButton) {
+        activitiesFilterOpenButton.addEventListener('click', () => {
+            openActivitiesFilterModal();
+        });
+    }
+
+    activitiesFilterDismissButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            closeActivitiesFilterModal();
+        });
+    });
+
+    if (activitiesFilterModal) {
+        activitiesFilterModal.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeActivitiesFilterModal();
+            }
+        });
+    }
+
     if (resetActivityFiltersButton) {
         resetActivityFiltersButton.addEventListener('click', () => {
             if (filterApplyTimeout) {
@@ -7930,7 +8011,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             resetActivityFilterInputs();
             resetMedalFilterState();
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
+            closeActivitiesFilterModal();
         });
     }
 
@@ -7941,7 +8023,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 clearTimeout(filterApplyTimeout);
                 filterApplyTimeout = null;
             }
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
+            closeActivitiesFilterModal();
         });
     }
 
@@ -7959,7 +8042,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     btn.setAttribute('aria-pressed', 'false');
                 });
                 resetActivityFilterInputs();
-                applyFilters({ preserveVisibleCount: false });
+                requestActivitiesRender({ preserveVisibleCount: false });
                 return;
             }
 

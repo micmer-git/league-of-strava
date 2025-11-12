@@ -1035,7 +1035,7 @@ to { opacity: 1; transform: translateY(0); }
 }
 
 .panel-card--soft {
-    gap: 1.25rem;
+    gap: 1rem;
 }
 
 .panel-card__header {
@@ -2555,7 +2555,7 @@ to { transform: rotate(360deg); }
 .medals-category {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.45rem;
 }
 
 .medals-category__title {
@@ -2577,7 +2577,7 @@ body.dark .medals-category__title {
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.35rem;
 }
 
 .medals-list__item {
@@ -2588,8 +2588,8 @@ body.dark .medals-category__title {
     width: 100%;
     display: flex;
     align-items: flex-start;
-    gap: 0.6rem;
-    padding: 0.6rem 0.85rem;
+    gap: 0.5rem;
+    padding: 0.5rem 0.8rem;
     border-radius: 0.85rem;
     border: 1px solid rgba(148, 163, 184, 0.28);
     background: rgba(241, 245, 249, 0.75);
@@ -2627,20 +2627,20 @@ body.dark .medals-category__title {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #1d4ed8;
-    min-width: 2.4rem;
+    min-width: 2.2rem;
     text-align: right;
     line-height: 1;
 }
 
 .medals-list__emoji {
-    font-size: 1.35rem;
+    font-size: 1.2rem;
     line-height: 1;
 }
 
 .medals-list__text {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.15rem;
     min-width: 0;
     flex: 1;
 }
@@ -2652,9 +2652,11 @@ body.dark .medals-category__title {
 }
 
 .medals-list__description {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--color-muted);
+    line-height: 1.3;
     overflow-wrap: anywhere;
+    margin-top: 0.05rem;
 }
 
 .medals-list__description:empty {

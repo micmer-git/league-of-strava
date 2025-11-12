@@ -1498,32 +1498,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             let count = 0;
 
             if (result.isDayBased) {
-                const resolvedDates = new Set(medal.dates || []);
+                const resolvedDates = new Set();
+                const addResolvedDate = (value) => {
+                    const normalized = normalizeMonthDayToken(value);
+                    if (normalized) {
+                        resolvedDates.add(normalized);
+                    }
+                };
+
+                (medal.dates || []).forEach(addResolvedDate);
+
                 if (medal.dynamicDateResolver && activityYears.length > 0) {
                     activityYears.forEach(year => {
-                        (medal.dynamicDateResolver(year) || []).forEach(dateStr => {
-                            if (dateStr) {
-                                resolvedDates.add(dateStr);
-                            }
-                        });
+                        (medal.dynamicDateResolver(year) || []).forEach(addResolvedDate);
                     });
                 }
 
                 const uniqueCalendarHits = new Set();
                 activityList.forEach(activity => {
-                    const rawDate = typeof activity.start_date_local === 'string' && activity.start_date_local
-                        ? activity.start_date_local
-                        : activity.start_date;
-                    const isoMatch = typeof rawDate === 'string' ? rawDate.match(/^(\d{4}-\d{2}-\d{2})/) : null;
-                    let calendarDate = isoMatch ? isoMatch[1] : null;
-
-                    if (!calendarDate && rawDate) {
-                        const parsed = new Date(rawDate);
-                        if (!Number.isNaN(parsed.getTime())) {
-                            calendarDate = parsed.toISOString().slice(0, 10);
-                        }
-                    }
-
+                    const calendarDate = getActivityDateKey(activity);
                     if (!calendarDate) {
                         return;
                     }
@@ -1537,6 +1530,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
                 count = uniqueCalendarHits.size;
+            } else if (medal.streakCriteria) {
+                const streakStats = computeStreakAwardStats(activityList, medal.streakCriteria);
+                count = streakStats.awardCount;
             } else if (typeof medal.criteria === 'function') {
                 count = activityList.filter(activity => {
                     try {
@@ -1567,29 +1563,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (maxStreak >= 7) {
                     count = Math.floor(maxStreak / 7);
-                }
-            } else if (medal.name === 'Cycling Streak') {
-                const cyclingActivities = activityList.filter(activity => (activity.type || '').toUpperCase() === 'RIDE');
-                const uniqueDates = [...new Set(cyclingActivities.map(activity => new Date(activity.start_date).toISOString().slice(0, 10)))].sort();
-                let streak = 0;
-                let maxStreak = 0;
-                let previousDate = null;
-
-                uniqueDates.forEach(dateStr => {
-                    const date = new Date(dateStr);
-                    if (previousDate) {
-                        const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
-                        streak = diffDays === 1 ? streak + 1 : 1;
-                    } else {
-                        streak = 1;
-                    }
-
-                    maxStreak = Math.max(maxStreak, streak);
-                    previousDate = date;
-                });
-
-                if (maxStreak >= 5) {
-                    count = Math.floor(maxStreak / 5);
                 }
             }
 
@@ -5134,6 +5107,120 @@ document.addEventListener('DOMContentLoaded', async () => {
         return parseCalendarReference(activity.start_date_local) || parseCalendarReference(activity.start_date);
     };
 
+    const normalizeMonthDayToken = (value) => {
+        if (typeof value !== 'string') {
+            return null;
+        }
+
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return null;
+        }
+
+        const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+            return `${isoMatch[2]}-${isoMatch[3]}`;
+        }
+
+        const monthDayMatch = trimmed.match(/^(\d{2})-(\d{2})$/);
+        if (monthDayMatch) {
+            return trimmed;
+        }
+
+        const parsed = new Date(trimmed);
+        if (Number.isNaN(parsed.getTime())) {
+            return null;
+        }
+
+        return parsed.toISOString().slice(5, 10);
+    };
+
+    const getActivityDateKey = (activity) => {
+        const reference = getActivityCalendarReference(activity);
+        return reference ? reference.dayKey : null;
+    };
+
+    const calculateConsecutiveStreakLength = (dateKeys = []) => {
+        if (!Array.isArray(dateKeys) || dateKeys.length === 0) {
+            return 0;
+        }
+
+        const uniqueSortedDates = Array.from(new Set(dateKeys)).sort();
+        let longest = 0;
+        let current = 0;
+        let previousDate = null;
+
+        uniqueSortedDates.forEach((dateKey) => {
+            const currentDate = new Date(`${dateKey}T00:00:00Z`);
+            if (Number.isNaN(currentDate.getTime())) {
+                return;
+            }
+
+            if (previousDate) {
+                const diffDays = Math.round((currentDate - previousDate) / (1000 * 60 * 60 * 24));
+                current = diffDays === 1 ? current + 1 : 1;
+            } else {
+                current = 1;
+            }
+
+            longest = Math.max(longest, current);
+            previousDate = currentDate;
+        });
+
+        return longest;
+    };
+
+    const matchesActivityType = (activityType, target, matchMode = 'includes') => {
+        if (!target) {
+            return true;
+        }
+
+        const normalizedActivityType = (activityType || '').toUpperCase();
+        if (!normalizedActivityType) {
+            return false;
+        }
+
+        const normalizedTarget = target.toUpperCase();
+        if (matchMode === 'equals') {
+            return normalizedActivityType === normalizedTarget;
+        }
+
+        return normalizedActivityType.includes(normalizedTarget);
+    };
+
+    const computeStreakAwardStats = (activityList, {
+        minLength = 0,
+        awardInterval,
+        activityType,
+        matchMode = 'includes',
+    } = {}) => {
+        if (!Array.isArray(activityList) || activityList.length === 0 || !Number.isFinite(minLength) || minLength <= 0) {
+            return { longest: 0, awardCount: 0 };
+        }
+
+        const targetTypes = Array.isArray(activityType)
+            ? activityType.filter(Boolean)
+            : (activityType ? [activityType] : null);
+
+        const dateKeys = activityList
+            .filter(activity => {
+                if (!targetTypes) {
+                    return true;
+                }
+
+                const normalizedType = (activity.type || '').toUpperCase();
+                return targetTypes.some(target => matchesActivityType(normalizedType, target, matchMode));
+            })
+            .map(getActivityDateKey)
+            .filter(Boolean);
+
+        const longest = calculateConsecutiveStreakLength(dateKeys);
+        const interval = Number.isFinite(awardInterval) && awardInterval > 0 ? awardInterval : minLength;
+        const awardCount = longest >= minLength ? Math.floor(longest / interval) : 0;
+
+        return { longest, awardCount };
+    };
+
     const computePremiumAchievements = (lifetimeActivities = []) => {
         if (!Array.isArray(lifetimeActivities) || lifetimeActivities.length === 0) {
             return [];
@@ -7157,6 +7244,129 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Completed an ultra-distance run (50 km or more)',
             criteria: (activity) => activity.type.toUpperCase() === 'RUN' && (activity.distance / 1000) >= 50
         },
+        // Consistency Streak Medals
+        {
+            name: 'Run Streak — 7 Days',
+            emoji: '🏃‍♂️📅',
+            description: 'Logged running activities seven days in a row.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RUN',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Run Streak — 30 Days',
+            emoji: '🏃‍♀️🔥',
+            description: 'Maintained a running streak for thirty consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RUN',
+                minLength: 30,
+                awardInterval: 30,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Ride Streak — 7 Days',
+            emoji: '🚴‍♂️📆',
+            description: 'Rode every day for a full week.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RIDE',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Ride Streak — 30 Days',
+            emoji: '🚴‍♀️🔥',
+            description: 'Kept the pedals turning for thirty straight days.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RIDE',
+                minLength: 30,
+                awardInterval: 30,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Swim Streak — 7 Days',
+            emoji: '🏊‍♂️🌊',
+            description: 'Swam at least once each day across seven consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'SWIM',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Training Fortnight',
+            emoji: '📆✨',
+            description: 'Recorded an activity every day for fourteen consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 14,
+                awardInterval: 14,
+            },
+        },
+        {
+            name: 'Training Month Milestone',
+            emoji: '🗓️🏅',
+            description: 'Logged at least one activity per day for an entire month.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 30,
+                awardInterval: 30,
+            },
+        },
+        {
+            name: 'Season of Consistency',
+            emoji: '🍂⏱️',
+            description: 'Trained daily for ninety consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 90,
+                awardInterval: 90,
+            },
+        },
+        {
+            name: 'Half-Year Sentinel',
+            emoji: '🛡️📈',
+            description: 'Sustained daily training for one hundred eighty-two days straight.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 182,
+                awardInterval: 182,
+            },
+        },
+        {
+            name: 'Year of Grit',
+            emoji: '🗓️🔥',
+            description: 'Completed at least one activity every day for a full year.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 365,
+                awardInterval: 365,
+            },
+        },
+        {
+            name: 'Cycling Streak',
+            emoji: '🚴‍♀️🔗',
+            description: 'Completed cycling activities for 5 consecutive days',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RIDE',
+                minLength: 5,
+                awardInterval: 5,
+                matchMode: 'includes',
+            },
+        },
         // Fan Favorite Medals
         {
             name: 'Crowd Pleaser',
@@ -7178,12 +7388,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Earned at least 200 kudos on a single activity',
             category: 'Fan Favorites',
             criteria: (activity) => getActivityLikesCount(activity) >= 200
-        },
-        {
-            name: 'Cycling Streak',
-            emoji: '🚴‍♀️🔗',
-            description: 'Completed cycling activities for 5 consecutive days',
-            criteria: null // Special handling
         }
     ];
 

@@ -2186,12 +2186,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             nextRank,
             currentMonthHours,
         } = rankProgressState;
+
+        const levelProgressFillElement = document.getElementById('level-progress-fill');
+
         const safeTotalHours = Number.isFinite(totalHours) ? totalHours : 0;
         const currentMinHours = Number.isFinite(currentRank?.minHours) ? currentRank.minHours : 0;
         const nextMinHours = Number.isFinite(nextRank?.minHours) ? nextRank.minHours : null;
         const spanHours = Number.isFinite(nextMinHours) && nextMinHours > currentMinHours
             ? nextMinHours - currentMinHours
             : null;
+
+        let progressPercent = 0;
+        if (spanHours) {
+            const hoursIntoRank = Math.max(0, safeTotalHours - currentMinHours);
+            progressPercent = Math.min(100, Math.max(0, (hoursIntoRank / spanHours) * 100));
+        } else if (nextRank === null) {
+            progressPercent = 100;
+        }
+
+        if (levelProgressFillElement) {
+            levelProgressFillElement.style.width = `${progressPercent.toFixed(2)}%`;
+        }
 
         if (rankingProgressLabelElement) {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
@@ -2229,6 +2244,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 nextRankElement.textContent = 'Legendary — max rank';
             }
+        }
+
+        if (levelProgressElement) {
+            const levelCap = MASTER_PRESTIGE_MAX;
+            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
+            const level = hasActivities
+                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
+                : 0;
+
+            levelProgressElement.textContent = `(${level}/${levelCap})`;
+            levelProgressElement.setAttribute('aria-label', `Current level ${level} of ${levelCap}`);
+        } else {
+            console.warn("'level-progress' element not found in the DOM.");
         }
     };
 

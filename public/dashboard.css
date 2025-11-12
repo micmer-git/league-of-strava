@@ -3452,8 +3452,7 @@ body.dashboard-body {
 
 .dashboard-shell {
     width: 100%;
-    max-width: 1180px;
-    margin: 0 auto;
+    margin: 0;
     padding: var(--spacing-lg) var(--spacing-md);
     box-sizing: border-box;
 }
@@ -3986,4 +3985,25 @@ body.dark .activity-card__title-link:focus-visible,
 
 body.is-filter-modal-open {
     overflow: hidden;
+}
+
+/* Profile card rank line updates */
+.profile-card__rankline {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    width: 100%;
+}
+
+.profile-card__rank,
+.profile-card__level {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.profile-card__level {
+    font-size: 1.05rem;
+    color: var(--color-text-secondary);
+    font-weight: 500;
 }

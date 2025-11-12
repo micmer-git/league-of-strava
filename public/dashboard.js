@@ -334,6 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let shareModalReturnFocusTo = null;
     let activitiesFilterReturnFocusTo = null;
     let pendingActivitiesOptions = null;
+    let lastActivitiesRenderOptions = { preserveVisibleCount: false };
     let pendingWalletRender = false;
     const profileRefreshButton = document.getElementById('profile-refresh');
     const rankModalElement = document.getElementById('rank-modal');
@@ -5608,8 +5609,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const requestActivitiesRender = (options = {}) => {
         pendingActivitiesOptions = options;
+        lastActivitiesRenderOptions = { ...options };
+
+        if (!Array.isArray(allData.activities)) {
+            return;
+        }
+
+        applyFilters(options);
+
         if (activePanelName === 'activities') {
-            applyFilters(options);
             pendingActivitiesOptions = null;
         }
     };
@@ -8643,11 +8651,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindPanelShortcutButtons();
         bindCoinShortcutButtons();
         bindLoadMoreButton();
+        if (Array.isArray(allData.activities)) {
+            applyFilters(lastActivitiesRenderOptions);
+        }
     });
 
     onPanelReady('medals', () => {
         refreshPanelReferences();
         bindMedalsLoadMoreButton();
+        if (Array.isArray(allData.activities)) {
+            applyFilters(lastActivitiesRenderOptions);
+        }
     });
 
     updateToggleStates(null);

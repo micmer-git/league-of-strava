@@ -1716,6 +1716,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return '0';
         }
 
+        // NO thousand separators - just round to integers
         return Math.round(numeric).toString();
     };
 
@@ -3279,8 +3280,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }).filter(Boolean);
     };
 
-    const updateWalletChartData = ({ activities = [], lifetimeActivities = [], selectedYear = 'all' } = {}) => {
-        const lifetimeMetrics = getWalletMetricsForActivities(lifetimeActivities);
+    const updateWalletChartData = ({ activities = [], lifetimeActivities = [], selectedYear = 'all', precomputedLifetimeMetrics = null } = {}) => {
+        const lifetimeMetrics = Array.isArray(precomputedLifetimeMetrics)
+            ? precomputedLifetimeMetrics
+            : getWalletMetricsForActivities(lifetimeActivities);
         const isAllYearsSelected = !selectedYear || selectedYear === 'all';
         const shouldReuseFilteredMetrics = isAllYearsSelected && activities.length === lifetimeActivities.length;
         const metricsForFiltered = shouldReuseFilteredMetrics
@@ -7296,19 +7299,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? data.hasMore
             : (typeof allData.hasMore === 'boolean' ? allData.hasMore : undefined);
 
-        const aggregatedTotals = calculateTotals(allData.activities || []);
+        const lifetimeActivities = allData.activities || [];
+        const rewardSummary = getLifetimeRewardSummary(lifetimeActivities);
+        const walletMetrics = getWalletMetricsForActivities(lifetimeActivities);
+        const aggregatedTotals = calculateTotals(lifetimeActivities);
+
         allData.totals = {
             ...(allData.totals || {}),
-            hours: aggregatedTotals.hours,
-            distance: aggregatedTotals.distance,
-            elevation: aggregatedTotals.elevation,
-            calories: aggregatedTotals.calories
+            ...aggregatedTotals,
+            precomputedRewards: rewardSummary,
+            precomputedWalletMetrics: walletMetrics
         };
-
-        walletMetricsCache.key = null;
-        walletMetricsCache.metrics = [];
-        rewardSummaryCache.key = null;
-        rewardSummaryCache.summary = null;
 
         updateActivityFetchWarning(allData.activityMetadata);
 
@@ -7756,12 +7757,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateWalletChartData({
             activities,
             lifetimeActivities,
-            selectedYear
+            selectedYear,
+            precomputedLifetimeMetrics: data.totals?.precomputedWalletMetrics
         });
 
         // === Achievement Wallet ===
 
-        const lifetimeRewardSummary = getLifetimeRewardSummary(lifetimeActivities);
+        const lifetimeRewardSummary = data.totals?.precomputedRewards
+            || getLifetimeRewardSummary(lifetimeActivities);
         const categories = lifetimeRewardSummary.categories;
         const medalsEarned = lifetimeRewardSummary.medalsEarned;
         const medalSummary = lifetimeRewardSummary.medalSummary;

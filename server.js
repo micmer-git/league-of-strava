@@ -338,22 +338,51 @@ app.get('/api/strava-data', async (req, res) => {
 
     cacheKey = `${userId}:${startPage}:${requestedPageCount}:${perPage}`;
 
+    let existingSnapshot = null;
+    let existingSnapshotError = null;
+    let knownActivityKeySet = new Set();
+
+    try {
+      existingSnapshot = await getLatestUserSnapshot(userId);
+
+      if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
+        knownActivityKeySet = extractActivityKeysFromSnapshot(existingSnapshot.payload);
+        if (knownActivityKeySet.size > 0) {
+          console.log(`Loaded ${knownActivityKeySet.size} previously stored activities for athlete ${userId}.`);
+        }
+      } else {
+        knownActivityKeySet = new Set();
+      }
+    } catch (snapshotError) {
+      existingSnapshotError = snapshotError;
+      console.warn(`Unable to load existing snapshot for athlete ${userId}:`, snapshotError.message);
+    }
+
     if (loadStored) {
       console.log(`loadStored flag received for athlete ${userId}; attempting to return stored snapshot.`);
-      const storedSnapshot = await getLatestUserSnapshot(userId);
-      if (storedSnapshot?.payload) {
-        console.log(`Stored snapshot located for athlete ${userId} from ${storedSnapshot.timestamp}.`);
+
+      if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
+        console.log(`Stored snapshot located for athlete ${userId} from ${existingSnapshot.timestamp}.`);
         const cacheTimestamp = Date.now();
-        userDataCache.set(cacheKey, storedSnapshot.payload);
+        userDataCache.set(cacheKey, existingSnapshot.payload);
 
         return res.json({
-          ...storedSnapshot.payload,
+          ...existingSnapshot.payload,
           cached: true,
           stale: false,
           stored: true,
-          storedTimestamp: storedSnapshot.timestamp,
+          storedTimestamp: existingSnapshot.timestamp,
           cacheTimestamp,
           cacheAgeMs: 0,
+        });
+      }
+
+      if (existingSnapshotError) {
+        console.error(`Failed to load stored snapshot for athlete ${userId}:`, existingSnapshotError.message);
+        return res.status(503).json({
+          error: 'Stored snapshot temporarily unavailable.',
+          stored: false,
+          cached: false,
         });
       }
 
@@ -378,27 +407,51 @@ app.get('/api/strava-data', async (req, res) => {
       });
     }
 
-    const allowedPageCount = MAX_ACTIVITY_PAGES > 0
-      ? Math.min(requestedPageCount, Math.max(0, MAX_ACTIVITY_PAGES - (startPage - 1)))
-      : requestedPageCount;
+    const normalizedRequestedPages = Math.max(1, requestedPageCount);
+    const maxFetchablePages = MAX_ACTIVITY_PAGES > 0
+      ? Math.max(0, MAX_ACTIVITY_PAGES - (startPage - 1))
+      : Number.POSITIVE_INFINITY;
 
-    let activitiesResult = { activities: [], hasMore: false, fetchedPages: 0, lastPageSize: 0 };
+    const shouldFetchUntilExhausted = forceRefresh;
 
-    if (allowedPageCount > 0) {
+    let activitiesResult = { activities: [], hasMore: false, fetchedPages: 0, lastPageSize: 0, metadata: createEmptyActivityMetadata() };
+
+    if (maxFetchablePages === 0) {
+      console.log('Requested start page exceeds configured maximum activity pages. Returning empty activity list.');
+    } else {
+      const pageCountForFetch = shouldFetchUntilExhausted
+        ? normalizedRequestedPages
+        : Math.min(normalizedRequestedPages, Number.isFinite(maxFetchablePages) ? maxFetchablePages : normalizedRequestedPages);
+
       activitiesResult = await fetchAllActivities(accessToken, {
         startPage,
-        pageCount: allowedPageCount,
+        pageCount: pageCountForFetch,
         perPage,
+        knownActivityKeys: knownActivityKeySet,
+        stopWhenKnownReached: knownActivityKeySet.size > 0,
+        fetchUntilExhausted: shouldFetchUntilExhausted,
+        maxPages: maxFetchablePages,
       });
-    } else {
-      console.log('Requested start page exceeds configured maximum activity pages. Returning empty activity list.');
     }
 
     let { metadata: activityMetadata } = activitiesResult;
     const { activities: allActivities, hasMore: hasMoreFromStrava, fetchedPages, lastPageSize } = activitiesResult;
-    console.log(`Total activities fetched: ${allActivities.length}`);
 
     activityMetadata = normalizeActivityMetadata(activityMetadata);
+
+    const newActivityCount = Array.isArray(allActivities) ? allActivities.length : 0;
+    const duplicatesSkipped = Number.isFinite(Number(activityMetadata.duplicatesSkipped))
+      ? Number(activityMetadata.duplicatesSkipped)
+      : 0;
+    const duplicateSummary = duplicatesSkipped > 0
+      ? `, skipped ${duplicatesSkipped} duplicates`
+      : '';
+
+    console.log(`Activity sync for athlete ${userId}: ${newActivityCount} new activities${duplicateSummary}.`);
+
+    if (activityMetadata.stopReason) {
+      console.log(`Activity fetch stop reason for athlete ${userId}: ${activityMetadata.stopReason}.`);
+    }
 
     if (
       activityMetadata.rateLimited
@@ -462,21 +515,23 @@ app.get('/api/strava-data', async (req, res) => {
         errors: activityMetadata.errors,
         lastSuccessfulPage: activityMetadata.lastSuccessfulPage,
         lastAttemptedPage: activityMetadata.lastAttemptedPage,
+        newActivities: activityMetadata.newActivities,
+        duplicatesSkipped: activityMetadata.duplicatesSkipped,
+        stopReason: activityMetadata.stopReason,
+        reachedKnownActivityBoundary: activityMetadata.reachedKnownActivityBoundary,
       },
       activityMetadata,
     };
 
     let mergedWithStoredSnapshot = false;
 
-    try {
-      const existingSnapshot = await getLatestUserSnapshot(userId);
-
-      if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
+    if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
+      try {
         responsePayload = mergeSnapshotPayload(existingSnapshot.payload, responsePayload);
         mergedWithStoredSnapshot = true;
+      } catch (mergeError) {
+        console.warn(`Unable to merge stored snapshot for athlete ${userId}:`, mergeError.message);
       }
-    } catch (mergeError) {
-      console.warn(`Unable to merge stored snapshot for athlete ${userId}:`, mergeError.message);
     }
 
     try {
@@ -488,6 +543,12 @@ app.get('/api/strava-data', async (req, res) => {
       });
 
       const leaderboardEntry = buildLeaderboardSummary(responsePayload);
+      if (!leaderboardEntry.userId && userId) {
+        leaderboardEntry.userId = userId;
+      }
+      if ((!leaderboardEntry.displayName || !leaderboardEntry.displayName.trim()) && resolvedAthleteName) {
+        leaderboardEntry.displayName = resolvedAthleteName;
+      }
       if (leaderboardEntry.userId) {
         console.log(`Updating leaderboard entry for athlete ${userId}.`);
         await appendLeaderboardEntry(leaderboardEntry);
@@ -673,37 +734,124 @@ async function stravaGet(path, accessToken, params = {}, retries = 2) {
  * @param {string} accessToken
  * @returns {Promise<Array>}
  */
-async function fetchAllActivities(accessToken, { startPage = 1, pageCount = 3, perPage = 200 } = {}) {
+async function fetchAllActivities(
+  accessToken,
+  {
+    startPage = 1,
+    pageCount = 3,
+    perPage = 200,
+    knownActivityKeys = new Set(),
+    stopWhenKnownReached = false,
+    fetchUntilExhausted = false,
+    maxPages = Number.POSITIVE_INFINITY,
+  } = {},
+) {
   let allActivities = [];
-  let page = startPage;
+  let page = Math.max(1, Number(startPage) || 1);
   let fetchedPages = 0;
   let lastPageSize = 0;
   let activityMetadata = createEmptyActivityMetadata();
+  let breakReason = null;
+  let totalDuplicatesSkipped = 0;
 
-  while (fetchedPages < pageCount) {
+  const normalizedPerPage = Math.min(Math.max(Number(perPage) || 1, 1), 200);
+  const normalizedPageCount = Math.max(1, Number(pageCount) || 1);
+  const normalizedMaxPages = Number.isFinite(maxPages)
+    ? Math.max(0, Math.floor(maxPages))
+    : Number.POSITIVE_INFINITY;
+
+  if (normalizedMaxPages === 0) {
+    return {
+      activities: [],
+      hasMore: false,
+      fetchedPages: 0,
+      lastPageSize: 0,
+      metadata: normalizeActivityMetadata(activityMetadata),
+    };
+  }
+
+  const fetchLimit = fetchUntilExhausted
+    ? normalizedMaxPages
+    : Math.min(normalizedPageCount, normalizedMaxPages);
+
+  const seenActivityKeys = new Set();
+  if (knownActivityKeys && typeof knownActivityKeys[Symbol.iterator] === 'function') {
+    for (const key of knownActivityKeys) {
+      if (typeof key === 'string' && key) {
+        seenActivityKeys.add(key);
+      }
+    }
+  }
+
+  while (fetchedPages < fetchLimit) {
     try {
-      console.log(`Fetching activities - Page: ${page}, Per Page: ${perPage}`);
-      const activitiesResponse = await stravaGet('athlete/activities', accessToken, { per_page: perPage, page });
+      console.log(`Fetching activities - Page: ${page}, Per Page: ${normalizedPerPage}`);
+      const activitiesResponse = await stravaGet('athlete/activities', accessToken, { per_page: normalizedPerPage, page });
+      const incomingActivities = Array.isArray(activitiesResponse.data) ? activitiesResponse.data : [];
 
-      const activities = activitiesResponse.data.map(activity => {
+      const dedupedActivities = [];
+      for (const activity of incomingActivities) {
         const estimatedCalories = estimateCalories(activity);
-        return { ...activity, estimated_calories: estimatedCalories };
-      });
+        const normalizedActivity = { ...activity, estimated_calories: estimatedCalories };
+        const key = buildActivityKey(normalizedActivity);
 
-      lastPageSize = activities.length;
-      console.log(`Fetched ${activities.length} activities from page ${page}`);
-      allActivities = allActivities.concat(activities);
+        if (key && seenActivityKeys.has(key)) {
+          totalDuplicatesSkipped += 1;
+          continue;
+        }
+
+        if (key) {
+          seenActivityKeys.add(key);
+        }
+
+        dedupedActivities.push(normalizedActivity);
+      }
+
+      lastPageSize = dedupedActivities.length;
+
+      console.log(
+        `Fetched ${dedupedActivities.length} new activities from page ${page}`
+        + (incomingActivities.length > dedupedActivities.length
+          ? ` (skipped ${incomingActivities.length - dedupedActivities.length} duplicates)`
+          : ''),
+      );
+
+      if (dedupedActivities.length > 0) {
+        allActivities = allActivities.concat(dedupedActivities);
+      }
 
       fetchedPages += 1;
 
-      if (lastPageSize < perPage) {
+      const reachedEndOfFeed = incomingActivities.length < normalizedPerPage;
+      const reachedKnownBoundary = stopWhenKnownReached && dedupedActivities.length === 0;
+      const reachedFetchLimit = fetchedPages >= fetchLimit;
+
+      if (reachedEndOfFeed) {
+        breakReason = 'end-of-feed';
         break;
+      }
+
+      if (reachedKnownBoundary) {
+        breakReason = 'known-boundary';
+        activityMetadata.reachedKnownActivityBoundary = true;
+        break;
+      }
+
+      if (reachedFetchLimit) {
+        breakReason = 'limit';
+        if (!fetchUntilExhausted || fetchedPages >= normalizedMaxPages) {
+          break;
+        }
       }
 
       page += 1;
 
-      if (fetchedPages < pageCount) {
-        await sleep(1000); // Sleep to respect rate limits
+      const remainingCapacity = Number.isFinite(fetchLimit)
+        ? fetchedPages < fetchLimit
+        : fetchedPages < normalizedMaxPages;
+
+      if (remainingCapacity) {
+        await sleep(1000);
       }
     } catch (error) {
       console.error(`Failed to fetch activities on page ${page}:`, error.message || error);
@@ -719,15 +867,32 @@ async function fetchAllActivities(accessToken, { startPage = 1, pageCount = 3, p
       });
 
       activityMetadata = mergeActivityMetadata(activityMetadata, partialMetadata);
+      breakReason = partialMetadata.stopReason || 'error';
       break;
     }
+  }
+
+  if (!breakReason) {
+    if (fetchedPages >= fetchLimit && fetchLimit < normalizedMaxPages) {
+      breakReason = 'limit';
+    } else if (fetchedPages >= fetchLimit && !Number.isFinite(fetchLimit)) {
+      breakReason = 'end-of-feed';
+    } else if (fetchedPages >= fetchLimit) {
+      breakReason = 'limit';
+    }
+  }
+
+  activityMetadata.newActivities = allActivities.length;
+  activityMetadata.duplicatesSkipped = totalDuplicatesSkipped;
+  if (!activityMetadata.stopReason && breakReason) {
+    activityMetadata.stopReason = breakReason;
   }
 
   const normalizedMetadata = normalizeActivityMetadata(activityMetadata);
   const hasMore = Boolean(
     normalizedMetadata.partial
     || normalizedMetadata.rateLimited
-    || lastPageSize === perPage,
+    || breakReason === 'limit',
   );
 
   return {
@@ -953,6 +1118,10 @@ function createEmptyActivityMetadata() {
     errors: [],
     rateLimited: false,
     partial: false,
+    newActivities: 0,
+    duplicatesSkipped: 0,
+    reachedKnownActivityBoundary: false,
+    stopReason: null,
   };
 }
 
@@ -1000,6 +1169,16 @@ function normalizeActivityMetadata(metadata) {
 
   const rateLimited = Boolean(metadata.rateLimited);
   const partial = Boolean(metadata.partial || metadata.partiallyComplete);
+  const newActivities = Number.isFinite(Number(metadata.newActivities)) && Number(metadata.newActivities) >= 0
+    ? Math.round(Number(metadata.newActivities))
+    : 0;
+  const duplicatesSkipped = Number.isFinite(Number(metadata.duplicatesSkipped)) && Number(metadata.duplicatesSkipped) >= 0
+    ? Math.round(Number(metadata.duplicatesSkipped))
+    : 0;
+  const reachedKnownActivityBoundary = Boolean(metadata.reachedKnownActivityBoundary);
+  const stopReason = typeof metadata.stopReason === 'string' && metadata.stopReason.trim().length > 0
+    ? metadata.stopReason.trim()
+    : null;
 
   const retryAfterCandidates = [
     Number(metadata.retryAfterSeconds),
@@ -1026,6 +1205,9 @@ function normalizeActivityMetadata(metadata) {
     errors,
     rateLimited,
     partial,
+    newActivities,
+    duplicatesSkipped,
+    reachedKnownActivityBoundary,
   };
 
   if (retryAfterSeconds !== null) {
@@ -1042,6 +1224,10 @@ function normalizeActivityMetadata(metadata) {
 
   if (message) {
     normalized.message = message;
+  }
+
+  if (stopReason) {
+    normalized.stopReason = stopReason;
   }
 
   if (metadata.encounteredError && typeof metadata.encounteredError === 'object') {
@@ -1085,6 +1271,15 @@ function mergeActivityMetadata(existingMetadata, incomingMetadata) {
     partial: Boolean(existing.partial || incoming.partial),
   };
 
+  const totalNewActivities = (existing.newActivities || 0) + (incoming.newActivities || 0);
+  const totalDuplicatesSkipped = (existing.duplicatesSkipped || 0) + (incoming.duplicatesSkipped || 0);
+
+  merged.newActivities = totalNewActivities;
+  merged.duplicatesSkipped = totalDuplicatesSkipped;
+  merged.reachedKnownActivityBoundary = Boolean(
+    existing.reachedKnownActivityBoundary || incoming.reachedKnownActivityBoundary,
+  );
+
   const retryCandidates = [existing.retryAfterSeconds, incoming.retryAfterSeconds]
     .map(value => Number.isFinite(Number(value)) ? Number(value) : null)
     .filter((value) => value !== null && value >= 0);
@@ -1114,6 +1309,11 @@ function mergeActivityMetadata(existingMetadata, incomingMetadata) {
   const encounteredError = incoming.encounteredError || existing.encounteredError;
   if (encounteredError && typeof encounteredError === 'object') {
     merged.encounteredError = { ...encounteredError };
+  }
+
+  const stopReason = incoming.stopReason || existing.stopReason;
+  if (stopReason) {
+    merged.stopReason = stopReason;
   }
 
   return merged;
@@ -1154,6 +1354,7 @@ function buildActivityFetchErrorMetadata({ error, startPage, fetchedPages }) {
   metadata.rateLimited = Boolean(error?.isRateLimit);
   metadata.warnings = [message];
   metadata.message = message;
+  metadata.stopReason = 'error';
 
   const retryAfterSeconds = resolveRetryAfterSeconds(error);
   if (retryAfterSeconds !== null) {
@@ -1339,6 +1540,24 @@ function mergeActivities(existingActivities = [], incomingActivities = []) {
   incomingActivities.forEach(addActivity);
 
   return Array.from(mergedMap.values());
+}
+
+function extractActivityKeysFromSnapshot(snapshotPayload) {
+  if (!snapshotPayload || typeof snapshotPayload !== 'object') {
+    return new Set();
+  }
+
+  const activities = Array.isArray(snapshotPayload.activities) ? snapshotPayload.activities : [];
+  const keys = new Set();
+
+  activities.forEach((activity) => {
+    const key = buildActivityKey(activity);
+    if (key) {
+      keys.add(key);
+    }
+  });
+
+  return keys;
 }
 
 function mergeSegments(existingSegments = [], incomingSegments = []) {

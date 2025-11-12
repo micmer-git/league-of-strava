@@ -987,6 +987,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sharedUserIdParam = (urlParams.get('userId') || '').trim();
     const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
     const isSharedView = Boolean(sharedUserId);
+    const syncParamRaw = (urlParams.get('sync') || '').toLowerCase();
+    const shouldForceAuthSync = !isSharedView && ['1', 'true', 'yes', 'refresh'].includes(syncParamRaw);
+
+    const removeSyncQueryParam = () => {
+        if (!('history' in window) || typeof window.history.replaceState !== 'function') {
+            return;
+        }
+
+        const currentUrl = new URL(window.location.href);
+        if (!currentUrl.searchParams.has('sync')) {
+            return;
+        }
+
+        currentUrl.searchParams.delete('sync');
+        const nextSearch = currentUrl.searchParams.toString();
+        const nextUrl = `${currentUrl.pathname}${nextSearch ? `?${nextSearch}` : ''}${currentUrl.hash}`;
+        window.history.replaceState({}, '', nextUrl);
+    };
+
+    const buildStravaAuthRedirectUrl = () => {
+        const redirectTarget = new URL('/dashboard', window.location.origin);
+        redirectTarget.searchParams.set('sync', '1');
+        const authUrl = new URL('/auth/strava', window.location.origin);
+        authUrl.searchParams.set('redirect', `${redirectTarget.pathname}${redirectTarget.search}`);
+        return authUrl.toString();
+    };
     const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
     const coinMixCanvas = document.getElementById('coin-mix-chart');
     const coinMixEmptyState = document.getElementById('coin-mix-empty');
@@ -7835,6 +7861,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 errorMessage.classList.add('hidden');
                 errorMessage.textContent = '';
             }
+            if (!isLoadMore && leaderboardBody) {
+                try {
+                    await loadLeaderboard();
+                } catch (leaderboardError) {
+                    console.error('Error refreshing leaderboard after data sync:', leaderboardError);
+                }
+            }
         } catch (error) {
             console.error('Error fetching Strava data:', error);
             if (errorMessage) {
@@ -9116,33 +9149,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (profileRefreshButton) {
-        profileRefreshButton.addEventListener('click', async () => {
-            if (isFetchingActivities) {
-                return;
-            }
-
-            profileRefreshButton.classList.add('is-loading');
-            profileRefreshButton.setAttribute('aria-busy', 'true');
-            profileRefreshButton.disabled = true;
-            showSpinner();
-
-            try {
-                await fetchData({ forceRefresh: true });
-                if (leaderboardBody) {
-                    await loadLeaderboard();
-                }
-            } finally {
-                profileRefreshButton.classList.remove('is-loading');
-                profileRefreshButton.removeAttribute('aria-busy');
-                profileRefreshButton.disabled = false;
-                if (document.body.contains(profileRefreshButton)) {
-                    try {
-                        profileRefreshButton.focus({ preventScroll: true });
-                    } catch (error) {
-                        console.warn('Unable to restore focus after data refresh:', error);
-                    }
-                }
-            }
+        profileRefreshButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            const authUrl = buildStravaAuthRedirectUrl();
+            window.location.href = authUrl;
         });
     } else {
         console.warn("'profile-refresh' element not found in the DOM.");
@@ -9178,7 +9188,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } else {
         const hydrated = hydrateFromClientCache();
-        if (!hydrated) {
+        if (shouldForceAuthSync) {
+            removeSyncQueryParam();
+            if (!hydrated) {
+                await loadStoredSnapshotIfAvailable();
+            }
+            showSpinner();
+            await fetchData({ forceRefresh: true });
+        } else if (!hydrated) {
             const storedLoaded = await loadStoredSnapshotIfAvailable();
             if (!storedLoaded) {
                 updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');

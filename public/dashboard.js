@@ -151,6 +151,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         return cacheStorage;
     };
 
+    const isQuotaExceededError = (error) => {
+        if (!error) {
+            return false;
+        }
+
+        if (typeof error === 'object') {
+            const { name, code } = error;
+            if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                return true;
+            }
+            if (code === 22 || code === 1014) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     const readCacheEntry = (key, ttl) => {
         const storage = resolveCacheStorage();
         if (!storage || !key) {
@@ -221,9 +239,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        let serialized;
         try {
-            storage.setItem(key, JSON.stringify(entry));
+            serialized = JSON.stringify(entry);
+        } catch (serializationError) {
+            console.warn('Unable to serialize cache entry:', serializationError);
+            return;
+        }
+
+        try {
+            storage.setItem(key, serialized);
         } catch (error) {
+            if (isQuotaExceededError(error)) {
+                console.warn('Cache write skipped due to storage quota limits. Attempting fallback storage.', error);
+
+                try {
+                    storage.removeItem(key);
+                } catch (removeError) {
+                    console.warn('Unable to clear cache key after quota failure:', removeError);
+                }
+
+                let fallbackApplied = false;
+                if (typeof window !== 'undefined') {
+                    try {
+                        if (storage !== window.sessionStorage && window.sessionStorage) {
+                            cacheStorage = window.sessionStorage;
+                            cacheStorage.setItem(key, serialized);
+                            fallbackApplied = true;
+                        }
+                    } catch (sessionError) {
+                        console.warn('Session storage fallback failed:', sessionError);
+                    }
+                }
+
+                if (!fallbackApplied) {
+                    cacheStorage = null;
+                }
+                return;
+            }
+
             console.warn('Cache write failed:', error);
         }
     };
@@ -361,7 +415,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalValue: document.getElementById('wallet-summary-total-value'),
         totalDetail: document.getElementById('wallet-summary-total-detail')
     };
-    const achievementWallet = document.getElementById('achievement-wallet');
+    let achievementWallet = document.getElementById('achievement-wallet');
     let medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
     const segmentSection = document.getElementById('segment-completions');
@@ -464,6 +518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
         chartToggleButtons.coins = chartToggleCoinsButton;
         chartToggleButtons.balance = chartToggleBalanceButton;
+        achievementWallet = document.getElementById('achievement-wallet');
     };
 
     const onPanelReady = (panelName, callback) => {
@@ -7327,8 +7382,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         closeSpinnerButton.addEventListener('click', () => {
             fadeOutSpinner();
         });
-    } else {
-        console.warn("'close-spinner' element not found in the DOM.");
     }
 
     if (weeklySnapshotCloseButton) {

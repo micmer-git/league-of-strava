@@ -673,12 +673,17 @@ button,
 
 .medals-card {
   gap: 1.75rem;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
 .medal-categories {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.35rem;
 }
 
 .medal-category {
@@ -705,7 +710,7 @@ button,
 }
 
 .medal-category__emoji {
-  font-size: 1.5rem;
+  font-size: 0.85rem;
 }
 
 .medal-category__header p {
@@ -727,7 +732,7 @@ button,
 
 .medal {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
   padding: 0.85rem 1rem;
   border-radius: var(--radius-md);
@@ -737,14 +742,20 @@ button,
 }
 
 .medal__icon {
-  font-size: 1.5rem;
+  font-size: 0.85rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
 }
 
 .medal__copy {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
 }
 
 .medal__name {
@@ -752,10 +763,16 @@ button,
   font-weight: 600;
 }
 
+.medal__separator {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  line-height: 1;
+}
+
 .medal__detail {
   font-size: 0.85rem;
   color: var(--color-muted);
-  line-height: 1.35;
+  line-height: 1.2;
 }
 
 .medal--achieved {
@@ -780,6 +797,8 @@ button,
 
 .medal--locked .medal__icon {
   color: rgba(148, 163, 184, 0.75);
+  filter: grayscale(1);
+  opacity: 0.55;
 }
 
 .medal:hover,

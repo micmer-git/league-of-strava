@@ -4972,6 +4972,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         return totals;
     };
 
+    const parseCalendarReference = (rawDate) => {
+        if (typeof rawDate !== 'string') {
+            return null;
+        }
+
+        const trimmed = rawDate.trim();
+        if (!trimmed) {
+            return null;
+        }
+
+        const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            const [year, month, day] = isoMatch.slice(1, 4).map(Number);
+            const hasValidParts = [year, month, day].every(value => Number.isInteger(value));
+            const inRange = month >= 1 && month <= 12 && day >= 1 && day <= 31;
+            if (hasValidParts && inRange) {
+                return {
+                    year,
+                    dayKey: `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+                };
+            }
+        }
+
+        const fallbackDate = new Date(trimmed);
+        if (Number.isNaN(fallbackDate.getTime())) {
+            return null;
+        }
+
+        const year = fallbackDate.getFullYear();
+        const month = fallbackDate.getMonth() + 1;
+        const day = fallbackDate.getDate();
+
+        return {
+            year,
+            dayKey: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        };
+    };
+
+    const getActivityCalendarReference = (activity) => {
+        if (!activity) {
+            return null;
+        }
+
+        return parseCalendarReference(activity.start_date_local) || parseCalendarReference(activity.start_date);
+    };
+
     const computePremiumAchievements = (lifetimeActivities = []) => {
         if (!Array.isArray(lifetimeActivities) || lifetimeActivities.length === 0) {
             return [];
@@ -4984,10 +5030,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const yearlyElevation = {};
 
         lifetimeActivities.forEach(activity => {
-            const activityDate = new Date(activity.start_date);
-            if (Number.isNaN(activityDate.getTime())) {
+            const calendarReference = getActivityCalendarReference(activity);
+            if (!calendarReference) {
                 return;
             }
+
+            const { year, dayKey } = calendarReference;
 
             const distanceMeters = Number.isFinite(activity.distance) ? activity.distance : 0;
             const movingTimeSeconds = Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
@@ -4997,7 +5045,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isRide = normalizedType.includes('RIDE');
             const isSwim = normalizedType.includes('SWIM');
 
-            const year = activityDate.getUTCFullYear();
             yearlyDistance[year] = (yearlyDistance[year] || 0) + (distanceMeters / 1000);
             yearlyHours[year] = (yearlyHours[year] || 0) + (movingTimeSeconds / 3600);
             yearlyElevation[year] = (yearlyElevation[year] || 0) + elevationGain;
@@ -5006,7 +5053,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 marathonCount += 1;
             }
 
-            const bucketKey = activityDate.toISOString().slice(0, 10);
+            const bucketKey = dayKey;
             if (!dayBuckets.has(bucketKey)) {
                 dayBuckets.set(bucketKey, { run: 0, ride: 0, swim: 0 });
             }

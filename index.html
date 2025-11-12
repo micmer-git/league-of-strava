@@ -1054,11 +1054,16 @@
           medals.forEach(({ name, detail, achieved }) => {
             const listItem = document.createElement('li');
             listItem.className = `medal ${achieved ? 'medal--achieved' : 'medal--locked'}`;
+            listItem.setAttribute('role', 'listitem');
+            const detailContent = typeof detail === 'string' ? detail.trim() : '';
+            const detailMarkup = detailContent
+              ? `<span class="medal__separator" aria-hidden="true">•</span><span class="medal__detail">${detailContent}</span>`
+              : '';
             listItem.innerHTML = `
-              <div class="medal__icon" aria-hidden="true">${achieved ? '🏅' : '⚪'}</div>
+              <div class="medal__icon" aria-hidden="true">🏅</div>
               <div class="medal__copy">
                 <span class="medal__name">${name}</span>
-                <span class="medal__detail">${detail}</span>
+                ${detailMarkup}
               </div>
             `;
             medalList.appendChild(listItem);

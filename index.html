@@ -988,6 +988,8 @@
             { name: 'Maratona di Pelennor', detail: '42 km totali in un singolo weekend multi-attività.', achieved: false },
             { name: 'Settimana dei Palantír', detail: 'Monitoraggio completo dei dati per sette giorni di fila.', achieved: true },
             { name: "Cerchio dell'Anno", detail: 'Dodici mesi consecutivi con almeno 120 km totali.', achieved: false },
+            { name: 'Aurora su Bree', detail: 'Cinque uscite all’alba nella stessa settimana.', achieved: false },
+            { name: 'Nebbie di Hithaeglir', detail: 'Due lunghi sopra le nuvole nello stesso mese.', achieved: true },
           ],
         },
         {
@@ -1005,6 +1007,8 @@
             { name: 'Passeggiata degli Entwives', detail: 'Camminata recupero condivisa con la community.', achieved: true },
             { name: 'Anello di Celebrimbor', detail: 'Costruisci un piano settimanale con tre combinazioni diverse.', achieved: true },
             { name: 'Battito di Beleriand', detail: 'Superi 900 kcal in un giorno con mix run + swim.', achieved: false },
+            { name: 'Crogiolo di Khazad-dûm', detail: 'Rowing, strength e corsa brevi nello stesso pomeriggio.', achieved: true },
+            { name: 'Carica dei Rohirrim', detail: 'Back-to-back ride + run con transizione sotto i 10 minuti.', achieved: false },
           ],
         },
         {
@@ -1022,6 +1026,8 @@
             { name: 'Voce degli Eldar', detail: 'Podcast o live di coaching per la community.', achieved: false },
             { name: 'Raccolto di Hobbiton', detail: 'Evento benefico con raccolta fondi superiore a 500€.', achieved: true },
             { name: 'Giuramento dei Nove', detail: 'Partecipa a nove sfide social entro l’anno.', achieved: false },
+            { name: 'Lanterna di Annúminas', detail: 'Report settimanale pubblicato per un mese consecutivo.', achieved: true },
+            { name: 'Eco di Tol Eressëa', detail: 'Collabora con un altro club per un evento condiviso.', achieved: false },
           ],
         },
       ];
@@ -1055,12 +1061,14 @@
             const listItem = document.createElement('li');
             listItem.className = `medal ${achieved ? 'medal--achieved' : 'medal--locked'}`;
             listItem.setAttribute('role', 'listitem');
+            listItem.setAttribute('data-achieved', achieved ? 'true' : 'false');
             const detailContent = typeof detail === 'string' ? detail.trim() : '';
             const detailMarkup = detailContent
               ? `<span class="medal__separator" aria-hidden="true">•</span><span class="medal__detail">${detailContent}</span>`
               : '';
+            const icon = achieved ? '🏅' : '🔒';
             listItem.innerHTML = `
-              <div class="medal__icon" aria-hidden="true">🏅</div>
+              <div class="medal__icon" aria-hidden="true">${icon}</div>
               <div class="medal__copy">
                 <span class="medal__name">${name}</span>
                 ${detailMarkup}

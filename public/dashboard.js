@@ -1493,14 +1493,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
 
-                count = activityList.filter(activity => {
-                    const date = new Date(activity.start_date);
-                    if (Number.isNaN(date.getTime())) {
-                        return false;
+                const uniqueCalendarHits = new Set();
+                activityList.forEach(activity => {
+                    const rawDate = typeof activity.start_date_local === 'string' && activity.start_date_local
+                        ? activity.start_date_local
+                        : activity.start_date;
+                    const isoMatch = typeof rawDate === 'string' ? rawDate.match(/^(\d{4}-\d{2}-\d{2})/) : null;
+                    let calendarDate = isoMatch ? isoMatch[1] : null;
+
+                    if (!calendarDate && rawDate) {
+                        const parsed = new Date(rawDate);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            calendarDate = parsed.toISOString().slice(0, 10);
+                        }
                     }
-                    const monthDay = date.toISOString().slice(5, 10);
-                    return resolvedDates.has(monthDay);
-                }).length;
+
+                    if (!calendarDate) {
+                        return;
+                    }
+
+                    const monthDay = calendarDate.slice(5, 10);
+                    if (!resolvedDates.has(monthDay)) {
+                        return;
+                    }
+
+                    uniqueCalendarHits.add(calendarDate);
+                });
+
+                count = uniqueCalendarHits.size;
             } else if (typeof medal.criteria === 'function') {
                 count = activityList.filter(activity => {
                     try {

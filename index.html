@@ -86,13 +86,13 @@
         <!-- Rank Section -->
         <section class="card rank-card" aria-labelledby="rank-heading" id="section-rank" data-section="rank">
           <div class="card-header">
-            <h2 class="card-title" id="rank-heading">Current Rank</h2>
+            <h2 class="card-title" id="rank-heading">Training Rank</h2>
             <span class="card-subtitle" id="current-rank"></span>
           </div>
           <div class="rank-overview">
             <div class="rank-visual">
               <div class="rank-emoji" id="rank-emoji" aria-label="Current rank icon">🥉</div>
-              <div class="rank-points">Points: <span id="current-points"></span> / <span id="next-rank-points"></span></div>
+              <div class="rank-points">Ore: <span id="current-hours"></span> / <span id="next-rank-hours"></span></div>
             </div>
             <div class="progress-wrapper">
               <div class="progress-labels">
@@ -100,7 +100,9 @@
                 <span id="next-rank-label"></span>
               </div>
               <div class="progress-container" id="progress-container" tabindex="0" aria-describedby="rank-tooltip">
-                <div class="progress-bar" id="progress-bar" role="progressbar" aria-live="polite"></div>
+                <div class="progress-bar" id="progress-bar" role="progressbar" aria-live="polite">
+                  <div class="progress-bar__recent" id="progress-recent" aria-hidden="true"></div>
+                </div>
               </div>
               <div class="tooltip" id="rank-tooltip" role="dialog" aria-modal="false">
                 <h3>Rank Progression</h3>
@@ -143,25 +145,19 @@
       <aside class="secondary-column" aria-label="Lifetime achievements">
         <section class="card lifetime-card" aria-labelledby="lifetime-heading" id="section-lifetime" data-section="lifetime">
           <div class="card-header">
-            <h2 class="card-title" id="lifetime-heading">Lifetime Medals</h2>
-            <p class="card-subtitle">Keep stacking the stats that define your legacy.</p>
+            <h2 class="card-title" id="lifetime-heading">Training Progress</h2>
+            <p class="card-subtitle">Osserva quante ore totali ti separano dal prossimo grado.</p>
           </div>
-          <div class="lifetime-stats" role="list">
-            <div class="stat-item" role="listitem">
-              <div class="icon" aria-hidden="true">🚴‍♂️</div>
-              <div class="value" id="distance-value"></div>
-              <div class="week-gain" id="distance-week-gain"></div>
+          <div class="training-progress" role="group" aria-labelledby="lifetime-heading">
+            <div class="training-progress__meta">
+              <span class="training-progress__total" id="training-total-hours">— h</span>
+              <span class="training-progress__next" id="training-next-rank">Prossimo grado</span>
             </div>
-            <div class="stat-item" role="listitem">
-              <div class="icon" aria-hidden="true">🏔️</div>
-              <div class="value" id="elevation-value"></div>
-              <div class="week-gain" id="elevation-week-gain"></div>
+            <div class="training-progress__bar" id="training-progress-container" role="progressbar" aria-live="polite" aria-describedby="training-progress-description">
+              <div class="training-progress__fill" id="training-progress-fill"></div>
+              <div class="training-progress__fill training-progress__fill--recent" id="training-progress-recent" aria-hidden="true"></div>
             </div>
-            <div class="stat-item" role="listitem">
-              <div class="icon" aria-hidden="true">🍕</div>
-              <div class="value" id="calories-value"></div>
-              <div class="week-gain" id="calories-week-gain"></div>
-            </div>
+            <p class="training-progress__recent" id="training-progress-description">Ultimo mese: <span id="training-last-month-hours">— h</span></p>
           </div>
         </section>
 
@@ -279,26 +275,93 @@
         calories: 9340,
       };
 
-      const lifetimeSnapshot = {
-        distanceKm: 4680,
-        distanceWeekGain: 48,
-        elevationM: 68400,
-        elevationWeekGain: 620,
-        calories: 795000,
-        caloriesWeekGain: 9200,
+      const trainingVolume = {
+        totalHours: 1285,
+        lastMonthHours: 52,
       };
 
-      const rankProgress = { points: 1285 };
-      const rankLevels = [
-        { name: 'Novizio della Contea', minPoints: 0, emoji: '🌱' },
-        { name: 'Battitore di Bree', minPoints: 180, emoji: '🧭' },
-        { name: 'Custode di Gran Burrone', minPoints: 420, emoji: '🛡️' },
-        { name: 'Cavaliere di Rohan', minPoints: 720, emoji: '🐎' },
-        { name: 'Guardiano di Gondor', minPoints: 1080, emoji: '🦅' },
-        { name: 'Araldo di Valinor', minPoints: 1500, emoji: '🌅' },
-        { name: 'Campione della Terra di Mezzo', minPoints: 1900, emoji: '⚜️' },
-        { name: 'Signore delle Quattro Strade', minPoints: 2300, emoji: '👑' },
+      const HOURS_PER_LEVEL = 100;
+      const baseRankGroups = [
+        { name: 'Wood', emoji: '🪵', levels: 10 },
+        { name: 'Steel', emoji: '⚙️', levels: 10 },
+        { name: 'Bronze', emoji: '🥉', levels: 10 },
+        { name: 'Silver', emoji: '🥈', levels: 10 },
+        { name: 'Gold', emoji: '🥇', levels: 10 },
+        { name: 'Platinum', emoji: '💎', levels: 10 },
       ];
+      const PRESTIGE_LEVELS = 100;
+      const PRESTIGE_EMOJI = '🏆';
+
+      const buildRankLevels = () => {
+        const levels = [];
+        baseRankGroups.forEach((group) => {
+          for (let level = group.levels; level >= 1; level -= 1) {
+            const index = levels.length;
+            levels.push({
+              name: `${group.name} ${level}`,
+              emoji: group.emoji,
+              minHours: index * HOURS_PER_LEVEL,
+            });
+          }
+        });
+        for (let prestige = PRESTIGE_LEVELS; prestige >= 1; prestige -= 1) {
+          const index = levels.length;
+          levels.push({
+            name: `Prestige ${prestige}`,
+            emoji: PRESTIGE_EMOJI,
+            minHours: index * HOURS_PER_LEVEL,
+          });
+        }
+        return levels;
+      };
+
+      const rankLevels = buildRankLevels();
+      const TOTAL_RANK_LEVELS = rankLevels.length;
+
+      const getRankProgress = (totalHours) => {
+        let currentIndex = 0;
+        for (let i = 0; i < rankLevels.length; i += 1) {
+          const nextLevel = rankLevels[i + 1];
+          if (!nextLevel || totalHours < nextLevel.minHours) {
+            currentIndex = i;
+            break;
+          }
+        }
+
+        const currentRank = rankLevels[currentIndex];
+        const nextRank = rankLevels[currentIndex + 1] || {
+          name: 'Prestige ∞',
+          emoji: PRESTIGE_EMOJI,
+          minHours: currentRank.minHours + HOURS_PER_LEVEL,
+        };
+
+        const clampedProgress = Math.min(
+          Math.max(0, totalHours - currentRank.minHours),
+          HOURS_PER_LEVEL,
+        );
+        const ratioWithinLevel = clampedProgress / HOURS_PER_LEVEL;
+
+        return {
+          currentRank,
+          nextRank,
+          currentIndex,
+          ratioWithinLevel,
+          clampedProgress,
+        };
+      };
+
+      const updateProgressVisual = (fillElement, recentElement, ratioWithinLevel, clampedProgress, lastMonthHours) => {
+        if (fillElement) {
+          fillElement.style.width = `${(ratioWithinLevel * 100).toFixed(2)}%`;
+        }
+
+        if (recentElement) {
+          const recentContribution = Math.max(0, Math.min(lastMonthHours, HOURS_PER_LEVEL));
+          const effectiveRecent = Math.min(recentContribution, clampedProgress);
+          const recentRatioWithinProgress = clampedProgress === 0 ? 0 : effectiveRecent / clampedProgress;
+          recentElement.style.width = `${(recentRatioWithinProgress * 100).toFixed(2)}%`;
+        }
+      };
 
       const fellowshipClasses = [
         {
@@ -813,12 +876,28 @@
         setText('weekly-elevation', formatMetric(weeklySnapshot.elevationM, { decimals: 0, suffix: ' m' }));
         setText('weekly-calories', formatMetric(weeklySnapshot.calories, { decimals: 0, suffix: ' kcal' }));
 
-        setText('distance-value', formatMetric(lifetimeSnapshot.distanceKm, { decimals: 0, suffix: ' km totali' }));
-        setText('distance-week-gain', formatSignedMetric(lifetimeSnapshot.distanceWeekGain, { decimals: 0, suffix: ' km rispetto alla scorsa settimana' }));
-        setText('elevation-value', formatMetric(lifetimeSnapshot.elevationM, { decimals: 0, suffix: ' m totali' }));
-        setText('elevation-week-gain', formatSignedMetric(lifetimeSnapshot.elevationWeekGain, { decimals: 0, suffix: ' m questa settimana' }));
-        setText('calories-value', formatMetric(lifetimeSnapshot.calories, { decimals: 0, suffix: ' kcal complessivi' }));
-        setText('calories-week-gain', formatSignedMetric(lifetimeSnapshot.caloriesWeekGain, { decimals: 0, suffix: ' kcal in 7 giorni' }));
+        const { totalHours, lastMonthHours } = trainingVolume;
+        const {
+          currentRank,
+          nextRank,
+          ratioWithinLevel,
+          clampedProgress,
+        } = getRankProgress(totalHours);
+
+        setText('training-total-hours', formatMetric(totalHours, { decimals: 0, suffix: ' h totali' }));
+        setText('training-next-rank', `Prossimo: ${nextRank.name} (${formatMetric(nextRank.minHours, { decimals: 0, suffix: ' h' })})`);
+        setText('training-last-month-hours', formatMetric(lastMonthHours, { decimals: 0, suffix: ' h' }));
+
+        const trainingContainer = document.getElementById('training-progress-container');
+        if (trainingContainer) {
+          trainingContainer.setAttribute('aria-valuenow', `${totalHours}`);
+          trainingContainer.setAttribute('aria-valuemin', `${currentRank.minHours}`);
+          trainingContainer.setAttribute('aria-valuemax', `${nextRank.minHours}`);
+        }
+
+        const trainingFill = document.getElementById('training-progress-fill');
+        const trainingRecent = document.getElementById('training-progress-recent');
+        updateProgressVisual(trainingFill, trainingRecent, ratioWithinLevel, clampedProgress, lastMonthHours);
 
         const classAssignment = pickFellowshipClass(athleteProfile);
         setText('profile-class-crest', classAssignment.entry.crest);
@@ -841,34 +920,35 @@
       };
 
       const renderRank = () => {
-        const points = rankProgress.points;
-        let currentIndex = 0;
-        for (let i = 0; i < rankLevels.length; i += 1) {
-          const nextLevel = rankLevels[i + 1];
-          if (!nextLevel || points < nextLevel.minPoints) {
-            currentIndex = i;
-            break;
-          }
-        }
-        const currentRank = rankLevels[currentIndex];
-        const nextRank = rankLevels[currentIndex + 1] || currentRank;
+        const { totalHours, lastMonthHours } = trainingVolume;
+        const {
+          currentRank,
+          nextRank,
+          currentIndex,
+          ratioWithinLevel,
+          clampedProgress,
+        } = getRankProgress(totalHours);
 
-        setText('current-rank', `${currentRank.emoji} ${currentRank.name}`);
-        setText('current-rank-label', currentRank.name);
-        setText('next-rank-label', nextRank.name);
-        setText('current-points', formatMetric(points, { decimals: 0 }));
-        setText('next-rank-points', formatMetric(nextRank.minPoints, { decimals: 0 }));
+        setText(
+          'current-rank',
+          `${currentRank.emoji} ${currentRank.name} (${currentIndex + 1}/${TOTAL_RANK_LEVELS})`,
+        );
+        setText('current-rank-label', formatMetric(totalHours, { decimals: 0, suffix: ' h totali' }));
+        const nextRankLabel = nextRank.name === 'Prestige ∞'
+          ? 'Prestige infinito'
+          : `${nextRank.name} · ${formatMetric(nextRank.minHours, { decimals: 0, suffix: ' h' })}`;
+        setText('next-rank-label', nextRankLabel);
+        setText('current-hours', formatMetric(totalHours, { decimals: 0, suffix: ' h' }));
+        setText('next-rank-hours', formatMetric(nextRank.minHours, { decimals: 0, suffix: ' h' }));
         setText('rank-emoji', currentRank.emoji);
 
         const progressBar = document.getElementById('progress-bar');
+        const progressRecent = document.getElementById('progress-recent');
+        updateProgressVisual(progressBar, progressRecent, ratioWithinLevel, clampedProgress, lastMonthHours);
         if (progressBar) {
-          const range = Math.max(1, nextRank.minPoints - currentRank.minPoints);
-          const ratio = currentRank === nextRank ? 1 : Math.min(1, Math.max(0, (points - currentRank.minPoints) / range));
-          const width = (ratio * 100).toFixed(2);
-          progressBar.style.width = `${width}%`;
-          progressBar.setAttribute('aria-valuenow', `${points}`);
-          progressBar.setAttribute('aria-valuemin', `${currentRank.minPoints}`);
-          progressBar.setAttribute('aria-valuemax', `${nextRank.minPoints}`);
+          progressBar.setAttribute('aria-valuenow', `${totalHours}`);
+          progressBar.setAttribute('aria-valuemin', `${currentRank.minHours}`);
+          progressBar.setAttribute('aria-valuemax', `${nextRank.minHours}`);
         }
 
         const list = document.getElementById('rank-list');
@@ -884,7 +964,7 @@
               <span class="rank-tier__icon" aria-hidden="true">${level.emoji}</span>
               <div class="rank-tier__copy">
                 <span class="rank-tier__name">${level.name}</span>
-                <span class="rank-tier__points">${formatMetric(level.minPoints, { decimals: 0 })} pt</span>
+                <span class="rank-tier__points">${formatMetric(level.minHours, { decimals: 0, suffix: ' h' })}</span>
               </div>
             `;
             list.appendChild(item);

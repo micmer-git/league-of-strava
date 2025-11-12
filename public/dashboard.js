@@ -361,6 +361,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
+    const rankInfoButton = document.getElementById('rank-info-button');
     const globeStatButton = document.getElementById('globe-stat');
     const everestStatButton = document.getElementById('everest-stat');
     const pizzaStatButton = document.getElementById('pizza-stat');
@@ -1609,7 +1610,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const MASTER_PRESTIGE_START_HOURS = 4000;
     const MAX_RANK_HOURS = 20000;
 
-    const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
+    const rankTriggerElements = [
+        currentRankElement,
+        levelProgressElement,
+        rankProgressTriggerElement,
+        rankInfoButton
+    ].filter(Boolean);
 
     const setRankTriggerExpanded = (expanded) => {
         const value = expanded ? 'true' : 'false';
@@ -2143,6 +2149,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (formattedPercent) {
             displayText += ` (${formattedPercent})`;
+        }
+
+        if (formattedValue || formattedPercent) {
+            displayText += '.';
         }
 
         element.textContent = displayText;
@@ -8977,8 +8987,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         rankTriggerElements.forEach((element) => {
-            element.setAttribute('tabindex', '0');
-            element.setAttribute('role', 'button');
+            const isNativeButton = element.tagName === 'BUTTON';
+            if (!isNativeButton) {
+                element.setAttribute('tabindex', '0');
+                element.setAttribute('role', 'button');
+            } else if (!element.hasAttribute('type')) {
+                element.setAttribute('type', 'button');
+            }
             element.setAttribute('aria-haspopup', 'dialog');
             element.setAttribute('aria-expanded', 'false');
             element.classList.add('rank-trigger');

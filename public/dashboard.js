@@ -1603,6 +1603,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentMonthHours: 0,
         previousMonthHours: 0,
     };
+    let hasActivitiesState = false;
 
     const MASTER_PRESTIGE_MAX = 1000;
     const MASTER_PRESTIGE_START_HOURS = 4000;
@@ -2199,6 +2200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const spanHours = Number.isFinite(nextMinHours) && nextMinHours > currentMinHours
             ? nextMinHours - currentMinHours
             : null;
+        const hasActivities = hasActivitiesState;
 
         let progressPercent = 0;
         if (spanHours) {
@@ -7807,6 +7809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const segmentMetadata = normalizeSegmentMetadata(data.segmentMetadata);
         data.segmentMetadata = segmentMetadata;
         const hasActivities = activities.length > 0;
+        hasActivitiesState = hasActivities;
         const totals = calculateTotals(activities);
         updateLoadingWeeklyOverview(activities);
         const totalHours = totals.hours;

@@ -84,6 +84,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         Elevation: 'm',
         Calories: ''
     };
+
+    const toNonNegativeInteger = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return 0;
+        }
+        if (numeric <= 0) {
+            return 0;
+        }
+        return Math.floor(numeric);
+    };
     const CALORIE_SCALE_FACTOR = 0.65;
     const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
     const usdCodeFormatter = new Intl.NumberFormat(undefined, {
@@ -1002,25 +1013,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
         }
 
+        const categories = Array.isArray(summary.categories)
+            ? summary.categories.map(category => ({
+                name: category.name,
+                achievements: Array.isArray(category.achievements)
+                    ? category.achievements.map(achievement => ({
+                        ...achievement,
+                        count: toNonNegativeInteger(achievement?.count),
+                    }))
+                    : [],
+            }))
+            : [];
+
+        const medalCount = toNonNegativeInteger(summary.medalSummary?.count);
+
+        const medalsEarned = Array.isArray(summary.medalsEarned)
+            ? summary.medalsEarned.map(medal => ({
+                ...medal,
+                count: toNonNegativeInteger(medal?.count),
+            }))
+            : [];
+
+        const medalInventory = Array.isArray(summary.medalInventory)
+            ? summary.medalInventory.map(medal => ({
+                ...medal,
+                count: toNonNegativeInteger(medal?.count),
+            }))
+            : [];
+
         return {
-            categories: Array.isArray(summary.categories)
-                ? summary.categories.map(category => ({
-                    name: category.name,
-                    achievements: Array.isArray(category.achievements)
-                        ? category.achievements.map(achievement => ({ ...achievement }))
-                        : [],
-                }))
-                : [],
+            categories,
             medalSummary: {
-                count: Number.isFinite(summary.medalSummary?.count) ? summary.medalSummary.count : 0,
-                value: Number.isFinite(summary.medalSummary?.value) ? summary.medalSummary.value : 0,
+                count: medalCount,
+                value: medalCount * MEDAL_DOLLAR_VALUE,
             },
-            medalsEarned: Array.isArray(summary.medalsEarned)
-                ? summary.medalsEarned.map(medal => ({ ...medal }))
-                : [],
-            medalInventory: Array.isArray(summary.medalInventory)
-                ? summary.medalInventory.map(medal => ({ ...medal }))
-                : [],
+            medalsEarned,
+            medalInventory,
         };
     };
 
@@ -1073,9 +1101,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 description = `Completed a run of at least ${threshold} km`;
             }
 
+            const normalizedCount = toNonNegativeInteger(count);
             const category = categories.find(cat => cat.name === 'Distance Run');
             if (category) {
-                category.achievements.push({ name, emoji, description, count });
+                category.achievements.push({ name, emoji, description, count: normalizedCount });
             }
         });
 
@@ -1119,9 +1148,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 description = `Completed a ride of at least ${threshold} km`;
             }
 
+            const normalizedCount = toNonNegativeInteger(count);
             const category = categories.find(cat => cat.name === 'Distance Ride');
             if (category) {
-                category.achievements.push({ name, emoji, description, count });
+                category.achievements.push({ name, emoji, description, count: normalizedCount });
             }
         });
 
@@ -1172,9 +1202,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 count = activityList.filter(activity => Number(activity.total_elevation_gain) >= threshold).length;
             }
 
+            const normalizedCount = toNonNegativeInteger(count);
             const category = categories.find(cat => cat.name === 'Elevation');
             if (category) {
-                category.achievements.push({ name, emoji, description, count });
+                category.achievements.push({ name, emoji, description, count: normalizedCount });
             }
         });
 
@@ -1199,7 +1230,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const category = categories.find(cat => cat.name === 'Calories (kcal)');
             if (category) {
-                category.achievements.push({ name, emoji, description, count });
+                category.achievements.push({
+                    name,
+                    emoji,
+                    description,
+                    count: toNonNegativeInteger(count),
+                });
             }
         });
 
@@ -1223,7 +1259,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const category = categories.find(cat => cat.name === 'Calories (kcal)');
             if (category) {
-                category.achievements.push({ name, emoji, description, count });
+                category.achievements.push({
+                    name,
+                    emoji,
+                    description,
+                    count: toNonNegativeInteger(count),
+                });
             }
         });
 
@@ -1324,20 +1365,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-            if (!Number.isFinite(count) || count < 0) {
-                count = 0;
-            }
+            const normalizedCount = toNonNegativeInteger(count);
 
-            result.count = count;
+            result.count = normalizedCount;
 
-            if (count > 0) {
+            if (normalizedCount > 0) {
                 medalsEarned.push(result);
             }
 
             return result;
         });
 
-        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + (medal.count || 0), 0);
+        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + toNonNegativeInteger(medal?.count), 0);
         const medalSummary = {
             count: totalMedalCount,
             value: totalMedalCount * MEDAL_DOLLAR_VALUE,
@@ -2389,9 +2428,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activeMedalFilter) {
             medalFilterBanner.classList.remove('hidden');
             const emojiValue = activeMedalMeta?.emoji || '';
-            const countValue = Number.isFinite(activeMedalMeta?.count)
-                ? activeMedalMeta.count.toLocaleString()
-                : '';
+            const normalizedCount = toNonNegativeInteger(activeMedalMeta?.count);
+            const countValue = normalizedCount.toLocaleString();
             if (medalFilterLabel) {
                 const labelParts = [];
                 if (emojiValue) {
@@ -2448,6 +2486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         buttons.forEach(button => {
             const isActive = button.dataset.medalName === activeMedalFilter;
             button.classList.toggle('medals-list__button--active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             button.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
         });
     };
@@ -2530,13 +2569,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const medalButton = document.createElement('button');
                 medalButton.type = 'button';
                 medalButton.className = 'tooltip-target medals-list__button';
-                if (!medal.count) {
+                const medalCount = toNonNegativeInteger(medal?.count);
+                if (medalCount === 0) {
                     medalButton.classList.add('medals-list__button--unearned');
                 }
 
                 const countSpan = document.createElement('span');
                 countSpan.className = 'medals-list__count';
-                const countLabel = medal.count.toLocaleString();
+                const countLabel = medalCount.toLocaleString();
                 countSpan.textContent = `${countLabel}×`;
                 countSpan.setAttribute('aria-label', `${countLabel} medals earned`);
 
@@ -2563,7 +2603,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalButton.append(countSpan, emojiSpan, textWrapper);
 
                 const descriptionText = (medal.description || '').trim();
-                const earnedDescriptor = medal.count > 0
+                const earnedDescriptor = medalCount > 0
                     ? `${countLabel} earned`
                     : 'Not earned yet';
                 const ariaDescription = descriptionText
@@ -2577,8 +2617,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalButton.dataset.medalName = medal.name;
                 medalButton.dataset.medalEmoji = medal.emoji || '';
                 medalButton.dataset.medalCategory = medal.category || '';
+                medalButton.dataset.medalCount = medalCount.toString();
                 medalButton.addEventListener('click', () => {
-                    toggleMedalFilter(medal);
+                    toggleMedalFilter({ ...medal, count: medalCount });
                 });
 
                 listItem.appendChild(medalButton);
@@ -4738,7 +4779,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             category.achievements.forEach(achievement => {
                 const emoji = achievement?.emoji;
-                const count = Number.isFinite(achievement?.count) ? achievement.count : 0;
+                const count = toNonNegativeInteger(achievement?.count);
                 if (COIN_EMOJIS.includes(emoji) && count > 0) {
                     totals[emoji] += count;
                 }
@@ -4909,7 +4950,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.setAttribute('aria-label', 'Super achievements');
 
         achievements.forEach((achievement) => {
-            const countValue = Number.isFinite(achievement.count) ? achievement.count : 1;
+            const normalizedCount = toNonNegativeInteger(achievement.count);
+            const countValue = normalizedCount > 0 ? normalizedCount : 1;
             const countSummary = `${countValue.toLocaleString()}×`;
             const badge = document.createElement('div');
             badge.className = 'profile-card__badge-item';
@@ -5111,10 +5153,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!element) {
                 return;
             }
-            const targetValue = totals[emoji] || 0;
-            const currentValue = Number.parseInt(element.textContent, 10) || 0;
+            const targetValue = toNonNegativeInteger(totals[emoji]);
+            const normalizedCurrent = Number((element.textContent || '').replace(/,/g, ''));
+            const currentValue = Number.isFinite(normalizedCurrent) ? normalizedCurrent : 0;
             if (currentValue !== targetValue) {
-                element.textContent = targetValue;
+                element.textContent = targetValue.toLocaleString();
             }
             const parentButton = element.closest('button[data-coin-type]');
             if (parentButton) {
@@ -5123,15 +5166,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const totalCoinValue = Object.entries(totals).reduce((sum, [emoji, count]) => {
+            const normalizedCount = toNonNegativeInteger(count);
             const coinValue = COIN_VALUE_MAP[emoji] || 0;
-            return sum + (coinValue * count);
+            return sum + (coinValue * normalizedCount);
         }, 0);
 
-        const medalValue = Number.isFinite(medalSummary?.value) ? medalSummary.value : 0;
-        const medalCount = Number.isFinite(medalSummary?.count) ? medalSummary.count : 0;
+        const medalCount = toNonNegativeInteger(medalSummary?.count);
+        const medalValue = medalCount * MEDAL_DOLLAR_VALUE;
         const combinedValue = totalCoinValue + medalValue;
 
-        const totalCoinCount = Object.values(totals).reduce((sum, count) => sum + count, 0);
+        const totalCoinCount = Object.values(totals).reduce(
+            (sum, count) => sum + toNonNegativeInteger(count),
+            0,
+        );
 
         if (walletSummaryElements.coinsCount) {
             walletSummaryElements.coinsCount.textContent = totalCoinCount.toLocaleString();
@@ -5155,7 +5202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const aggregatedMedals = new Map();
         if (Array.isArray(medalBreakdown)) {
             medalBreakdown.forEach(medal => {
-                const count = Number.isFinite(medal?.count) ? medal.count : 0;
+                const count = toNonNegativeInteger(medal?.count);
                 if (count <= 0) {
                     return;
                 }
@@ -6348,7 +6395,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeMedalMeta = {
             name: medal.name,
             emoji: medal.emoji || '',
-            count: Number.isFinite(medal.count) ? medal.count : null,
+            count: toNonNegativeInteger(medal.count),
             description: medal.description || '',
             category: medal.category || ''
         };
@@ -7773,7 +7820,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalsEarned = lifetimeRewardSummary.medalsEarned;
         const medalSummary = lifetimeRewardSummary.medalSummary;
 
-        medalInventory = lifetimeRewardSummary.medalInventory;
+        medalInventory = Array.isArray(lifetimeRewardSummary.medalInventory)
+            ? lifetimeRewardSummary.medalInventory.map(medal => ({
+                ...medal,
+                count: toNonNegativeInteger(medal?.count),
+            }))
+            : [];
 
         updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
 
@@ -7836,7 +7888,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (!COIN_EMOJIS.includes(emoji)) {
                         return;
                     }
-                    const count = Number.isFinite(achievement.count) ? achievement.count : 0;
+                    const count = toNonNegativeInteger(achievement?.count);
                     countsByEmoji[emoji] += count;
                     if (count > 0) {
                         detailsByEmoji[emoji].push({
@@ -7870,7 +7922,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     cell.className = 'px-1.5 py-1.5 text-center align-middle';
                     const cellWrapper = document.createElement('div');
                     cellWrapper.className = 'wallet-table__cell flex min-w-[3rem] flex-col items-center gap-0.5 px-1 py-0.5 font-semibold text-gray-800 dark:text-gray-100';
-                    const countValue = countsByEmoji[emoji].toLocaleString();
+                    const countForEmoji = toNonNegativeInteger(countsByEmoji[emoji]);
+                    const countValue = countForEmoji.toLocaleString();
                     const descriptionCandidates = detailsByEmoji[emoji]
                         .map(detail => formatCoinCellLabel(rowConfig.label, detail.name))
                         .filter(Boolean);
@@ -7921,7 +7974,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activeMedalMeta = {
                     name: matchedMedal.name,
                     emoji: matchedMedal.emoji || '',
-                    count: Number.isFinite(matchedMedal.count) ? matchedMedal.count : null,
+                    count: toNonNegativeInteger(matchedMedal.count),
                     description: descriptionText,
                     category: matchedMedal.category || null
                 };

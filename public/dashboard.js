@@ -398,6 +398,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
     let pendingWalletRender = false;
     const profileRefreshButton = document.getElementById('profile-refresh');
+    const setProfileRefreshLoadingState = (isLoading) => {
+        if (!profileRefreshButton) {
+            return;
+        }
+
+        const loading = Boolean(isLoading);
+        profileRefreshButton.classList.toggle('is-loading', loading);
+
+        if (loading) {
+            profileRefreshButton.setAttribute('disabled', 'disabled');
+            profileRefreshButton.setAttribute('aria-busy', 'true');
+        } else {
+            profileRefreshButton.removeAttribute('disabled');
+            profileRefreshButton.removeAttribute('aria-busy');
+        }
+    };
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
@@ -9149,10 +9165,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (profileRefreshButton) {
-        profileRefreshButton.addEventListener('click', (event) => {
+        profileRefreshButton.addEventListener('click', async (event) => {
             event.preventDefault();
-            const authUrl = buildStravaAuthRedirectUrl();
-            window.location.href = authUrl;
+            if (profileRefreshButton.disabled) {
+                return;
+            }
+
+            setProfileRefreshLoadingState(true);
+
+            try {
+                if (window.dashboardMobile?.refresh) {
+                    const refreshed = await window.dashboardMobile.refresh({ showLoading: true });
+
+                    if (refreshed === false && !isSharedView) {
+                        showSpinner();
+                        await fetchData({ forceRefresh: true });
+                    }
+                } else {
+                    showSpinner();
+                    await fetchData({ forceRefresh: true });
+                }
+            } catch (refreshError) {
+                console.error('Dashboard refresh failed:', refreshError);
+            } finally {
+                setProfileRefreshLoadingState(false);
+            }
         });
     } else {
         console.warn("'profile-refresh' element not found in the DOM.");

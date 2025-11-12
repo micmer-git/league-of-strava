@@ -2461,7 +2461,7 @@ to { transform: rotate(360deg); }
     gap: 0.75rem;
 }
 
-#activities-filter-panel {
+.activities-panel {
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(148, 163, 184, 0.18);
 }
@@ -3792,16 +3792,6 @@ body.dark .activity-card__title-link:focus-visible,
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
-}
-
-.activities-filter-hint {
-    margin: 0;
-    color: var(--color-muted);
-    font-size: 0.9rem;
-}
-
-.dark .activities-filter-hint {
-    color: #cbd5f5;
 }
 
 .filter-modal {

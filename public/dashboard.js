@@ -7784,6 +7784,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalHours = totals.hours;
         const monthlyHours = calculateRecentMonthlyHours(activities);
 
+        // Always calculate the fun stats from the lifetime activity history rather than the
+        // currently filtered view so the numbers remain consistent across filters.
         const lifetimeActivitiesForStats = Array.isArray(allData.activities) ? allData.activities : activities;
         const aggregatedSmallStats = lifetimeActivitiesForStats.reduce((acc, activity) => {
             const stats = computeActivitySmallStats(activity);

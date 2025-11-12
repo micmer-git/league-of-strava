@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalDetail: document.getElementById('wallet-summary-total-detail')
     };
     const achievementWallet = document.getElementById('achievement-wallet');
-    const medalsSection = document.getElementById('medals-section');
+    let medalsSection = document.getElementById('medals-section');
     const segmentContainer = document.querySelector('#segment-completions .grid');
     const segmentSection = document.getElementById('segment-completions');
     if (segmentSection) {
@@ -436,6 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const refreshPanelReferences = () => {
         activitiesContainer = document.getElementById('activities-container');
         activitiesEmptyState = document.getElementById('activities-empty');
+        medalsSection = document.getElementById('medals-section');
         medalFilterBanner = document.getElementById('medal-filter-banner');
         medalFilterLabel = document.getElementById('medal-filter-label');
         medalFilterDescription = document.getElementById('medal-filter-description');

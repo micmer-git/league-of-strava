@@ -81,8 +81,9 @@ button,
   min-height: calc(var(--app-viewport-height) - var(--app-safe-area-top) - var(--app-safe-area-bottom));
   padding: calc(var(--app-safe-area-top) + clamp(1.25rem, 2vw, 2.75rem)) clamp(max(var(--app-safe-area-right), 1rem), 4vw, 3.25rem) calc(var(--app-safe-area-bottom) + clamp(2.5rem, 6vw, 4.5rem)) clamp(max(var(--app-safe-area-left), 1rem), 4vw, 3.25rem);
   gap: clamp(1.25rem, 2vw, 2.5rem);
-  width: min(100%, 1180px);
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   position: relative;
   z-index: 1;
 }
@@ -184,6 +185,8 @@ button,
   gap: clamp(1.25rem, 2vw, 2.25rem);
   align-items: start;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .primary-column,
@@ -191,6 +194,7 @@ button,
   display: grid;
   gap: clamp(1.25rem, 2vw, 2rem);
   min-width: 0;
+  width: 100%;
 }
 
 .secondary-column {

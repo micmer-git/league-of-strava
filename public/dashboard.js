@@ -407,6 +407,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
     const dashboardPanels = new Map();
+    const chartToggleButtons = {
+        coins: null,
+        balance: null
+    };
     document.querySelectorAll('[data-dashboard-panel]').forEach(panel => {
         const name = panel?.dataset?.dashboardPanel;
         if (name) {
@@ -571,10 +575,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.error('dashboardMobile panel listener error:', error);
             }
         });
-    };
-    const chartToggleButtons = {
-        coins: chartToggleCoinsButton,
-        balance: chartToggleBalanceButton
     };
     const leaderboardState = {
         entries: [],

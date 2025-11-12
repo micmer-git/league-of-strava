@@ -7784,7 +7784,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalHours = totals.hours;
         const monthlyHours = calculateRecentMonthlyHours(activities);
 
-        const aggregatedSmallStats = activities.reduce((acc, activity) => {
+        const lifetimeActivitiesForStats = Array.isArray(allData.activities) ? allData.activities : activities;
+        const aggregatedSmallStats = lifetimeActivitiesForStats.reduce((acc, activity) => {
             const stats = computeActivitySmallStats(activity);
             acc.distanceKm += stats.distanceKm;
             acc.elevationGain += stats.elevationGain;

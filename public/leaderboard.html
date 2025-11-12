@@ -18,21 +18,20 @@
     .leaderboard-table td:nth-child(2) {
       position: sticky;
       left: 0;
-      background: white;
       z-index: 10;
-      box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
     }
 
-    /* Remove thousand separators globally */
-    .leaderboard-table td {
-      white-space: nowrap;
+    .leaderboard-table th:nth-child(2) {
+      z-index: 15;
     }
 
-    /* Ensure name column wraps properly */
+    .leaderboard-table th:nth-child(2),
     .leaderboard-table td:nth-child(2) {
-      min-width: 150px;
-      max-width: 200px;
-      overflow-wrap: break-word;
+      max-width: none;
+      width: auto;
+      overflow: visible;
+      text-overflow: unset;
+      white-space: nowrap;
     }
   </style>
   <script src="/leaderboard.js" defer></script>
@@ -40,9 +39,7 @@
 <body class="leaderboard-body">
   <main class="leaderboard-main">
     <section class="leaderboard-container" aria-labelledby="leaderboard-heading">
-      <header class="leaderboard-header">
-        <h1 id="leaderboard-heading">Global Leaderboard</h1>
-      </header>
+      <h1 id="leaderboard-heading" class="sr-only">Global Leaderboard</h1>
       <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
         <table class="leaderboard-table">
           <thead>

@@ -30,14 +30,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
     const MEDAL_OTHER_COLOR = '#94a3b8';
     const BALANCE_YEAR_COLOR_PALETTE = [
-        { border: '#2563eb', background: 'rgba(37, 99, 235, 0.18)' },
-        { border: '#16a34a', background: 'rgba(22, 163, 74, 0.18)' },
-        { border: '#f97316', background: 'rgba(249, 115, 22, 0.18)' },
-        { border: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)' },
-        { border: '#14b8a6', background: 'rgba(20, 184, 166, 0.18)' },
-        { border: '#ef4444', background: 'rgba(239, 68, 68, 0.18)' },
-        { border: '#f59e0b', background: 'rgba(245, 158, 11, 0.18)' },
-        { border: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' }
+        { border: '#2563eb', background: 'rgba(37, 99, 235, 0.18)', hover: 'rgba(37, 99, 235, 0.32)' },
+        { border: '#16a34a', background: 'rgba(22, 163, 74, 0.18)', hover: 'rgba(22, 163, 74, 0.32)' },
+        { border: '#f97316', background: 'rgba(249, 115, 22, 0.18)', hover: 'rgba(249, 115, 22, 0.32)' },
+        { border: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)', hover: 'rgba(139, 92, 246, 0.32)' },
+        { border: '#14b8a6', background: 'rgba(20, 184, 166, 0.18)', hover: 'rgba(20, 184, 166, 0.32)' },
+        { border: '#ef4444', background: 'rgba(239, 68, 68, 0.18)', hover: 'rgba(239, 68, 68, 0.32)' },
+        { border: '#f59e0b', background: 'rgba(245, 158, 11, 0.18)', hover: 'rgba(245, 158, 11, 0.32)' },
+        { border: '#6366f1', background: 'rgba(99, 102, 241, 0.18)', hover: 'rgba(99, 102, 241, 0.32)' }
     ];
     const MONTH_COMPARISON_LABELS = Array.from({ length: 12 }, (_, index) => {
         const date = new Date(2000, index, 1);
@@ -587,12 +587,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     let filterApplyTimeout = null;
     let coinChartMode = 'stacked';
     let medalInventory = [];
+    const walletMetricsCache = { key: null, metrics: [] };
+    const rewardSummaryCache = { key: null, summary: null };
     let visibleMedalCount = 0;
     let activeQuickFilter = null;
     let lastShareData = null;
     let shareCopyResetTimeout = null;
 
     let activePanelName = null;
+    const sharedViewParam = new URLSearchParams(window.location.search).get('userId') || '';
+    const shouldForceProfilePanel = sharedViewParam.trim().length > 0;
     const initialPanelFromMarkup = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab ?? null;
     const storedPanelName = readStoredPanelName();
     const initialPanelName = (storedPanelName && (dashboardPanels.has(storedPanelName) || panelTemplates.has(storedPanelName)))
@@ -681,7 +685,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         notifyPanelChange(panelName);
     }
 
-    mapsTo(initialPanelName || 'profile');
+    const resolvedInitialPanel = shouldForceProfilePanel ? 'profile' : (initialPanelName || 'profile');
+    mapsTo(resolvedInitialPanel);
 
     const moveToRelativePanel = (direction) => {
         if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {
@@ -962,6 +967,420 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletChartData = {
         coins: { labels: [], coinBreakdown: {}, medalBreakdown: [], timelineLabels: [], coinTimeline: {} },
         balance: { labels: [], values: [], compareLabels: MONTH_COMPARISON_LABELS, compareDatasets: [] }
+    };
+
+    const computeActivitiesCacheKey = (activities = []) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return 'empty';
+        }
+
+        const first = activities[0] || {};
+        const last = activities[activities.length - 1] || {};
+        const firstKey = first.id ?? first.start_date ?? first.name ?? 'start';
+        const lastKey = last.id ?? last.start_date ?? last.name ?? 'end';
+        const totalMovingTime = activities.reduce((sum, activity) => sum + (Number(activity?.moving_time) || 0), 0);
+        return `${activities.length}:${firstKey}:${lastKey}:${Math.round(totalMovingTime)}`;
+    };
+
+    const getWalletMetricsForActivities = (activities = []) => {
+        const key = computeActivitiesCacheKey(activities);
+        if (walletMetricsCache.key !== key) {
+            walletMetricsCache.key = key;
+            walletMetricsCache.metrics = buildWalletMetrics(activities);
+        }
+        return walletMetricsCache.metrics;
+    };
+
+    const cloneRewardSummary = (summary) => {
+        if (!summary) {
+            return {
+                categories: [],
+                medalSummary: { count: 0, value: 0 },
+                medalsEarned: [],
+                medalInventory: [],
+            };
+        }
+
+        return {
+            categories: Array.isArray(summary.categories)
+                ? summary.categories.map(category => ({
+                    name: category.name,
+                    achievements: Array.isArray(category.achievements)
+                        ? category.achievements.map(achievement => ({ ...achievement }))
+                        : [],
+                }))
+                : [],
+            medalSummary: {
+                count: Number.isFinite(summary.medalSummary?.count) ? summary.medalSummary.count : 0,
+                value: Number.isFinite(summary.medalSummary?.value) ? summary.medalSummary.value : 0,
+            },
+            medalsEarned: Array.isArray(summary.medalsEarned)
+                ? summary.medalsEarned.map(medal => ({ ...medal }))
+                : [],
+            medalInventory: Array.isArray(summary.medalInventory)
+                ? summary.medalInventory.map(medal => ({ ...medal }))
+                : [],
+        };
+    };
+
+    const buildLifetimeRewardSummary = (activities = []) => {
+        const activityList = Array.isArray(activities) ? activities : [];
+        const categories = [
+            { name: 'Distance Run', achievements: [] },
+            { name: 'Distance Ride', achievements: [] },
+            { name: 'Elevation', achievements: [] },
+            { name: 'Calories (kcal)', achievements: [] },
+        ];
+
+        const distanceRunBadges = {
+            thresholds: [10, 21, 42, 50, 100],
+            unit: 'km',
+            emoji_sequence: ['💲', '💰', '🧈', '💎', '👑'],
+        };
+
+        distanceRunBadges.thresholds.forEach((threshold, idx) => {
+            const emoji = distanceRunBadges.emoji_sequence[idx] || '🏅';
+            let count = 0;
+            let name = '';
+            let description = '';
+
+            if (threshold >= 50) {
+                const weeklyDistance = {};
+                activityList.forEach(activity => {
+                    if ((activity.type || '').toUpperCase() !== 'RUN') {
+                        return;
+                    }
+                    const week = new Date(activity.start_date);
+                    if (Number.isNaN(week.getTime())) {
+                        return;
+                    }
+                    week.setHours(0, 0, 0, 0);
+                    week.setDate(week.getDate() - week.getDay());
+                    const weekKey = week.toISOString().slice(0, 10);
+                    weeklyDistance[weekKey] = (weeklyDistance[weekKey] || 0) + (Number(activity.distance) / 1000);
+                });
+
+                count = Object.values(weeklyDistance).filter(distance => distance >= threshold).length;
+                name = `${threshold}km Run/Week`;
+                description = `Completed at least ${threshold} km running in a week`;
+            } else {
+                count = activityList.filter(activity => (
+                    (activity.type || '').toUpperCase() === 'RUN'
+                        && (Number(activity.distance) / 1000) >= threshold
+                )).length;
+                name = `${threshold}km Run`;
+                description = `Completed a run of at least ${threshold} km`;
+            }
+
+            const category = categories.find(cat => cat.name === 'Distance Run');
+            if (category) {
+                category.achievements.push({ name, emoji, description, count });
+            }
+        });
+
+        const distanceRideBadges = {
+            thresholds: [100, 150, 200, 300, 600],
+            unit: 'km',
+            emoji_sequence: ['💲', '💰', '🧈', '💎', '👑'],
+        };
+
+        distanceRideBadges.thresholds.forEach((threshold, idx) => {
+            const emoji = distanceRideBadges.emoji_sequence[idx] || '🏅';
+            let count = 0;
+            let name = '';
+            let description = '';
+
+            if (threshold >= 300) {
+                const weeklyDistance = {};
+                activityList.forEach(activity => {
+                    if ((activity.type || '').toUpperCase() !== 'RIDE') {
+                        return;
+                    }
+                    const week = new Date(activity.start_date);
+                    if (Number.isNaN(week.getTime())) {
+                        return;
+                    }
+                    week.setHours(0, 0, 0, 0);
+                    week.setDate(week.getDate() - week.getDay());
+                    const weekKey = week.toISOString().slice(0, 10);
+                    weeklyDistance[weekKey] = (weeklyDistance[weekKey] || 0) + (Number(activity.distance) / 1000);
+                });
+
+                count = Object.values(weeklyDistance).filter(distance => distance >= threshold).length;
+                name = `${threshold}km Ride/Week`;
+                description = `Completed at least ${threshold} km riding in a week`;
+            } else {
+                count = activityList.filter(activity => (
+                    (activity.type || '').toUpperCase() === 'RIDE'
+                        && (Number(activity.distance) / 1000) >= threshold
+                )).length;
+                name = `${threshold}km Ride`;
+                description = `Completed a ride of at least ${threshold} km`;
+            }
+
+            const category = categories.find(cat => cat.name === 'Distance Ride');
+            if (category) {
+                category.achievements.push({ name, emoji, description, count });
+            }
+        });
+
+        const elevationThresholds = [1000, 2000, 4424, 10000, 25000];
+        const elevationEmojis = ['💲', '💰', '🧈', '👑', '💎'];
+
+        elevationThresholds.forEach((threshold, idx) => {
+            const emoji = elevationEmojis[idx] || '🏅';
+            let name = '';
+            let description = '';
+            let count = 0;
+
+            if (threshold === 4424) {
+                name = 'Half Everest';
+                description = 'Completed activities with elevation gain of at least Half Everest (4,424 meters)';
+                count = activityList.filter(activity => Number(activity.total_elevation_gain) >= threshold).length;
+            } else if (threshold === 25000) {
+                name = '25k Elevation/Month';
+                description = 'Achieved a total of 25,000 meters elevation gain in a month';
+                const monthlyElevation = {};
+                activityList.forEach(activity => {
+                    const date = new Date(activity.start_date);
+                    if (Number.isNaN(date.getTime())) {
+                        return;
+                    }
+                    const monthKey = date.toISOString().slice(0, 7);
+                    monthlyElevation[monthKey] = (monthlyElevation[monthKey] || 0) + Number(activity.total_elevation_gain);
+                });
+                count = Object.values(monthlyElevation).filter(total => total >= threshold).length;
+            } else if (threshold === 10000) {
+                name = '10k Elevation/Week';
+                description = 'Achieved a total of 10,000 meters elevation gain in a week';
+                const weeklyElevation = {};
+                activityList.forEach(activity => {
+                    const date = new Date(activity.start_date);
+                    if (Number.isNaN(date.getTime())) {
+                        return;
+                    }
+                    date.setHours(0, 0, 0, 0);
+                    date.setDate(date.getDate() - date.getDay());
+                    const weekKey = date.toISOString().slice(0, 10);
+                    weeklyElevation[weekKey] = (weeklyElevation[weekKey] || 0) + Number(activity.total_elevation_gain);
+                });
+                count = Object.values(weeklyElevation).filter(total => total >= threshold).length;
+            } else {
+                name = `${threshold}m Elevation`;
+                description = `Completed activities with elevation gain of at least ${threshold} meters`;
+                count = activityList.filter(activity => Number(activity.total_elevation_gain) >= threshold).length;
+            }
+
+            const category = categories.find(cat => cat.name === 'Elevation');
+            if (category) {
+                category.achievements.push({ name, emoji, description, count });
+            }
+        });
+
+        const kcalBadges = {
+            'Per Activity': {
+                thresholds: [1000, 2000, 4000, 7500, 8000],
+                emojis: ['💲', '💰', '🧈', '💎', '👑'],
+                description: 'Burned at least {} kcal in an activity',
+            },
+            'Weekly': {
+                thresholds: [12000, 24000],
+                emojis: ['💎', '👑'],
+                description: 'Burned at least {} kcal in a week',
+            },
+        };
+
+        kcalBadges['Per Activity'].thresholds.forEach((threshold, idx) => {
+            const emoji = kcalBadges['Per Activity'].emojis[idx] || '🏅';
+            const count = activityList.filter(activity => calculateActivityCalories(activity) >= threshold).length;
+            const name = `${threshold} kcal Activity`;
+            const description = kcalBadges['Per Activity'].description.replace('{}', threshold);
+
+            const category = categories.find(cat => cat.name === 'Calories (kcal)');
+            if (category) {
+                category.achievements.push({ name, emoji, description, count });
+            }
+        });
+
+        const weeklyKcal = {};
+        activityList.forEach(activity => {
+            const date = new Date(activity.start_date);
+            if (Number.isNaN(date.getTime())) {
+                return;
+            }
+            date.setHours(0, 0, 0, 0);
+            date.setDate(date.getDate() - date.getDay());
+            const weekKey = date.toISOString().slice(0, 10);
+            weeklyKcal[weekKey] = (weeklyKcal[weekKey] || 0) + calculateActivityCalories(activity);
+        });
+
+        kcalBadges['Weekly'].thresholds.forEach((threshold, idx) => {
+            const emoji = kcalBadges['Weekly'].emojis[idx] || '🏅';
+            const count = Object.values(weeklyKcal).filter(total => total >= threshold).length;
+            const name = `${threshold} kcal Week`;
+            const description = kcalBadges['Weekly'].description.replace('{}', threshold);
+
+            const category = categories.find(cat => cat.name === 'Calories (kcal)');
+            if (category) {
+                category.achievements.push({ name, emoji, description, count });
+            }
+        });
+
+        const medalsEarned = [];
+        const activityYears = Array.from(new Set(activityList
+            .map(activity => {
+                const date = new Date(activity.start_date);
+                return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+            })
+            .filter(year => year !== null)));
+
+        const allMedals = medalsConfig.map(medal => {
+            const medalCategory = resolveMedalCategory(medal);
+            const result = {
+                name: medal.name,
+                emoji: medal.emoji,
+                description: medal.description,
+                count: 0,
+                isDayBased: Boolean((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver),
+                category: medalCategory,
+            };
+
+            let count = 0;
+
+            if (result.isDayBased) {
+                const resolvedDates = new Set(medal.dates || []);
+                if (medal.dynamicDateResolver && activityYears.length > 0) {
+                    activityYears.forEach(year => {
+                        (medal.dynamicDateResolver(year) || []).forEach(dateStr => {
+                            if (dateStr) {
+                                resolvedDates.add(dateStr);
+                            }
+                        });
+                    });
+                }
+
+                count = activityList.filter(activity => {
+                    const date = new Date(activity.start_date);
+                    if (Number.isNaN(date.getTime())) {
+                        return false;
+                    }
+                    const monthDay = date.toISOString().slice(5, 10);
+                    return resolvedDates.has(monthDay);
+                }).length;
+            } else if (typeof medal.criteria === 'function') {
+                count = activityList.filter(activity => {
+                    try {
+                        return Boolean(medal.criteria(activity));
+                    } catch (error) {
+                        return false;
+                    }
+                }).length;
+            } else if (medal.name === '7-Day Caloric Champion') {
+                const dailyCalories = {};
+                activityList.forEach(activity => {
+                    const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
+                    dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + calculateActivityCalories(activity);
+                });
+
+                const dates = Object.keys(dailyCalories).sort();
+                let streak = 0;
+                let maxStreak = 0;
+
+                dates.forEach(date => {
+                    if (dailyCalories[date] >= 1000) {
+                        streak += 1;
+                        maxStreak = Math.max(maxStreak, streak);
+                    } else {
+                        streak = 0;
+                    }
+                });
+
+                if (maxStreak >= 7) {
+                    count = Math.floor(maxStreak / 7);
+                }
+            } else if (medal.name === 'Cycling Streak') {
+                const cyclingActivities = activityList.filter(activity => (activity.type || '').toUpperCase() === 'RIDE');
+                const uniqueDates = [...new Set(cyclingActivities.map(activity => new Date(activity.start_date).toISOString().slice(0, 10)))].sort();
+                let streak = 0;
+                let maxStreak = 0;
+                let previousDate = null;
+
+                uniqueDates.forEach(dateStr => {
+                    const date = new Date(dateStr);
+                    if (previousDate) {
+                        const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
+                        streak = diffDays === 1 ? streak + 1 : 1;
+                    } else {
+                        streak = 1;
+                    }
+
+                    maxStreak = Math.max(maxStreak, streak);
+                    previousDate = date;
+                });
+
+                if (maxStreak >= 5) {
+                    count = Math.floor(maxStreak / 5);
+                }
+            }
+
+            if (!Number.isFinite(count) || count < 0) {
+                count = 0;
+            }
+
+            result.count = count;
+
+            if (count > 0) {
+                medalsEarned.push(result);
+            }
+
+            return result;
+        });
+
+        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + (medal.count || 0), 0);
+        const medalSummary = {
+            count: totalMedalCount,
+            value: totalMedalCount * MEDAL_DOLLAR_VALUE,
+        };
+
+        const sortedMedals = allMedals.slice().sort((a, b) => {
+            const categoryA = a.category || 'Other';
+            const categoryB = b.category || 'Other';
+            if (categoryA !== categoryB) {
+                return categoryA.localeCompare(categoryB);
+            }
+            const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
+            if (dayComparison !== 0) {
+                return dayComparison;
+            }
+            if ((b.count || 0) !== (a.count || 0)) {
+                return (b.count || 0) - (a.count || 0);
+            }
+            const orderA = medalOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+            const orderB = medalOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        return {
+            categories,
+            medalSummary,
+            medalsEarned,
+            medalInventory: sortedMedals,
+        };
+    };
+
+    const getLifetimeRewardSummary = (activities = []) => {
+        const key = computeActivitiesCacheKey(activities);
+        if (rewardSummaryCache.key === key && rewardSummaryCache.summary) {
+            return cloneRewardSummary(rewardSummaryCache.summary);
+        }
+
+        const summary = buildLifetimeRewardSummary(activities);
+        rewardSummaryCache.key = key;
+        rewardSummaryCache.summary = summary;
+        return cloneRewardSummary(summary);
     };
 
     // === Data Storage ===
@@ -2631,6 +3050,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             const hasCompareData = Array.isArray(dataset.compareDatasets) && dataset.compareDatasets.length > 1;
             const useComparison = Boolean(balanceCompareYears && hasCompareData);
+            const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta : [];
+            const barColors = Array.isArray(dataset.barColors) && dataset.barColors.length === periodMeta.length
+                ? dataset.barColors
+                : periodMeta.map(() => 'rgba(37, 99, 235, 0.28)');
+            const barBorderColors = Array.isArray(dataset.barBorderColors) && dataset.barBorderColors.length === periodMeta.length
+                ? dataset.barBorderColors
+                : periodMeta.map(() => '#2563eb');
+            const barHoverColors = Array.isArray(dataset.barHoverColors) && dataset.barHoverColors.length === periodMeta.length
+                ? dataset.barHoverColors
+                : periodMeta.map((_, index) => {
+                    const base = barColors[index] || 'rgba(37, 99, 235, 0.28)';
+                    return base;
+                });
 
             const comparisonDatasets = useComparison
                 ? dataset.compareDatasets.map(entry => ({
@@ -2658,12 +3090,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                         type: 'bar',
                         label: 'Quarterly balance',
                         data: Array.isArray(dataset.perPeriodValues) ? dataset.perPeriodValues : [],
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.28)',
+                        borderColor: barBorderColors,
+                        backgroundColor: barColors,
+                        hoverBackgroundColor: barHoverColors,
                         borderRadius: 6,
                         maxBarThickness: 36,
                         yAxisID: 'yQuarter',
-                        order: 1,
+                        order: 2,
+                        periodMeta,
                     },
                     {
                         label: 'Cumulative balance',
@@ -2675,7 +3109,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         pointRadius: 3,
                         pointHoverRadius: 4,
                         yAxisID: 'y',
-                        order: 2,
+                        order: 1,
+                        periodMeta,
                     }
                 ];
 
@@ -2703,6 +3138,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                             bodyFont: tooltipBodyFont,
                             titleFont: tooltipTitleFont,
                             callbacks: {
+                                title: (contexts) => {
+                                    if (!contexts.length) {
+                                        return '';
+                                    }
+                                    const context = contexts[0];
+                                    const meta = context.dataset?.periodMeta?.[context.dataIndex];
+                                    if (meta?.label) {
+                                        return meta.label;
+                                    }
+                                    return context.label || '';
+                                },
                                 label: (context) => {
                                     const value = context.parsed.y || 0;
                                     const datasetLabel = context.dataset?.label || 'Balance';
@@ -2711,10 +3157,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         return `${datasetLabel}: ${formatMillions(value)}`;
                                     }
                                     if (isQuarterDataset) {
-                                        return `${datasetLabel}: ${usdCodeFormatter.format(value)}`;
+                                        return `Quarter haul: ${usdCodeFormatter.format(value)}`;
                                     }
-                                    return `${datasetLabel}: ${formatMillions(value)}`;
-                                }
+                                    return `Cumulative balance: ${formatMillions(value)}`;
+                                },
+                                footer: (contexts) => {
+                                    if (!contexts.length) {
+                                        return '';
+                                    }
+                                    const context = contexts[0];
+                                    const meta = context.dataset?.periodMeta?.[context.dataIndex];
+                                    if (!meta || !Number.isFinite(meta.year)) {
+                                        return '';
+                                    }
+                                    return `Year ${meta.year}`;
+                                },
+                                labelColor: (context) => {
+                                    const meta = context.dataset?.periodMeta?.[context.dataIndex];
+                                    if (meta?.colors) {
+                                        return {
+                                            borderColor: meta.colors.border,
+                                            backgroundColor: meta.colors.background || meta.colors.border,
+                                        };
+                                    }
+                                    return {
+                                        borderColor: context.dataset.borderColor,
+                                        backgroundColor: context.dataset.backgroundColor,
+                                    };
+                                },
                             }
                         }
                     },
@@ -2802,12 +3272,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const updateWalletChartData = ({ activities = [], lifetimeActivities = [], selectedYear = 'all' } = {}) => {
-        const metricsForFiltered = buildWalletMetrics(activities);
+        const lifetimeMetrics = getWalletMetricsForActivities(lifetimeActivities);
         const isAllYearsSelected = !selectedYear || selectedYear === 'all';
         const shouldReuseFilteredMetrics = isAllYearsSelected && activities.length === lifetimeActivities.length;
+        const metricsForFiltered = shouldReuseFilteredMetrics
+            ? lifetimeMetrics
+            : buildWalletMetrics(activities);
         const metricsForYearly = shouldReuseFilteredMetrics
             ? metricsForFiltered
-            : buildWalletMetrics(lifetimeActivities);
+            : lifetimeMetrics;
 
         const yearlyAggregation = new Map();
         const quarterlyTotalsByYear = new Map();
@@ -2854,6 +3327,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
+        const yearColorAssignments = new Map();
+        sortedYears.forEach((year, index) => {
+            const paletteEntry = yearColorAssignments.get(year)
+                || BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
+            yearColorAssignments.set(year, {
+                border: paletteEntry.border,
+                background: paletteEntry.background,
+                hover: paletteEntry.hover || paletteEntry.background,
+            });
+        });
         const coinBreakdown = COIN_EMOJIS.reduce((acc, emoji) => {
             acc[emoji] = sortedYears.map(year => {
                 const entry = yearlyAggregation.get(year);
@@ -3028,19 +3511,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             quarterChangeValue,
             yearChangeValue
         };
-        const quarterLabels = sortedQuarters.map(key => {
+        const periodMeta = sortedQuarters.map((key) => {
             const [yearStr, quarterStr] = key.split('-Q');
-            if (!yearStr || !quarterStr) {
-                return key;
-            }
-            return `Q${quarterStr} ${yearStr}`;
+            const year = Number(yearStr);
+            const quarter = Number(quarterStr);
+            const colors = yearColorAssignments.get(year)
+                || { border: '#2563eb', background: 'rgba(37, 99, 235, 0.28)', hover: 'rgba(37, 99, 235, 0.32)' };
+            const hasValidNumbers = Number.isFinite(year) && Number.isFinite(quarter);
+            return {
+                key,
+                label: hasValidNumbers ? `Q${quarter} ${year}` : key,
+                year,
+                quarter,
+                colors,
+            };
         });
+        const quarterLabels = periodMeta.map(meta => meta.label);
+        const barColors = periodMeta.map(meta => meta.colors.background);
+        const barBorderColors = periodMeta.map(meta => meta.colors.border);
+        const barHoverColors = periodMeta.map(meta => meta.colors.hover || meta.colors.background);
         walletChartData.balance = {
             labels: quarterLabels,
             values: balanceValues,
             perPeriodValues: sortedQuarters.map(key => quarterlyAggregation.get(key) || 0),
             compareLabels: QUARTER_LABELS,
             compareDatasets,
+            periodMeta,
+            barColors,
+            barBorderColors,
+            barHoverColors,
         };
 
         const nextChartKey = hasWalletChartData(activeChartKey)
@@ -4994,21 +5493,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const formatValue = (value) => formatNumberWithDecimals(value, decimals) + unitSuffix;
 
         if (minValue !== null && maxValue !== null) {
-            return `${label}: ${formatValue(minValue)}–${formatValue(maxValue)}`;
+            return `${label} · ${formatValue(minValue)}–${formatValue(maxValue)}`;
         }
 
         if (minValue !== null) {
-            return `${label}: ≥ ${formatValue(minValue)}`;
+            return `${label} · ≥ ${formatValue(minValue)}`;
         }
 
-        return `${label}: ≤ ${formatValue(maxValue)}`;
+        return `${label} · ≤ ${formatValue(maxValue)}`;
     };
 
     const describeActivityFilters = (filters = DEFAULT_ACTIVITY_FILTERS) => {
         const descriptions = [];
 
         if (filters.type && filters.type !== 'all') {
-            descriptions.push(`Type: ${formatActivityTypeLabel(filters.type)}`);
+            descriptions.push(`Type · ${formatActivityTypeLabel(filters.type)}`);
         }
 
         const hoursDescription = formatRangeDescription(filters.minHours, filters.maxHours, 'Hours', 1, 'h');
@@ -5038,16 +5537,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (activeMedalFilter) {
             const medalDescription = activeMedalMeta?.emoji
-                ? `Medal: ${activeMedalMeta.emoji} ${activeMedalFilter}`
-                : `Medal: ${activeMedalFilter}`;
+                ? `Medal · ${activeMedalMeta.emoji} ${activeMedalFilter}`
+                : `Medal · ${activeMedalFilter}`;
             descriptions.push(medalDescription);
         }
 
-        if (descriptions.length === 0) {
-            activityFilterActive.textContent = 'No additional filters applied.';
-        } else {
-            activityFilterActive.textContent = `Filters active · ${descriptions.join(' · ')}`;
+        activityFilterActive.innerHTML = '';
+        const hasDescriptions = descriptions.length > 0;
+        activityFilterActive.classList.toggle('hidden', !hasDescriptions);
+        if (!hasDescriptions) {
+            activityFilterActive.setAttribute('aria-hidden', 'true');
+            return;
         }
+
+        activityFilterActive.removeAttribute('aria-hidden');
+
+        const fragment = document.createDocumentFragment();
+        descriptions.forEach((description) => {
+            const pill = document.createElement('span');
+            pill.className = 'filter-active-tags__pill';
+            pill.textContent = description;
+            fragment.appendChild(pill);
+        });
+
+        activityFilterActive.appendChild(fragment);
     };
 
     const updateActivityFilterSummary = (displayedCount = 0, totalCount = 0) => {
@@ -5119,6 +5632,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             : null;
         activitiesFilterModal.hidden = false;
         activitiesFilterModal.setAttribute('aria-hidden', 'false');
+        if (activitiesFilterOpenButton) {
+            activitiesFilterOpenButton.setAttribute('aria-expanded', 'true');
+        }
         document.body.classList.add('is-filter-modal-open');
         const sheet = activitiesFilterModal.querySelector('.filter-modal__sheet');
         if (sheet instanceof HTMLElement) {
@@ -5132,6 +5648,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         activitiesFilterModal.setAttribute('aria-hidden', 'true');
+        if (activitiesFilterOpenButton) {
+            activitiesFilterOpenButton.setAttribute('aria-expanded', 'false');
+        }
         window.setTimeout(() => {
             activitiesFilterModal.hidden = true;
             if (activitiesFilterReturnFocusTo instanceof HTMLElement) {
@@ -6785,6 +7304,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             calories: aggregatedTotals.calories
         };
 
+        walletMetricsCache.key = null;
+        walletMetricsCache.metrics = [];
+        rewardSummaryCache.key = null;
+        rewardSummaryCache.summary = null;
+
         updateActivityFetchWarning(allData.activityMetadata);
 
         writeDashboardCache(allData);
@@ -7236,338 +7760,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Achievement Wallet ===
 
-        // Initialize Achievement Counts
-        categories.forEach(category => {
-            category.achievements = []; // Reset achievements
-        });
+        const lifetimeRewardSummary = getLifetimeRewardSummary(lifetimeActivities);
+        const categories = lifetimeRewardSummary.categories;
+        const medalsEarned = lifetimeRewardSummary.medalsEarned;
+        const medalSummary = lifetimeRewardSummary.medalSummary;
 
-        // === Coin Configuration ===
-
-        // Distance Run Badges
-        const distanceRunBadges = {
-            thresholds: [10, 21, 42, 50, 100],  // in km or km/week
-            unit: 'km',
-            emoji_sequence: ['💲', '💰', '🧈', '💎','👑']
-        };
-
-        distanceRunBadges.thresholds.forEach((threshold, idx) => {
-            const emoji = distanceRunBadges.emoji_sequence[idx] || '🏅';
-            let count = 0;
-            let name = '';
-            let description = '';
-
-            if (threshold >= 50) {
-                // Weekly threshold for Run
-                const weeklyDistance = {};
-                data.activities.forEach(activity => {
-                    if (activity.type.toUpperCase() === 'RUN') {
-                        const week = new Date(activity.start_date);
-                        week.setHours(0, 0, 0, 0);
-                        week.setDate(week.getDate() - week.getDay()); // Sunday
-                        const weekKey = week.toISOString().slice(0, 10);
-                        weeklyDistance[weekKey] = (weeklyDistance[weekKey] || 0) + (activity.distance / 1000);
-                    }
-                });
-
-                count = Object.values(weeklyDistance).filter(d => d >= threshold).length;
-                name = `${threshold}km Run/Week`;
-                description = `Completed at least ${threshold} km running in a week`;
-            } else {
-                // Per activity threshold for Run
-                count = data.activities.filter(a =>
-                    a.type.toUpperCase() === 'RUN' &&
-                    (a.distance / 1000) >= threshold
-                ).length;
-                name = `${threshold}km Run`;
-                description = `Completed activities covering at least ${threshold} km running`;
-            }
-
-            // Assign to 'Distance Run' category
-            const category = categories.find(cat => cat.name === 'Distance Run');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // Distance Ride Badges
-        const distanceRideBadges = {
-            thresholds: [100, 150, 200, 300, 600],  // in km or km/week
-            unit: 'km',
-            emoji_sequence: ['💲', '💰', '🧈', '💎','👑']
-        };
-
-        distanceRideBadges.thresholds.forEach((threshold, idx) => {
-            const emoji = distanceRideBadges.emoji_sequence[idx] || '🚴‍♂️';
-            let count = 0;
-            let name = '';
-            let description = '';
-
-            if (threshold >= 300) {
-                // Weekly threshold for Ride
-                const weeklyDistance = {};
-                data.activities.forEach(activity => {
-                    if (activity.type.toUpperCase() === 'RIDE') {
-                        const week = new Date(activity.start_date);
-                        week.setHours(0, 0, 0, 0);
-                        week.setDate(week.getDate() - week.getDay()); // Sunday
-                        const weekKey = week.toISOString().slice(0, 10);
-                        weeklyDistance[weekKey] = (weeklyDistance[weekKey] || 0) + (activity.distance / 1000);
-                    }
-                });
-
-                count = Object.values(weeklyDistance).filter(d => d >= threshold).length;
-                name = `${threshold}km Ride/Week`;
-                description = `Completed at least ${threshold} km riding in a week`;
-            } else {
-                // Per activity threshold for Ride
-                count = data.activities.filter(a =>
-                    a.type.toUpperCase() === 'RIDE' &&
-                    (a.distance / 1000) >= threshold
-                ).length;
-                name = `${threshold}km Ride`;
-                description = `Completed activities covering at least ${threshold} km riding`;
-            }
-
-            // Assign to 'Distance Ride' category
-            const category = categories.find(cat => cat.name === 'Distance Ride');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // Elevation Badges
-        const elevationThresholds = [1000, 2000, 4424, 10000, 25000];  // in meters
-        const elevationEmojis = ['💲', '💰', '🧈', '👑','💎'];  // Distinct emojis for Elevation
-
-        elevationThresholds.forEach((threshold, idx) => {
-            let emoji = elevationEmojis[idx] || '🏅';
-            let name = '';
-            let description = '';
-            let count = 0;
-
-            if (threshold === 4424) {
-                name = 'Half Everest';
-                description = 'Completed activities with elevation gain of at least Half Everest (4424 meters)';
-                count = data.activities.filter(a => a.total_elevation_gain >= threshold).length;
-            } else if (threshold === 25000) {
-                name = '25k Elevation/Month';
-                description = 'Achieved a total of 25,000 meters elevation gain in a month';
-                const monthlyElevation = {};
-                data.activities.forEach(activity => {
-                    const monthKey = new Date(activity.start_date).toISOString().slice(0, 7); // YYYY-MM
-                    monthlyElevation[monthKey] = (monthlyElevation[monthKey] || 0) + activity.total_elevation_gain;
-                });
-                count = Object.values(monthlyElevation).filter(d => d >= threshold).length;
-            } else if (threshold === 10000) {
-                name = '10k Elevation/Week';
-                description = 'Achieved a total of 10,000 meters elevation gain in a week';
-                const weeklyElevation = {};
-                data.activities.forEach(activity => {
-                    const weekStart = new Date(activity.start_date);
-                    weekStart.setHours(0, 0, 0, 0);
-                    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
-                    const weekKey = weekStart.toISOString().slice(0, 10);
-                    weeklyElevation[weekKey] = (weeklyElevation[weekKey] || 0) + activity.total_elevation_gain;
-                });
-                count = Object.values(weeklyElevation).filter(d => d >= threshold).length;
-            } else {
-                name = `${threshold}m Elevation`;
-                description = `Completed activities with elevation gain of at least ${threshold} meters`;
-                count = data.activities.filter(a => a.total_elevation_gain >= threshold).length;
-            }
-
-            // Assign to 'Elevation' category
-            const category = categories.find(cat => cat.name === 'Elevation');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // === KCal Badges ===
-        const kcalBadges = {
-            'Per Activity': {
-                thresholds: [1000, 2000, 4000, 7500, 8000],
-                emojis: ['💲', '💰', '🧈', '💎', '👑'],
-                description: 'Burned at least {} kcal in an activity'
-            },
-            'Weekly': {
-                thresholds: [12000, 24000],  // Adjusted to realistic weekly kcal
-                emojis: ['💎','👑'],
-                description: 'Burned at least {} kcal in a week'
-            }
-        };
-
-        // Per Activity KCal Badges
-        kcalBadges['Per Activity'].thresholds.forEach((threshold, idx) => {
-            const emoji = kcalBadges['Per Activity'].emojis[idx] || '🏅';
-            const count = data.activities.filter(a => calculateActivityCalories(a) >= threshold).length;
-            const name = `${threshold} kcal Activity`;
-            const description = kcalBadges['Per Activity'].description.replace('{}', threshold);
-
-            // Assign to 'Calories (kcal)' category
-            const category = categories.find(cat => cat.name === 'Calories (kcal)');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // Weekly KCal Badges
-        const weeklyKcal = {};
-        data.activities.forEach(activity => {
-            const weekStart = new Date(activity.start_date);
-            weekStart.setHours(0, 0, 0, 0);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
-            const weekKey = weekStart.toISOString().slice(0, 10);
-            weeklyKcal[weekKey] = (weeklyKcal[weekKey] || 0) + calculateActivityCalories(activity);
-        });
-        kcalBadges['Weekly'].thresholds.forEach((threshold, idx) => {
-            const emoji = kcalBadges['Weekly'].emojis[idx] || '🏅';
-            const count = Object.values(weeklyKcal).filter(kcal => kcal >= threshold).length;
-            const name = `${threshold} kcal Week`;
-            const description = kcalBadges['Weekly'].description.replace('{}', threshold);
-
-            // Assign to 'Calories (kcal)' category
-            const category = categories.find(cat => cat.name === 'Calories (kcal)');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // === Medals Calculation ===
-        const medalsEarned = [];
-        const activityYears = Array.from(new Set(activities
-            .map(activity => {
-                const date = new Date(activity.start_date);
-                return Number.isNaN(date.getTime()) ? null : date.getFullYear();
-            })
-            .filter(year => year !== null)));
-
-        const allMedals = medalsConfig.map(medal => {
-            const medalCategory = resolveMedalCategory(medal);
-            const result = {
-                name: medal.name,
-                emoji: medal.emoji,
-                description: medal.description,
-                count: 0,
-                isDayBased: Boolean((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver),
-                category: medalCategory
-            };
-
-            let count = 0;
-
-            if (result.isDayBased) {
-                const resolvedDates = new Set(medal.dates || []);
-                if (medal.dynamicDateResolver && activityYears.length > 0) {
-                    activityYears.forEach(year => {
-                        (medal.dynamicDateResolver(year) || []).forEach(dateStr => {
-                            if (dateStr) {
-                                resolvedDates.add(dateStr);
-                            }
-                        });
-                    });
-                }
-
-                count = activities.filter(activity => {
-                    const activityDate = new Date(activity.start_date);
-                    if (Number.isNaN(activityDate.getTime())) {
-                        return false;
-                    }
-                    const monthDay = activityDate.toISOString().slice(5, 10);
-                    return resolvedDates.has(monthDay);
-                }).length;
-            } else if (typeof medal.criteria === 'function') {
-                count = activities.filter(activity => medal.criteria(activity)).length;
-            } else if (medal.name === '7-Day Caloric Champion') {
-                const dailyCalories = {};
-                activities.forEach(activity => {
-                    const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
-                    dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + calculateActivityCalories(activity);
-                });
-
-                const dates = Object.keys(dailyCalories).sort();
-                let streak = 0;
-                let maxStreak = 0;
-
-                dates.forEach(date => {
-                    if (dailyCalories[date] >= 1000) {
-                        streak++;
-                        maxStreak = Math.max(maxStreak, streak);
-                    } else {
-                        streak = 0;
-                    }
-                });
-
-                if (maxStreak >= 7) {
-                    count = Math.floor(maxStreak / 7);
-                }
-            } else if (medal.name === 'Cycling Streak') {
-                const cyclingActivities = activities.filter(a => a.type && a.type.toUpperCase() === 'RIDE');
-                const uniqueDates = [...new Set(cyclingActivities.map(a => new Date(a.start_date).toISOString().slice(0, 10)))].sort();
-                let streak = 0;
-                let maxStreak = 0;
-                let previousDate = null;
-
-                uniqueDates.forEach(dateStr => {
-                    const date = new Date(dateStr);
-                    if (previousDate) {
-                        const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
-                        streak = diffDays === 1 ? streak + 1 : 1;
-                    } else {
-                        streak = 1;
-                    }
-
-                    maxStreak = Math.max(maxStreak, streak);
-                    previousDate = date;
-                });
-
-                if (maxStreak >= 5) {
-                    count = Math.floor(maxStreak / 5);
-                }
-            }
-
-            if (!Number.isFinite(count) || count < 0) {
-                count = 0;
-            }
-
-            result.count = count;
-
-            if (count > 0) {
-                medalsEarned.push(result);
-            }
-
-            return result;
-        });
-
-        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + (medal.count || 0), 0);
-        const medalSummary = {
-            count: totalMedalCount,
-            value: totalMedalCount * MEDAL_DOLLAR_VALUE
-        };
+        medalInventory = lifetimeRewardSummary.medalInventory;
 
         updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
 
@@ -7705,28 +7903,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'achievement-wallet' element not found in the DOM.");
         }
 
-        const sortedMedals = allMedals.slice().sort((a, b) => {
-            const categoryA = a.category || 'Other';
-            const categoryB = b.category || 'Other';
-            if (categoryA !== categoryB) {
-                return categoryA.localeCompare(categoryB);
-            }
-            const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
-            if (dayComparison !== 0) {
-                return dayComparison;
-            }
-            if (b.count !== a.count) {
-                return b.count - a.count;
-            }
-            const orderA = medalOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
-            const orderB = medalOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
-            if (orderA !== orderB) {
-                return orderA - orderB;
-            }
-            return a.name.localeCompare(b.name);
-        });
-
-        medalInventory = sortedMedals;
+        const sortedMedals = Array.isArray(medalInventory) ? medalInventory : [];
 
         let shouldRenderMedals = true;
         if (activeMedalFilter) {
@@ -8091,6 +8268,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         activitiesFilterOpenButton.dataset.initialized = 'true';
+        activitiesFilterOpenButton.setAttribute('aria-haspopup', 'dialog');
+        activitiesFilterOpenButton.setAttribute('aria-controls', 'activities-filter-modal');
+        const expandedState = activitiesFilterModal && !activitiesFilterModal.hidden ? 'true' : 'false';
+        activitiesFilterOpenButton.setAttribute('aria-expanded', expandedState);
         activitiesFilterOpenButton.addEventListener('click', () => {
             openActivitiesFilterModal();
         });

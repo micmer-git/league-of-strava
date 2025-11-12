@@ -85,6 +85,61 @@ const TRACKED_SEGMENTS = [
 // Helper function to pause execution (to respect rate limits)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+function encodeStateParam(payload) {
+  try {
+    const json = JSON.stringify(payload);
+    if (!json) {
+      return undefined;
+    }
+    return Buffer.from(json, 'utf8')
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+  } catch (error) {
+    console.warn('Unable to encode Strava auth state payload:', error.message);
+    return undefined;
+  }
+}
+
+function decodeStateParam(state) {
+  if (!state || typeof state !== 'string') {
+    return null;
+  }
+
+  try {
+    const padded = state.padEnd(state.length + ((4 - (state.length % 4)) % 4), '=');
+    const normalized = padded.replace(/-/g, '+').replace(/_/g, '/');
+    const json = Buffer.from(normalized, 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch (error) {
+    console.warn('Unable to decode Strava auth state payload:', error.message);
+    return null;
+  }
+}
+
+function sanitizeRedirectPath(value, fallback = '/dashboard') {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(trimmed, 'http://localhost');
+    const path = url.pathname || '/';
+    const search = url.search || '';
+    const hash = url.hash || '';
+    return `${path}${search}${hash}`;
+  } catch (error) {
+    console.warn('Invalid redirect path provided, falling back to dashboard:', error.message);
+    return fallback;
+  }
+}
+
 // Routes
 
 // Serve the landing page
@@ -96,6 +151,8 @@ app.get('/', (req, res) => {
 // Step 1: Redirect user to Strava's authorization URL
 app.get('/auth/strava', (req, res) => {
   console.log('Redirecting to Strava for authentication');
+  const requestedRedirect = sanitizeRedirectPath(req.query.redirect, '/dashboard');
+  const statePayload = encodeStateParam({ redirect: requestedRedirect });
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID,
     redirect_uri: `${process.env.BASE_URL}/auth/strava/callback`,
@@ -103,6 +160,10 @@ app.get('/auth/strava', (req, res) => {
     approval_prompt: 'auto',
     scope: 'read,activity:read_all',
   });
+
+  if (statePayload) {
+    params.set('state', statePayload);
+  }
 
   const authUrl = `https://www.strava.com/oauth/authorize?${params.toString()}`;
   console.log(`Authorization URL: ${authUrl}`);
@@ -112,6 +173,8 @@ app.get('/auth/strava', (req, res) => {
 // Step 2: Handle the callback from Strava
 app.get('/auth/strava/callback', async (req, res) => {
   const code = req.query.code;
+  const state = decodeStateParam(req.query.state);
+  const requestedRedirect = sanitizeRedirectPath(state?.redirect, '/dashboard');
   console.log(`Received Strava callback with code: ${code}`);
 
   if (!code) {
@@ -141,7 +204,7 @@ app.get('/auth/strava/callback', async (req, res) => {
 
     console.log('Access token and refresh token stored in cookies');
 
-    res.redirect('/dashboard');
+    res.redirect(requestedRedirect);
   } catch (error) {
     console.error('Error exchanging code for token:', error.response ? error.response.data : error.message);
     res.status(500).send('Authentication failed');
@@ -426,6 +489,18 @@ app.get('/api/strava-data', async (req, res) => {
     }
 
     const existingCacheEntry = userDataCache.getEntry(cacheKey);
+
+    if (knownActivityKeySet.size === 0 && existingCacheEntry?.value) {
+      try {
+        const cachedKeys = extractActivityKeysFromSnapshot(existingCacheEntry.value);
+        if (cachedKeys.size > 0) {
+          knownActivityKeySet = cachedKeys;
+          console.log(`Loaded ${cachedKeys.size} cached activities for athlete ${userId}.`);
+        }
+      } catch (cacheKeyError) {
+        console.warn(`Unable to derive cached activity keys for athlete ${userId}:`, cacheKeyError.message);
+      }
+    }
 
     if (!forceRefresh && existingCacheEntry) {
       console.log(`Serving cached Strava data for athlete ${userId}`);

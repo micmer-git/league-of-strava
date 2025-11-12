@@ -1604,6 +1604,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         previousMonthHours: 0,
     };
 
+    const MASTER_PRESTIGE_MAX = 1000;
+    const MASTER_PRESTIGE_START_HOURS = 4000;
+    const MAX_RANK_HOURS = 20000;
+
     const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
 
     const setRankTriggerExpanded = (expanded) => {
@@ -7021,10 +7025,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const medalOrderMap = new Map(medalsConfig.map((medal, index) => [medal.name, index]));
 
     // === Rank Configuration ===
-    const MASTER_PRESTIGE_MAX = 1000;
-    const MASTER_PRESTIGE_START_HOURS = 4000;
-    const MAX_RANK_HOURS = 20000;
-
     const baseRanks = [
         { name: 'Bronze 3', emoji: '🥉', minHours: 0 },
         { name: 'Bronze 2', emoji: '🥉', minHours: 100 },

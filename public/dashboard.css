@@ -986,19 +986,6 @@ button,
     animation: panelFade 0.3s ease;
     contain: layout paint;
     will-change: opacity, transform;
-}
-
-.dashboard-panel.is-active {
-    display: block;
-}
-
-@keyframes panelFade {
-    from { opacity: 0; transform: translateY(8px); }
-to { opacity: 1; transform: translateY(0); }
-}
-
-.panel-stack {
-    display: flex;
     flex-direction: column;
     gap: 1.5rem;
     width: min(100%, 1120px);
@@ -1009,7 +996,16 @@ to { opacity: 1; transform: translateY(0); }
     box-sizing: border-box;
 }
 
-.panel-stack > * {
+.dashboard-panel.is-active {
+    display: flex;
+}
+
+@keyframes panelFade {
+    from { opacity: 0; transform: translateY(8px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.dashboard-panel > * {
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -1033,13 +1029,12 @@ to { opacity: 1; transform: translateY(0); }
         margin-inline: auto;
     }
 
-.dashboard-panel {
-    margin-inline: auto;
+    .dashboard-panel {
+        margin-inline: auto;
 }
 
-.dashboard-panel .panel-stack,
-.dashboard-panel .panel-card {
-    margin-inline: auto;
+    .dashboard-panel .panel-card {
+        margin-inline: auto;
 }
 }
 
@@ -1212,43 +1207,27 @@ to { opacity: 1; transform: translateY(0); }
 
 @media (min-width: 640px) {
     .profile-card__header {
-        grid-template-columns: auto 1fr;
-        gap: 1.25rem;
+        justify-content: space-between;
+        gap: 1.5rem;
     }
 
     .profile-card__avatar {
-        grid-row: 1 / span 4;
-        justify-self: flex-start;
-    }
-
-    .profile-card__headline {
-        grid-column: 2;
-    }
-
-    .profile-card__summary-row {
-        grid-column: 1 / -1;
+        align-self: flex-start;
     }
 }
 
 .profile-card__header {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 1.5rem;
 }
 
 @media (min-width: 640px) {
     .profile-card__header {
-        flex-direction: row;
         justify-content: space-between;
-        align-items: center;
         gap: 1.75rem;
     }
-}
-
-.profile-card__hero {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
 }
 
 .profile-card__avatar-shell {

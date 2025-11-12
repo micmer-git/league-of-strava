@@ -365,15 +365,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bestActivitiesContainer = document.getElementById('best-activities');
     const topPerformancesEmptyState = document.getElementById('top-performances-empty');
     const yearSelect = document.getElementById('year-select');
-    const activitiesContainer = document.getElementById('activities-container');
-    const activitiesEmptyState = document.getElementById('activities-empty');
-    const medalFilterBanner = document.getElementById('medal-filter-banner');
-    const medalFilterLabel = document.getElementById('medal-filter-label');
-    const medalFilterDescription = document.getElementById('medal-filter-description');
-    const medalFilterEmoji = document.getElementById('medal-filter-emoji');
-    const activitiesSectionElement = document.getElementById('activities-section');
-    const activityFilterSummary = document.getElementById('activity-filter-summary');
-    const activityFilterActive = document.getElementById('activity-filter-active');
+    let activitiesContainer = document.getElementById('activities-container');
+    let activitiesEmptyState = document.getElementById('activities-empty');
+    let medalFilterBanner = document.getElementById('medal-filter-banner');
+    let medalFilterLabel = document.getElementById('medal-filter-label');
+    let medalFilterDescription = document.getElementById('medal-filter-description');
+    let medalFilterEmoji = document.getElementById('medal-filter-emoji');
+    let activitiesSectionElement = document.getElementById('activities-section');
+    let activityFilterSummary = document.getElementById('activity-filter-summary');
+    let activityFilterActive = document.getElementById('activity-filter-active');
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
@@ -384,26 +384,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankProgressTriggerElement = document.getElementById('rank-progress-trigger');
     const activityFilterForm = document.getElementById('activities-filter-form');
     const activitiesFilterModal = document.getElementById('activities-filter-modal');
-    const activitiesFilterOpenButton = document.getElementById('activities-filter-open');
+    let activitiesFilterOpenButton = document.getElementById('activities-filter-open');
     const activitiesFilterDismissButtons = Array.from(document.querySelectorAll('[data-activities-filter-dismiss]'));
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
     const filterCollapsibleElements = Array.from(document.querySelectorAll('[data-filter-collapsible]'));
-    const loadMoreButton = document.getElementById('load-more-btn');
-    const activityFetchWarning = document.getElementById('activities-fetch-warning');
+    let loadMoreButton = document.getElementById('load-more-btn');
+    let activityFetchWarning = document.getElementById('activities-fetch-warning');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
-    const walletChartCanvas = document.getElementById('wallet-chart');
-    const walletChartEmptyState = document.getElementById('wallet-chart-empty');
-    const chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
-    const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
-    const balanceYearToggle = document.getElementById('balance-year-toggle');
-    const balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
-    const medalsLoadMoreButton = document.getElementById('medals-load-more');
+    let walletChartCanvas = document.getElementById('wallet-chart');
+    let walletChartEmptyState = document.getElementById('wallet-chart-empty');
+    let chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
+    let chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
+    let balanceYearToggle = document.getElementById('balance-year-toggle');
+    let balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
+    let medalsLoadMoreButton = document.getElementById('medals-load-more');
     const leaderboardStatus = document.getElementById('leaderboard-status');
     const leaderboardBody = document.getElementById('leaderboard-body');
     const leaderboardSortButtons = Array.from(document.querySelectorAll('.leaderboard-sort'));
-    const panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
-    const coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
+    let panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
+    let coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
     const dashboardPanels = new Map();
@@ -413,12 +413,108 @@ document.addEventListener('DOMContentLoaded', async () => {
             dashboardPanels.set(name, panel);
         }
     });
+    const panelTemplates = new Map();
+    document.querySelectorAll('template[data-panel-template]').forEach((template) => {
+        const name = template?.dataset?.panelTemplate;
+        if (name) {
+            panelTemplates.set(name, template);
+        }
+    });
+    const panelReadyCallbacks = new Map();
     const dashboardPanelsContainer = document.querySelector('[data-dashboard-panels]');
     const pullToRefreshIndicator = document.getElementById('pull-to-refresh-indicator');
     const pullToRefreshLabel = pullToRefreshIndicator?.querySelector('[data-pull-label]');
     const mobilePanelChangeCallbacks = new Set();
     const DASHBOARD_PANEL_STORAGE_KEY = 'los:dashboard:active-panel';
     let canPersistPanelState = true;
+
+    const refreshPanelReferences = () => {
+        activitiesContainer = document.getElementById('activities-container');
+        activitiesEmptyState = document.getElementById('activities-empty');
+        medalFilterBanner = document.getElementById('medal-filter-banner');
+        medalFilterLabel = document.getElementById('medal-filter-label');
+        medalFilterDescription = document.getElementById('medal-filter-description');
+        medalFilterEmoji = document.getElementById('medal-filter-emoji');
+        activitiesSectionElement = document.getElementById('activities-section');
+        activityFilterSummary = document.getElementById('activity-filter-summary');
+        activityFilterActive = document.getElementById('activity-filter-active');
+        activitiesFilterOpenButton = document.getElementById('activities-filter-open');
+        loadMoreButton = document.getElementById('load-more-btn');
+        activityFetchWarning = document.getElementById('activities-fetch-warning');
+        walletChartCanvas = document.getElementById('wallet-chart');
+        walletChartEmptyState = document.getElementById('wallet-chart-empty');
+        chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
+        chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
+        balanceYearToggle = document.getElementById('balance-year-toggle');
+        balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
+        medalsLoadMoreButton = document.getElementById('medals-load-more');
+        panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
+        coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
+        chartToggleButtons.coins = chartToggleCoinsButton;
+        chartToggleButtons.balance = chartToggleBalanceButton;
+    };
+
+    const onPanelReady = (panelName, callback) => {
+        if (!panelName || typeof callback !== 'function') {
+            return;
+        }
+
+        if (dashboardPanels.has(panelName)) {
+            callback(dashboardPanels.get(panelName));
+            return;
+        }
+
+        const callbacks = panelReadyCallbacks.get(panelName) ?? [];
+        callbacks.push(callback);
+        panelReadyCallbacks.set(panelName, callbacks);
+    };
+
+    const runPanelReadyCallbacks = (panelName, panelElement) => {
+        const callbacks = panelReadyCallbacks.get(panelName);
+        if (!callbacks || callbacks.length === 0) {
+            return;
+        }
+
+        panelReadyCallbacks.delete(panelName);
+        callbacks.forEach((callback) => {
+            try {
+                callback(panelElement);
+            } catch (error) {
+                console.error('Panel initializer error for', panelName, error);
+            }
+        });
+    };
+
+    const ensurePanel = (panelName) => {
+        if (!panelName) {
+            return false;
+        }
+
+        if (dashboardPanels.has(panelName)) {
+            refreshPanelReferences();
+            return true;
+        }
+
+        const template = panelTemplates.get(panelName);
+        if (!template || !dashboardPanelsContainer) {
+            return false;
+        }
+
+        const fragment = template.content.cloneNode(true);
+        dashboardPanelsContainer.appendChild(fragment);
+
+        const newPanel = dashboardPanelsContainer.querySelector(`[data-dashboard-panel="${panelName}"]`);
+        if (!newPanel) {
+            return false;
+        }
+
+        dashboardPanels.set(panelName, newPanel);
+        refreshPanelReferences();
+        runPanelReadyCallbacks(panelName, newPanel);
+        return true;
+    };
+
+    refreshPanelReferences();
 
     const updateViewportHeightVar = () => {
         const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight;
@@ -499,7 +595,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activePanelName = null;
     const initialPanelFromMarkup = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab ?? null;
     const storedPanelName = readStoredPanelName();
-    const initialPanelName = (storedPanelName && dashboardPanels.has(storedPanelName))
+    const initialPanelName = (storedPanelName && (dashboardPanels.has(storedPanelName) || panelTemplates.has(storedPanelName)))
         ? storedPanelName
         : (initialPanelFromMarkup || (dashboardPanels.keys().next().value ?? null));
 
@@ -515,9 +611,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function setActivePanel(panelName, { focusTab = false } = {}) {
-        if (!panelName || !dashboardPanels.has(panelName)) {
+    function mapsTo(panelName, { focusTab = false } = {}) {
+        if (!panelName) {
             return;
+        }
+
+        if (!dashboardPanels.has(panelName)) {
+            const ensured = ensurePanel(panelName);
+            if (!ensured) {
+                return;
+            }
         }
 
         if (activePanelName === panelName) {
@@ -578,7 +681,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         notifyPanelChange(panelName);
     }
 
-    setActivePanel(initialPanelName || 'profile');
+    mapsTo(initialPanelName || 'profile');
 
     const moveToRelativePanel = (direction) => {
         if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {
@@ -593,7 +696,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        setActivePanel(targetButton.dataset.dashboardTab, { focusTab: false });
+        mapsTo(targetButton.dataset.dashboardTab, { focusTab: false });
         if (typeof targetButton.focus === 'function') {
             try {
                 targetButton.focus({ preventScroll: true });
@@ -609,7 +712,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         button.addEventListener('click', () => {
-            setActivePanel(button.dataset.dashboardTab, { focusTab: true });
+            mapsTo(button.dataset.dashboardTab, { focusTab: true });
         });
 
         button.addEventListener('keydown', (event) => {
@@ -625,7 +728,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     mobileDashboardNavButtons.forEach((button) => {
         button.addEventListener('click', () => {
-            setActivePanel(button.dataset.dashboardNav, { focusTab: false });
+            mapsTo(button.dataset.dashboardNav, { focusTab: false });
         });
     });
 
@@ -5730,7 +5833,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderMedalsGrid();
         renderActivitiesList();
 
-        setActivePanel('activities', { focusTab: true });
+        mapsTo('activities', { focusTab: true });
 
         if (activitiesSectionElement) {
             activitiesSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -6886,11 +6989,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const dashboardMobileApi = {
         getActivePanel: () => activePanelName,
-        setActivePanel: (panelName) => {
+        mapsTo: (panelName) => {
             if (!panelName || !dashboardPanels.has(panelName)) {
                 return false;
             }
-            setActivePanel(panelName, { focusTab: false });
+            mapsTo(panelName, { focusTab: false });
             return true;
         },
         refresh: async ({ showLoading = true } = {}) => {
@@ -7982,11 +8085,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    if (activitiesFilterOpenButton) {
+    const bindActivitiesFilterOpenButton = () => {
+        if (!activitiesFilterOpenButton || activitiesFilterOpenButton.dataset.initialized === 'true') {
+            return;
+        }
+
+        activitiesFilterOpenButton.dataset.initialized = 'true';
         activitiesFilterOpenButton.addEventListener('click', () => {
             openActivitiesFilterModal();
         });
-    }
+    };
+
+    bindActivitiesFilterOpenButton();
+    onPanelReady('activities', () => {
+        refreshPanelReferences();
+        bindActivitiesFilterOpenButton();
+    });
 
     activitiesFilterDismissButtons.forEach((button) => {
         button.addEventListener('click', () => {
@@ -8133,51 +8247,73 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    Object.entries(chartToggleButtons).forEach(([key, button]) => {
-        if (!button) {
+    const bindChartToggleButtons = () => {
+        Object.entries(chartToggleButtons).forEach(([key, button]) => {
+            if (!button || button.dataset.chartToggleInitialized === 'true') {
+                return;
+            }
+
+            button.dataset.chartToggleInitialized = 'true';
+            button.addEventListener('click', () => {
+                if (button.disabled) {
+                    return;
+                }
+                activeChartKey = key;
+                coinChartMode = 'stacked';
+                renderWalletChart(activeChartKey);
+            });
+        });
+    };
+
+    const bindPanelShortcutButtons = () => {
+        panelShortcutButtons.forEach((button) => {
+            if (!button || button.dataset.panelShortcutInitialized === 'true') {
+                return;
+            }
+
+            button.dataset.panelShortcutInitialized = 'true';
+            button.addEventListener('click', () => {
+                const targetPanel = button.dataset.panelTarget;
+                if (!targetPanel) {
+                    return;
+                }
+                mapsTo(targetPanel, { focusTab: true });
+
+                if (targetPanel === 'wallet' && button.dataset.walletToggle === 'coins') {
+                    if (chartToggleCoinsButton && !chartToggleCoinsButton.disabled) {
+                        activeChartKey = 'coins';
+                        coinChartMode = 'stacked';
+                        renderWalletChart('coins');
+                    }
+                }
+            });
+        });
+    };
+
+    const bindCoinShortcutButtons = () => {
+        coinShortcutButtons.forEach((button) => {
+            if (!button || button.dataset.coinShortcutInitialized === 'true') {
+                return;
+            }
+
+            button.dataset.coinShortcutInitialized = 'true';
+            button.addEventListener('click', () => {
+                mapsTo('wallet', { focusTab: true });
+                if (chartToggleCoinsButton && !chartToggleCoinsButton.disabled) {
+                    activeChartKey = 'coins';
+                    coinChartMode = 'timeline';
+                    renderWalletChart('coins');
+                }
+            });
+        });
+    };
+
+    const bindBalanceYearToggle = () => {
+        if (!balanceYearToggle || balanceYearToggle.dataset.balanceToggleInitialized === 'true') {
             return;
         }
 
-        button.addEventListener('click', () => {
-            if (button.disabled) {
-                return;
-            }
-            activeChartKey = key;
-            coinChartMode = 'stacked';
-            renderWalletChart(activeChartKey);
-        });
-    });
-
-    panelShortcutButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const targetPanel = button.dataset.panelTarget;
-            if (!targetPanel) {
-                return;
-            }
-            setActivePanel(targetPanel, { focusTab: true });
-
-            if (targetPanel === 'wallet' && button.dataset.walletToggle === 'coins') {
-                if (chartToggleCoinsButton && !chartToggleCoinsButton.disabled) {
-                    activeChartKey = 'coins';
-                    coinChartMode = 'stacked';
-                    renderWalletChart('coins');
-                }
-            }
-        });
-    });
-
-    coinShortcutButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            setActivePanel('wallet', { focusTab: true });
-            if (chartToggleCoinsButton && !chartToggleCoinsButton.disabled) {
-                activeChartKey = 'coins';
-                coinChartMode = 'timeline';
-                renderWalletChart('coins');
-            }
-        });
-    });
-
-    if (balanceYearToggle) {
+        balanceYearToggle.dataset.balanceToggleInitialized = 'true';
         balanceYearToggle.addEventListener('change', () => {
             if (balanceYearToggle.disabled) {
                 balanceYearToggle.checked = false;
@@ -8192,7 +8328,146 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             renderWalletChart(activeChartKey);
         });
-    }
+    };
+
+    const bindLoadMoreButton = () => {
+        if (!loadMoreButton || loadMoreButton.dataset.loadMoreInitialized === 'true') {
+            return;
+        }
+
+        loadMoreButton.dataset.loadMoreInitialized = 'true';
+
+        if (isSharedView) {
+            loadMoreButton.classList.add('hidden');
+            loadMoreButton.setAttribute('aria-hidden', 'true');
+            loadMoreButton.disabled = true;
+            return;
+        }
+
+        loadMoreButton.addEventListener('click', async () => {
+            if (activeMedalFilter || isFetchingActivities) {
+                return;
+            }
+            const previousVisibleCount = visibleActivitiesCount;
+            const initialLength = sortedActivities.length;
+            let totalNewActivities = 0;
+            let cycles = 0;
+
+            if (!hasMoreActivities) {
+                visibleActivitiesCount = Math.min(
+                    sortedActivities.length,
+                    previousVisibleCount + ACTIVITIES_PAGE_SIZE
+                );
+                renderActivitiesList();
+
+                if (visibleActivitiesCount >= sortedActivities.length) {
+                    loadMoreButton.classList.add('hidden');
+                    loadMoreButton.disabled = true;
+                } else {
+                    loadMoreButton.disabled = false;
+                }
+                return;
+            }
+
+            loadMoreButton.disabled = true;
+            loadMoreButton.setAttribute('aria-busy', 'true');
+
+            try {
+                do {
+                    await fetchData({ isLoadMore: true });
+                    cycles += 1;
+
+                    const updatedLength = sortedActivities.length;
+                    const newActivities = Math.max(0, updatedLength - (initialLength + totalNewActivities));
+                    totalNewActivities += newActivities;
+
+                    if (!hasMoreActivities || newActivities === 0) {
+                        break;
+                    }
+
+                    await wait(LOAD_MORE_THROTTLE_MS);
+                } while (hasMoreActivities && cycles < LOAD_MORE_MAX_CYCLES);
+            } finally {
+                loadMoreButton.removeAttribute('aria-busy');
+
+                if (!hasMoreActivities) {
+                    visibleActivitiesCount = sortedActivities.length;
+                } else if (totalNewActivities > 0) {
+                    const pagesLoaded = Math.max(1, Math.ceil(totalNewActivities / ACTIVITIES_PAGE_SIZE));
+                    visibleActivitiesCount = Math.min(
+                        sortedActivities.length,
+                        previousVisibleCount + pagesLoaded * ACTIVITIES_PAGE_SIZE
+                    );
+                }
+
+                renderActivitiesList();
+
+                if (!hasMoreActivities) {
+                    loadMoreButton.classList.add('hidden');
+                    loadMoreButton.disabled = true;
+                } else {
+                    loadMoreButton.disabled = false;
+                }
+            }
+        });
+    };
+
+    const bindMedalsLoadMoreButton = () => {
+        if (!medalsLoadMoreButton || medalsLoadMoreButton.dataset.medalsInitialized === 'true') {
+            return;
+        }
+
+        medalsLoadMoreButton.dataset.medalsInitialized = 'true';
+        medalsLoadMoreButton.addEventListener('click', () => {
+            mapsTo('medals', { focusTab: true });
+
+            if (activeMedalFilter) {
+                const sourceCount = medalFilteredActivities.length;
+                if (medalFilterVisibleCount < sourceCount) {
+                    medalFilterVisibleCount = Math.min(sourceCount, medalFilterVisibleCount + MEDAL_FILTER_PAGE_SIZE);
+                    renderActivitiesList();
+                }
+                return;
+            }
+
+            if (!Array.isArray(medalInventory) || medalInventory.length === 0) {
+                return;
+            }
+
+            const nextVisibleCount = Math.min(medalInventory.length, visibleMedalCount + MEDALS_PAGE_SIZE);
+            if (nextVisibleCount > visibleMedalCount) {
+                visibleMedalCount = nextVisibleCount;
+                renderMedalsGrid();
+            }
+        });
+    };
+
+    bindChartToggleButtons();
+    bindPanelShortcutButtons();
+    bindCoinShortcutButtons();
+    bindBalanceYearToggle();
+    bindLoadMoreButton();
+    bindMedalsLoadMoreButton();
+
+    onPanelReady('wallet', () => {
+        refreshPanelReferences();
+        bindChartToggleButtons();
+        bindCoinShortcutButtons();
+        bindPanelShortcutButtons();
+        bindBalanceYearToggle();
+    });
+
+    onPanelReady('achievements', () => {
+        refreshPanelReferences();
+        bindPanelShortcutButtons();
+        bindCoinShortcutButtons();
+        bindLoadMoreButton();
+    });
+
+    onPanelReady('medals', () => {
+        refreshPanelReferences();
+        bindMedalsLoadMoreButton();
+    });
 
     updateToggleStates(null);
 
@@ -8259,107 +8534,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn("'profile-refresh' element not found in the DOM.");
     }
 
-    if (loadMoreButton) {
-        if (isSharedView) {
-            loadMoreButton.classList.add('hidden');
-            loadMoreButton.setAttribute('aria-hidden', 'true');
-            loadMoreButton.disabled = true;
-        } else {
-            loadMoreButton.addEventListener('click', async () => {
-                if (activeMedalFilter || isFetchingActivities) {
-                    return;
-                }
-                const previousVisibleCount = visibleActivitiesCount;
-                const initialLength = sortedActivities.length;
-                let totalNewActivities = 0;
-                let cycles = 0;
-
-                if (!hasMoreActivities) {
-                    visibleActivitiesCount = Math.min(
-                        sortedActivities.length,
-                        previousVisibleCount + ACTIVITIES_PAGE_SIZE
-                    );
-                    renderActivitiesList();
-
-                    if (visibleActivitiesCount >= sortedActivities.length) {
-                        loadMoreButton.classList.add('hidden');
-                        loadMoreButton.disabled = true;
-                    } else {
-                        loadMoreButton.disabled = false;
-                    }
-                    return;
-                }
-
-                loadMoreButton.disabled = true;
-                loadMoreButton.setAttribute('aria-busy', 'true');
-
-                try {
-                    do {
-                        await fetchData({ isLoadMore: true });
-                        cycles += 1;
-
-                        const updatedLength = sortedActivities.length;
-                        const newActivities = Math.max(0, updatedLength - (initialLength + totalNewActivities));
-                        totalNewActivities += newActivities;
-
-                        if (!hasMoreActivities || newActivities === 0) {
-                            break;
-                        }
-
-                        await wait(LOAD_MORE_THROTTLE_MS);
-                    } while (hasMoreActivities && cycles < LOAD_MORE_MAX_CYCLES);
-                } finally {
-                    loadMoreButton.removeAttribute('aria-busy');
-
-                    if (!hasMoreActivities) {
-                        visibleActivitiesCount = sortedActivities.length;
-                    } else if (totalNewActivities > 0) {
-                        const pagesLoaded = Math.max(1, Math.ceil(totalNewActivities / ACTIVITIES_PAGE_SIZE));
-                        visibleActivitiesCount = Math.min(
-                            sortedActivities.length,
-                            previousVisibleCount + pagesLoaded * ACTIVITIES_PAGE_SIZE
-                        );
-                    }
-
-                    renderActivitiesList();
-
-                    if (!hasMoreActivities) {
-                        loadMoreButton.classList.add('hidden');
-                        loadMoreButton.disabled = true;
-                    } else {
-                        loadMoreButton.disabled = false;
-                    }
-                }
-            });
-        }
-    } else {
-        console.warn("'load-more-btn' element not found in the DOM.");
-    }
-
-    if (medalsLoadMoreButton) {
-        medalsLoadMoreButton.addEventListener('click', () => {
-            setActivePanel('medals', { focusTab: true });
-
-            if (activeMedalFilter) {
-                const sourceCount = medalFilteredActivities.length;
-                if (medalFilterVisibleCount < sourceCount) {
-                    medalFilterVisibleCount = Math.min(sourceCount, medalFilterVisibleCount + MEDAL_FILTER_PAGE_SIZE);
-                    renderActivitiesList();
-                }
-                return;
-            }
-
-            if (!Array.isArray(medalInventory) || medalInventory.length === 0) {
-                return;
-            }
-
-            const nextVisibleCount = Math.min(medalInventory.length, visibleMedalCount + MEDALS_PAGE_SIZE);
-            if (nextVisibleCount > visibleMedalCount) {
-                visibleMedalCount = nextVisibleCount;
-                renderMedalsGrid();
-            }
-        });
-    }
 
     leaderboardSortButtons.forEach((button) => {
         button.addEventListener('click', () => {

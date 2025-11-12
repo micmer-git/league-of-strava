@@ -165,15 +165,16 @@
 </button>
 </div>
 </header>
-<div class="profile-card__progress">
-<div class="profile-card__progress-info" data-skeleton="panel" id="rank-progress-trigger">
-<div class="profile-card__progress-meta">
-<span class="profile-card__progress-label" id="ranking-progress-label"></span>
-<span class="profile-card__progress-monthly" id="ranking-progress-monthly"></span>
-<span class="profile-card__progress-next" id="next-rank"></span>
-</div>
-<div class="profile-card__progress-detail" id="rank-details"></div>
-</div>
+<div class="profile-card__progress" id="rank-progress-trigger">
+    <div class="profile-card__progress-bar">
+        <div class="profile-card__progress-fill" id="level-progress-fill" style="width: 0%;"></div>
+        <div class="profile-card__progress-overlay">
+            <span class="profile-card__progress-label" id="ranking-progress-label">Lifetime · 0 h</span>
+            <span class="profile-card__progress-monthly" id="ranking-progress-monthly">+0 h last month</span>
+            <span class="profile-card__progress-next" id="next-rank">0 h to next</span>
+        </div>
+    </div>
+    <div class="profile-card__progress-detail" id="rank-details"></div>
 </div>
 <div class="profile-card__meta">
 <div class="profile-card__badges" id="premium-achievements"></div>

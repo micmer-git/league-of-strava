@@ -2166,6 +2166,34 @@
             padding: 0.25rem 0.3rem !important;
         }
 
+        .wallet-table__header {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--color-muted);
+        }
+
+        .dark .wallet-table__header {
+            color: #cbd5f5;
+        }
+
+        .wallet-table__header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.1rem;
+        }
+
+        .wallet-table__header-emoji {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .wallet-table__header-label {
+            font-weight: 600;
+            font-size: 0.7rem;
+        }
+
         .wallet-table__label,
         .wallet-table__cell {
             gap: 0.15rem;
@@ -3700,4 +3728,13 @@ body.dashboard-body {
             to {
                 transform: rotate(360deg);
             }
+        }
+
+        .achievement-card__coin-note {
+            font-size: 0.7rem;
+            color: var(--color-muted);
+        }
+
+        .dark .achievement-card__coin-note {
+            color: #94a3b8;
         }

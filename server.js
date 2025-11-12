@@ -377,12 +377,43 @@ app.get('/api/strava-data', async (req, res) => {
         });
       }
 
+      const cachedEntry = userDataCache.getEntry(cacheKey);
+
       if (existingSnapshotError) {
         console.error(`Failed to load stored snapshot for athlete ${userId}:`, existingSnapshotError.message);
+
+        if (cachedEntry) {
+          console.log(`Serving cached dashboard payload for athlete ${userId} after snapshot retrieval failure.`);
+          return res.json({
+            ...cachedEntry.value,
+            cached: true,
+            stale: true,
+            stored: false,
+            storedTimestamp: null,
+            cacheTimestamp: cachedEntry.timestamp,
+            cacheAgeMs: cachedEntry.ageMs,
+            message: 'Showing your most recent cached dashboard while stored snapshots are temporarily unavailable.',
+          });
+        }
+
         return res.status(503).json({
           error: 'Stored snapshot temporarily unavailable.',
           stored: false,
           cached: false,
+        });
+      }
+
+      if (cachedEntry) {
+        console.log(`No stored snapshot found for athlete ${userId}; falling back to cached dashboard payload.`);
+        return res.json({
+          ...cachedEntry.value,
+          cached: true,
+          stale: true,
+          stored: false,
+          storedTimestamp: null,
+          cacheTimestamp: cachedEntry.timestamp,
+          cacheAgeMs: cachedEntry.ageMs,
+          message: 'Using your cached dashboard while we prepare a saved snapshot. Live data will refresh shortly.',
         });
       }
 

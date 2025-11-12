@@ -63,10 +63,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         Elevation: {
             '1000m Elevation': '1,000 m',
-            '5000m Elevation': '5,000 m',
-            '10000m Elevation': '10,000 m',
-            '25000m Elevation': '25,000 m',
-            '50000m Elevation': '50,000 m'
+            '2500m Elevation': '2,500 m',
+            '4000m Elevation': '4,000 m',
+            '30k Elevation Month': '30k month',
+            'Everesting Crowd': 'Everesting crowd'
         },
         Calories: {
             '1000 kcal Activity': '1,000',
@@ -1177,6 +1177,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             return counts;
         };
 
+        const accumulateMonthlyThresholdCounts = (activities, definitions, valueExtractor) => {
+            const counts = new Array(definitions.length).fill(0);
+            if (!Array.isArray(activities) || activities.length === 0) {
+                return counts;
+            }
+
+            const monthlyTotals = new Map();
+            activities.forEach(activity => {
+                const value = valueExtractor(activity);
+                if (!Number.isFinite(value) || value <= 0) {
+                    return;
+                }
+
+                const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
+                if (Number.isNaN(activityDate.getTime())) {
+                    return;
+                }
+
+                const monthKey = `${activityDate.getFullYear()}-${String(activityDate.getMonth() + 1).padStart(2, '0')}`;
+                const currentTotal = monthlyTotals.get(monthKey) || 0;
+                monthlyTotals.set(monthKey, currentTotal + value);
+            });
+
+            monthlyTotals.forEach(total => {
+                definitions.forEach((definition, index) => {
+                    if (total >= definition.threshold) {
+                        counts[index] += 1;
+                    }
+                });
+            });
+
+            return counts;
+        };
+
         const getDistanceKm = (activity) => {
             const distanceValue = Number(activity?.distance);
             return Number.isFinite(distanceValue) ? distanceValue / 1000 : 0;
@@ -1303,10 +1337,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 description: 'Activities with at least 2,500 m of climbing',
             },
             {
-                threshold: 5000,
+                threshold: 4000,
                 emoji: '💎',
-                name: '5000m Elevation',
-                description: 'Activities with at least 5,000 m of climbing',
+                name: '4000m Elevation',
+                description: 'Activities with at least 4,000 m of climbing',
             },
         ];
         const elevationCounts = accumulateThresholdCounts(activityList, elevationDefinitions, getElevationGain);
@@ -1317,25 +1351,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        const elevationWeeklyDefinitions = [
+        const elevationMonthlyDefinitions = [
             {
-                threshold: 10000,
+                threshold: 30000,
                 emoji: '💰',
-                name: 'Elevation 10k Week',
-                description: 'Weeks with at least 10,000 m climbed',
-            },
-            {
-                threshold: 20000,
-                emoji: '👑',
-                name: 'Elevation 20k Week',
-                description: 'Weeks with at least 20,000 m climbed',
+                name: '30k Elevation Month',
+                description: 'Months with at least 30,000 m climbed',
             },
         ];
-        const elevationWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, elevationWeeklyDefinitions, getElevationGain);
-        elevationWeeklyDefinitions.forEach((definition, index) => {
+        const elevationMonthlyCounts = accumulateMonthlyThresholdCounts(activityList, elevationMonthlyDefinitions, getElevationGain);
+        elevationMonthlyDefinitions.forEach((definition, index) => {
             pushAchievement('Elevation', {
                 ...definition,
-                count: elevationWeeklyCounts[index],
+                count: elevationMonthlyCounts[index],
+            });
+        });
+
+        const everestingDefinitions = [
+            {
+                threshold: EVEREST_HEIGHT_M,
+                emoji: '👑',
+                name: 'Everesting Crowd',
+                description: 'Activities with elevation gain matching Mt. Everest (8,849 m)',
+            },
+        ];
+        const everestingCounts = accumulateThresholdCounts(activityList, everestingDefinitions, getElevationGain);
+        everestingDefinitions.forEach((definition, index) => {
+            pushAchievement('Elevation', {
+                ...definition,
+                count: everestingCounts[index],
             });
         });
 
@@ -8103,20 +8147,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return;
                     }
                     countsByEmoji[emoji] += count;
-                    if (count > 0) {
-                        detailsByEmoji[emoji].push({
-                            name: achievement.name || '',
-                            description: achievement.description || '',
-                            count,
-                        });
-                    }
+                    detailsByEmoji[emoji].push({
+                        name: achievement.name || '',
+                        description: achievement.description || '',
+                        count,
+                    });
                 });
 
                 const labelCell = document.createElement('th');
                 labelCell.scope = 'row';
-                labelCell.className = 'px-2 py-1 text-center align-middle';
+                labelCell.className = 'px-2 py-1 align-middle text-left';
                 const labelWrapper = document.createElement('div');
-                labelWrapper.className = 'wallet-table__label flex flex-col items-center gap-1 px-1.5 py-0.5 text-center font-semibold text-gray-700 dark:text-gray-200';
+                labelWrapper.className = 'wallet-table__label flex flex-col items-start gap-1 px-1.5 py-0.5 text-left font-semibold text-gray-700 dark:text-gray-200';
                 labelWrapper.innerHTML = `<span class="text-xl leading-none">${rowConfig.icon}</span><span class="text-sm">${rowConfig.label}</span>`;
                 labelCell.appendChild(labelWrapper);
                 row.appendChild(labelCell);
@@ -8124,7 +8166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const card = document.createElement('article');
                 card.className = 'achievement-card';
                 const cardTitle = document.createElement('p');
-                cardTitle.className = 'achievement-card__title';
+                cardTitle.className = 'achievement-card__title text-left';
                 cardTitle.textContent = `${rowConfig.icon} ${rowConfig.label}`;
                 card.appendChild(cardTitle);
                 const coinsWrapper = document.createElement('div');
@@ -8154,10 +8196,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             const base = `${detail.count.toLocaleString()}× ${detail.label}`;
                             return detail.description ? `${base} — ${detail.description}` : base;
                         })
-                        : [`No ${rowConfig.label.toLowerCase()} achievements minted for ${emoji}.`];
+                        : [`${emoji} achievements — ${rowConfig.label}`];
                     const accessibleSummary = normalizedDetails.length > 0
                         ? normalizedDetails.map(detail => `${detail.count.toLocaleString()} ${detail.label}`).join('. ')
-                        : `No ${rowConfig.label} ${emoji} achievements yet.`;
+                        : `${emoji} ${rowConfig.label} achievements.`;
 
                     const cell = document.createElement('td');
                     cell.className = 'px-1.5 py-1.5 text-center align-middle';

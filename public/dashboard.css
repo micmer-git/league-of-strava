@@ -3923,6 +3923,7 @@ body.dark .activity-card__title-link:focus-visible,
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
+    text-align: left;
 }
 
 .achievement-card__meta {

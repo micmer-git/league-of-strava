@@ -5,7 +5,6 @@
             --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
             --app-safe-area-left: env(safe-area-inset-left, 0px);
             --pull-indicator-offset: 0px;
-            --dashboard-content-max-width: 1120px;
         }
 
         @supports (height: 100dvh) {
@@ -805,10 +804,6 @@
             display: flex;
             flex-direction: column;
             gap: 1.75rem;
-            width: min(100%, var(--dashboard-content-max-width));
-            max-width: 100%;
-            margin-inline: auto;
-            box-sizing: border-box;
         }
 
         .dashboard-tabs {
@@ -868,10 +863,6 @@
         .dashboard-panels {
             position: relative;
             min-height: 0;
-            width: 100%;
-            max-width: 100%;
-            margin-inline: auto;
-            box-sizing: border-box;
         }
 
         .dashboard-panel {
@@ -3036,7 +3027,7 @@
         .dashboard-shell {
             position: relative;
             flex: 1;
-            width: min(var(--dashboard-content-max-width), calc(100% - clamp(1.5rem, 6vw, 3rem)));
+            width: min(1180px, calc(100% - clamp(1.5rem, 6vw, 3rem)));
             margin: 0 auto;
             padding: calc(var(--app-safe-area-top) + clamp(1.75rem, 4vw, 3.5rem)) clamp(max(var(--app-safe-area-left), 0.75rem), 5vw, 1.75rem) calc(var(--app-safe-area-bottom) + clamp(2.25rem, 6vw, 4.25rem));
             display: grid;
@@ -3082,10 +3073,6 @@
 
         .dashboard-onepage {
             gap: clamp(1.75rem, 4vw, 2.6rem);
-            width: min(100%, var(--dashboard-content-max-width));
-            max-width: 100%;
-            margin-inline: auto;
-            box-sizing: border-box;
         }
 
         .dashboard-tabs {
@@ -3369,21 +3356,16 @@ body.dashboard-body {
         }
 
         .dashboard-shell {
-            width: min(100%, var(--dashboard-content-max-width));
-            max-width: 100%;
+            width: 100%;
+            max-width: 1180px;
             margin: 0 auto;
             padding: 1.5rem 1rem 3rem;
-            box-sizing: border-box;
         }
 
         .dashboard-onepage {
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
-            width: min(100%, var(--dashboard-content-max-width));
-            max-width: 100%;
-            margin-inline: auto;
-            box-sizing: border-box;
         }
 
 .dashboard-tabs {
@@ -3450,10 +3432,6 @@ body.dashboard-body {
         .dashboard-panels {
             position: relative;
             margin-top: 1.5rem;
-            width: 100%;
-            max-width: 100%;
-            margin-inline: auto;
-            box-sizing: border-box;
         }
 
         .dashboard-panel {

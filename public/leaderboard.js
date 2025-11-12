@@ -3,6 +3,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const cardsContainer = document.getElementById('leaderboard-cards');
   const tableElement = document.querySelector('.leaderboard-table');
   const tableColumnCount = tableElement ? tableElement.querySelectorAll('thead th').length : 1;
+  const COIN_VALUE_MAP = {
+    '💲': 200,
+    '💰': 1000,
+    '🧈': 5000,
+    '💎': 10000,
+    '👑': 50000,
+  };
+  const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
+  const MEDAL_DOLLAR_VALUE = 2000;
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const renderMessageRow = (message) => {
@@ -123,15 +132,21 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `<a class="leaderboard-athlete-link" href="${dashboardUrl}">${safeDisplayName}</a>`
           : safeDisplayName;
         const levelValue = Number(entry.level ?? 0);
-        const levelLabel = Number.isFinite(levelValue) ? levelValue.toLocaleString() : '0';
+        const levelLabel = Number.isFinite(levelValue) ? formatDecimal(levelValue) : '0';
         const levelEmoji = escapeHtml(entry.emoji || getRankEmoji(index + 1));
         const safeLevelLabel = escapeHtml(levelLabel);
         const levelCellMarkup = `<span class="sr-only">Level </span>${safeLevelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}`;
-        const walletBalance = formatWalletBalance(entry.walletBalance ?? entry.totalHaulValue ?? 0);
+        const coinTotals = getCoinTotals(entry);
+        const medalCount = getMedalCount(entry);
+        const walletValue = resolveWalletBalance(entry, coinTotals, medalCount);
+        const walletBalance = formatWalletBalance(walletValue);
         const worldTrips = formatDecimal(entry.worldTrips ?? entry['🌍']);
         const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);
         const pizzaCount = formatDecimal(entry.pizzas ?? entry['🍕']);
-        const coinTotals = getCoinTotals(entry);
+        const coinLabels = {};
+        COIN_EMOJIS.forEach((emoji) => {
+          coinLabels[emoji] = formatDecimal(coinTotals[emoji]);
+        });
         const relativeUpdated = formatRelativeTime(entry.timestamp);
 
         row.innerHTML = `
@@ -142,11 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <td class="stat-cell stat-cell--wallet">${formatStatPill(worldTrips)}</td>
           <td class="stat-cell stat-cell--wallet">${formatStatPill(everestSummits)}</td>
           <td class="stat-cell stat-cell--wallet">${formatStatPill(pizzaCount)}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['💲'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['💰'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['🧈'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['💎'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinTotals['👑'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💲'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💰'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['🧈'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💎'])}</td>
+          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['👑'])}</td>
           <td>${relativeUpdated}</td>
         `;
         tableBody.appendChild(row);
@@ -162,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
           worldTrips,
           everestSummits,
           pizzaCount,
-          coinTotals,
+          coinLabels,
           relativeUpdated,
         });
       });
@@ -212,11 +227,11 @@ document.addEventListener('DOMContentLoaded', () => {
           ${buildCardStat('🌍 World trips', view.worldTrips)}
           ${buildCardStat('🏔️ Everests', view.everestSummits)}
           ${buildCardStat('🍕 Pizzas', view.pizzaCount)}
-          ${buildCardStat('💲 Coins', view.coinTotals['💲'])}
-          ${buildCardStat('💰 Coins', view.coinTotals['💰'])}
-          ${buildCardStat('🧈 Coins', view.coinTotals['🧈'])}
-          ${buildCardStat('💎 Coins', view.coinTotals['💎'])}
-          ${buildCardStat('👑 Crowns', view.coinTotals['👑'])}
+          ${buildCardStat('💲 Coins', view.coinLabels['💲'])}
+          ${buildCardStat('💰 Coins', view.coinLabels['💰'])}
+          ${buildCardStat('🧈 Coins', view.coinLabels['🧈'])}
+          ${buildCardStat('💎 Coins', view.coinLabels['💎'])}
+          ${buildCardStat('👑 Crowns', view.coinLabels['👑'])}
         </div>
       `;
 
@@ -255,37 +270,80 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const millions = numericValue / 1_000_000;
-    const precision = millions >= 10 ? 1 : 2;
-    return `$${millions.toFixed(precision)}M`;
+    return `$${millions.toFixed(1)}M`;
   }
 
   function formatDecimal(value) {
     const numericValue = Number(value);
-    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    if (!Number.isFinite(numericValue) || numericValue === 0) {
       return '0';
     }
 
-    if (numericValue >= 100) {
-      return numericValue.toFixed(0);
+    const absoluteValue = Math.abs(numericValue);
+    let fractionDigits = 2;
+    if (absoluteValue >= 100) {
+      fractionDigits = 0;
+    } else if (absoluteValue >= 10) {
+      fractionDigits = 1;
     }
 
-    if (numericValue >= 10) {
-      return numericValue.toFixed(1);
+    let formatted = numericValue.toFixed(fractionDigits);
+    if (fractionDigits > 0) {
+      formatted = formatted.replace(/(\.[0-9]*?)0+$/u, '$1').replace(/\.$/, '');
     }
-
-    return numericValue.toFixed(2);
+    return formatted;
   }
 
   function getCoinTotals(entry) {
-    const emojis = ['💲', '💰', '🧈', '💎', '👑'];
-    return emojis.reduce((acc, emoji) => {
+    return COIN_EMOJIS.reduce((acc, emoji) => {
       const value = entry?.coinBreakdown?.[emoji] ?? entry?.[emoji];
       const numericValue = Number(value);
-      acc[emoji] = Number.isFinite(numericValue) && numericValue > 0
-        ? numericValue.toLocaleString()
-        : '0';
+      acc[emoji] = Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
       return acc;
     }, {});
+  }
+
+  function getMedalCount(entry) {
+    const candidates = [entry?.medals, entry?.medalCount, entry?.medal_count];
+    for (const candidate of candidates) {
+      const numericValue = Number(candidate);
+      if (Number.isFinite(numericValue) && numericValue > 0) {
+        return numericValue;
+      }
+    }
+    return 0;
+  }
+
+  function computeWalletFromCoins(coinTotals, medalCount) {
+    const coinValue = Object.entries(coinTotals).reduce((sum, [emoji, count]) => {
+      const numericCount = Number(count);
+      if (!Number.isFinite(numericCount) || numericCount <= 0) {
+        return sum;
+      }
+      const multiplier = COIN_VALUE_MAP[emoji] || 0;
+      return sum + (numericCount * multiplier);
+    }, 0);
+
+    const medalsValue = Number.isFinite(medalCount) && medalCount > 0
+      ? medalCount * MEDAL_DOLLAR_VALUE
+      : 0;
+
+    return coinValue + medalsValue;
+  }
+
+  function resolveWalletBalance(entry, coinTotals, medalCount) {
+    const computedWallet = computeWalletFromCoins(coinTotals, medalCount);
+    if (computedWallet > 0) {
+      return computedWallet;
+    }
+
+    const providedWallet = Number(entry?.walletBalance);
+    if (Number.isFinite(providedWallet) && providedWallet > 0) {
+      return providedWallet;
+    }
+
+    const fallback = Number(entry?.totalHaulValue ?? entry?.total_haul_value);
+    return Number.isFinite(fallback) && fallback > 0 ? fallback : 0;
   }
 
   function escapeHtml(value) {

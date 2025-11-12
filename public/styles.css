@@ -29,6 +29,8 @@
   --app-safe-area-right: env(safe-area-inset-right, 0px);
   --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-area-left: env(safe-area-inset-left, 0px);
+  --leaderboard-rank-column-width: 3.75rem;
+  --leaderboard-name-column-min-width: 16rem;
 }
 
 @supports (height: 100dvh) {
@@ -500,14 +502,12 @@ img {
   background: rgba(255, 255, 255, 0.6);
 }
 
-.leaderboard-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.4);
-  transition: background var(--transition-base);
-}
-
 .rank-cell {
   font-weight: 700;
   color: var(--color-accent-strong);
+  text-align: center;
+  min-width: var(--leaderboard-rank-column-width);
+  font-variant-numeric: tabular-nums;
 }
 
 .leaderboard-empty {
@@ -524,6 +524,8 @@ img {
 .name-cell {
   font-weight: 600;
   color: var(--color-text-strong);
+  min-width: var(--leaderboard-name-column-min-width);
+  white-space: nowrap;
 }
 
 .stat-cell {
@@ -916,6 +918,7 @@ img {
   border-radius: var(--radius-md);
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: rgba(255, 255, 255, 0.75);
+  position: relative;
 }
 
 .dark .leaderboard-table-wrapper {
@@ -929,6 +932,7 @@ img {
   border-spacing: 0;
   min-width: 560px;
   font-size: 0.9rem;
+  table-layout: auto;
 }
 
 .leaderboard-table thead th {
@@ -949,9 +953,78 @@ img {
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.leaderboard-table tbody tr {
+  --leaderboard-row-bg: rgba(255, 255, 255, 0.88);
+  transition: background-color var(--transition-base);
+}
+
+.dark .leaderboard-table tbody tr {
+  --leaderboard-row-bg: rgba(30, 41, 59, 0.78);
+}
+
 .leaderboard-table tbody tr:hover,
 .leaderboard-table tbody tr:focus-within {
-  background: rgba(59, 130, 246, 0.08);
+  --leaderboard-row-bg: rgba(59, 130, 246, 0.18);
+}
+
+.dark .leaderboard-table tbody tr:hover,
+.dark .leaderboard-table tbody tr:focus-within {
+  --leaderboard-row-bg: rgba(37, 99, 235, 0.28);
+}
+
+.leaderboard-table td {
+  background: var(--leaderboard-row-bg);
+  transition: background-color var(--transition-base);
+}
+
+.dark .leaderboard-table td {
+  background: var(--leaderboard-row-bg);
+}
+
+.leaderboard-table th:first-child,
+.leaderboard-table td:first-child {
+  position: sticky;
+  left: 0;
+  min-width: var(--leaderboard-rank-column-width);
+  max-width: var(--leaderboard-rank-column-width);
+  text-align: center;
+  z-index: 3;
+}
+
+.leaderboard-table th:nth-child(2),
+.leaderboard-table td:nth-child(2) {
+  position: sticky;
+  left: var(--leaderboard-rank-column-width);
+  min-width: var(--leaderboard-name-column-min-width);
+  z-index: 2;
+}
+
+.leaderboard-table thead th:first-child {
+  z-index: 6;
+}
+
+.leaderboard-table thead th:nth-child(2) {
+  z-index: 5;
+}
+
+.leaderboard-table td:first-child,
+.leaderboard-table th:first-child {
+  box-shadow: 10px 0 16px -12px rgba(15, 23, 42, 0.22);
+}
+
+.dark .leaderboard-table td:first-child,
+.dark .leaderboard-table th:first-child {
+  box-shadow: 10px 0 16px -12px rgba(15, 23, 42, 0.5);
+}
+
+.leaderboard-table td:nth-child(2),
+.leaderboard-table th:nth-child(2) {
+  box-shadow: 12px 0 20px -14px rgba(15, 23, 42, 0.18);
+}
+
+.dark .leaderboard-table td:nth-child(2),
+.dark .leaderboard-table th:nth-child(2) {
+  box-shadow: 12px 0 20px -14px rgba(15, 23, 42, 0.45);
 }
 
 .leaderboard-table .name-cell a {

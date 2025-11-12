@@ -30,17 +30,17 @@ const CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_CACHE_TTL_MS, 10) || 5 *
 const MAX_ACTIVITY_PAGES = Number.parseInt(process.env.STRAVA_MAX_ACTIVITY_PAGES, 10) || 0; // 0 = unlimited
 
 const PIZZA_KCAL = 800;
-const MEDAL_DOLLAR_VALUE = 5000;
-const BASE_COIN_VALUE = 20;
+const MEDAL_DOLLAR_VALUE = 2000;
+const BASE_COIN_VALUE = 200;
 const EARTH_CIRCUMFERENCE_KM = 40075;
 const EVEREST_HEIGHT_M = 8849;
 const CALORIE_SCALE_FACTOR = 0.65;
 const COIN_VALUE_MAP = {
-  '💲': 20,
-  '💰': 100,
-  '🧈': 500,
-  '💎': 3000,
-  '👑': 10000,
+  '💲': 200,
+  '💰': 1000,
+  '🧈': 5000,
+  '💎': 10000,
+  '👑': 50000,
 };
 const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
 

@@ -1269,9 +1269,24 @@ to { opacity: 1; transform: translateY(0); }
 
 .profile-card__wallet {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.65rem;
+    align-items: baseline;
+}
+
+.profile-card__balance-label {
+    flex-basis: 100%;
+}
+
+.profile-card__balance-value,
+.profile-card__balance-change {
+    display: inline-flex;
+    align-items: baseline;
     gap: 0.25rem;
-    align-items: flex-start;
+}
+
+.profile-card__balance-value {
+    white-space: nowrap;
 }
 
 .profile-card__balance-label {
@@ -1287,6 +1302,7 @@ to { opacity: 1; transform: translateY(0); }
 
 .profile-card__balance-change {
     font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 .profile-card__balance-change--secondary {
@@ -1535,6 +1551,7 @@ to { transform: rotate(360deg); }
     border-radius: 9999px;
     background: rgba(13, 148, 136, 0.12);
     border: 1px solid rgba(13, 148, 136, 0.25);
+    white-space: nowrap;
 }
 
 .profile-card__balance-change--negative {
@@ -1832,7 +1849,7 @@ to { transform: rotate(360deg); }
 
 .profile-card__progress-bar {
     position: relative;
-    height: 1.05rem;
+    height: 1.4rem;
     border-radius: 9999px;
     background: rgba(148, 163, 184, 0.25);
     overflow: hidden;
@@ -2061,6 +2078,7 @@ to { transform: rotate(360deg); }
     display: flex;
     gap: 0.75rem;
     align-items: stretch;
+    justify-content: flex-start;
     width: 100%;
     max-width: 100%;
     margin-inline: calc(-1 * clamp(0.75rem, 4vw, 1.5rem));
@@ -3352,6 +3370,7 @@ body.dashboard-body {
 
 .top-performances-grid {
     gap: 1.25rem;
+    justify-content: flex-start;
 }
 
 .top-performance-card {
@@ -3981,20 +4000,62 @@ body.is-filter-modal-open {
 /* Profile card rank line updates */
 .profile-card__rankline {
     display: flex;
-    align-items: baseline;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 0.35rem;
     width: 100%;
 }
 
 .profile-card__rank,
 .profile-card__level {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--color-text-primary);
 }
 
-.profile-card__level {
-    font-size: 1.05rem;
-    color: var(--color-text-secondary);
-    font-weight: 500;
+.profile-card__rankline .profile-card__level {
+    width: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.profile-card__rank-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(148, 163, 184, 0.16);
+    color: var(--color-text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    padding: 0;
+    transition: transform var(--transition-base), background var(--transition-base), border-color var(--transition-base);
+}
+
+.profile-card__rank-info:hover,
+.profile-card__rank-info:focus-visible {
+    transform: translateY(-1px);
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.4);
+    outline: none;
+}
+
+body.dark .profile-card__rank-info,
+.dark .profile-card__rank-info {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(148, 163, 184, 0.45);
+    color: rgba(226, 232, 240, 0.92);
+}
+
+body.dark .profile-card__rank-info:hover,
+.dark .profile-card__rank-info:hover,
+body.dark .profile-card__rank-info:focus-visible,
+.dark .profile-card__rank-info:focus-visible {
+    background: rgba(59, 130, 246, 0.35);
+    border-color: rgba(59, 130, 246, 0.55);
 }

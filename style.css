@@ -537,6 +537,7 @@ button,
   border-radius: inherit;
   transition: width 0.5s ease;
   box-shadow: 0 0 18px rgba(14, 165, 233, 0.4);
+  overflow: hidden;
 }
 
 .progress-bar::after {
@@ -546,6 +547,23 @@ button,
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
   mix-blend-mode: screen;
   opacity: 0.6;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.progress-bar__recent {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  left: auto;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.85) 0%, rgba(16, 185, 129, 0.95) 100%);
+  transition: width 0.5s ease;
+  border-radius: inherit;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.45);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .tooltip {
@@ -592,10 +610,61 @@ button,
   display: block;
 }
 
-.lifetime-stats {
-  display: grid;
-  gap: 1.1rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(12.5rem, 100%), 1fr));
+.training-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.training-progress__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.95rem;
+  color: var(--color-muted);
+}
+
+.training-progress__total {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.training-progress__bar {
+  position: relative;
+  width: 100%;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.16) 0%, rgba(203, 213, 225, 0.08) 100%);
+  overflow: hidden;
+}
+
+.training-progress__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  background: linear-gradient(90deg, rgba(14, 116, 144, 0.85) 0%, rgba(56, 189, 248, 0.9) 100%);
+  border-radius: inherit;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 18px rgba(2, 132, 199, 0.25);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.training-progress__fill--recent {
+  right: 0;
+  left: auto;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.85) 0%, rgba(16, 185, 129, 0.95) 100%);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
+  z-index: 2;
+}
+
+.training-progress__recent {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-muted);
 }
 
 .medals-card {
@@ -1017,10 +1086,6 @@ button,
   .primary-column,
   .secondary-column {
     gap: 1.1rem;
-  }
-
-  .lifetime-stats {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .stats-grid {

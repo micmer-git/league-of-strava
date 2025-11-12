@@ -2485,6 +2485,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const resolveMedalFromDataset = (button) => {
+        if (!button) {
+            return null;
+        }
+
+        const medalName = (button.dataset.medalName || '').trim();
+        if (!medalName) {
+            return null;
+        }
+
+        const inventoryMedal = Array.isArray(medalInventory)
+            ? medalInventory.find(entry => entry?.name === medalName)
+            : null;
+
+        const datasetCount = Number.parseInt(button.dataset.medalCount, 10);
+        return {
+            name: medalName,
+            emoji: inventoryMedal?.emoji || button.dataset.medalEmoji || '',
+            description: inventoryMedal?.description || button.dataset.medalDescription || '',
+            category: inventoryMedal?.category || button.dataset.medalCategory || '',
+            count: toNonNegativeInteger(inventoryMedal?.count ?? datasetCount)
+        };
+    };
+
+    const handleMedalButtonClick = (event) => {
+        const button = event?.currentTarget;
+        const resolvedMedal = resolveMedalFromDataset(button);
+        if (!resolvedMedal) {
+            return;
+        }
+
+        toggleMedalFilter(resolvedMedal);
+    };
+
     const renderMedalsGrid = () => {
         if (!medalsSection) {
             console.warn("'medals-section' element not found in the DOM.");
@@ -2611,10 +2645,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalButton.dataset.medalName = medal.name;
                 medalButton.dataset.medalEmoji = medal.emoji || '';
                 medalButton.dataset.medalCategory = medal.category || '';
+                medalButton.dataset.medalDescription = medal.description || '';
                 medalButton.dataset.medalCount = medalCount.toString();
-                medalButton.addEventListener('click', () => {
-                    toggleMedalFilter({ ...medal, count: medalCount });
-                });
+                medalButton.addEventListener('click', handleMedalButtonClick);
 
                 listItem.appendChild(medalButton);
                 list.appendChild(listItem);
@@ -3307,6 +3340,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         }).filter(Boolean);
     };
 
+    const buildQuarterlyValueSeries = (metrics = []) => {
+        const quarterlyAggregation = new Map();
+
+        metrics.forEach(metric => {
+            const year = metric?.date instanceof Date ? metric.date.getFullYear() : null;
+            const monthIndex = metric?.date instanceof Date ? metric.date.getMonth() : null;
+            if (!Number.isInteger(year) || !Number.isInteger(monthIndex)) {
+                return;
+            }
+
+            const quarterIndex = Math.floor(monthIndex / 3) + 1;
+            const key = `${year}-Q${quarterIndex}`;
+            const value = Number(metric.coinValue) + Number(metric.medalValue);
+            const numericValue = Number.isFinite(value) ? value : 0;
+            quarterlyAggregation.set(key, (quarterlyAggregation.get(key) || 0) + numericValue);
+        });
+
+        const sortedQuarters = Array.from(quarterlyAggregation.keys()).sort();
+        const cumulativeValues = [];
+        const perPeriodValues = [];
+        const series = [];
+        let runningTotal = 0;
+
+        sortedQuarters.forEach(key => {
+            const periodValue = quarterlyAggregation.get(key) || 0;
+            runningTotal += periodValue;
+            perPeriodValues.push(periodValue);
+            const [yearStr, quarterStr] = key.split('-Q');
+            const year = Number(yearStr);
+            const quarter = Number(quarterStr);
+            const monthIndex = Math.max(quarter - 1, 0) * 3;
+            const date = Number.isFinite(year) && Number.isFinite(monthIndex)
+                ? new Date(year, monthIndex, 1)
+                : null;
+            cumulativeValues.push(runningTotal);
+            series.push({ key, date, value: runningTotal });
+        });
+
+        const latestEntry = series.length > 0 ? series[series.length - 1] : null;
+        const previousEntry = series.length > 1 ? series[series.length - 2] : null;
+        let yearAgoEntry = null;
+
+        if (latestEntry?.date instanceof Date && !Number.isNaN(latestEntry.date.getTime())) {
+            const yearAgoThreshold = new Date(latestEntry.date);
+            yearAgoThreshold.setFullYear(yearAgoThreshold.getFullYear() - 1);
+            for (let index = series.length - 1; index >= 0; index -= 1) {
+                const candidate = series[index];
+                if (candidate.date instanceof Date && candidate.date <= yearAgoThreshold) {
+                    yearAgoEntry = candidate;
+                    break;
+                }
+            }
+        }
+
+        return {
+            sortedQuarters,
+            cumulativeValues,
+            perPeriodValues,
+            series,
+            latestEntry,
+            previousEntry,
+            yearAgoEntry,
+        };
+    };
+
     const updateWalletChartData = ({ activities = [], lifetimeActivities = [], selectedYear = 'all' } = {}) => {
         const lifetimeMetrics = getWalletMetricsForActivities(lifetimeActivities);
         const isAllYearsSelected = !selectedYear || selectedYear === 'all';
@@ -3493,55 +3591,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        const quarterlyAggregation = new Map();
-        metricsForFiltered.forEach(metric => {
-            const year = metric.date.getFullYear();
-            const month = metric.date.getMonth() + 1;
-            if (!Number.isFinite(year) || !Number.isFinite(month)) {
-                return;
-            }
+        const filteredQuarterly = buildQuarterlyValueSeries(metricsForFiltered);
+        const lifetimeQuarterly = buildQuarterlyValueSeries(metricsForYearly);
+        const { sortedQuarters, cumulativeValues: balanceValues, perPeriodValues } = filteredQuarterly;
 
-            const quarterIndex = Math.floor((month - 1) / 3) + 1;
-            const key = `${year}-Q${quarterIndex}`;
-            quarterlyAggregation.set(key, (quarterlyAggregation.get(key) || 0) + metric.coinValue + metric.medalValue);
-        });
-
-        const sortedQuarters = Array.from(quarterlyAggregation.keys()).sort();
-        let runningTotal = 0;
-        const balanceValues = sortedQuarters.map(key => {
-            runningTotal += quarterlyAggregation.get(key) || 0;
-            return runningTotal;
-        });
-        const quarterlySeries = sortedQuarters.map((key, index) => {
-            const [yearStr, quarterStr] = key.split('-Q');
-            const quarterIndex = Number(quarterStr) - 1;
-            const date = new Date(Number(yearStr), Math.max(quarterIndex, 0) * 3, 1);
-            return { date, value: balanceValues[index] };
-        }).filter(entry => Number.isFinite(entry.value));
-        const latestEntry = quarterlySeries.length > 0 ? quarterlySeries[quarterlySeries.length - 1] : null;
-        const previousEntry = quarterlySeries.length > 1 ? quarterlySeries[quarterlySeries.length - 2] : null;
-        let yearAgoEntry = null;
-        if (latestEntry?.date instanceof Date && !Number.isNaN(latestEntry.date.getTime())) {
-            const yearAgoThreshold = new Date(latestEntry.date);
-            yearAgoThreshold.setFullYear(yearAgoThreshold.getFullYear() - 1);
-            for (let index = quarterlySeries.length - 1; index >= 0; index -= 1) {
-                const candidate = quarterlySeries[index];
-                if (candidate.date <= yearAgoThreshold) {
-                    yearAgoEntry = candidate;
-                    break;
-                }
-            }
-        }
-        const quarterPercentChange = calculatePercentChange(latestEntry?.value, previousEntry?.value);
-        const yearPercentChange = calculatePercentChange(latestEntry?.value, yearAgoEntry?.value);
-        const quarterChangeValue = Number.isFinite(latestEntry?.value) && Number.isFinite(previousEntry?.value)
-            ? latestEntry.value - previousEntry.value
+        const lifetimeLatest = lifetimeQuarterly.latestEntry;
+        const lifetimePrevious = lifetimeQuarterly.previousEntry;
+        const lifetimeYearAgo = lifetimeQuarterly.yearAgoEntry;
+        const quarterPercentChange = calculatePercentChange(lifetimeLatest?.value, lifetimePrevious?.value);
+        const yearPercentChange = calculatePercentChange(lifetimeLatest?.value, lifetimeYearAgo?.value);
+        const quarterChangeValue = Number.isFinite(lifetimeLatest?.value) && Number.isFinite(lifetimePrevious?.value)
+            ? lifetimeLatest.value - lifetimePrevious.value
             : null;
-        const yearChangeValue = Number.isFinite(latestEntry?.value) && Number.isFinite(yearAgoEntry?.value)
-            ? latestEntry.value - yearAgoEntry.value
+        const yearChangeValue = Number.isFinite(lifetimeLatest?.value) && Number.isFinite(lifetimeYearAgo?.value)
+            ? lifetimeLatest.value - lifetimeYearAgo.value
             : null;
         walletGrowthStats = {
-            currentTotal: Number.isFinite(latestEntry?.value) ? latestEntry.value : 0,
+            currentTotal: Number.isFinite(lifetimeLatest?.value) ? lifetimeLatest.value : 0,
             quarterChangePct: quarterPercentChange,
             yearChangePct: yearPercentChange,
             quarterChangeValue,
@@ -3569,7 +3635,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartData.balance = {
             labels: quarterLabels,
             values: balanceValues,
-            perPeriodValues: sortedQuarters.map(key => quarterlyAggregation.get(key) || 0),
+            perPeriodValues,
             compareLabels: QUARTER_LABELS,
             compareDatasets,
             periodMeta,

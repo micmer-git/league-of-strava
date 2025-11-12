@@ -103,144 +103,135 @@ document.addEventListener('DOMContentLoaded', async () => {
         maximumFractionDigits: 0
     });
     const DASHBOARD_CACHE_VERSION = 'v2';
-    const DASHBOARD_CACHE_STORAGE_KEY = `los:dashboard-cache:${DASHBOARD_CACHE_VERSION}`;
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
-    const DASHBOARD_CACHE_MAX_ENTRIES = 6;
 
-    const createEmptyCacheContainer = () => ({
-        version: DASHBOARD_CACHE_VERSION,
-        entries: {},
-        metadata: {},
-    });
+    const CACHE_KEYS = {
+        DASHBOARD: (userId) => `los:dashboard:${DASHBOARD_CACHE_VERSION}:${userId || 'self'}`,
+        LEADERBOARD: `los:leaderboard:${DASHBOARD_CACHE_VERSION}`,
+        USER_SNAPSHOT: (userId) => `los:snapshot:${DASHBOARD_CACHE_VERSION}:${userId}`,
+    };
 
-    const persistDashboardCacheContainer = (container) => {
-        if (!container || typeof container !== 'object') {
-            return;
+    const CACHE_TTL = {
+        DASHBOARD: DASHBOARD_CACHE_TTL_MS,
+        LEADERBOARD: 2 * 60 * 1000,
+        USER_SNAPSHOT: 10 * 60 * 1000,
+    };
+
+    let cacheStorage;
+    const resolveCacheStorage = () => {
+        if (cacheStorage) {
+            return cacheStorage;
         }
 
         try {
-            sessionStorage.setItem(DASHBOARD_CACHE_STORAGE_KEY, JSON.stringify(container));
+            if (typeof window !== 'undefined' && window.localStorage) {
+                cacheStorage = window.localStorage;
+                return cacheStorage;
+            }
         } catch (error) {
-            console.warn('Unable to persist dashboard cache:', error);
+            console.warn('Local storage unavailable, falling back to session storage.', error);
         }
-    };
-
-    const loadDashboardCacheContainer = () => {
-        const fallback = createEmptyCacheContainer();
 
         try {
-            const raw = sessionStorage.getItem(DASHBOARD_CACHE_STORAGE_KEY);
-            if (!raw) {
-                return fallback;
+            if (typeof window !== 'undefined' && window.sessionStorage) {
+                cacheStorage = window.sessionStorage;
+                return cacheStorage;
             }
-
-            const parsed = JSON.parse(raw);
-            if (!parsed || typeof parsed !== 'object' || parsed.version !== DASHBOARD_CACHE_VERSION) {
-                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
-                return fallback;
-            }
-
-            const entries = (parsed.entries && typeof parsed.entries === 'object') ? { ...parsed.entries } : {};
-            const metadata = (parsed.metadata && typeof parsed.metadata === 'object') ? { ...parsed.metadata } : {};
-            const container = { version: DASHBOARD_CACHE_VERSION, entries, metadata };
-            const now = Date.now();
-            let mutated = false;
-
-            Object.entries(entries).forEach(([key, entry]) => {
-                const timestamp = Number(entry?.timestamp);
-                if (!entry || !Number.isFinite(timestamp) || (DASHBOARD_CACHE_TTL_MS > 0 && now - timestamp > DASHBOARD_CACHE_TTL_MS)) {
-                    delete entries[key];
-                    mutated = true;
-                }
-            });
-
-            if (mutated) {
-                persistDashboardCacheContainer(container);
-            }
-
-            return container;
         } catch (error) {
-            console.warn('Unable to access dashboard cache storage:', error);
-            try {
-                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
-            } catch (storageError) {
-                console.warn('Unable to reset dashboard cache storage:', storageError);
-            }
-            return fallback;
+            console.warn('Session storage unavailable; caching disabled.', error);
         }
+
+        cacheStorage = null;
+        return cacheStorage;
     };
 
-    const resolveDashboardCacheKey = (payload) => {
-        const athleteId = payload?.athlete?.id;
-
-        if (isSharedView) {
-            if (sharedUserId) {
-                return `shared:${sharedUserId}`;
-            }
-
-            if (athleteId !== undefined && athleteId !== null) {
-                return `shared:${athleteId}`;
-            }
-
+    const readCacheEntry = (key, ttl) => {
+        const storage = resolveCacheStorage();
+        if (!storage || !key) {
             return null;
         }
 
-        if (athleteId !== undefined && athleteId !== null) {
-            return `self:${athleteId}`;
+        let raw;
+        try {
+            raw = storage.getItem(key);
+        } catch (error) {
+            console.warn('Cache read failed:', error);
+            return null;
         }
 
-        return 'self:unknown';
+        if (!raw) {
+            return null;
+        }
+
+        let entry;
+        try {
+            entry = JSON.parse(raw);
+        } catch (error) {
+            console.warn('Unable to parse cache entry; clearing.', error);
+            try {
+                storage.removeItem(key);
+            } catch (removeError) {
+                console.warn('Unable to remove corrupt cache entry:', removeError);
+            }
+            return null;
+        }
+
+        if (!entry || entry.version !== DASHBOARD_CACHE_VERSION) {
+            try {
+                storage.removeItem(key);
+            } catch (removeError) {
+                console.warn('Unable to purge outdated cache entry:', removeError);
+            }
+            return null;
+        }
+
+        const timestamp = Number(entry.timestamp);
+        if (!Number.isFinite(timestamp)) {
+            try {
+                storage.removeItem(key);
+            } catch (removeError) {
+                console.warn('Unable to purge invalid cache entry:', removeError);
+            }
+            return null;
+        }
+
+        const age = Date.now() - timestamp;
+        const ttlLimit = Number.isFinite(ttl) ? ttl : 0;
+        if (ttlLimit > 0 && age > ttlLimit) {
+            try {
+                storage.removeItem(key);
+            } catch (removeError) {
+                console.warn('Unable to purge expired cache entry:', removeError);
+            }
+            return null;
+        }
+
+        return entry;
     };
 
-    const getDashboardCacheLookupKeys = (container) => {
-        const keys = [];
-
-        if (isSharedView) {
-            if (sharedUserId) {
-                keys.push(`shared:${sharedUserId}`);
-            }
-            return keys;
-        }
-
-        if (container?.metadata) {
-            if (typeof container.metadata.lastActiveKey === 'string') {
-                keys.push(container.metadata.lastActiveKey);
-            }
-        }
-
-        if (!keys.includes('self:unknown')) {
-            keys.push('self:unknown');
-        }
-
-        return keys;
-    };
-
-    const enforceDashboardCacheSizeLimit = (container, protectedKey) => {
-        if (!container || !container.entries) {
+    const writeCacheEntry = (key, entry) => {
+        const storage = resolveCacheStorage();
+        if (!storage || !key || !entry) {
             return;
         }
 
-        const keys = Object.keys(container.entries);
-        if (keys.length <= DASHBOARD_CACHE_MAX_ENTRIES) {
+        try {
+            storage.setItem(key, JSON.stringify(entry));
+        } catch (error) {
+            console.warn('Cache write failed:', error);
+        }
+    };
+
+    const removeCacheEntry = (key) => {
+        const storage = resolveCacheStorage();
+        if (!storage || !key) {
             return;
         }
 
-        const sortedKeys = keys.sort((a, b) => {
-            const timeA = Number(container.entries[a]?.timestamp) || 0;
-            const timeB = Number(container.entries[b]?.timestamp) || 0;
-            return timeA - timeB;
-        });
-
-        for (const key of sortedKeys) {
-            if (Object.keys(container.entries).length <= DASHBOARD_CACHE_MAX_ENTRIES) {
-                break;
-            }
-
-            if (key === protectedKey) {
-                continue;
-            }
-
-            delete container.entries[key];
+        try {
+            storage.removeItem(key);
+        } catch (error) {
+            console.warn('Cache removal failed:', error);
         }
     };
 
@@ -1719,32 +1710,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         return true;
     };
 
-    const formatWalletBalanceLabel = (value) => {
-        const numericValue = Number(value);
-        if (!Number.isFinite(numericValue) || numericValue <= 0) {
-            return '$0.0M';
-        }
-
-        const millions = numericValue / 1_000_000;
-        const precision = millions >= 10 ? 1 : 2;
-        return `$${millions.toFixed(precision)}M`;
-    };
-
-    const formatLeaderboardDecimal = (value) => {
-        const numericValue = Number(value);
-        if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    const formatLeaderboardNumber = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
             return '0';
         }
 
-        if (numericValue >= 100) {
-            return numericValue.toFixed(0);
-        }
-
-        if (numericValue >= 10) {
-            return numericValue.toFixed(1);
-        }
-
-        return numericValue.toFixed(2);
+        return Math.round(numeric).toString();
     };
 
     const getCoinTotals = (entry) => {
@@ -1773,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const coinTotals = getCoinTotals(entry);
             const coinLabels = {};
             COIN_EMOJIS.forEach(emoji => {
-                coinLabels[emoji] = formatLeaderboardDecimal(coinTotals[emoji]);
+                coinLabels[emoji] = formatLeaderboardNumber(coinTotals[emoji]);
             });
             const timestampValue = Date.parse(entry?.timestamp ?? entry?.updatedAt ?? entry?.updated_at ?? entry?.lastUpdated ?? entry?.last_updated ?? '');
 
@@ -1784,16 +1756,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 hasUserLink,
                 dashboardUrl,
                 levelValue: Number.isFinite(levelValue) ? levelValue : 0,
-                levelLabel: Number.isFinite(levelValue) ? levelValue.toLocaleString() : '0',
+                levelLabel: formatLeaderboardNumber(levelValue),
                 levelEmoji: typeof entry?.emoji === 'string' ? escapeHtml(entry.emoji) : '',
                 walletBalanceValue: Number.isFinite(walletBalanceValue) ? walletBalanceValue : 0,
-                walletBalanceLabel: formatWalletBalanceLabel(walletBalanceValue),
+                walletBalanceLabel: formatMillions(walletBalanceValue),
                 worldTrips: Number.isFinite(worldTripsValue) ? worldTripsValue : 0,
-                worldTripsLabel: formatLeaderboardDecimal(worldTripsValue),
+                worldTripsLabel: formatLeaderboardNumber(worldTripsValue),
                 everestSummits: Number.isFinite(everestSummitsValue) ? everestSummitsValue : 0,
-                everestSummitsLabel: formatLeaderboardDecimal(everestSummitsValue),
+                everestSummitsLabel: formatLeaderboardNumber(everestSummitsValue),
                 pizzas: Number.isFinite(pizzasValue) ? pizzasValue : 0,
-                pizzasLabel: formatLeaderboardDecimal(pizzasValue),
+                pizzasLabel: formatLeaderboardNumber(pizzasValue),
                 coins: coinTotals,
                 coinLabels,
                 timestampValue: Number.isFinite(timestampValue) ? timestampValue : 0,
@@ -4143,43 +4115,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const readDashboardCache = () => {
         try {
-            const container = loadDashboardCacheContainer();
-            const lookupKeys = getDashboardCacheLookupKeys(container);
-
-            for (const key of lookupKeys) {
-                if (!key) {
-                    continue;
+            const attemptedKeys = new Set();
+            const tryRead = (key) => {
+                if (!key || attemptedKeys.has(key)) {
+                    return null;
                 }
 
-                const entry = container.entries?.[key];
-                if (entry?.data) {
-                    return entry.data;
-                }
-            }
+                attemptedKeys.add(key);
+                return readCacheEntry(key, CACHE_TTL.DASHBOARD);
+            };
 
             if (isSharedView && sharedUserId) {
-                const fallbackKey = Object.keys(container.entries || {}).find(candidate => candidate.endsWith(`:${sharedUserId}`));
-                if (fallbackKey) {
-                    const entry = container.entries[fallbackKey];
-                    if (entry?.data) {
-                        return entry.data;
-                    }
+                const sharedEntry = tryRead(CACHE_KEYS.DASHBOARD(sharedUserId));
+                if (sharedEntry?.data) {
+                    return sharedEntry.data;
                 }
             }
 
-            if (!isSharedView && container.metadata?.lastActiveKey) {
-                const activeEntry = container.entries?.[container.metadata.lastActiveKey];
-                if (activeEntry?.data) {
-                    return activeEntry.data;
-                }
+            const selfKey = CACHE_KEYS.DASHBOARD('self');
+            const selfEntry = tryRead(selfKey);
+            if (selfEntry?.data) {
+                return selfEntry.data;
             }
 
-            const entriesArray = Object.values(container.entries || {});
-            if (entriesArray.length === 1 && entriesArray[0]?.data) {
-                return entriesArray[0].data;
+            if (selfEntry?.userId && selfEntry.userId !== 'self') {
+                const aliasEntry = tryRead(CACHE_KEYS.DASHBOARD(selfEntry.userId));
+                if (aliasEntry?.data) {
+                    return aliasEntry.data;
+                }
             }
         } catch (error) {
-            console.warn('Unable to read dashboard cache:', error);
+            console.warn('Cache read failed:', error);
         }
 
         return null;
@@ -4191,61 +4157,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
-            const container = loadDashboardCacheContainer();
-            const cacheKey = resolveDashboardCacheKey(payload);
-
-            if (!cacheKey) {
-                return;
-            }
-
-            container.entries[cacheKey] = {
+            const resolvedUserId = isSharedView ? sharedUserId : (payload?.athlete?.id ?? 'self');
+            const userId = resolvedUserId || 'self';
+            const entry = {
                 timestamp: Date.now(),
+                userId,
+                version: DASHBOARD_CACHE_VERSION,
                 data: payload,
             };
 
-            if (!container.metadata || typeof container.metadata !== 'object') {
-                container.metadata = {};
+            if (isSharedView) {
+                writeCacheEntry(CACHE_KEYS.DASHBOARD(userId), entry);
+            } else {
+                writeCacheEntry(CACHE_KEYS.DASHBOARD('self'), entry);
+                if (userId !== 'self') {
+                    writeCacheEntry(CACHE_KEYS.DASHBOARD(userId), entry);
+                }
             }
-
-            container.metadata.lastActiveKey = cacheKey;
-            enforceDashboardCacheSizeLimit(container, cacheKey);
-            persistDashboardCacheContainer(container);
         } catch (error) {
-            console.warn('Unable to cache dashboard payload:', error);
+            console.warn('Cache write failed:', error);
         }
     };
 
     const clearDashboardCache = () => {
         try {
-            const container = loadDashboardCacheContainer();
-            const keysToRemove = [];
+            const keysToClear = new Set();
 
-            if (isSharedView && sharedUserId) {
-                keysToRemove.push(`shared:${sharedUserId}`);
-            } else if (container.metadata?.lastActiveKey) {
-                keysToRemove.push(container.metadata.lastActiveKey);
-            } else {
-                keysToRemove.push('self:unknown');
-            }
-
-            let mutated = false;
-            keysToRemove.forEach((key) => {
-                if (key && container.entries?.[key]) {
-                    delete container.entries[key];
-                    mutated = true;
+            if (isSharedView) {
+                if (sharedUserId) {
+                    keysToClear.add(CACHE_KEYS.DASHBOARD(sharedUserId));
                 }
-            });
-
-            if (mutated) {
-                persistDashboardCacheContainer(container);
+            } else {
+                keysToClear.add(CACHE_KEYS.DASHBOARD('self'));
+                const selfEntry = readCacheEntry(CACHE_KEYS.DASHBOARD('self'), CACHE_TTL.DASHBOARD);
+                if (selfEntry?.userId && selfEntry.userId !== 'self') {
+                    keysToClear.add(CACHE_KEYS.DASHBOARD(selfEntry.userId));
+                }
             }
+
+            keysToClear.forEach((key) => removeCacheEntry(key));
         } catch (error) {
             console.warn('Unable to clear dashboard cache:', error);
-            try {
-                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
-            } catch (storageError) {
-                console.warn('Unable to reset dashboard cache storage:', storageError);
-            }
         }
     };
 

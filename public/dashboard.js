@@ -82,6 +82,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         Elevation: 'm',
         Calories: ''
     };
+    const WALLET_CATEGORY_META = {
+        'Distance Run': { label: 'Run', icon: '🏃' },
+        'Distance Ride': { label: 'Ride', icon: '🚴' },
+        Elevation: { label: 'Elevation', icon: '🧗' },
+        'Calories (kcal)': { label: 'Calories', icon: '🔥' },
+    };
 
     const toNonNegativeInteger = (value) => {
         const numeric = Number(value);
@@ -7926,63 +7932,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             const table = document.createElement('table');
             table.className = 'w-full text-xs sm:text-sm border-separate border-spacing-x-2 border-spacing-y-1';
 
-            const walletColumns = [
-                { key: 'tier1', emoji: '💲', label: 'Bronze Tier' },
-                { key: 'tier2', emoji: '🧈', label: 'Amber Tier' },
-                { key: 'tier3', emoji: '💎', label: 'Crystal Tier' },
-                { key: 'tier4', emoji: '💰', label: 'Guild Week' },
-                { key: 'tier5', emoji: '👑', label: 'Legend Week' }
-            ];
-            const walletRows = [
-                {
-                    key: 'Distance Run',
-                    label: 'Run',
-                    icon: '🏃',
-                    milestones: {
-                        tier1: { sourceName: '10km Run', label: '10 km runs', description: 'Single efforts of 10 km or longer.' },
-                        tier2: { sourceName: '21km Run', label: '21 km runs', description: 'Half marathon distance outings.' },
-                        tier3: { sourceName: '42km Run', label: 'Marathons', description: 'Marathon-distance adventures.' },
-                        tier4: { sourceName: 'Run 50km Week', label: '50 km weeks', description: 'Weeks with ≥50 km of running.' },
-                        tier5: { sourceName: 'Run 100km Week', label: '100 km weeks', description: 'Weeks with ≥100 km of running.' }
-                    }
-                },
-                {
-                    key: 'Distance Ride',
-                    label: 'Ride',
-                    icon: '🚴',
-                    milestones: {
-                        tier1: { sourceName: '50km Ride', label: '50 km rides', description: 'Century-lite spins beyond 50 km.' },
-                        tier2: { sourceName: '100km Ride', label: '100 km rides', description: 'Metric century finish lines.' },
-                        tier3: { sourceName: '200km Ride', label: '200 km rides', description: 'Double century expeditions.' },
-                        tier4: { sourceName: 'Ride 300km Week', label: '300 km weeks', description: 'Weeks with ≥300 km in the saddle.' },
-                        tier5: { sourceName: 'Ride 500km Week', label: '500 km weeks', description: 'Weeks with ≥500 km of riding.' }
-                    }
-                },
-                {
-                    key: 'Elevation',
-                    label: 'Elevation',
-                    icon: '🧗',
-                    milestones: {
-                        tier1: { sourceName: '1000m Elevation', label: '1k m climbs', description: 'Activities gaining ≥1,000 m.' },
-                        tier2: { sourceName: '2500m Elevation', label: '2.5k m climbs', description: 'Activities gaining ≥2,500 m.' },
-                        tier3: { sourceName: '5000m Elevation', label: '5k m climbs', description: 'Activities gaining ≥5,000 m.' },
-                        tier4: { sourceName: 'Elevation 10k Week', label: '10k m weeks', description: 'Weeks climbing ≥10,000 m.' },
-                        tier5: { sourceName: 'Elevation 20k Week', label: '20k m weeks', description: 'Weeks climbing ≥20,000 m.' }
-                    }
-                },
-                {
-                    key: 'Calories (kcal)',
-                    label: 'Calories',
-                    icon: '🔥',
-                    milestones: {
-                        tier1: { sourceName: '1000 kcal Activity', label: '1k kcal burns', description: 'Activities burning ≥1,000 kcal.' },
-                        tier2: { sourceName: '2000 kcal Activity', label: '2k kcal burns', description: 'Activities burning ≥2,000 kcal.' },
-                        tier3: { sourceName: '3500 kcal Activity', label: '3.5k kcal burns', description: 'Activities burning ≥3,500 kcal.' },
-                        tier4: { sourceName: '15k kcal Week', label: '15k kcal weeks', description: 'Weeks burning ≥15,000 kcal.' },
-                        tier5: { sourceName: '25k kcal Week', label: '25k kcal weeks', description: 'Weeks burning ≥25,000 kcal.' }
-                    }
+            const defaultWalletKeys = ['Distance Run', 'Distance Ride', 'Elevation', 'Calories (kcal)'];
+            const seenWalletKeys = new Set();
+            const walletRows = defaultWalletKeys.map((key) => {
+                seenWalletKeys.add(key);
+                const meta = WALLET_CATEGORY_META[key] || {};
+                const fallbackLabel = typeof key === 'string'
+                    ? key.replace(/\s*\(.*?\)\s*/g, '').trim()
+                    : 'Category';
+                return {
+                    key,
+                    label: meta.label || fallbackLabel || key,
+                    icon: meta.icon || '🏅',
+                };
+            });
+
+            categories.forEach((category) => {
+                const key = category?.name;
+                if (!key || seenWalletKeys.has(key)) {
+                    return;
                 }
-            ];
+                const meta = WALLET_CATEGORY_META[key] || {};
+                const fallbackLabel = typeof key === 'string'
+                    ? key.replace(/\s*\(.*?\)\s*/g, '').trim()
+                    : 'Category';
+                walletRows.push({
+                    key,
+                    label: meta.label || fallbackLabel || key,
+                    icon: meta.icon || '🏅',
+                });
+                seenWalletKeys.add(key);
+            });
 
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
@@ -7994,16 +7974,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             headerLabel.setAttribute('aria-label', 'Category');
             headerRow.appendChild(headerLabel);
 
-            walletColumns.forEach(column => {
+            COIN_EMOJIS.forEach(emoji => {
                 const headerCell = document.createElement('th');
                 headerCell.scope = 'col';
                 headerCell.className = 'wallet-table__header px-2 py-1 text-center';
                 headerCell.innerHTML = `
                     <div class="wallet-table__header-content">
-                        <span class="wallet-table__header-emoji">${column.emoji}</span>
-                        <span class="wallet-table__header-label">${column.label}</span>
+                        <span class="wallet-table__header-emoji">${emoji}</span>
+                        <span class="wallet-table__header-label">${usdCodeFormatter.format(COIN_VALUE_MAP[emoji] || 0)}</span>
                     </div>
                 `;
+                headerCell.dataset.coinEmoji = emoji;
+                headerCell.setAttribute('aria-label', `${emoji} achievements worth ${usdCodeFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`);
                 headerRow.appendChild(headerCell);
             });
 
@@ -8017,9 +7999,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletRows.forEach(rowConfig => {
                 const row = document.createElement('tr');
                 row.className = 'align-middle';
+                row.dataset.walletCategory = rowConfig.key;
 
                 const category = categories.find(cat => cat.name === rowConfig.key) || { achievements: [] };
-                const achievementsByName = new Map(category.achievements.map(achievement => [achievement.name, achievement]));
+                const countsByEmoji = {};
+                const detailsByEmoji = {};
+                COIN_EMOJIS.forEach(emoji => {
+                    countsByEmoji[emoji] = 0;
+                    detailsByEmoji[emoji] = [];
+                });
+
+                (category.achievements || []).forEach(achievement => {
+                    const emoji = achievement?.emoji;
+                    const count = toNonNegativeInteger(achievement?.count);
+                    if (!COIN_EMOJIS.includes(emoji)) {
+                        return;
+                    }
+                    countsByEmoji[emoji] += count;
+                    if (count > 0) {
+                        detailsByEmoji[emoji].push({
+                            name: achievement.name || '',
+                            description: achievement.description || '',
+                            count,
+                        });
+                    }
+                });
 
                 const labelCell = document.createElement('th');
                 labelCell.scope = 'row';
@@ -8037,46 +8041,75 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cardTitle.textContent = `${rowConfig.icon} ${rowConfig.label}`;
                 card.appendChild(cardTitle);
                 const coinsWrapper = document.createElement('div');
-                coinsWrapper.className = 'achievement-card__coins';
+                coinsWrapper.className = 'achievement-card__coins profile-card__coins stats-card__pills';
 
-                walletColumns.forEach(column => {
-                    const milestone = rowConfig.milestones[column.key];
-                    const achievement = milestone ? achievementsByName.get(milestone.sourceName) : null;
-                    const rawCount = toNonNegativeInteger(achievement?.count);
-                    const countValue = rawCount.toLocaleString();
-                    const detailLabel = milestone ? milestone.label : '—';
-                    const detailDescription = milestone?.description || detailLabel;
+                COIN_EMOJIS.forEach(emoji => {
+                    const totalCount = toNonNegativeInteger(countsByEmoji[emoji]);
+                    const countValue = totalCount.toLocaleString();
+                    const normalizedDetails = detailsByEmoji[emoji]
+                        .map(detail => ({
+                            label: formatCoinCellLabel(rowConfig.label, detail.name) || detail.name || emoji,
+                            count: detail.count,
+                            description: detail.description,
+                        }))
+                        .sort((a, b) => {
+                            if (b.count !== a.count) {
+                                return b.count - a.count;
+                            }
+                            return a.label.localeCompare(b.label);
+                        });
+
+                    const detailLabel = normalizedDetails.length > 0
+                        ? normalizedDetails.map(detail => detail.label).join(' • ')
+                        : '—';
+                    const tooltipLines = normalizedDetails.length > 0
+                        ? normalizedDetails.map(detail => {
+                            const base = `${detail.count.toLocaleString()}× ${detail.label}`;
+                            return detail.description ? `${base} — ${detail.description}` : base;
+                        })
+                        : [`No ${rowConfig.label.toLowerCase()} achievements minted for ${emoji}.`];
+                    const accessibleSummary = normalizedDetails.length > 0
+                        ? normalizedDetails.map(detail => `${detail.count.toLocaleString()} ${detail.label}`).join('. ')
+                        : `No ${rowConfig.label} ${emoji} achievements yet.`;
 
                     const cell = document.createElement('td');
                     cell.className = 'px-1.5 py-1.5 text-center align-middle';
                     const cellWrapper = document.createElement('div');
                     cellWrapper.className = 'wallet-table__cell flex min-w-[3.5rem] flex-col items-center gap-0.5 px-1 py-0.5 font-semibold text-gray-800 dark:text-gray-100';
+                    cellWrapper.dataset.coinEmoji = emoji;
                     cellWrapper.innerHTML = `
                         <span class="text-lg leading-tight sm:text-xl">${countValue}</span>
                         <span class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-300">${detailLabel}</span>
                     `;
-                    cellWrapper.setAttribute('title', detailDescription);
-                    cellWrapper.setAttribute('aria-label', `${countValue} ${detailLabel}`);
+                    cellWrapper.title = tooltipLines.join('\n');
+                    cellWrapper.setAttribute('aria-label', accessibleSummary);
 
                     cell.appendChild(cellWrapper);
                     row.appendChild(cell);
 
                     const cardCoin = document.createElement('div');
-                    cardCoin.className = 'achievement-card__coin';
+                    cardCoin.className = 'achievement-card__coin profile-metric-pill';
+                    cardCoin.dataset.coinEmoji = emoji;
+                    const badgeClasses = COIN_BADGE_CLASS_MAP[emoji];
+                    if (badgeClasses) {
+                        badgeClasses.split(/\s+/).filter(Boolean).forEach(className => {
+                            cardCoin.classList.add(className);
+                        });
+                    }
                     const coinValue = document.createElement('span');
                     coinValue.className = 'achievement-card__coin-value';
                     coinValue.textContent = countValue;
                     const coinLabel = document.createElement('span');
                     coinLabel.className = 'achievement-card__coin-label';
-                    coinLabel.textContent = milestone ? `${column.emoji} ${detailLabel}` : `${column.emoji} —`;
+                    coinLabel.textContent = `${emoji} ${rowConfig.label}`;
+                    const coinNote = document.createElement('span');
+                    coinNote.className = 'achievement-card__coin-note';
+                    coinNote.textContent = detailLabel;
                     cardCoin.appendChild(coinValue);
                     cardCoin.appendChild(coinLabel);
-                    if (milestone?.description) {
-                        const coinNote = document.createElement('span');
-                        coinNote.className = 'achievement-card__coin-note';
-                        coinNote.textContent = milestone.description;
-                        cardCoin.appendChild(coinNote);
-                    }
+                    cardCoin.appendChild(coinNote);
+                    cardCoin.title = tooltipLines.join('\n');
+                    cardCoin.setAttribute('aria-label', accessibleSummary);
                     coinsWrapper.appendChild(cardCoin);
                 });
 

@@ -1,577 +1,576 @@
 <!-- public/dashboard.html -->
-
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Strava Dashboard</title>
-    <link rel="stylesheet" href="/assets/tailwind.css">
-    <link rel="stylesheet" href="/styles.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Include a date picker library (optional) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="/site-header.js" defer></script>
-    <link rel="stylesheet" href="/dashboard.css">
-
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Strava Dashboard</title>
+<link href="/assets/tailwind.css" rel="stylesheet"/>
+<link href="/styles.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Include a date picker library (optional) -->
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script defer="" src="/site-header.js"></script>
+<link href="/dashboard.css" rel="stylesheet"/>
 </head>
-<body class="dashboard-body is-loading" data-dashboard-shell>
-    <header class="site-header">
-        <div class="site-header__inner">
-            <a href="/" class="site-header__brand">
-                <img src="/static/league-of-strava.png" alt="League of Strava logo">
-                <span class="site-header__brand-text">League of Strava</span>
-            </a>
-            <button id="site-nav-toggle" class="site-header__toggle" type="button" aria-expanded="false" aria-controls="site-primary-nav">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="site-header__toggle-bars" aria-hidden="true"></span>
-                <span aria-hidden="true">Menu</span>
-            </button>
-            <nav id="site-primary-nav" class="site-header__nav" aria-label="Primary navigation">
-                <a href="/">Home</a>
-                <a href="/dashboard" aria-current="page">Dashboard</a>
-                <a href="/leaderboard">Leaderboard</a>
-                <a href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">Donate</a>
-            </nav>
-        </div>
-    </header>
-    <!-- Loading Spinner -->
-    <div id="weekly-snapshot-modal" class="weekly-snapshot hidden" aria-hidden="true">
-        <section class="weekly-snapshot__dialog" role="dialog" aria-modal="true" aria-labelledby="weekly-snapshot-title" tabindex="-1">
-            <button type="button" id="weekly-snapshot-close" class="weekly-snapshot__close">
-                <span aria-hidden="true">✕</span>
-                <span class="sr-only">Close weekly snapshot</span>
-            </button>
-            <header class="weekly-snapshot__header">
-                <h2 id="weekly-snapshot-title" class="weekly-snapshot__title">Recent activity snapshot</h2>
-                <p id="weekly-snapshot-summary" class="weekly-snapshot__summary">Your latest efforts are ready.</p>
-                <p id="weekly-snapshot-range" class="weekly-snapshot__range">—</p>
-            </header>
-            <div class="weekly-snapshot__content">
-                <div class="weekly-snapshot__grid" role="list" aria-label="Weekly activity metrics">
-                    <div class="weekly-snapshot__metric" role="listitem">
-                        <span class="weekly-snapshot__metric-label">Activities</span>
-                        <span id="weekly-snapshot-activities" class="weekly-snapshot__metric-value">—</span>
-                    </div>
-                    <div class="weekly-snapshot__metric" role="listitem">
-                        <span class="weekly-snapshot__metric-label">Hours</span>
-                        <span id="weekly-snapshot-hours" class="weekly-snapshot__metric-value">—</span>
-                    </div>
-                    <div class="weekly-snapshot__metric" role="listitem">
-                        <span class="weekly-snapshot__metric-label">Distance</span>
-                        <span id="weekly-snapshot-distance" class="weekly-snapshot__metric-value">—</span>
-                    </div>
-                    <div class="weekly-snapshot__metric" role="listitem">
-                        <span class="weekly-snapshot__metric-label">Elevation</span>
-                        <span id="weekly-snapshot-elevation" class="weekly-snapshot__metric-value">—</span>
-                    </div>
-                    <div class="weekly-snapshot__metric" role="listitem">
-                        <span class="weekly-snapshot__metric-label">Calories</span>
-                        <span id="weekly-snapshot-calories" class="weekly-snapshot__metric-value">—</span>
-                    </div>
-                    <div class="weekly-snapshot__metric" role="listitem">
-                        <span class="weekly-snapshot__metric-label">Kudos</span>
-                        <span id="weekly-snapshot-kudos" class="weekly-snapshot__metric-value">—</span>
-                    </div>
-                </div>
-                <div class="weekly-snapshot__value-grid" aria-label="Weekly rewards summary">
-                    <article class="weekly-snapshot__value-card" aria-live="polite">
-                        <h3>Coins minted</h3>
-                        <p id="weekly-snapshot-coins-count" class="weekly-snapshot__value">—</p>
-                        <p class="weekly-snapshot__detail">Worth <span id="weekly-snapshot-coins-value">—</span></p>
-                        <ul id="weekly-snapshot-coins-breakdown" class="weekly-snapshot__breakdown" aria-label="Coin breakdown"></ul>
-                        <p id="weekly-snapshot-coins-empty" class="weekly-snapshot__empty">No coins minted across your recent activities.</p>
-                    </article>
-                    <article class="weekly-snapshot__value-card weekly-snapshot__value-card--medals" aria-live="polite">
-                        <h3>Medals unlocked</h3>
-                        <p id="weekly-snapshot-medals-count" class="weekly-snapshot__value">—</p>
-                        <p class="weekly-snapshot__detail">Worth <span id="weekly-snapshot-medals-value">—</span></p>
-                        <ul id="weekly-snapshot-medals-breakdown" class="weekly-snapshot__breakdown" aria-label="Medal highlights"></ul>
-                        <p id="weekly-snapshot-medals-empty" class="weekly-snapshot__empty">No medals awarded across your recent activities.</p>
-                    </article>
-                    <article class="weekly-snapshot__value-card weekly-snapshot__value-card--total" aria-live="polite">
-                        <h3>Total haul</h3>
-                        <p id="weekly-snapshot-total-value" class="weekly-snapshot__value">—</p>
-                        <p id="weekly-snapshot-total-detail" class="weekly-snapshot__detail">—</p>
-                    </article>
-                </div>
-            </div>
-        </section>
-    </div>
+<body class="dashboard-body is-loading" data-dashboard-shell="">
+<header class="site-header">
+<div class="site-header__inner">
+<a class="site-header__brand" href="/">
+<img alt="League of Strava logo" src="/static/league-of-strava.png"/>
+<span class="site-header__brand-text">League of Strava</span>
+</a>
+<button aria-controls="site-primary-nav" aria-expanded="false" class="site-header__toggle" id="site-nav-toggle" type="button">
+<span class="sr-only">Toggle navigation</span>
+<span aria-hidden="true" class="site-header__toggle-bars"></span>
+<span aria-hidden="true">Menu</span>
+</button>
+<nav aria-label="Primary navigation" class="site-header__nav" id="site-primary-nav">
+<a href="/">Home</a>
+<a aria-current="page" href="/dashboard">Dashboard</a>
+<a href="/leaderboard">Leaderboard</a>
+<a href="https://www.paypal.com/paypalme/michelemerelli" rel="noopener" target="_blank">Donate</a>
+</nav>
+</div>
+</header>
+<!-- Loading Spinner -->
+<div aria-hidden="true" class="weekly-snapshot hidden" id="weekly-snapshot-modal">
+<section aria-labelledby="weekly-snapshot-title" aria-modal="true" class="weekly-snapshot__dialog" role="dialog" tabindex="-1">
+<button class="weekly-snapshot__close" id="weekly-snapshot-close" type="button">
+<span aria-hidden="true">✕</span>
+<span class="sr-only">Close weekly snapshot</span>
+</button>
+<header class="weekly-snapshot__header">
+<h2 class="weekly-snapshot__title" id="weekly-snapshot-title">Recent activity snapshot</h2>
+<p class="weekly-snapshot__summary" id="weekly-snapshot-summary">Your latest efforts are ready.</p>
+<p class="weekly-snapshot__range" id="weekly-snapshot-range">—</p>
+</header>
+<div class="weekly-snapshot__content">
+<div aria-label="Weekly activity metrics" class="weekly-snapshot__grid" role="list">
+<div class="weekly-snapshot__metric" role="listitem">
+<span class="weekly-snapshot__metric-label">Activities</span>
+<span class="weekly-snapshot__metric-value" id="weekly-snapshot-activities">—</span>
+</div>
+<div class="weekly-snapshot__metric" role="listitem">
+<span class="weekly-snapshot__metric-label">Hours</span>
+<span class="weekly-snapshot__metric-value" id="weekly-snapshot-hours">—</span>
+</div>
+<div class="weekly-snapshot__metric" role="listitem">
+<span class="weekly-snapshot__metric-label">Distance</span>
+<span class="weekly-snapshot__metric-value" id="weekly-snapshot-distance">—</span>
+</div>
+<div class="weekly-snapshot__metric" role="listitem">
+<span class="weekly-snapshot__metric-label">Elevation</span>
+<span class="weekly-snapshot__metric-value" id="weekly-snapshot-elevation">—</span>
+</div>
+<div class="weekly-snapshot__metric" role="listitem">
+<span class="weekly-snapshot__metric-label">Calories</span>
+<span class="weekly-snapshot__metric-value" id="weekly-snapshot-calories">—</span>
+</div>
+<div class="weekly-snapshot__metric" role="listitem">
+<span class="weekly-snapshot__metric-label">Kudos</span>
+<span class="weekly-snapshot__metric-value" id="weekly-snapshot-kudos">—</span>
+</div>
+</div>
+<div aria-label="Weekly rewards summary" class="weekly-snapshot__value-grid">
+<article aria-live="polite" class="weekly-snapshot__value-card">
+<h3>Coins minted</h3>
+<p class="weekly-snapshot__value" id="weekly-snapshot-coins-count">—</p>
+<p class="weekly-snapshot__detail">Worth <span id="weekly-snapshot-coins-value">—</span></p>
+<ul aria-label="Coin breakdown" class="weekly-snapshot__breakdown" id="weekly-snapshot-coins-breakdown"></ul>
+<p class="weekly-snapshot__empty" id="weekly-snapshot-coins-empty">No coins minted across your recent activities.</p>
+</article>
+<article aria-live="polite" class="weekly-snapshot__value-card weekly-snapshot__value-card--medals">
+<h3>Medals unlocked</h3>
+<p class="weekly-snapshot__value" id="weekly-snapshot-medals-count">—</p>
+<p class="weekly-snapshot__detail">Worth <span id="weekly-snapshot-medals-value">—</span></p>
+<ul aria-label="Medal highlights" class="weekly-snapshot__breakdown" id="weekly-snapshot-medals-breakdown"></ul>
+<p class="weekly-snapshot__empty" id="weekly-snapshot-medals-empty">No medals awarded across your recent activities.</p>
+</article>
+<article aria-live="polite" class="weekly-snapshot__value-card weekly-snapshot__value-card--total">
+<h3>Total haul</h3>
+<p class="weekly-snapshot__value" id="weekly-snapshot-total-value">—</p>
+<p class="weekly-snapshot__detail" id="weekly-snapshot-total-detail">—</p>
+</article>
+</div>
+</div>
+</section>
+</div>
+<main class="dashboard-shell">
+<div aria-live="polite" class="mobile-pull-indicator" id="pull-to-refresh-indicator" role="status">
+<span aria-hidden="true" class="mobile-pull-indicator__icon">⟲</span>
+<span class="mobile-pull-indicator__label" data-pull-label="">Pull to refresh</span>
+</div>
+<div class="hidden bg-red-100 text-red-700 p-4 rounded mb-4" id="error-message"></div>
+<div class="dashboard-onepage">
+<div aria-orientation="horizontal" class="dashboard-tabs" role="tablist">
+<button aria-controls="panel-profile" aria-selected="true" class="dashboard-tab is-active" data-dashboard-tab="profile" id="tab-profile" role="tab" type="button">
+<span aria-hidden="true" class="dashboard-tab__icon fa-solid fa-user"></span>
+<span class="dashboard-tab__label">Profile</span>
+</button>
+<button aria-controls="panel-achievements" aria-selected="false" class="dashboard-tab" data-dashboard-tab="achievements" id="tab-achievements" role="tab" type="button">
+<span aria-hidden="true" class="dashboard-tab__icon fa-solid fa-flag-checkered"></span>
+<span class="dashboard-tab__label">Achievements</span>
+</button>
+<button aria-controls="panel-wallet" aria-selected="false" class="dashboard-tab" data-dashboard-tab="wallet" id="tab-wallet" role="tab" type="button">
+<span aria-hidden="true" class="dashboard-tab__icon fa-solid fa-wallet"></span>
+<span class="dashboard-tab__label">Wallet</span>
+</button>
+<button aria-controls="panel-activities" aria-selected="false" class="dashboard-tab" data-dashboard-tab="activities" id="tab-activities" role="tab" type="button">
+<span aria-hidden="true" class="dashboard-tab__icon fa-solid fa-chart-line"></span>
+<span class="dashboard-tab__label">Activities</span>
+</button>
+<button aria-controls="panel-medals" aria-selected="false" class="dashboard-tab" data-dashboard-tab="medals" id="tab-medals" role="tab" type="button">
+<span aria-hidden="true" class="dashboard-tab__icon fa-solid fa-medal"></span>
+<span class="dashboard-tab__label">Medals</span>
+</button>
+</div>
+<div class="dashboard-panels" data-dashboard-panels="">
+<section aria-labelledby="tab-profile" class="dashboard-panel is-active" data-dashboard-panel="profile" id="panel-profile" role="tabpanel">
 
-    <main class="dashboard-shell">
-        <div class="mobile-pull-indicator" id="pull-to-refresh-indicator" role="status" aria-live="polite">
-            <span class="mobile-pull-indicator__icon" aria-hidden="true">⟲</span>
-            <span class="mobile-pull-indicator__label" data-pull-label>Pull to refresh</span>
-        </div>
-        <div id="error-message" class="hidden bg-red-100 text-red-700 p-4 rounded mb-4"></div>
+<article class="panel-card profile-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+<header class="profile-card__header">
 
-        <div class="dashboard-onepage">
-            <div class="dashboard-tabs" role="tablist" aria-orientation="horizontal">
-                <button type="button" id="tab-profile" class="dashboard-tab is-active" role="tab" aria-selected="true" aria-controls="panel-profile" data-dashboard-tab="profile">
-                    <span class="dashboard-tab__icon fa-solid fa-user" aria-hidden="true"></span>
-                    <span class="dashboard-tab__label">Profile</span>
-                </button>
-                <button type="button" id="tab-achievements" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-achievements" data-dashboard-tab="achievements">
-                    <span class="dashboard-tab__icon fa-solid fa-flag-checkered" aria-hidden="true"></span>
-                    <span class="dashboard-tab__label">Achievements</span>
-                </button>
-                <button type="button" id="tab-wallet" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-wallet" data-dashboard-tab="wallet">
-                    <span class="dashboard-tab__icon fa-solid fa-wallet" aria-hidden="true"></span>
-                    <span class="dashboard-tab__label">Wallet</span>
-                </button>
-                <button type="button" id="tab-activities" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-activities" data-dashboard-tab="activities">
-                    <span class="dashboard-tab__icon fa-solid fa-chart-line" aria-hidden="true"></span>
-                    <span class="dashboard-tab__label">Activities</span>
-                </button>
-                <button type="button" id="tab-medals" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="panel-medals" data-dashboard-tab="medals">
-                    <span class="dashboard-tab__icon fa-solid fa-medal" aria-hidden="true"></span>
-                    <span class="dashboard-tab__label">Medals</span>
-                </button>
-            </div>
+<div class="profile-card__avatar-shell" data-skeleton="avatar">
+<img alt="Athlete Avatar" class="profile-card__avatar" id="athlete-avatar" loading="lazy" src=""/>
+</div>
+<div class="profile-card__identity">
+<h2 class="profile-card__name" data-skeleton="text" id="athlete-name"></h2>
+<div class="profile-card__rankline">
+<span class="profile-card__rank" data-skeleton="pill" id="current-rank"></span>
+<span class="profile-card__level" data-skeleton="pill" id="level-progress"></span>
+</div>
+<div class="profile-card__wallet" data-wallet-balance-container="">
+<span class="profile-card__balance-label">Total Wallet</span>
+<span class="profile-card__balance-value" data-skeleton="text" data-wallet-balance-value="" id="profile-wallet-total">$0.0M</span>
+<span aria-live="polite" class="profile-card__balance-change" data-skeleton="text-subtle" id="profile-wallet-change-month">—</span>
+<span aria-live="polite" class="profile-card__balance-change profile-card__balance-change--secondary" id="profile-wallet-change-year">—</span>
+</div>
+</div>
 
-            <div class="dashboard-panels" data-dashboard-panels>
-                <section id="panel-profile" class="dashboard-panel is-active" role="tabpanel" aria-labelledby="tab-profile" data-dashboard-panel="profile">
-                    <div class="panel-stack">
-                        <article class="panel-card profile-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <header class="profile-card__header">
-                                <div class="profile-card__hero">
-                                    <div class="profile-card__avatar-shell" data-skeleton="avatar">
-                                        <img id="athlete-avatar" src="" alt="Athlete Avatar" class="profile-card__avatar" loading="lazy">
-                                    </div>
-                                    <div class="profile-card__identity">
-                                        <h2 id="athlete-name" class="profile-card__name" data-skeleton="text"></h2>
-                                        <div class="profile-card__rankline">
-                                            <span id="current-rank" class="profile-card__rank" data-skeleton="pill"></span>
-                                            <span id="level-progress" class="profile-card__level" data-skeleton="pill"></span>
-                                        </div>
-                                        <div class="profile-card__wallet" data-wallet-balance-container>
-                                            <span class="profile-card__balance-label">Total Wallet</span>
-                                            <span id="profile-wallet-total" data-wallet-balance-value class="profile-card__balance-value" data-skeleton="text">$0.0M</span>
-                                            <span id="profile-wallet-change-month" class="profile-card__balance-change" aria-live="polite" data-skeleton="text-subtle">—</span>
-                                            <span id="profile-wallet-change-year" class="profile-card__balance-change profile-card__balance-change--secondary" aria-live="polite">—</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="profile-card__actions">
-                                    <button id="profile-refresh" type="button" class="profile-card__icon-button profile-card__icon-button--refresh" aria-label="Fetch the latest Strava activities">
-                                        <span class="profile-card__icon-symbol" aria-hidden="true">🔄</span>
-                                        <span class="sr-only">Refresh dashboard data</span>
-                                    </button>
-                                    <button type="button" id="share-dashboard" class="profile-card__icon-button profile-card__icon-button--share" aria-label="Share highlight">
-                                        <span class="profile-card__icon-symbol" aria-hidden="true">📤</span>
-                                        <span class="sr-only">Share highlight</span>
-                                    </button>
-                                </div>
-                            </header>
-                            <div class="profile-card__progress">
-                                <div id="rank-progress-trigger" class="profile-card__progress-info" data-skeleton="panel">
-                                    <div class="profile-card__progress-meta">
-                                        <span id="ranking-progress-label" class="profile-card__progress-label"></span>
-                                        <span id="ranking-progress-monthly" class="profile-card__progress-monthly"></span>
-                                        <span id="next-rank" class="profile-card__progress-next"></span>
-                                    </div>
-                                    <div id="rank-details" class="profile-card__progress-detail"></div>
-                                </div>
-                            </div>
-                            <div class="profile-card__meta">
-                                <div id="premium-achievements" class="profile-card__badges"></div>
-                            </div>
-                        </article>
+<div class="profile-card__actions">
+<button aria-label="Fetch the latest Strava activities" class="profile-card__icon-button profile-card__icon-button--refresh" id="profile-refresh" type="button">
+<span aria-hidden="true" class="profile-card__icon-symbol">🔄</span>
+<span class="sr-only">Refresh dashboard data</span>
+</button>
+<button aria-label="Share highlight" class="profile-card__icon-button profile-card__icon-button--share" id="share-dashboard" type="button">
+<span aria-hidden="true" class="profile-card__icon-symbol">📤</span>
+<span class="sr-only">Share highlight</span>
+</button>
+</div>
+</header>
+<div class="profile-card__progress">
+<div class="profile-card__progress-info" data-skeleton="panel" id="rank-progress-trigger">
+<div class="profile-card__progress-meta">
+<span class="profile-card__progress-label" id="ranking-progress-label"></span>
+<span class="profile-card__progress-monthly" id="ranking-progress-monthly"></span>
+<span class="profile-card__progress-next" id="next-rank"></span>
+</div>
+<div class="profile-card__progress-detail" id="rank-details"></div>
+</div>
+</div>
+<div class="profile-card__meta">
+<div class="profile-card__badges" id="premium-achievements"></div>
+</div>
+</article>
+<article class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+<header class="panel-card__header">
+<h3 class="panel-card__title">Top Performances</h3>
+<span class="panel-card__empty hidden" id="top-performances-empty">No top performances available.</span>
+</header>
+<div class="top-performances-grid" data-skeleton="panel" id="best-activities"></div>
+</article>
 
-                        <article class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <header class="panel-card__header">
-                                <h3 class="panel-card__title">Top Performances</h3>
-                                <span id="top-performances-empty" class="panel-card__empty hidden">No top performances available.</span>
-                            </header>
-                            <div id="best-activities" class="top-performances-grid" data-skeleton="panel"></div>
-                        </article>
-                    </div>
-                </section>
+</section>
 
-                <section id="panel-achievements" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-achievements" data-dashboard-panel="achievements">
-                    <div class="panel-stack">
-                        <article class="panel-card stats-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <header class="panel-card__header">
-                                <h3 class="panel-card__title">Season Fun Stats</h3>
-                                <p class="panel-card__subtitle">Your world tour, climbs and cheers in one place.</p>
-                            </header>
-                            <div class="stats-card__body">
-                                <div class="profile-metrics stats-card__pills" id="profile-metric-pills">
-                                    <div class="profile-metrics__row">
-                                        <button id="globe-stat" type="button" class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🌍</span>
-                                            <span id="globe-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="everest-stat" type="button" class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🏔️</span>
-                                            <span id="everest-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="pizza-stat" type="button" class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">🍕</span>
-                                            <span id="pizza-total" class="font-semibold">0</span>
-                                        </button>
-                                        <button id="likes-stat" type="button" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                            <span aria-hidden="true" class="text-lg leading-none">👍</span>
-                                            <span id="likes-total" class="font-semibold">0</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="profile-card__coins stats-card__pills" id="coin-summary">
-                                    <div class="profile-metrics__row">
-                                        <button type="button" data-coin-type="💲" class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200">
-                                            <span id="coin-dollar" class="font-semibold">0</span>
-                                            <span class="text-base leading-none" aria-hidden="true">💲</span>
-                                        </button>
-                                        <button type="button" data-coin-type="💰" class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                                            <span id="coin-money" class="font-semibold">0</span>
-                                            <span class="text-base leading-none" aria-hidden="true">💰</span>
-                                        </button>
-                                        <button type="button" data-coin-type="🧈" class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
-                                            <span id="coin-butter" class="font-semibold">0</span>
-                                            <span class="text-base leading-none" aria-hidden="true">🧈</span>
-                                        </button>
-                                        <button type="button" data-coin-type="💎" class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">
-                                            <span id="coin-diamond" class="font-semibold">0</span>
-                                            <span class="text-base leading-none" aria-hidden="true">💎</span>
-                                        </button>
-                                        <button type="button" data-coin-type="👑" class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200">
-                                            <span id="coin-king" class="font-semibold">0</span>
-                                            <span class="text-base leading-none" aria-hidden="true">👑</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="stats-card__totals">
-                                    <button type="button" class="wallet-total-pill profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200" data-panel-target="achievements" aria-label="Open achievements panel">
-                                        <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
-                                        <span id="wallet-summary-coins-count" class="wallet-total-pill__value">0</span>
-                                    </button>
-                                    <button type="button" class="wallet-total-pill profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200" data-panel-target="medals" aria-label="Open medals view">
-                                        <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
-                                        <span id="wallet-summary-medal-count" class="wallet-total-pill__value">0</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </article>
-                        <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <header class="panel-card__header">
-                                <h3 class="panel-card__title">Achievement Wallet</h3>
-                            </header>
-                            <div id="achievement-wallet" class="wallet-table"></div>
-                        </div>
-                    </div>
-                </section>
 
-                <section id="panel-wallet" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-wallet" data-dashboard-panel="wallet">
-                    <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                        <header class="panel-card__header panel-card__header--stack">
-                            <h3 class="panel-card__title">Wallet Insights</h3>
-                            <div class="wallet-controls">
-                                <button id="chart-toggle-coins" type="button" class="wallet-control" aria-pressed="false">Coins &amp; Medals</button>
-                                <button id="chart-toggle-balance" type="button" class="wallet-control" aria-pressed="false">Balance</button>
-                                <label data-balance-year-toggle-label class="wallet-control wallet-control--toggle">
-                                    <input id="balance-year-toggle" type="checkbox" class="wallet-control__checkbox" />
-                                    <span>Compare years</span>
-                                </label>
-                            </div>
-                        </header>
-                        <div id="wallet-chart-wrapper" class="wallet-chart">
-                            <canvas id="wallet-chart" class="w-full h-full"></canvas>
-                            <p id="wallet-chart-empty" class="wallet-chart__empty hidden"></p>
-                        </div>
-                    </div>
-                </section>
 
-                <section id="panel-activities" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-activities" data-dashboard-panel="activities">
-                    <div class="panel-stack">
-                        <section id="activities-filter-panel" class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
-                            <header class="panel-card__header panel-card__header--split">
-                                <div>
-                                    <h3 class="panel-card__title">Activity Filters</h3>
-                                    <p id="activity-filter-active" class="panel-card__subtitle"></p>
-                                </div>
-                                <button id="activities-filter-open" type="button" class="filter-button filter-button--primary">
-                                    <span aria-hidden="true">🎯</span>
-                                    <span>Filter</span>
-                                </button>
-                            </header>
-                            <p class="activities-filter-hint">Use filters to focus without hiding the activity feed.</p>
-                        </section>
 
-                        <section id="activities-section" class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
-                            <header class="panel-card__header panel-card__header--split">
-                                <div>
-                                    <h3 class="panel-card__title">Recent Activities</h3>
-                                    <p id="activity-filter-summary" class="panel-card__subtitle"></p>
-                                </div>
-                                <span id="activities-empty" class="panel-card__empty hidden">No activities match your filters.</span>
-                            </header>
-                            <div id="activities-container" class="activities-list"></div>
-                            <div class="panel-card__footer">
-                                <p id="activities-fetch-warning" class="panel-card__footer-note hidden" role="status" aria-live="polite"></p>
-                                <button id="load-more-btn" type="button" class="filter-button hidden">Load More Activities</button>
-                            </div>
-                        </section>
-                    </div>
-                </section>
+</div>
+<template data-panel-template="achievements" id="template-panel-achievements">
+<section aria-labelledby="tab-achievements" class="dashboard-panel" data-dashboard-panel="achievements" id="panel-achievements" role="tabpanel">
 
-                <section id="panel-medals" class="dashboard-panel" role="tabpanel" aria-labelledby="tab-medals" data-dashboard-panel="medals">
-                    <div class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
-                        <header class="panel-card__header panel-card__header--medals">
-                            <h3 class="panel-card__title">Medals</h3>
-                            <div id="medal-filter-banner" class="medal-banner hidden">
-                                <div class="medal-banner__header">
-                                    <span id="medal-filter-emoji" class="medal-banner__emoji"></span>
-                                    <span id="medal-filter-label" class="medal-banner__label"></span>
-                                </div>
-                                <div class="medal-banner__meta">
-                                    <span id="medal-filter-description"></span>
-                                </div>
-                            </div>
-                        </header>
-                        <div id="medals-section" class="medals-section"></div>
-                    </div>
-                </section>
+<article class="panel-card stats-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+<header class="panel-card__header">
+<h3 class="panel-card__title">Season Fun Stats</h3>
+<p class="panel-card__subtitle">Your world tour, climbs and cheers in one place.</p>
+</header>
+<div class="stats-card__body">
+<div class="profile-metrics stats-card__pills" id="profile-metric-pills">
+<div class="profile-metrics__row">
+<button class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200" id="globe-stat" type="button">
+<span aria-hidden="true" class="text-lg leading-none">🌍</span>
+<span class="font-semibold" id="globe-total">0</span>
+</button>
+<button class="tooltip-target profile-metric-pill bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200" id="everest-stat" type="button">
+<span aria-hidden="true" class="text-lg leading-none">🏔️</span>
+<span class="font-semibold" id="everest-total">0</span>
+</button>
+<button class="tooltip-target profile-metric-pill bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200" id="pizza-stat" type="button">
+<span aria-hidden="true" class="text-lg leading-none">🍕</span>
+<span class="font-semibold" id="pizza-total">0</span>
+</button>
+<button class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200" id="likes-stat" type="button">
+<span aria-hidden="true" class="text-lg leading-none">👍</span>
+<span class="font-semibold" id="likes-total">0</span>
+</button>
+</div>
+</div>
+<div class="profile-card__coins stats-card__pills" id="coin-summary">
+<div class="profile-metrics__row">
+<button class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200" data-coin-type="💲" type="button">
+<span class="font-semibold" id="coin-dollar">0</span>
+<span aria-hidden="true" class="text-base leading-none">💲</span>
+</button>
+<button class="tooltip-target profile-metric-pill bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200" data-coin-type="💰" type="button">
+<span class="font-semibold" id="coin-money">0</span>
+<span aria-hidden="true" class="text-base leading-none">💰</span>
+</button>
+<button class="tooltip-target profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200" data-coin-type="🧈" type="button">
+<span class="font-semibold" id="coin-butter">0</span>
+<span aria-hidden="true" class="text-base leading-none">🧈</span>
+</button>
+<button class="tooltip-target profile-metric-pill bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200" data-coin-type="💎" type="button">
+<span class="font-semibold" id="coin-diamond">0</span>
+<span aria-hidden="true" class="text-base leading-none">💎</span>
+</button>
+<button class="tooltip-target profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200" data-coin-type="👑" type="button">
+<span class="font-semibold" id="coin-king">0</span>
+<span aria-hidden="true" class="text-base leading-none">👑</span>
+</button>
+</div>
+</div>
+<div class="stats-card__totals">
+<button aria-label="Open achievements panel" class="wallet-total-pill profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200" data-panel-target="achievements" type="button">
+<span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
+<span class="wallet-total-pill__value" id="wallet-summary-coins-count">0</span>
+</button>
+<button aria-label="Open medals view" class="wallet-total-pill profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200" data-panel-target="medals" type="button">
+<span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
+<span class="wallet-total-pill__value" id="wallet-summary-medal-count">0</span>
+</button>
+</div>
+</div>
+</article>
+<div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+<header class="panel-card__header">
+<h3 class="panel-card__title">Achievement Wallet</h3>
+</header>
+<div class="wallet-table" id="achievement-wallet"></div>
+</div>
 
-            </div>
-        </div>
-        <div id="activities-filter-modal" class="filter-modal" role="dialog" aria-modal="true" aria-labelledby="activities-filter-modal-title" hidden aria-hidden="true">
-            <div class="filter-modal__backdrop" data-activities-filter-dismiss></div>
-            <div class="filter-modal__sheet" role="document" tabindex="-1">
-                <header class="filter-modal__header">
-                    <div>
-                        <h2 id="activities-filter-modal-title">Filter activities</h2>
-                        <p class="filter-modal__subtitle">Set your criteria and we’ll refresh the feed instantly.</p>
-                    </div>
-                    <button type="button" class="filter-modal__close" data-activities-filter-dismiss>
-                        <span aria-hidden="true">✕</span>
-                        <span class="sr-only">Close filters</span>
-                    </button>
-                </header>
-                <form id="activities-filter-form" class="filter-form" novalidate>
-                    <div class="filter-banner">
-                        <div class="filter-banner__label">
-                            <span aria-hidden="true">🎯</span>
-                            <span>Quick presets</span>
-                        </div>
-                        <p class="filter-banner__active">Start with a preset or adjust the sections below.</p>
-                    </div>
-                    <div class="filter-quick-actions" role="group" aria-label="Quick filter presets">
-                        <button type="button" class="filter-chip" data-quick-filter="endurance" aria-pressed="false">
-                            <span aria-hidden="true">🚴</span>
-                            <span>Long rides</span>
-                        </button>
-                        <button type="button" class="filter-chip" data-quick-filter="climb-day" aria-pressed="false">
-                            <span aria-hidden="true">🧗</span>
-                            <span>Climb days</span>
-                        </button>
-                        <button type="button" class="filter-chip" data-quick-filter="recovery" aria-pressed="false">
-                            <span aria-hidden="true">🧘</span>
-                            <span>Recovery spins</span>
-                        </button>
-                    </div>
-                    <div class="filter-collapsible-group" data-filter-collapsible-group>
-                        <div class="filter-collapsible" data-filter-collapsible>
-                            <button type="button" class="filter-collapsible__trigger" data-filter-toggle aria-expanded="false" aria-controls="filter-content-year">
-                                <span>Year</span>
-                                <span class="filter-collapsible__chevron" aria-hidden="true">⌄</span>
-                            </button>
-                            <div id="filter-content-year" class="filter-collapsible__content" data-filter-content hidden>
-                                <label class="filter-field">
-                                    <span class="sr-only">Year</span>
-                                    <select id="year-select"></select>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="filter-collapsible" data-filter-collapsible>
-                            <button type="button" class="filter-collapsible__trigger" data-filter-toggle aria-expanded="false" aria-controls="filter-content-type">
-                                <span>Type</span>
-                                <span class="filter-collapsible__chevron" aria-hidden="true">⌄</span>
-                            </button>
-                            <div id="filter-content-type" class="filter-collapsible__content" data-filter-content hidden>
-                                <label class="filter-field">
-                                    <span class="sr-only">Activity type</span>
-                                    <select id="activity-type-filter">
-                                        <option value="all">All types</option>
-                                    </select>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="filter-collapsible" data-filter-collapsible>
-                            <button type="button" class="filter-collapsible__trigger" data-filter-toggle aria-expanded="false" aria-controls="filter-content-hours">
-                                <span>Hours (h)</span>
-                                <span class="filter-collapsible__chevron" aria-hidden="true">⌄</span>
-                            </button>
-                            <div id="filter-content-hours" class="filter-collapsible__content" data-filter-content hidden>
-                                <div class="filter-field filter-field--range">
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-hours-min">Minimum hours</label>
-                                        <input id="activity-hours-min" type="number" step="0.1" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-hours-max">Maximum hours</label>
-                                        <input id="activity-hours-max" type="number" step="0.1" min="0" placeholder="Max" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="filter-collapsible" data-filter-collapsible>
-                            <button type="button" class="filter-collapsible__trigger" data-filter-toggle aria-expanded="false" aria-controls="filter-content-distance">
-                                <span>Distance (km)</span>
-                                <span class="filter-collapsible__chevron" aria-hidden="true">⌄</span>
-                            </button>
-                            <div id="filter-content-distance" class="filter-collapsible__content" data-filter-content hidden>
-                                <div class="filter-field filter-field--range">
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-distance-min">Minimum distance</label>
-                                        <input id="activity-distance-min" type="number" step="1" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-distance-max">Maximum distance</label>
-                                        <input id="activity-distance-max" type="number" step="1" min="0" placeholder="Max" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="filter-collapsible" data-filter-collapsible>
-                            <button type="button" class="filter-collapsible__trigger" data-filter-toggle aria-expanded="false" aria-controls="filter-content-elevation">
-                                <span>Elevation (m)</span>
-                                <span class="filter-collapsible__chevron" aria-hidden="true">⌄</span>
-                            </button>
-                            <div id="filter-content-elevation" class="filter-collapsible__content" data-filter-content hidden>
-                                <div class="filter-field filter-field--range">
-                                    <div class="filter-range">
-                                        <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
-                                        <input id="activity-elevation-min" type="number" step="10" min="0" placeholder="Min" />
-                                        <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
-                                        <input id="activity-elevation-max" type="number" step="10" min="0" placeholder="Max" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="filter-form__actions">
-                        <button id="reset-activity-filters" type="button" class="filter-button filter-button--ghost">
-                            <span aria-hidden="true">↺</span>
+</section>
+</template>
+<template data-panel-template="wallet" id="template-panel-wallet">
+<section aria-labelledby="tab-wallet" class="dashboard-panel" data-dashboard-panel="wallet" id="panel-wallet" role="tabpanel">
+<div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
+<header class="panel-card__header panel-card__header--stack">
+<h3 class="panel-card__title">Wallet Insights</h3>
+<div class="wallet-controls">
+<button aria-pressed="false" class="wallet-control" id="chart-toggle-coins" type="button">Coins &amp; Medals</button>
+<button aria-pressed="false" class="wallet-control" id="chart-toggle-balance" type="button">Balance</button>
+<label class="wallet-control wallet-control--toggle" data-balance-year-toggle-label="">
+<input class="wallet-control__checkbox" id="balance-year-toggle" type="checkbox"/>
+<span>Compare years</span>
+</label>
+</div>
+</header>
+<div class="wallet-chart" id="wallet-chart-wrapper">
+<canvas class="w-full h-full" id="wallet-chart"></canvas>
+<p class="wallet-chart__empty hidden" id="wallet-chart-empty"></p>
+</div>
+</div>
+</section>
+</template>
+<template data-panel-template="activities" id="template-panel-activities">
+<section aria-labelledby="tab-activities" class="dashboard-panel" data-dashboard-panel="activities" id="panel-activities" role="tabpanel">
+
+<section class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl" id="activities-filter-panel">
+<header class="panel-card__header panel-card__header--split">
+<div>
+<h3 class="panel-card__title">Activity Filters</h3>
+<p class="panel-card__subtitle" id="activity-filter-active"></p>
+</div>
+<button class="filter-button filter-button--primary" id="activities-filter-open" type="button">
+<span aria-hidden="true">🎯</span>
+<span>Filter</span>
+</button>
+</header>
+<p class="activities-filter-hint">Use filters to focus without hiding the activity feed.</p>
+</section>
+<section class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl" id="activities-section">
+<header class="panel-card__header panel-card__header--split">
+<div>
+<h3 class="panel-card__title">Recent Activities</h3>
+<p class="panel-card__subtitle" id="activity-filter-summary"></p>
+</div>
+<span class="panel-card__empty hidden" id="activities-empty">No activities match your filters.</span>
+</header>
+<div class="activities-list" id="activities-container"></div>
+<div class="panel-card__footer">
+<p aria-live="polite" class="panel-card__footer-note hidden" id="activities-fetch-warning" role="status"></p>
+<button class="filter-button hidden" id="load-more-btn" type="button">Load More Activities</button>
+</div>
+</section>
+
+</section>
+</template>
+<template data-panel-template="medals" id="template-panel-medals">
+<section aria-labelledby="tab-medals" class="dashboard-panel" data-dashboard-panel="medals" id="panel-medals" role="tabpanel">
+<div class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl">
+<header class="panel-card__header panel-card__header--medals">
+<h3 class="panel-card__title">Medals</h3>
+<div class="medal-banner hidden" id="medal-filter-banner">
+<div class="medal-banner__header">
+<span class="medal-banner__emoji" id="medal-filter-emoji"></span>
+<span class="medal-banner__label" id="medal-filter-label"></span>
+</div>
+<div class="medal-banner__meta">
+<span id="medal-filter-description"></span>
+</div>
+</div>
+</header>
+<div class="medals-section" id="medals-section"></div>
+</div>
+</section>
+</template>
+
+</div>
+<div aria-hidden="true" aria-labelledby="activities-filter-modal-title" aria-modal="true" class="filter-modal" hidden="" id="activities-filter-modal" role="dialog">
+<div class="filter-modal__backdrop" data-activities-filter-dismiss=""></div>
+<div class="filter-modal__sheet" role="document" tabindex="-1">
+<header class="filter-modal__header">
+<div>
+<h2 id="activities-filter-modal-title">Filter activities</h2>
+<p class="filter-modal__subtitle">Set your criteria and we’ll refresh the feed instantly.</p>
+</div>
+<button class="filter-modal__close" data-activities-filter-dismiss="" type="button">
+<span aria-hidden="true">✕</span>
+<span class="sr-only">Close filters</span>
+</button>
+</header>
+<form class="filter-form" id="activities-filter-form" novalidate="">
+<div class="filter-banner">
+<div class="filter-banner__label">
+<span aria-hidden="true">🎯</span>
+<span>Quick presets</span>
+</div>
+<p class="filter-banner__active">Start with a preset or adjust the sections below.</p>
+</div>
+<div aria-label="Quick filter presets" class="filter-quick-actions" role="group">
+<button aria-pressed="false" class="filter-chip" data-quick-filter="endurance" type="button">
+<span aria-hidden="true">🚴</span>
+<span>Long rides</span>
+</button>
+<button aria-pressed="false" class="filter-chip" data-quick-filter="climb-day" type="button">
+<span aria-hidden="true">🧗</span>
+<span>Climb days</span>
+</button>
+<button aria-pressed="false" class="filter-chip" data-quick-filter="recovery" type="button">
+<span aria-hidden="true">🧘</span>
+<span>Recovery spins</span>
+</button>
+</div>
+<div class="filter-collapsible-group" data-filter-collapsible-group="">
+<div class="filter-collapsible" data-filter-collapsible="">
+<button aria-controls="filter-content-year" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+<span>Year</span>
+<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+</button>
+<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-year">
+<label class="filter-field">
+<span class="sr-only">Year</span>
+<select id="year-select"></select>
+</label>
+</div>
+</div>
+<div class="filter-collapsible" data-filter-collapsible="">
+<button aria-controls="filter-content-type" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+<span>Type</span>
+<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+</button>
+<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-type">
+<label class="filter-field">
+<span class="sr-only">Activity type</span>
+<select id="activity-type-filter">
+<option value="all">All types</option>
+</select>
+</label>
+</div>
+</div>
+<div class="filter-collapsible" data-filter-collapsible="">
+<button aria-controls="filter-content-hours" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+<span>Hours (h)</span>
+<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+</button>
+<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-hours">
+<div class="filter-field filter-field--range">
+<div class="filter-range">
+<label class="sr-only" for="activity-hours-min">Minimum hours</label>
+<input id="activity-hours-min" min="0" placeholder="Min" step="0.1" type="number"/>
+<label class="sr-only" for="activity-hours-max">Maximum hours</label>
+<input id="activity-hours-max" min="0" placeholder="Max" step="0.1" type="number"/>
+</div>
+</div>
+</div>
+</div>
+<div class="filter-collapsible" data-filter-collapsible="">
+<button aria-controls="filter-content-distance" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+<span>Distance (km)</span>
+<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+</button>
+<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-distance">
+<div class="filter-field filter-field--range">
+<div class="filter-range">
+<label class="sr-only" for="activity-distance-min">Minimum distance</label>
+<input id="activity-distance-min" min="0" placeholder="Min" step="1" type="number"/>
+<label class="sr-only" for="activity-distance-max">Maximum distance</label>
+<input id="activity-distance-max" min="0" placeholder="Max" step="1" type="number"/>
+</div>
+</div>
+</div>
+</div>
+<div class="filter-collapsible" data-filter-collapsible="">
+<button aria-controls="filter-content-elevation" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+<span>Elevation (m)</span>
+<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+</button>
+<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-elevation">
+<div class="filter-field filter-field--range">
+<div class="filter-range">
+<label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
+<input id="activity-elevation-min" min="0" placeholder="Min" step="10" type="number"/>
+<label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
+<input id="activity-elevation-max" min="0" placeholder="Max" step="10" type="number"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="filter-form__actions">
+<button class="filter-button filter-button--ghost" id="reset-activity-filters" type="button">
+<span aria-hidden="true">↺</span>
                             Reset
                         </button>
-                        <button id="apply-activity-filters" type="submit" class="filter-button filter-button--primary">
-                            <span aria-hidden="true">✓</span>
+<button class="filter-button filter-button--primary" id="apply-activity-filters" type="submit">
+<span aria-hidden="true">✓</span>
                             Apply
                         </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div id="share-modal" class="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title" aria-describedby="share-modal-description" hidden aria-hidden="true">
-            <div class="share-modal__backdrop" data-share-modal-dismiss></div>
-            <div class="share-modal__dialog" role="document" tabindex="-1">
-                <header class="share-modal__header">
-                    <div>
-                        <h2 id="share-modal-title" class="share-modal__title">Share your highlight</h2>
-                        <p id="share-modal-description" class="share-modal__description">Preview your latest stats before sending them to friends.</p>
-                    </div>
-                    <button type="button" class="share-modal__close" data-share-modal-dismiss data-share-modal-initial>
-                        <span aria-hidden="true">✕</span>
-                        <span class="sr-only">Close share modal</span>
-                    </button>
-                </header>
-                <div id="share-card-preview" class="share-card" hidden>
-                    <div class="share-card__header">
-                        <span class="share-card__badge" aria-hidden="true">⚡</span>
-                        <div>
-                            <p id="share-card-athlete" class="share-card__name"></p>
-                            <p id="share-card-rank" class="share-card__meta"></p>
-                        </div>
-                    </div>
-                    <ul class="share-card__stats">
-                        <li>
-                            <span class="share-card__stat-label">Wallet</span>
-                            <span id="share-card-wallet" class="share-card__stat-value">—</span>
-                        </li>
-                        <li>
-                            <span class="share-card__stat-label">Coins minted</span>
-                            <span id="share-card-coins" class="share-card__stat-value">0</span>
-                        </li>
-                        <li>
-                            <span class="share-card__stat-label">Medals unlocked</span>
-                            <span id="share-card-medals" class="share-card__stat-value">0</span>
-                        </li>
-                        <li>
-                            <span class="share-card__stat-label">Latest activity</span>
-                            <div class="share-card__activity">
-                                <span id="share-card-latest-name" class="share-card__stat-value">—</span>
-                                <span id="share-card-latest-meta" class="share-card__stat-meta" hidden>—</span>
-                            </div>
-                        </li>
-                        <li>
-                            <span class="share-card__stat-label">Oldest activity</span>
-                            <div class="share-card__activity">
-                                <span id="share-card-oldest-name" class="share-card__stat-value">—</span>
-                                <span id="share-card-oldest-meta" class="share-card__stat-meta" hidden>—</span>
-                            </div>
-                        </li>
-                    </ul>
-                    <div class="share-card__actions">
-                        <button type="button" id="share-whatsapp" class="share-card__button">
-                            <span aria-hidden="true">🟢</span>
-                            <span>WhatsApp</span>
-                        </button>
-                        <button type="button" id="share-copy" class="share-card__button share-card__button--ghost">
-                            <span aria-hidden="true">📋</span>
-                            <span>Copy summary</span>
-                        </button>
-                    </div>
-                    <p id="share-feedback" class="share-card__feedback" role="status" aria-live="polite"></p>
-                </div>
-            </div>
-        </div>
-
-        <div id="rank-modal" class="rank-modal" hidden aria-hidden="true">
-            <div class="rank-modal__backdrop" data-rank-modal-dismiss></div>
-            <div class="rank-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="rank-modal-title" aria-describedby="rank-modal-description">
-                <header class="rank-modal__header">
-                    <div class="rank-modal__title-group">
-                        <h2 id="rank-modal-title">Rank progression</h2>
-                        <p id="rank-modal-description">Each crest unlocks after the listed lifetime training hours.</p>
-                    </div>
-                    <button type="button" class="rank-modal__close" id="rank-modal-close" data-rank-modal-dismiss>
-                        <span aria-hidden="true">✖️</span>
-                        <span class="sr-only">Close rank information</span>
-                    </button>
-                </header>
-                <div id="rank-modal-summary" class="rank-modal__summary" hidden></div>
-                <div id="rank-modal-list" class="rank-modal__list" role="list"></div>
-            </div>
-        </div>
-
-        <nav class="dashboard-bottom-nav" aria-label="Dashboard navigation">
-            <div class="dashboard-bottom-nav__list">
-                <button type="button" class="dashboard-bottom-nav__button is-active" data-dashboard-nav="profile" aria-pressed="true">
-                    <span class="dashboard-bottom-nav__icon fa-solid fa-user" aria-hidden="true"></span>
-                    <span class="dashboard-bottom-nav__label">Profile</span>
-                </button>
-                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="achievements" aria-pressed="false">
-                    <span class="dashboard-bottom-nav__icon fa-solid fa-flag-checkered" aria-hidden="true"></span>
-                    <span class="dashboard-bottom-nav__label">Coins</span>
-                </button>
-                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="wallet" aria-pressed="false">
-                    <span class="dashboard-bottom-nav__icon fa-solid fa-wallet" aria-hidden="true"></span>
-                    <span class="dashboard-bottom-nav__label">Wallet</span>
-                </button>
-                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="activities" aria-pressed="false">
-                    <span class="dashboard-bottom-nav__icon fa-solid fa-chart-line" aria-hidden="true"></span>
-                    <span class="dashboard-bottom-nav__label">Activities</span>
-                </button>
-                <button type="button" class="dashboard-bottom-nav__button" data-dashboard-nav="medals" aria-pressed="false">
-                    <span class="dashboard-bottom-nav__icon fa-solid fa-medal" aria-hidden="true"></span>
-                    <span class="dashboard-bottom-nav__label">Medals</span>
-                </button>
-            </div>
-        </nav>
-    </main>
-    <script src="/dashboard.js"></script>
+</div>
+</form>
+</div>
+</div>
+<div aria-describedby="share-modal-description" aria-hidden="true" aria-labelledby="share-modal-title" aria-modal="true" class="share-modal" hidden="" id="share-modal" role="dialog">
+<div class="share-modal__backdrop" data-share-modal-dismiss=""></div>
+<div class="share-modal__dialog" role="document" tabindex="-1">
+<header class="share-modal__header">
+<div>
+<h2 class="share-modal__title" id="share-modal-title">Share your highlight</h2>
+<p class="share-modal__description" id="share-modal-description">Preview your latest stats before sending them to friends.</p>
+</div>
+<button class="share-modal__close" data-share-modal-dismiss="" data-share-modal-initial="" type="button">
+<span aria-hidden="true">✕</span>
+<span class="sr-only">Close share modal</span>
+</button>
+</header>
+<div class="share-card" hidden="" id="share-card-preview">
+<div class="share-card__header">
+<span aria-hidden="true" class="share-card__badge">⚡</span>
+<div>
+<p class="share-card__name" id="share-card-athlete"></p>
+<p class="share-card__meta" id="share-card-rank"></p>
+</div>
+</div>
+<ul class="share-card__stats">
+<li>
+<span class="share-card__stat-label">Wallet</span>
+<span class="share-card__stat-value" id="share-card-wallet">—</span>
+</li>
+<li>
+<span class="share-card__stat-label">Coins minted</span>
+<span class="share-card__stat-value" id="share-card-coins">0</span>
+</li>
+<li>
+<span class="share-card__stat-label">Medals unlocked</span>
+<span class="share-card__stat-value" id="share-card-medals">0</span>
+</li>
+<li>
+<span class="share-card__stat-label">Latest activity</span>
+<div class="share-card__activity">
+<span class="share-card__stat-value" id="share-card-latest-name">—</span>
+<span class="share-card__stat-meta" hidden="" id="share-card-latest-meta">—</span>
+</div>
+</li>
+<li>
+<span class="share-card__stat-label">Oldest activity</span>
+<div class="share-card__activity">
+<span class="share-card__stat-value" id="share-card-oldest-name">—</span>
+<span class="share-card__stat-meta" hidden="" id="share-card-oldest-meta">—</span>
+</div>
+</li>
+</ul>
+<div class="share-card__actions">
+<button class="share-card__button" id="share-whatsapp" type="button">
+<span aria-hidden="true">🟢</span>
+<span>WhatsApp</span>
+</button>
+<button class="share-card__button share-card__button--ghost" id="share-copy" type="button">
+<span aria-hidden="true">📋</span>
+<span>Copy summary</span>
+</button>
+</div>
+<p aria-live="polite" class="share-card__feedback" id="share-feedback" role="status"></p>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="rank-modal" hidden="" id="rank-modal">
+<div class="rank-modal__backdrop" data-rank-modal-dismiss=""></div>
+<div aria-describedby="rank-modal-description" aria-labelledby="rank-modal-title" aria-modal="true" class="rank-modal__dialog" role="dialog">
+<header class="rank-modal__header">
+<div class="rank-modal__title-group">
+<h2 id="rank-modal-title">Rank progression</h2>
+<p id="rank-modal-description">Each crest unlocks after the listed lifetime training hours.</p>
+</div>
+<button class="rank-modal__close" data-rank-modal-dismiss="" id="rank-modal-close" type="button">
+<span aria-hidden="true">✖️</span>
+<span class="sr-only">Close rank information</span>
+</button>
+</header>
+<div class="rank-modal__summary" hidden="" id="rank-modal-summary"></div>
+<div class="rank-modal__list" id="rank-modal-list" role="list"></div>
+</div>
+</div>
+<nav aria-label="Dashboard navigation" class="dashboard-bottom-nav">
+<div class="dashboard-bottom-nav__list">
+<button aria-pressed="true" class="dashboard-bottom-nav__button is-active" data-dashboard-nav="profile" type="button">
+<span aria-hidden="true" class="dashboard-bottom-nav__icon fa-solid fa-user"></span>
+<span class="dashboard-bottom-nav__label">Profile</span>
+</button>
+<button aria-pressed="false" class="dashboard-bottom-nav__button" data-dashboard-nav="achievements" type="button">
+<span aria-hidden="true" class="dashboard-bottom-nav__icon fa-solid fa-flag-checkered"></span>
+<span class="dashboard-bottom-nav__label">Coins</span>
+</button>
+<button aria-pressed="false" class="dashboard-bottom-nav__button" data-dashboard-nav="wallet" type="button">
+<span aria-hidden="true" class="dashboard-bottom-nav__icon fa-solid fa-wallet"></span>
+<span class="dashboard-bottom-nav__label">Wallet</span>
+</button>
+<button aria-pressed="false" class="dashboard-bottom-nav__button" data-dashboard-nav="activities" type="button">
+<span aria-hidden="true" class="dashboard-bottom-nav__icon fa-solid fa-chart-line"></span>
+<span class="dashboard-bottom-nav__label">Activities</span>
+</button>
+<button aria-pressed="false" class="dashboard-bottom-nav__button" data-dashboard-nav="medals" type="button">
+<span aria-hidden="true" class="dashboard-bottom-nav__icon fa-solid fa-medal"></span>
+<span class="dashboard-bottom-nav__label">Medals</span>
+</button>
+</div>
+</nav>
+</main>
+<script src="/dashboard.js"></script>
 </body>
 </html>

@@ -870,19 +870,6 @@
             animation: panelFade 0.3s ease;
             contain: layout paint;
             will-change: opacity, transform;
-        }
-
-        .dashboard-panel.is-active {
-            display: block;
-        }
-
-        @keyframes panelFade {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .panel-stack {
-            display: flex;
             flex-direction: column;
             gap: 1.5rem;
             width: min(100%, 1120px);
@@ -893,7 +880,16 @@
             box-sizing: border-box;
         }
 
-        .panel-stack > * {
+        .dashboard-panel.is-active {
+            display: flex;
+        }
+
+        @keyframes panelFade {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dashboard-panel > * {
             width: 100%;
             max-width: 100%;
             min-width: 0;
@@ -1157,10 +1153,10 @@
         }
 
         .profile-card__header {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
             gap: 1rem;
-            align-items: start;
             width: 100%;
         }
 
@@ -1250,21 +1246,12 @@
 
         @media (min-width: 640px) {
             .profile-card__header {
-                grid-template-columns: auto 1fr;
-                gap: 1.25rem;
+                justify-content: space-between;
+                gap: 1.5rem;
             }
 
             .profile-card__avatar {
-                grid-row: 1 / span 4;
-                justify-self: flex-start;
-            }
-
-            .profile-card__headline {
-                grid-column: 2;
-            }
-
-            .profile-card__summary-row {
-                grid-column: 1 / -1;
+                align-self: flex-start;
             }
         }
 

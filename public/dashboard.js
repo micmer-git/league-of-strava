@@ -7815,6 +7815,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
 
             ingestResponseData(data, { isLoadMore });
+
+            const newActivitiesFromResponse = Number.isFinite(Number(data?.activityMetadata?.newActivities))
+                ? Number(data.activityMetadata.newActivities)
+                : 0;
+            const duplicatesSkippedFromResponse = Number.isFinite(Number(data?.activityMetadata?.duplicatesSkipped))
+                ? Number(data.activityMetadata.duplicatesSkipped)
+                : 0;
+            if (newActivitiesFromResponse > 0 || duplicatesSkippedFromResponse > 0) {
+                const duplicateSummary = duplicatesSkippedFromResponse > 0
+                    ? `, skipped ${duplicatesSkippedFromResponse} duplicates`
+                    : '';
+                console.log(`Dashboard sync summary: ${newActivitiesFromResponse} new activities${duplicateSummary}.`);
+            }
             requestActivitiesRender({ preserveVisibleCount: isLoadMore });
             updateInitialLoadingState('fetch', 'complete', 'Live Strava data synced');
             updateInitialLoadingState('finalize', 'active', 'Curating achievements and leaderboards');

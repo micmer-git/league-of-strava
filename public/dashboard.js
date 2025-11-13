@@ -484,6 +484,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     let coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
+    const bottomNavMediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateBottomNavState = () => {
+        const isActive = bottomNavMediaQuery.matches && mobileDashboardNavButtons.length > 0;
+        document.body.classList.toggle('is-bottom-nav-active', isActive);
+    };
+    updateBottomNavState();
+    if (typeof bottomNavMediaQuery.addEventListener === 'function') {
+        bottomNavMediaQuery.addEventListener('change', updateBottomNavState);
+    } else if (typeof bottomNavMediaQuery.addListener === 'function') {
+        bottomNavMediaQuery.addListener(updateBottomNavState);
+    }
     const dashboardPanels = new Map();
     const chartToggleButtons = {
         coins: null,

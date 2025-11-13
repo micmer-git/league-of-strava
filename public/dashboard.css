@@ -887,7 +887,8 @@ button,
 }
 
 .profile-metrics.stats-card__pills .profile-metrics__row,
-.profile-card__coins.stats-card__pills > .profile-metrics__row {
+.profile-card__coins.stats-card__pills > .profile-metrics__row,
+.stats-card__totals {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -896,25 +897,12 @@ button,
 }
 
 .profile-metrics.stats-card__pills .profile-metric-pill,
-.profile-card__coins.stats-card__pills .profile-metric-pill {
+.profile-card__coins.stats-card__pills .profile-metric-pill,
+.stats-card__totals .profile-metric-pill {
     flex: 0 0 auto;
     width: auto;
     min-width: 3rem;
     padding: 0.4rem 0.65rem;
-}
-
-@media (max-width: 640px) {
-    .profile-card__coins.stats-card__pills .profile-metric-pill {
-        flex: 1 1 calc(50% - 0.45rem);
-        min-width: min(8.5rem, 100%);
-        width: 100%;
-    }
-}
-
-@media (max-width: 420px) {
-    .profile-card__coins.stats-card__pills .profile-metric-pill {
-        flex-basis: 100%;
-    }
 }
 
 .profile-metric-pill:hover {
@@ -3868,12 +3856,6 @@ body.dark .activity-card__title-link:focus-visible,
 
 .stats-card__pills {
     padding: 0;
-}
-
-.stats-card__totals {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
 }
 
 .filter-modal {

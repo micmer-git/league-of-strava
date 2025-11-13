@@ -2409,6 +2409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } = rankProgressState;
 
         const levelProgressFillElement = document.getElementById('level-progress-fill');
+        const levelProgressRecentElement = document.getElementById('level-progress-recent');
 
         const safeTotalHours = Number.isFinite(totalHours) ? totalHours : 0;
         const currentMinHours = Number.isFinite(currentRank?.minHours) ? currentRank.minHours : 0;
@@ -2417,6 +2418,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? nextMinHours - currentMinHours
             : null;
         const hasActivities = hasActivitiesState;
+        const monthValue = Number.isFinite(currentMonthHours) ? Math.max(0, currentMonthHours) : 0;
 
         let progressPercent = 0;
         if (spanHours) {
@@ -2430,15 +2432,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             levelProgressFillElement.style.width = `${progressPercent.toFixed(2)}%`;
         }
 
+        if (levelProgressRecentElement) {
+            let monthlyPercent = 0;
+            if (spanHours && monthValue > 0) {
+                const cappedMonthly = Math.min(monthValue, spanHours);
+                monthlyPercent = Math.min(100, Math.max(0, (cappedMonthly / spanHours) * 100));
+            }
+            const effectiveMonthlyPercent = Math.min(progressPercent, monthlyPercent);
+            levelProgressRecentElement.style.width = `${effectiveMonthlyPercent.toFixed(2)}%`;
+        }
+
         if (rankingProgressLabelElement) {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
-            const text = `Lifetime · ${label}`;
-            rankingProgressLabelElement.textContent = text;
-            rankingProgressLabelElement.setAttribute('aria-label', `Lifetime training ${label}`);
+            rankingProgressLabelElement.textContent = `${label} total`;
+            rankingProgressLabelElement.setAttribute('aria-label', `Total training ${label}`);
         }
 
         if (rankingProgressMonthlyElement) {
-            const monthValue = Number.isFinite(currentMonthHours) ? Math.max(0, currentMonthHours) : 0;
             const formattedMonthly = formatHoursDisplay(monthValue);
             const prefix = monthValue > 0 ? '+' : '';
             const hasMonthlyHours = monthValue > 0;

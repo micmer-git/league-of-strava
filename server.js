@@ -497,6 +497,7 @@ app.get('/api/strava-data', async (req, res) => {
 
   let userId;
   let cacheKey;
+  let latestKnownActivityTimestamp = null;
 
   // Identify the user uniquely. Here, we'll use the athlete's ID from Strava.
   try {
@@ -521,11 +522,25 @@ app.get('/api/strava-data', async (req, res) => {
     let existingSnapshotError = null;
     let knownActivityKeySet = new Set();
 
+    const registerKnownActivitiesFromPayload = (payload) => {
+      if (!payload || typeof payload !== 'object') {
+        return;
+      }
+
+      const latestTimestampCandidate = extractLatestActivityTimestamp(payload);
+      if (Number.isFinite(latestTimestampCandidate) && latestTimestampCandidate > 0) {
+        latestKnownActivityTimestamp = latestKnownActivityTimestamp === null
+          ? latestTimestampCandidate
+          : Math.max(latestKnownActivityTimestamp, latestTimestampCandidate);
+      }
+    };
+
     try {
       existingSnapshot = await getLatestUserSnapshot(userId);
 
       if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
         knownActivityKeySet = extractActivityKeysFromSnapshot(existingSnapshot.payload);
+        registerKnownActivitiesFromPayload(existingSnapshot.payload);
         if (knownActivityKeySet.size > 0) {
           console.log(`Loaded ${knownActivityKeySet.size} previously stored activities for athlete ${userId}.`);
         }
@@ -613,8 +628,17 @@ app.get('/api/strava-data', async (req, res) => {
           knownActivityKeySet = cachedKeys;
           console.log(`Loaded ${cachedKeys.size} cached activities for athlete ${userId}.`);
         }
+        registerKnownActivitiesFromPayload(existingCacheEntry.value);
       } catch (cacheKeyError) {
         console.warn(`Unable to derive cached activity keys for athlete ${userId}:`, cacheKeyError.message);
+      }
+    }
+
+    if (knownActivityKeySet.size > 0 && latestKnownActivityTimestamp === null) {
+      // As a fallback, derive the latest known timestamp from the key set if possible.
+      const fallbackTimestamp = deriveLatestTimestampFromActivityKeys(knownActivityKeySet);
+      if (Number.isFinite(fallbackTimestamp) && fallbackTimestamp > 0) {
+        latestKnownActivityTimestamp = fallbackTimestamp;
       }
     }
 
@@ -636,6 +660,8 @@ app.get('/api/strava-data', async (req, res) => {
 
     const shouldFetchUntilExhausted = forceRefresh;
 
+    const afterTimestamp = resolveAfterTimestamp(latestKnownActivityTimestamp);
+
     let activitiesResult = { activities: [], hasMore: false, fetchedPages: 0, lastPageSize: 0, metadata: createEmptyActivityMetadata() };
 
     if (maxFetchablePages === 0) {
@@ -653,6 +679,7 @@ app.get('/api/strava-data', async (req, res) => {
         stopWhenKnownReached: knownActivityKeySet.size > 0,
         fetchUntilExhausted: shouldFetchUntilExhausted,
         maxPages: maxFetchablePages,
+        afterTimestamp,
       });
     }
 
@@ -660,6 +687,16 @@ app.get('/api/strava-data', async (req, res) => {
     const { activities: allActivities, hasMore: hasMoreFromStrava, fetchedPages, lastPageSize } = activitiesResult;
 
     activityMetadata = normalizeActivityMetadata(activityMetadata);
+
+    if (Number.isFinite(afterTimestamp)) {
+      activityMetadata.requestedAfterTimestamp = afterTimestamp;
+    }
+
+    if (Number.isFinite(latestKnownActivityTimestamp)) {
+      activityMetadata.latestKnownActivityTimestamp = Number.isFinite(activityMetadata.latestKnownActivityTimestamp)
+        ? Math.max(activityMetadata.latestKnownActivityTimestamp, latestKnownActivityTimestamp)
+        : latestKnownActivityTimestamp;
+    }
 
     const newActivityCount = Array.isArray(allActivities) ? allActivities.length : 0;
     const duplicatesSkipped = Number.isFinite(Number(activityMetadata.duplicatesSkipped))
@@ -754,6 +791,37 @@ app.get('/api/strava-data', async (req, res) => {
       } catch (mergeError) {
         console.warn(`Unable to merge stored snapshot for athlete ${userId}:`, mergeError.message);
       }
+    }
+
+    const aggregatedLatestTimestamp = extractLatestTimestampFromActivities(responsePayload.activities);
+    if (Number.isFinite(aggregatedLatestTimestamp) && aggregatedLatestTimestamp > 0) {
+      activityMetadata.latestFetchedActivityTimestamp = Number.isFinite(activityMetadata.latestFetchedActivityTimestamp)
+        ? Math.max(activityMetadata.latestFetchedActivityTimestamp, aggregatedLatestTimestamp)
+        : aggregatedLatestTimestamp;
+    }
+
+    const updatedMetadata = normalizeActivityMetadata(activityMetadata);
+    activityMetadata = updatedMetadata;
+    responsePayload.activityMetadata = updatedMetadata;
+    responsePayload.pageInfo = {
+      ...responsePayload.pageInfo,
+      rateLimited: updatedMetadata.rateLimited,
+      partial: updatedMetadata.partial,
+      retryAfterSeconds: updatedMetadata.retryAfterSeconds,
+      warnings: updatedMetadata.warnings,
+      errors: updatedMetadata.errors,
+      newActivities: updatedMetadata.newActivities,
+      duplicatesSkipped: updatedMetadata.duplicatesSkipped,
+      stopReason: updatedMetadata.stopReason,
+      reachedKnownActivityBoundary: updatedMetadata.reachedKnownActivityBoundary,
+    };
+
+    if (updatedMetadata.lastSuccessfulPage !== undefined) {
+      responsePayload.pageInfo.lastSuccessfulPage = updatedMetadata.lastSuccessfulPage;
+    }
+
+    if (updatedMetadata.lastAttemptedPage !== undefined) {
+      responsePayload.pageInfo.lastAttemptedPage = updatedMetadata.lastAttemptedPage;
     }
 
     try {
@@ -966,6 +1034,7 @@ async function fetchAllActivities(
     stopWhenKnownReached = false,
     fetchUntilExhausted = false,
     maxPages = Number.POSITIVE_INFINITY,
+    afterTimestamp = null,
   } = {},
 ) {
   let allActivities = [];
@@ -1007,8 +1076,14 @@ async function fetchAllActivities(
 
   while (fetchedPages < fetchLimit) {
     try {
-      console.log(`Fetching activities - Page: ${page}, Per Page: ${normalizedPerPage}`);
-      const activitiesResponse = await stravaGet('athlete/activities', accessToken, { per_page: normalizedPerPage, page });
+      const params = { per_page: normalizedPerPage, page };
+      if (Number.isFinite(afterTimestamp) && afterTimestamp > 0) {
+        params.after = Math.floor(afterTimestamp);
+      }
+
+      console.log(`Fetching activities - Page: ${page}, Per Page: ${normalizedPerPage}`
+        + (params.after ? `, After: ${params.after}` : ''));
+      const activitiesResponse = await stravaGet('athlete/activities', accessToken, params);
       const incomingActivities = Array.isArray(activitiesResponse.data) ? activitiesResponse.data : [];
 
       const dedupedActivities = [];
@@ -1108,6 +1183,17 @@ async function fetchAllActivities(
   activityMetadata.duplicatesSkipped = totalDuplicatesSkipped;
   if (!activityMetadata.stopReason && breakReason) {
     activityMetadata.stopReason = breakReason;
+  }
+
+  const latestFetchedTimestamp = extractLatestTimestampFromActivities(allActivities);
+  if (Number.isFinite(latestFetchedTimestamp) && latestFetchedTimestamp > 0) {
+    activityMetadata.latestFetchedActivityTimestamp = latestFetchedTimestamp;
+  }
+
+  if (Number.isFinite(afterTimestamp)) {
+    activityMetadata.requestedAfterTimestamp = Number.isFinite(activityMetadata.requestedAfterTimestamp)
+      ? Math.max(activityMetadata.requestedAfterTimestamp, Math.floor(afterTimestamp))
+      : Math.floor(afterTimestamp);
   }
 
   const normalizedMetadata = normalizeActivityMetadata(activityMetadata);
@@ -1344,6 +1430,9 @@ function createEmptyActivityMetadata() {
     duplicatesSkipped: 0,
     reachedKnownActivityBoundary: false,
     stopReason: null,
+    latestKnownActivityTimestamp: null,
+    requestedAfterTimestamp: null,
+    latestFetchedActivityTimestamp: null,
   };
 }
 
@@ -1401,6 +1490,15 @@ function normalizeActivityMetadata(metadata) {
   const stopReason = typeof metadata.stopReason === 'string' && metadata.stopReason.trim().length > 0
     ? metadata.stopReason.trim()
     : null;
+  const latestKnownActivityTimestamp = Number.isFinite(Number(metadata.latestKnownActivityTimestamp))
+    ? Math.max(0, Math.floor(Number(metadata.latestKnownActivityTimestamp)))
+    : null;
+  const requestedAfterTimestamp = Number.isFinite(Number(metadata.requestedAfterTimestamp))
+    ? Math.max(0, Math.floor(Number(metadata.requestedAfterTimestamp)))
+    : null;
+  const latestFetchedActivityTimestamp = Number.isFinite(Number(metadata.latestFetchedActivityTimestamp))
+    ? Math.max(0, Math.floor(Number(metadata.latestFetchedActivityTimestamp)))
+    : null;
 
   const retryAfterCandidates = [
     Number(metadata.retryAfterSeconds),
@@ -1431,6 +1529,18 @@ function normalizeActivityMetadata(metadata) {
     duplicatesSkipped,
     reachedKnownActivityBoundary,
   };
+
+  if (latestKnownActivityTimestamp !== null) {
+    normalized.latestKnownActivityTimestamp = latestKnownActivityTimestamp;
+  }
+
+  if (requestedAfterTimestamp !== null) {
+    normalized.requestedAfterTimestamp = requestedAfterTimestamp;
+  }
+
+  if (latestFetchedActivityTimestamp !== null) {
+    normalized.latestFetchedActivityTimestamp = latestFetchedActivityTimestamp;
+  }
 
   if (retryAfterSeconds !== null) {
     normalized.retryAfterSeconds = retryAfterSeconds;
@@ -1501,6 +1611,27 @@ function mergeActivityMetadata(existingMetadata, incomingMetadata) {
   merged.reachedKnownActivityBoundary = Boolean(
     existing.reachedKnownActivityBoundary || incoming.reachedKnownActivityBoundary,
   );
+
+  const latestKnownCandidates = [existing.latestKnownActivityTimestamp, incoming.latestKnownActivityTimestamp]
+    .map(value => (Number.isFinite(Number(value)) && Number(value) > 0 ? Math.floor(Number(value)) : null))
+    .filter(value => value !== null);
+  if (latestKnownCandidates.length > 0) {
+    merged.latestKnownActivityTimestamp = Math.max(...latestKnownCandidates);
+  }
+
+  const requestedAfterCandidates = [existing.requestedAfterTimestamp, incoming.requestedAfterTimestamp]
+    .map(value => (Number.isFinite(Number(value)) && Number(value) > 0 ? Math.floor(Number(value)) : null))
+    .filter(value => value !== null);
+  if (requestedAfterCandidates.length > 0) {
+    merged.requestedAfterTimestamp = Math.max(...requestedAfterCandidates);
+  }
+
+  const latestFetchedCandidates = [existing.latestFetchedActivityTimestamp, incoming.latestFetchedActivityTimestamp]
+    .map(value => (Number.isFinite(Number(value)) && Number(value) > 0 ? Math.floor(Number(value)) : null))
+    .filter(value => value !== null);
+  if (latestFetchedCandidates.length > 0) {
+    merged.latestFetchedActivityTimestamp = Math.max(...latestFetchedCandidates);
+  }
 
   const retryCandidates = [existing.retryAfterSeconds, incoming.retryAfterSeconds]
     .map(value => Number.isFinite(Number(value)) ? Number(value) : null)
@@ -1780,6 +1911,101 @@ function extractActivityKeysFromSnapshot(snapshotPayload) {
   });
 
   return keys;
+}
+
+function getActivityTimestampSeconds(activity = {}) {
+  if (!activity || typeof activity !== 'object') {
+    return null;
+  }
+
+  const timestampCandidate = activity.start_date || activity.start_date_local;
+  if (typeof timestampCandidate !== 'string' || !timestampCandidate.trim()) {
+    return null;
+  }
+
+  const parsed = Date.parse(timestampCandidate);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.floor(parsed / 1000);
+}
+
+function extractLatestTimestampFromActivities(activities = []) {
+  if (!Array.isArray(activities) || activities.length === 0) {
+    return null;
+  }
+
+  let latest = null;
+  for (const activity of activities) {
+    const timestamp = getActivityTimestampSeconds(activity);
+    if (Number.isFinite(timestamp)) {
+      latest = latest === null ? timestamp : Math.max(latest, timestamp);
+    }
+  }
+
+  return latest;
+}
+
+function extractLatestActivityTimestamp(snapshotPayload) {
+  if (!snapshotPayload || typeof snapshotPayload !== 'object') {
+    return null;
+  }
+
+  const activities = Array.isArray(snapshotPayload.activities) ? snapshotPayload.activities : [];
+  const latestFromActivities = extractLatestTimestampFromActivities(activities);
+  if (Number.isFinite(latestFromActivities) && latestFromActivities > 0) {
+    return latestFromActivities;
+  }
+
+  const metadataTimestamp = snapshotPayload.activityMetadata?.latestFetchedActivityTimestamp
+    ?? snapshotPayload.activityMetadata?.latestKnownActivityTimestamp
+    ?? snapshotPayload.activityMetadata?.requestedAfterTimestamp
+    ?? snapshotPayload.activityMetadata?.lastActivityTimestamp;
+
+  if (Number.isFinite(Number(metadataTimestamp)) && Number(metadataTimestamp) > 0) {
+    return Number(metadataTimestamp);
+  }
+
+  return null;
+}
+
+function deriveLatestTimestampFromActivityKeys(activityKeys = new Set()) {
+  if (!activityKeys || typeof activityKeys[Symbol.iterator] !== 'function') {
+    return null;
+  }
+
+  let latest = null;
+
+  for (const key of activityKeys) {
+    if (typeof key !== 'string') {
+      continue;
+    }
+
+    const parts = key.split('|');
+    if (parts.length < 3) {
+      continue;
+    }
+
+    const timestampCandidate = parts[2];
+    const parsed = Date.parse(timestampCandidate);
+    if (!Number.isFinite(parsed)) {
+      continue;
+    }
+
+    const seconds = Math.floor(parsed / 1000);
+    latest = latest === null ? seconds : Math.max(latest, seconds);
+  }
+
+  return latest;
+}
+
+function resolveAfterTimestamp(latestKnownTimestamp) {
+  if (!Number.isFinite(Number(latestKnownTimestamp)) || Number(latestKnownTimestamp) <= 0) {
+    return null;
+  }
+
+  return Math.floor(Number(latestKnownTimestamp)) + 1;
 }
 
 function mergeSegments(existingSegments = [], incomingSegments = []) {

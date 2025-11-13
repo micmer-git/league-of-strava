@@ -13,8 +13,11 @@ const {
   appendUserSnapshot,
   getLatestUserSnapshot,
   listSnapshotUserIds,
+  getLatestUserSyncEntry,
+  storeUserDataInSheet,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 const { PersistentCache } = require('./services/cache');
+const { getLatestPayload, decompressPayload } = require('./services/googleSheetsHelper');
 
 const app = express();
 app.use(cookieParser());
@@ -479,6 +482,56 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
 });
 
 // API endpoint to fetch all Strava activities and segment completions
+app.post('/api/strava/sync', async (req, res) => {
+  const accessToken = req.cookies.strava_token;
+
+  if (!accessToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const athleteResponse = await stravaGet('athlete', accessToken);
+    const userId = athleteResponse?.data?.id ? String(athleteResponse.data.id) : null;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Unable to resolve Strava athlete.' });
+    }
+
+    const existingSyncEntry = await getLatestUserSyncEntry(userId);
+
+    if (!existingSyncEntry) {
+      console.log(`User ${userId}: Kicking off FULL historical sync.`);
+      runFullHistoricalSync(userId, accessToken).catch((error) => {
+        console.error(`User ${userId}: FAILED full historical sync.`, error);
+      });
+      return res.json({ status: 'full_sync_started' });
+    }
+
+    let existingActivities = [];
+
+    try {
+      const latestPayload = getLatestPayload([existingSyncEntry]);
+      const decompressed = decompressPayload(latestPayload);
+      if (Array.isArray(decompressed)) {
+        existingActivities = decompressed;
+      }
+    } catch (payloadError) {
+      console.warn(`User ${userId}: Unable to decode stored sync payload. Triggering full sync.`, payloadError);
+      runFullHistoricalSync(userId, accessToken).catch((error) => {
+        console.error(`User ${userId}: FAILED full historical sync after payload decode error.`, error);
+      });
+      return res.json({ status: 'full_sync_started' });
+    }
+
+    const updatedData = await runDeltaSync(userId, accessToken, existingActivities);
+    return res.json({ status: 'delta_sync_complete', data: updatedData });
+  } catch (error) {
+    console.error('Error initiating Strava sync:', error.message || error);
+    const statusCode = error.statusCode || error.response?.status || 500;
+    return res.status(statusCode).json({ error: 'Failed to initiate Strava sync' });
+  }
+});
+
 app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   userDataCache.pruneExpired();
@@ -1210,6 +1263,131 @@ async function fetchAllActivities(
     lastPageSize,
     metadata: normalizedMetadata,
   };
+}
+
+async function runFullHistoricalSync(userId, accessToken) {
+  let allActivities = [];
+  let page = 1;
+  const perPage = 100;
+  const maxPages = MAX_ACTIVITY_PAGES > 0 ? MAX_ACTIVITY_PAGES : Number.POSITIVE_INFINITY;
+
+  try {
+    while (true) {
+      const response = await stravaGet('athlete/activities', accessToken, { page, per_page: perPage });
+      const activitiesPage = Array.isArray(response.data) ? response.data : [];
+
+      if (activitiesPage.length === 0) {
+        break;
+      }
+
+      console.log(`User ${userId}: fetched ${activitiesPage.length} activities from page ${page}.`);
+      allActivities = allActivities.concat(activitiesPage);
+
+      if (activitiesPage.length < perPage) {
+        break;
+      }
+
+      if (page >= maxPages) {
+        console.log(`User ${userId}: Reached configured page limit (${maxPages}).`);
+        break;
+      }
+
+      page += 1;
+      await sleep(1000);
+    }
+
+    console.log(`User ${userId}: Fetched ${allActivities.length} total activities.`);
+    await storeUserDataInSheet(userId, allActivities, 'full-history-sync');
+  } catch (error) {
+    console.error(`User ${userId}: FAILED full historical sync.`, error);
+    throw error;
+  }
+}
+
+async function runDeltaSync(userId, accessToken, existingActivities = []) {
+  const previousActivities = Array.isArray(existingActivities) ? existingActivities : [];
+  const perPage = 100;
+  let page = 1;
+  const maxPages = MAX_ACTIVITY_PAGES > 0 ? MAX_ACTIVITY_PAGES : Number.POSITIVE_INFINITY;
+  const activityMap = new Map();
+
+  for (const activity of previousActivities) {
+    if (activity && activity.id !== undefined && activity.id !== null) {
+      activityMap.set(String(activity.id), activity);
+    }
+  }
+
+  const lastSyncTimestamp = previousActivities.reduce((latest, activity) => {
+    const startDate = activity?.start_date || activity?.start_date_local;
+    if (!startDate) {
+      return latest;
+    }
+
+    const timestamp = Date.parse(startDate);
+    if (!Number.isFinite(timestamp)) {
+      return latest;
+    }
+
+    return Math.max(latest, Math.floor(timestamp / 1000));
+  }, 0);
+
+  const newActivities = [];
+
+  try {
+    while (true) {
+      const params = { page, per_page: perPage };
+      if (lastSyncTimestamp > 0) {
+        params.after = lastSyncTimestamp;
+      }
+
+      const response = await stravaGet('athlete/activities', accessToken, params);
+      const activitiesPage = Array.isArray(response.data) ? response.data : [];
+
+      if (activitiesPage.length === 0) {
+        break;
+      }
+
+      console.log(`User ${userId}: fetched ${activitiesPage.length} candidate activities for delta sync (page ${page}).`);
+      newActivities.push(...activitiesPage);
+
+      if (activitiesPage.length < perPage) {
+        break;
+      }
+
+      if (page >= maxPages) {
+        console.log(`User ${userId}: Reached configured delta page limit (${maxPages}).`);
+        break;
+      }
+
+      page += 1;
+      await sleep(1000);
+    }
+
+    if (newActivities.length === 0) {
+      console.log(`User ${userId}: No new activities found.`);
+      return previousActivities;
+    }
+
+    for (const activity of newActivities) {
+      if (activity && activity.id !== undefined && activity.id !== null) {
+        activityMap.set(String(activity.id), activity);
+      }
+    }
+
+    const mergedActivities = Array.from(activityMap.values()).sort((a, b) => {
+      const aTime = Date.parse(a?.start_date || a?.start_date_local) || 0;
+      const bTime = Date.parse(b?.start_date || b?.start_date_local) || 0;
+      return bTime - aTime;
+    });
+
+    console.log(`User ${userId}: Storing ${mergedActivities.length} total activities after delta sync.`);
+    await storeUserDataInSheet(userId, mergedActivities, 'delta-sync');
+
+    return mergedActivities;
+  } catch (error) {
+    console.error(`User ${userId}: Failed delta sync.`, error);
+    throw error;
+  }
 }
 
 /**

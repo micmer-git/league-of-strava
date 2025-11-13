@@ -917,6 +917,8 @@
             reasonsList.appendChild(li);
           });
         }
+
+        return classAssignment;
       };
 
       const renderRank = () => {
@@ -972,7 +974,7 @@
         }
       };
 
-      const medalDefinitions = [
+      const baseMedalDefinitions = [
         {
           title: 'Cronache della Compagnia',
           description: 'Traguardi stagionali ispirati alle tappe della Terra di Mezzo.',
@@ -1049,11 +1051,132 @@
         },
       ];
 
-      const renderMedals = () => {
+      const buildBestClassMedals = (profile = {}, classAssignment = {}) => {
+        const primaryDiscipline = profile.primaryDiscipline || '';
+        const weeklyHours = Number(profile.weeklyHours) || 0;
+        const weeklyActivities = Number(profile.weeklyActivities) || 0;
+        const runKm = Number(profile.runKm) || 0;
+        const rideKm = Number(profile.rideKm) || 0;
+        const swimKm = Number(profile.swimKm) || 0;
+        const multiSportDays = Number(profile.multiSportDays) || 0;
+        const elevationGain = Number(profile.elevationGain) || 0;
+        const longestRunKm = Number(profile.longestSingleRunKm) || 0;
+        const longestRideKm = Number(profile.longestSingleRideKm) || 0;
+        const raceFinishes = Number(profile.raceFinishes) || 0;
+        const stageRaces = Number(profile.stageRaces) || 0;
+
+        const achievedRideBlock = rideKm >= 200 || longestRideKm >= 200;
+        const achievedElevationBlock = elevationGain >= 3000;
+
+        return [
+          {
+            name: 'Run & Ride One Day',
+            detail: 'Completa una corsa e una pedalata nello stesso giorno.',
+            achieved: multiSportDays >= 1 && runKm >= 10 && rideKm >= 40,
+          },
+          {
+            name: 'Run, Ride & Swim One Day',
+            detail: 'Porta a termine corsa, bici e nuoto nella stessa giornata.',
+            achieved: multiSportDays >= 2 && runKm >= 10 && rideKm >= 40 && swimKm > 0,
+          },
+          {
+            name: 'Double Run Day',
+            detail: 'Due sessioni di corsa registrate nello stesso giorno.',
+            achieved: weeklyActivities >= 8 && primaryDiscipline === 'run',
+          },
+          {
+            name: 'Double Ride One Day',
+            detail: 'Due uscite in bici completate nelle stesse 24 ore.',
+            achieved: achievedRideBlock && weeklyActivities >= 7,
+          },
+          {
+            name: 'Three Activities One Day',
+            detail: 'Almeno tre attività tracciate in una singola giornata.',
+            achieved: multiSportDays >= 3 || weeklyActivities >= 9,
+          },
+          {
+            name: '2 Days Consecutive of 100 km Ride',
+            detail: 'Due giorni di fila con almeno 100 km in bici.',
+            achieved: achievedRideBlock,
+          },
+          {
+            name: '2 Days Consecutive of 150 km Ride',
+            detail: 'Due giornate consecutive sopra i 150 km di pedalate.',
+            achieved: longestRideKm >= 210 || rideKm >= 300,
+          },
+          {
+            name: '2 Days Consecutive 5h+ Each Day',
+            detail: 'Due giorni consecutivi con oltre cinque ore di attività.',
+            achieved: weeklyHours >= 10,
+          },
+          {
+            name: '3 Days Consecutive 5h+ Each Day',
+            detail: 'Tre giorni di fila sopra le cinque ore di allenamenti.',
+            achieved: weeklyHours >= 15,
+          },
+          {
+            name: '2 Days of 10 km Consecutive Run',
+            detail: 'Due giorni consecutivi con almeno 10 km di corsa.',
+            achieved: runKm >= 70,
+          },
+          {
+            name: '2 Half Marathons Back to Back',
+            detail: 'Due mezze maratone completate in giorni consecutivi.',
+            achieved: longestRunKm >= 21 && raceFinishes >= 6,
+          },
+          {
+            name: '2 Marathons Back to Back',
+            detail: 'Due maratone concluse in giorni consecutivi.',
+            achieved: longestRunKm >= 42,
+          },
+          {
+            name: '2 Days Consecutive 1500 m Elevation',
+            detail: 'Almeno 1.500 m di dislivello positivo per due giorni di fila.',
+            achieved: achievedElevationBlock,
+          },
+          {
+            name: 'Olympic Triathlons Completed',
+            detail: 'Triathlon olimpici completati con transizioni pulite.',
+            achieved: swimKm >= 1.5 && rideKm >= 120 && runKm >= 30 && (stageRaces >= 1 || raceFinishes >= 5),
+          },
+          {
+            name: '2 Days Back to Back 3000 m Elevation',
+            detail: 'Oltre 3.000 m di dislivello positivo in due giorni consecutivi.',
+            achieved: elevationGain >= 6000,
+          },
+        ];
+      };
+
+      const createMedalDefinitions = (profile, classAssignment) => {
+        const crest = classAssignment?.entry?.crest || '🎖️';
+        const className = classAssignment?.entry?.name || 'Classe d’élite';
+        const classMedalsDescription =
+          classAssignment?.entry?.description?.trim() ||
+          'Sigilli dedicati alla tua classe più performante.';
+        const classMedals = buildBestClassMedals(profile, classAssignment);
+
+        const replicatedBase = baseMedalDefinitions.map((definition) => ({
+          ...definition,
+          medals: definition.medals.map((medal) => ({ ...medal })),
+        }));
+
+        return [
+          {
+            title: `${className}: Medaglie d’Eccellenza`,
+            description: classMedalsDescription,
+            emoji: crest,
+            medals: classMedals,
+          },
+          ...replicatedBase,
+        ];
+      };
+
+      const renderMedals = (profile, classAssignment) => {
         const container = document.getElementById('medal-categories');
         if (!container) return;
         container.innerHTML = '';
         const fragment = document.createDocumentFragment();
+        const medalDefinitions = createMedalDefinitions(profile, classAssignment);
         medalDefinitions.forEach(({ title, description, emoji, medals }) => {
           const categorySection = document.createElement('section');
           categorySection.className = 'medal-category';
@@ -1081,7 +1204,7 @@
             listItem.setAttribute('data-achieved', achieved ? 'true' : 'false');
             const detailContent = typeof detail === 'string' ? detail.trim() : '';
             const detailMarkup = detailContent
-              ? `<span class="medal__separator" aria-hidden="true">•</span><span class="medal__detail">${detailContent}</span>`
+              ? `<span class="medal__detail">${detailContent}</span>`
               : '';
             const icon = achieved ? '🏅' : '🔒';
             listItem.innerHTML = `
@@ -1153,9 +1276,9 @@
         handleViewportChange();
       };
 
-      renderProfile();
+      const classAssignment = renderProfile();
       renderRank();
-      renderMedals();
+      renderMedals(athleteProfile, classAssignment);
       initNavigation();
     })();
   </script>

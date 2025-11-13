@@ -2949,6 +2949,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalsByCategory.get(categoryName).push(medal);
         });
 
+        const calendarCategoryName = 'Calendar Moments';
+        const orderedCategories = categoryOrder.filter(name => name !== calendarCategoryName);
+        if (categoryOrder.includes(calendarCategoryName)) {
+            orderedCategories.push(calendarCategoryName);
+        }
+
         const createDescriptionSnippet = (description, limit = 120) => {
             const trimmed = (description || '').trim();
             if (!trimmed) {
@@ -2963,7 +2969,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return `${safeSlice.trimEnd()}…`;
         };
 
-        categoryOrder.forEach(categoryName => {
+        orderedCategories.forEach(categoryName => {
             const wrapper = document.createElement('div');
             wrapper.className = 'medals-category';
             wrapper.dataset.category = categoryName;

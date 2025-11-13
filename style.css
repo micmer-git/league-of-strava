@@ -675,15 +675,20 @@ button,
   gap: 1.75rem;
   min-height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
 }
 
 .medal-categories {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 0.25rem;
+  padding-bottom: 0.5rem;
 }
 
 .medal-category {
@@ -734,8 +739,8 @@ button,
 .medal {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.5rem 0.65rem;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
   border-radius: var(--radius-md);
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.58), rgba(8, 11, 23, 0.75));
@@ -743,13 +748,13 @@ button,
 }
 
 .medal__icon {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.65rem;
+  height: 1.65rem;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.14);
 }
@@ -758,11 +763,11 @@ button,
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.1rem;
+  gap: 0.2rem;
 }
 
 .medal__name {
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -772,10 +777,11 @@ button,
 
 
 .medal__detail {
-  font-size: 0.78rem;
+  display: block;
+  font-size: 0.85rem;
   color: var(--color-muted);
-  line-height: 1.3;
-  margin-top: 0.05rem;
+  line-height: 1.45;
+  margin-top: 0.15rem;
 }
 
 .medal--achieved {
@@ -1137,12 +1143,26 @@ button,
   }
 
   .medal {
-    gap: 0.45rem;
-    padding: 0.6rem 0.7rem;
+    gap: 0.55rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .medals-card {
+    min-height: calc(100vh - 5.5rem);
+  }
+
+  .medal__icon {
+    font-size: 0.9rem;
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .medal__name {
+    font-size: 0.95rem;
   }
 
   .medal__detail {
-    font-size: 0.78rem;
+    font-size: 0.82rem;
   }
 
   .mobile-nav-button {

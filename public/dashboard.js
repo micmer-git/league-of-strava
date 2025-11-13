@@ -43,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const date = new Date(2000, index, 1);
         return date.toLocaleDateString(undefined, { month: 'short' });
     });
-    const QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const MEDALS_PAGE_SIZE = Number.POSITIVE_INFINITY;
     const COIN_LABEL_OVERRIDES = {
@@ -1165,7 +1164,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             barBorderColors: [],
             barHoverColors: [],
             compareLabels: MONTH_COMPARISON_LABELS,
-            compareDatasets: []
+            compareDatasets: [],
+            compareMonthlyDatasets: []
         }
     };
 
@@ -3282,6 +3282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const paddingX = pluginOptions.paddingX ?? 6;
             const paddingY = pluginOptions.paddingY ?? 4;
             const offset = pluginOptions.offset ?? 12;
+            const minLabelSpacing = pluginOptions.minLabelSpacing ?? 64;
             const textColor = pluginOptions.color || '#1f2937';
             const backgroundColor = pluginOptions.backgroundColor || 'rgba(255, 255, 255, 0.92)';
             const borderColor = pluginOptions.borderColor || 'rgba(148, 163, 184, 0.35)';
@@ -3306,6 +3307,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 context.closePath();
             };
 
+            const chartArea = chart.chartArea || {};
+            const areaWidth = chartArea.width || chart.width || 0;
+            const chartLeft = chartArea.left ?? 0;
+            const chartRight = chartArea.right ?? chart.width ?? 0;
+            const chartTop = chartArea.top ?? 0;
+
             chart.data.datasets.forEach((dataset, datasetIndex) => {
                 if (!dataset || dataset.type !== 'line') {
                     return;
@@ -3317,8 +3324,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 const elements = meta.data || [];
+                const pointCount = elements.length;
+                const spacing = pointCount > 1 && areaWidth > 0
+                    ? areaWidth / (pointCount - 1)
+                    : areaWidth;
+                const skipStep = spacing > 0 && spacing < minLabelSpacing
+                    ? Math.ceil(minLabelSpacing / spacing)
+                    : 1;
+                const drawnBoxes = [];
+
                 elements.forEach((element, index) => {
                     if (!element) {
+                        return;
+                    }
+
+                    const forceDraw = index === 0 || index === pointCount - 1;
+                    if (!forceDraw && skipStep > 1 && index % skipStep !== 0) {
                         return;
                     }
 
@@ -3351,9 +3372,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const rectWidth = metrics.width + paddingX * 2;
                     const rectHeight = fontSize + paddingY * 2;
                     const baseY = y - offset;
-                    const rectX = x - rectWidth / 2;
-                    const rectY = baseY - rectHeight;
+                    let rectX = x - rectWidth / 2;
+                    let rectY = baseY - rectHeight;
+
+                    if (rectX < chartLeft) {
+                        rectX = chartLeft;
+                    }
+                    if (rectX + rectWidth > chartRight) {
+                        rectX = chartRight - rectWidth;
+                    }
+                    const minY = chartTop + 4;
+                    if (rectY < minY) {
+                        rectY = minY;
+                    }
+                    const textX = rectX + rectWidth / 2;
                     const textY = rectY + rectHeight / 2;
+
+                    const currentBox = {
+                        left: rectX,
+                        right: rectX + rectWidth,
+                        top: rectY,
+                        bottom: rectY + rectHeight,
+                    };
+                    const overlaps = drawnBoxes.some(box => (
+                        currentBox.left < box.right
+                        && currentBox.right > box.left
+                        && currentBox.top < box.bottom
+                        && currentBox.bottom > box.top
+                    ));
+
+                    if (overlaps && !forceDraw) {
+                        ctx.restore();
+                        return;
+                    }
+
+                    drawnBoxes.push(currentBox);
 
                     ctx.fillStyle = backgroundColor;
                     drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, borderRadius);
@@ -3366,10 +3419,157 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
 
                     ctx.fillStyle = textColor;
-                    ctx.fillText(label, x, textY);
+                    ctx.fillText(label, textX, textY);
                     ctx.restore();
                 });
             });
+        }
+    };
+
+    const walletBarOverlayPlugin = {
+        id: 'walletBarOverlay',
+        afterDatasetsDraw(chart) {
+            const pluginOptions = chart?.options?.plugins?.walletBarOverlay;
+            if (!pluginOptions || !pluginOptions.enabled) {
+                return;
+            }
+
+            const tooltip = chart?.tooltip;
+            const activeElements = typeof tooltip?.getActiveElements === 'function'
+                ? tooltip.getActiveElements()
+                : (Array.isArray(tooltip?._active) ? tooltip._active : []);
+
+            if (!Array.isArray(activeElements) || activeElements.length === 0) {
+                return;
+            }
+
+            const active = activeElements[0];
+            const datasetIndex = active?.datasetIndex;
+            const dataIndex = active?.index;
+
+            if (!Number.isInteger(datasetIndex) || !Number.isInteger(dataIndex)) {
+                return;
+            }
+
+            const dataset = chart.data?.datasets?.[datasetIndex];
+            if (!dataset || dataset.type !== 'bar') {
+                return;
+            }
+
+            const meta = chart.getDatasetMeta(datasetIndex);
+            if (!meta || !Array.isArray(meta.data) || !meta.data[dataIndex]) {
+                return;
+            }
+
+            const element = meta.data[dataIndex];
+            if (!element) {
+                return;
+            }
+
+            const rawValue = Array.isArray(dataset.data) ? dataset.data[dataIndex] : null;
+            if (!Number.isFinite(rawValue)) {
+                return;
+            }
+
+            const formatter = typeof pluginOptions.formatter === 'function'
+                ? pluginOptions.formatter
+                : (value, metaInfo) => {
+                    const label = usdCodeFormatter.format(value);
+                    if (metaInfo?.label) {
+                        return `${metaInfo.label}: ${label}`;
+                    }
+                    return label;
+                };
+
+            const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta[dataIndex] : null;
+            const label = formatter(rawValue, periodMeta);
+            if (!label) {
+                return;
+            }
+
+            const ctx = chart.ctx;
+            const fontOptions = pluginOptions.font || {};
+            const fontWeight = fontOptions.weight || '600';
+            const fontSize = fontOptions.size || 12;
+            const fontFamily = fontOptions.family || 'sans-serif';
+            const paddingX = pluginOptions.paddingX ?? 10;
+            const paddingY = pluginOptions.paddingY ?? 6;
+            const offset = pluginOptions.offset ?? 12;
+            const textColor = pluginOptions.color || '#0f172a';
+            const backgroundColor = pluginOptions.backgroundColor || 'rgba(255, 255, 255, 0.95)';
+            const borderColor = pluginOptions.borderColor || 'rgba(148, 163, 184, 0.45)';
+            const borderWidth = pluginOptions.borderWidth ?? 1;
+            const borderRadius = pluginOptions.borderRadius ?? 8;
+
+            const chartArea = chart.chartArea || {};
+            const chartLeft = chartArea.left ?? 0;
+            const chartRight = chartArea.right ?? chart.width ?? 0;
+            const chartTop = chartArea.top ?? 0;
+
+            const drawRoundedRect = (context, x, y, width, height, radius) => {
+                const safeRadius = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+                context.beginPath();
+                context.moveTo(x + safeRadius, y);
+                context.lineTo(x + width - safeRadius, y);
+                context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+                context.lineTo(x + width, y + height - safeRadius);
+                context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+                context.lineTo(x + safeRadius, y + height);
+                context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+                context.lineTo(x, y + safeRadius);
+                context.quadraticCurveTo(x, y, x + safeRadius, y);
+                context.closePath();
+            };
+
+            const position = typeof element.tooltipPosition === 'function'
+                ? element.tooltipPosition()
+                : element;
+
+            const x = position?.x;
+            const y = position?.y;
+            const base = position?.base ?? y;
+            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                return;
+            }
+
+            ctx.save();
+            ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const metrics = ctx.measureText(label);
+            const rectWidth = metrics.width + paddingX * 2;
+            const rectHeight = fontSize + paddingY * 2;
+            let rectX = x - rectWidth / 2;
+            if (rectX < chartLeft) {
+                rectX = chartLeft;
+            }
+            if (rectX + rectWidth > chartRight) {
+                rectX = chartRight - rectWidth;
+            }
+
+            const isPositive = (base ?? 0) > y;
+            let rectY = (isPositive ? y : base) - rectHeight - offset;
+            if (rectY < chartTop + 4) {
+                rectY = chartTop + 4;
+            }
+
+            const textX = rectX + rectWidth / 2;
+            const textY = rectY + rectHeight / 2;
+
+            ctx.fillStyle = backgroundColor;
+            drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, borderRadius);
+            ctx.fill();
+
+            if (borderWidth > 0 && borderColor) {
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = borderWidth;
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = textColor;
+            ctx.fillText(label, textX, textY);
+            ctx.restore();
         }
     };
 
@@ -3633,8 +3833,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return base;
                 });
 
-            const comparisonDatasets = useComparison
+            const buildMonthlyPeriodMeta = (yearLabel, colors) => MONTH_COMPARISON_LABELS.map((monthLabel, monthIndex) => {
+                const numericYear = Number(yearLabel);
+                return {
+                    label: `${monthLabel} ${yearLabel}`.trim(),
+                    year: Number.isFinite(numericYear) ? numericYear : null,
+                    month: monthIndex + 1,
+                    colors,
+                };
+            });
+
+            const comparisonLineDatasets = useComparison
                 ? dataset.compareDatasets.map(entry => ({
+                    type: 'line',
                     label: entry.label || 'Balance',
                     data: Array.isArray(entry.data) ? entry.data : [],
                     borderColor: entry.borderColor || '#2563eb',
@@ -3643,17 +3854,43 @@ document.addEventListener('DOMContentLoaded', async () => {
                     tension: 0.3,
                     pointRadius: 3,
                     pointHoverRadius: 4,
+                    yAxisID: 'y',
+                    order: 1,
+                    periodMeta: buildMonthlyPeriodMeta(entry.label || '', {
+                        border: entry.borderColor || '#2563eb',
+                        background: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
+                    }),
+                }))
+                : [];
+
+            const comparisonMonthlyDatasets = useComparison
+                ? (Array.isArray(dataset.compareMonthlyDatasets) ? dataset.compareMonthlyDatasets : []).map(entry => ({
+                    type: 'bar',
+                    label: entry.label || `${entry.baseLabel || 'Year'} monthly haul`,
+                    data: Array.isArray(entry.data) ? entry.data : [],
+                    backgroundColor: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
+                    borderColor: entry.borderColor || '#2563eb',
+                    hoverBackgroundColor: entry.hoverBackgroundColor || entry.backgroundColor || 'rgba(37, 99, 235, 0.25)',
+                    borderRadius: 8,
+                    maxBarThickness: 26,
+                    yAxisID: 'yMonthly',
+                    order: 2,
+                    comparisonYear: entry.baseLabel || entry.label || '',
+                    periodMeta: buildMonthlyPeriodMeta(entry.baseLabel || entry.label || '', {
+                        border: entry.borderColor || '#2563eb',
+                        background: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
+                    }),
                 }))
                 : [];
 
             const chartLabels = useComparison
                 ? (Array.isArray(dataset.compareLabels) && dataset.compareLabels.length > 0
                     ? dataset.compareLabels
-                    : QUARTER_LABELS)
+                    : MONTH_COMPARISON_LABELS)
                 : dataset.labels;
 
             const chartDatasets = useComparison
-                ? comparisonDatasets
+                ? [...comparisonMonthlyDatasets, ...comparisonLineDatasets]
                 : [
                     {
                         type: 'bar',
@@ -3686,6 +3923,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         periodMeta,
                     }
                 ];
+
+            const chartPlugins = [];
+            if (!useComparison) {
+                chartPlugins.push(walletPointLabelPlugin);
+            }
+            chartPlugins.push(walletBarOverlayPlugin);
 
             walletChartInstance = new Chart(walletChartCanvas, {
                 type: 'line',
@@ -3736,7 +3979,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     const value = context.parsed.y || 0;
                                     const datasetLabel = context.dataset?.label || 'Balance';
                                     const isQuarterlyDataset = context.dataset?.yAxisID === 'yQuarterly';
+                                    const isMonthlyBar = context.dataset?.yAxisID === 'yMonthly';
                                     if (useComparison) {
+                                        const meta = context.dataset?.periodMeta?.[context.dataIndex];
+                                        if (isMonthlyBar) {
+                                            const labelPrefix = meta?.label || datasetLabel;
+                                            return `${labelPrefix}: ${usdCodeFormatter.format(value)}`;
+                                        }
                                         return `${datasetLabel}: ${formatMillions(value)}`;
                                     }
                                     if (isQuarterlyDataset) {
@@ -3787,6 +4036,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     if (Number.isFinite(meta.quarter)) {
                                         return `Q${meta.quarter} · ${meta.year}`;
                                     }
+                                    if (Number.isFinite(meta.month)) {
+                                        const monthLabel = MONTH_COMPARISON_LABELS[Math.max(0, Math.min(MONTH_COMPARISON_LABELS.length - 1, meta.month - 1))];
+                                        return `${monthLabel} · ${meta.year}`;
+                                    }
                                     return `Year ${meta.year}`;
                                 },
                                 labelColor: (context) => {
@@ -3811,6 +4064,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                             borderColor: 'rgba(148, 163, 184, 0.35)',
                             font: { family: fontFamily, size: 11, weight: '600' },
                             offset: 16,
+                            minLabelSpacing: 72,
+                        },
+                        walletBarOverlay: {
+                            enabled: chartDatasets.some(datasetEntry => datasetEntry.type === 'bar'),
+                            color: isDarkMode ? '#e2e8f0' : '#0f172a',
+                            backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.95)',
+                            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.5)' : 'rgba(148, 163, 184, 0.45)',
+                            font: { family: fontFamily, size: 12, weight: '600' },
+                            offset: 14,
+                            formatter: (value, metaInfo) => {
+                                if (!Number.isFinite(value)) {
+                                    return '';
+                                }
+                                const baseLabel = usdCodeFormatter.format(value);
+                                if (metaInfo?.label) {
+                                    return `${metaInfo.label}: ${baseLabel}`;
+                                }
+                                if (metaInfo?.year && metaInfo?.month) {
+                                    const monthLabel = MONTH_COMPARISON_LABELS[Math.max(0, Math.min(MONTH_COMPARISON_LABELS.length - 1, metaInfo.month - 1))];
+                                    return `${monthLabel} ${metaInfo.year}: ${baseLabel}`;
+                                }
+                                return `Total collected: ${baseLabel}`;
+                            }
                         }
                     },
                     scales: {
@@ -3819,6 +4095,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 color: axisColor,
                                 font: tickFont,
                                 padding: 8,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                align: 'center',
+                                crossAlign: 'center',
                                 callback: (value, index) => {
                                     if (useComparison) {
                                         return chartLabels[index] || value;
@@ -3855,35 +4135,66 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 color: gridColor
                             }
                         },
-                        yQuarterly: {
-                            position: 'right',
-                            beginAtZero: true,
-                            ticks: {
-                                color: axisColor,
-                                font: tickFont,
-                                padding: 6,
-                                callback: (value) => {
-                                    if (!Number.isFinite(value)) {
-                                        return '$0';
+                        ...(useComparison
+                            ? {
+                                yMonthly: {
+                                    position: 'right',
+                                    beginAtZero: true,
+                                    ticks: {
+                                        color: axisColor,
+                                        font: tickFont,
+                                        padding: 6,
+                                        callback: (value) => {
+                                            if (!Number.isFinite(value)) {
+                                                return '$0';
+                                            }
+                                            const absolute = Math.abs(value);
+                                            if (absolute >= 1_000_000) {
+                                                return `$${(absolute / 1_000_000).toFixed(1)}M`;
+                                            }
+                                            if (absolute >= 1_000) {
+                                                return `$${Math.round(absolute / 1_000)}k`;
+                                            }
+                                            return usdCodeFormatter.format(absolute);
+                                        }
+                                    },
+                                    grid: {
+                                        color: gridColor,
+                                        drawOnChartArea: false
                                     }
-                                    const absolute = Math.abs(value);
-                                    if (absolute >= 1_000_000) {
-                                        return `$${(absolute / 1_000_000).toFixed(1)}M`;
-                                    }
-                                    if (absolute >= 1_000) {
-                                        return `$${Math.round(absolute / 1_000)}k`;
-                                    }
-                                    return usdCodeFormatter.format(absolute);
                                 }
-                            },
-                            grid: {
-                                color: gridColor,
-                                drawOnChartArea: false
                             }
-                        }
+                            : {
+                                yQuarterly: {
+                                    position: 'right',
+                                    beginAtZero: true,
+                                    ticks: {
+                                        color: axisColor,
+                                        font: tickFont,
+                                        padding: 6,
+                                        callback: (value) => {
+                                            if (!Number.isFinite(value)) {
+                                                return '$0';
+                                            }
+                                            const absolute = Math.abs(value);
+                                            if (absolute >= 1_000_000) {
+                                                return `$${(absolute / 1_000_000).toFixed(1)}M`;
+                                            }
+                                            if (absolute >= 1_000) {
+                                                return `$${Math.round(absolute / 1_000)}k`;
+                                            }
+                                            return usdCodeFormatter.format(absolute);
+                                        }
+                                    },
+                                    grid: {
+                                        color: gridColor,
+                                        drawOnChartArea: false
+                                    }
+                                }
+                            })
                     }
                 },
-                plugins: useComparison ? [] : [walletPointLabelPlugin]
+                plugins: chartPlugins
             });
         }
 
@@ -3993,7 +4304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : lifetimeMetrics;
 
         const yearlyAggregation = new Map();
-        const quarterlyTotalsByYear = new Map();
+        const monthlyTotalsByYear = new Map();
         const createYearEntry = () => ({
             coins: 0,
             medals: 0,
@@ -4029,10 +4340,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const monthIndex = metric.date.getMonth();
             if (Number.isInteger(monthIndex) && monthIndex >= 0 && monthIndex < 12) {
-                const quarterIndex = Math.floor(monthIndex / 3);
-                const totals = quarterlyTotalsByYear.get(year) || Array(4).fill(0);
-                totals[quarterIndex] += metric.coinValue + metric.medalValue;
-                quarterlyTotalsByYear.set(year, totals);
+                const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
+                totals[monthIndex] += metric.coinValue + metric.medalValue;
+                monthlyTotalsByYear.set(year, totals);
             }
         });
 
@@ -4145,25 +4455,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const compareDatasets = [];
+        const compareMonthlyDatasets = [];
         sortedYears.forEach((year, index) => {
-            const totals = quarterlyTotalsByYear.get(year) || Array(4).fill(0);
-            let runningTotal = 0;
-            const cumulative = totals.map(value => {
+            const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
+            const monthlyTotals = totals.map(value => {
                 const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
-                runningTotal += numericValue;
-                return runningTotal;
+                return numericValue;
             });
 
-            if (!cumulative.some(value => value > 0)) {
+            if (!monthlyTotals.some(value => value > 0)) {
                 return;
             }
 
+            let runningTotal = 0;
+            const cumulative = monthlyTotals.map(value => {
+                runningTotal += value;
+                return runningTotal;
+            });
+
             const paletteEntry = BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
+            const yearLabel = String(year);
             compareDatasets.push({
-                label: String(year),
+                label: yearLabel,
                 data: cumulative,
                 borderColor: paletteEntry.border,
                 backgroundColor: paletteEntry.background,
+            });
+            compareMonthlyDatasets.push({
+                label: `${yearLabel} monthly haul`,
+                baseLabel: yearLabel,
+                data: monthlyTotals,
+                backgroundColor: paletteEntry.background,
+                borderColor: paletteEntry.border,
+                hoverBackgroundColor: paletteEntry.hover || paletteEntry.background,
             });
         });
 
@@ -4199,6 +4523,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             quarterIndexLookup.set(key, index);
         });
 
+        const quarterCountsByYear = new Map();
+        lifetimeQuarterly.sortedQuarters.forEach((key) => {
+            const [yearStr] = key.split('-Q');
+            const year = Number(yearStr);
+            if (!Number.isFinite(year)) {
+                return;
+            }
+            quarterCountsByYear.set(year, (quarterCountsByYear.get(year) || 0) + 1);
+        });
+
         const periodMeta = lifetimeQuarterly.sortedQuarters.map((key, index) => {
             const [yearStr, quarterStr] = key.split('-Q');
             const year = Number(yearStr);
@@ -4229,6 +4563,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? calculatePercentChange(quarterlyValue, priorYearValue)
                 : null;
 
+            const quarterCount = quarterCountsByYear.get(year) || 0;
+            let shouldDisplayTickLabel = index === 0;
+            if (Number.isFinite(quarterNumber)) {
+                if (quarterCount <= 1) {
+                    shouldDisplayTickLabel = true;
+                } else {
+                    const midpointQuarter = Math.ceil(quarterCount / 2);
+                    shouldDisplayTickLabel = quarterNumber === midpointQuarter;
+                }
+            }
+
             return {
                 key,
                 label: quarterNumber ? `Q${quarterNumber} ${year}` : `Quarter ${quarterStr || ''} ${year}`,
@@ -4241,7 +4586,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 quarterChangePercent,
                 yearChangeValue,
                 yearChangePercent,
-                shouldDisplayTickLabel: quarterNumber === 1,
+                shouldDisplayTickLabel,
             };
         });
 
@@ -4253,8 +4598,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             labels: lifetimeQuarterly.sortedQuarters,
             values: quarterlyCumulative,
             perPeriodValues: quarterlyValues,
-            compareLabels: QUARTER_LABELS,
+            compareLabels: MONTH_COMPARISON_LABELS,
             compareDatasets,
+            compareMonthlyDatasets,
             periodMeta,
             barColors,
             barBorderColors,

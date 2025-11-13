@@ -9,32 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <script src="/site-header.js" defer></script>
-  <!-- Update table styles for sticky name column -->
-  <style>
-    .leaderboard-table {
-      position: relative;
-    }
-
-    .leaderboard-table th:nth-child(2),
-    .leaderboard-table td:nth-child(2) {
-      position: sticky;
-      left: 0;
-      z-index: 10;
-    }
-
-    .leaderboard-table th:nth-child(2) {
-      z-index: 15;
-    }
-
-    .leaderboard-table th:nth-child(2),
-    .leaderboard-table td:nth-child(2) {
-      max-width: none;
-      width: auto;
-      overflow: visible;
-      text-overflow: unset;
-      white-space: nowrap;
-    }
-  </style>
   <script src="/leaderboard.js" defer></script>
 </head>
 <body class="leaderboard-body">
@@ -59,10 +33,7 @@
   </header>
   <main class="leaderboard-main">
     <section class="leaderboard-container" aria-labelledby="leaderboard-heading">
-      <header class="leaderboard-header">
-        <h1 id="leaderboard-heading">Global Leaderboard</h1>
-        <p class="leaderboard-subtitle">See how every League of Strava athlete stacks up in real time.</p>
-      </header>
+      <h1 id="leaderboard-heading" class="sr-only">Global Leaderboard</h1>
       <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
         <table class="leaderboard-table">
           <thead>

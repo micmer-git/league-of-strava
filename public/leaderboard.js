@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cardsContainer = document.getElementById('leaderboard-cards');
   const tableElement = document.querySelector('.leaderboard-table');
   const tableColumnCount = tableElement ? tableElement.querySelectorAll('thead th').length : 1;
+  const NAME_COLUMN_PROPERTY = '--leaderboard-name-column-width';
+  let nameMeasurementElement = null;
   const COIN_VALUE_MAP = {
     '💲': 200,
     '💰': 1000,
@@ -27,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cell.textContent = message;
     row.appendChild(cell);
     tableBody.appendChild(row);
+    resetNameColumnWidth();
   };
 
   if (!tableBody) {
@@ -216,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
+      updateNameColumnWidth();
       renderLeaderboardCards(cardViewModels);
     } catch (error) {
       console.error('Failed to load leaderboard', error);
@@ -225,6 +229,100 @@ document.addEventListener('DOMContentLoaded', () => {
       renderMessageRow(message);
       renderLeaderboardCards([]);
     }
+  }
+
+  function resetNameColumnWidth() {
+    if (tableElement) {
+      tableElement.style.removeProperty(NAME_COLUMN_PROPERTY);
+    }
+  }
+
+  function updateNameColumnWidth() {
+    if (!tableElement) {
+      return;
+    }
+
+    const nameCells = tableElement.querySelectorAll('tbody .name-cell');
+    if (!nameCells.length) {
+      resetNameColumnWidth();
+      return;
+    }
+
+    let maxContentWidth = 0;
+    nameCells.forEach((cell) => {
+      const target = cell.querySelector('.leaderboard-athlete-link') || cell;
+      const measuredWidth = measureNameContentWidth(target);
+      if (measuredWidth > maxContentWidth) {
+        maxContentWidth = measuredWidth;
+      }
+    });
+
+    if (maxContentWidth <= 0 || !Number.isFinite(maxContentWidth)) {
+      resetNameColumnWidth();
+      return;
+    }
+
+    const referenceCell = nameCells[0];
+    const cellStyles = window.getComputedStyle(referenceCell);
+    const paddingLeft = Number.parseFloat(cellStyles.paddingLeft) || 0;
+    const paddingRight = Number.parseFloat(cellStyles.paddingRight) || 0;
+    const targetWidth = Math.max(0, Math.ceil(maxContentWidth + paddingLeft + paddingRight));
+
+    if (targetWidth > 0) {
+      tableElement.style.setProperty(NAME_COLUMN_PROPERTY, `${targetWidth}px`);
+    } else {
+      resetNameColumnWidth();
+    }
+  }
+
+  function measureNameContentWidth(target) {
+    if (!target || typeof target.textContent !== 'string') {
+      return 0;
+    }
+
+    const measurementElement = getNameMeasurementElement();
+    if (!measurementElement) {
+      return 0;
+    }
+
+    const computed = window.getComputedStyle(target);
+    measurementElement.style.font = computed.font;
+    measurementElement.style.fontFamily = computed.fontFamily;
+    measurementElement.style.fontStyle = computed.fontStyle;
+    measurementElement.style.fontStretch = computed.fontStretch;
+    measurementElement.style.fontVariant = computed.fontVariant;
+    measurementElement.style.fontWeight = computed.fontWeight;
+    measurementElement.style.fontSize = computed.fontSize;
+    measurementElement.style.letterSpacing = computed.letterSpacing;
+    measurementElement.style.textTransform = computed.textTransform;
+    measurementElement.textContent = target.textContent.trim();
+
+    const { width } = measurementElement.getBoundingClientRect();
+    measurementElement.textContent = '';
+    return width;
+  }
+
+  function getNameMeasurementElement() {
+    if (nameMeasurementElement) {
+      return nameMeasurementElement;
+    }
+
+    if (!document.body) {
+      return null;
+    }
+
+    const element = document.createElement('span');
+    element.setAttribute('aria-hidden', 'true');
+    element.style.position = 'absolute';
+    element.style.visibility = 'hidden';
+    element.style.whiteSpace = 'nowrap';
+    element.style.pointerEvents = 'none';
+    element.style.zIndex = '-1';
+    element.style.top = '0';
+    element.style.left = '0';
+    document.body.appendChild(element);
+    nameMeasurementElement = element;
+    return nameMeasurementElement;
   }
 
   function renderLeaderboardCards(viewModels) {
@@ -423,6 +521,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return date.toLocaleDateString();
   }
+
+  let resizeRafId = null;
+  window.addEventListener('resize', () => {
+    if (resizeRafId !== null) {
+      window.cancelAnimationFrame(resizeRafId);
+    }
+
+    resizeRafId = window.requestAnimationFrame(() => {
+      resizeRafId = null;
+      updateNameColumnWidth();
+    });
+  });
 
   loadLeaderboard();
 });

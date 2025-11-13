@@ -448,24 +448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let pendingActivitiesOptions = null;
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
     let pendingWalletRender = false;
-    const profileRefreshButton = document.getElementById('profile-refresh');
     const manualSyncButton = document.getElementById('fetch-strava-button');
-    const setProfileRefreshLoadingState = (isLoading) => {
-        if (!profileRefreshButton) {
-            return;
-        }
-
-        const loading = Boolean(isLoading);
-        profileRefreshButton.classList.toggle('is-loading', loading);
-
-        if (loading) {
-            profileRefreshButton.setAttribute('disabled', 'disabled');
-            profileRefreshButton.setAttribute('aria-busy', 'true');
-        } else {
-            profileRefreshButton.removeAttribute('disabled');
-            profileRefreshButton.removeAttribute('aria-busy');
-        }
-    };
     const setManualSyncButtonState = (isLoading) => {
         if (!manualSyncButton) {
             return;
@@ -478,6 +461,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             manualSyncButton.setAttribute('aria-busy', 'true');
         } else {
             manualSyncButton.removeAttribute('aria-busy');
+        }
+    };
+    const shouldFallbackToManualSync = async () => {
+        if (!window.dashboardMobile?.refresh) {
+            return true;
+        }
+
+        try {
+            const refreshed = await window.dashboardMobile.refresh({ showLoading: true });
+
+            if (refreshed && typeof refreshed === 'object' && 'status' in refreshed) {
+                handleSyncResponse(refreshed);
+            }
+
+            return refreshed === false && !isSharedView;
+        } catch (refreshError) {
+            console.error('Dashboard refresh failed:', refreshError);
+            return true;
         }
     };
     const rankModalElement = document.getElementById('rank-modal');
@@ -9889,58 +9890,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             setManualSyncButtonState(true);
-            showSpinner();
+
+            let spinnerWasShown = false;
 
             try {
-                const syncResult = await fetchData({ forceRefresh: true });
-                handleSyncResponse(syncResult);
+                const needsManualFallback = await shouldFallbackToManualSync();
+
+                if (!needsManualFallback) {
+                    return;
+                }
+
+                spinnerWasShown = true;
+                showSpinner();
+
+                const manualResult = await fetchData({ forceRefresh: true });
+                handleSyncResponse(manualResult);
             } catch (error) {
                 console.error('Sync initiation failed:', error);
                 completeInitialLoading('Error starting sync. Please try again.');
-                fadeOutSpinner();
+
+                if (spinnerWasShown) {
+                    fadeOutSpinner();
+                }
             } finally {
                 setManualSyncButtonState(false);
             }
         });
     } else {
         console.warn("'fetch-strava-button' element not found in the DOM.");
-    }
-
-    if (profileRefreshButton) {
-        profileRefreshButton.addEventListener('click', async (event) => {
-            event.preventDefault();
-            if (profileRefreshButton.disabled) {
-                return;
-            }
-
-            setProfileRefreshLoadingState(true);
-
-            try {
-                if (window.dashboardMobile?.refresh) {
-                    const refreshed = await window.dashboardMobile.refresh({ showLoading: true });
-
-                    if (refreshed && typeof refreshed === 'object' && 'status' in refreshed) {
-                        handleSyncResponse(refreshed);
-                    }
-
-                    if (refreshed === false && !isSharedView) {
-                        showSpinner();
-                        const manualResult = await fetchData({ forceRefresh: true });
-                        handleSyncResponse(manualResult);
-                    }
-                } else {
-                    showSpinner();
-                    const manualResult = await fetchData({ forceRefresh: true });
-                    handleSyncResponse(manualResult);
-                }
-            } catch (refreshError) {
-                console.error('Dashboard refresh failed:', refreshError);
-            } finally {
-                setProfileRefreshLoadingState(false);
-            }
-        });
-    } else {
-        console.warn("'profile-refresh' element not found in the DOM.");
     }
 
 

@@ -142,18 +142,11 @@
 </div>
 <div class="profile-card__identity">
   <div class="profile-card__name-row">
+    <button aria-label="Share highlight" class="profile-card__rank-action profile-card__share-action" id="share-dashboard" type="button">
+      <span aria-hidden="true">📤</span>
+      <span class="sr-only">Share highlight</span>
+    </button>
     <h2 class="profile-card__name" data-skeleton="text" id="athlete-name"></h2>
-    <div class="profile-card__rank-tools">
-      <button class="profile-card__rank-action" id="rank-info-button" type="button" aria-label="Learn more about rank progression">ℹ️</button>
-      <button aria-label="Fetch the latest Strava activities" class="profile-card__rank-action" id="profile-refresh" type="button">
-        <span aria-hidden="true" class="profile-card__icon-symbol">🔄</span>
-        <span class="sr-only">Refresh dashboard data</span>
-      </button>
-      <button aria-label="Share highlight" class="profile-card__rank-action" id="share-dashboard" type="button">
-        <span aria-hidden="true" class="profile-card__icon-symbol">📤</span>
-        <span class="sr-only">Share highlight</span>
-      </button>
-    </div>
   </div>
   <div class="profile-card__wallet" data-wallet-balance-container="">
     <span class="profile-card__balance-label">Total Wallet</span>
@@ -163,7 +156,10 @@
   </div>
   <div class="profile-card__rankline">
     <span class="profile-card__rank" data-skeleton="pill" id="current-rank"></span>
-    <span class="profile-card__level" data-skeleton="pill" id="level-progress"></span>
+    <div class="profile-card__level-group">
+      <span class="profile-card__level" data-skeleton="pill" id="level-progress"></span>
+      <button class="profile-card__rank-action profile-card__info-action" id="rank-info-button" type="button" aria-label="Learn more about rank progression">ℹ️</button>
+    </div>
   </div>
 </div>
 </header>

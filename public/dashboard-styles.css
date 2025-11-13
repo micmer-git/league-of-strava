@@ -1731,10 +1731,21 @@
         }
 
         .profile-card__progress-fill {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
             height: 100%;
             border-radius: inherit;
             background: linear-gradient(135deg, #2563eb, #38bdf8);
             transition: width 0.3s ease, background 0.3s ease;
+            z-index: 1;
+        }
+
+        .profile-card__progress-fill--recent {
+            background: linear-gradient(135deg, #22c55e, #10b981);
+            box-shadow: inset 0 0 12px rgba(34, 197, 94, 0.35);
+            z-index: 2;
         }
 
         .profile-card__progress-fill.is-negative {
@@ -3236,13 +3247,25 @@
         }
 
         .profile-card__progress-bar {
+            position: relative;
             background: rgba(17, 24, 39, 0.08);
             border-radius: 999px;
         }
 
         .profile-card__progress-fill {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
             background: linear-gradient(135deg, var(--color-accent-strong), var(--color-accent));
             box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.35);
+            z-index: 1;
+        }
+
+        .profile-card__progress-fill--recent {
+            background: linear-gradient(135deg, #22c55e, #10b981);
+            box-shadow: inset 0 0 12px rgba(34, 197, 94, 0.35);
+            z-index: 2;
         }
 
         .profile-card__progress-overlay span {

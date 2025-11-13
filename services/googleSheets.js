@@ -167,6 +167,19 @@ async function sheetExists(sheetName) {
   const sheetTitles = await listSheetTitles();
   return sheetTitles.includes(sheetName);
 }
+
+async function listSnapshotUserIds() {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const titles = await listSheetTitles();
+  const prefix = 'user_';
+
+  return titles
+    .filter(title => typeof title === 'string' && title.startsWith(prefix) && title.length > prefix.length)
+    .map(title => title.slice(prefix.length));
+}
 /**
  * Get or create a sheet for a user.
  * @param {string} userId - Unique identifier for the user.
@@ -817,4 +830,5 @@ module.exports = {
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
   getUserEntries,
+  listSnapshotUserIds,
 };

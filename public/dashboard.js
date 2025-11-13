@@ -80,13 +80,64 @@ document.addEventListener('DOMContentLoaded', async () => {
         Run: 'km',
         Ride: 'km',
         Elevation: 'm',
-        Calories: ''
+        Calories: '',
+        Segments: ''
     };
     const WALLET_CATEGORY_META = {
         'Distance Run': { label: 'Run', icon: '🏃' },
         'Distance Ride': { label: 'Ride', icon: '🚴' },
         Elevation: { label: 'Elevation', icon: '🧗' },
         'Calories (kcal)': { label: 'Calories', icon: '🔥' },
+        Segments: { label: 'Segments', icon: '📍' },
+    };
+
+    const coinConfig = {
+        Run: {
+            lifetime: { metric: 'distance', threshold: 10, emoji: '💲' },
+            weekly: { metric: 'distance', threshold: 30, emoji: '💰' },
+            milestone: [
+                { metric: 'distance', threshold: 21, emoji: '🧈', name: 'Half Marathon' },
+                { metric: 'distance', threshold: 42, emoji: '💎', name: 'Full Marathon' }
+            ],
+            ultraWeekly: { metric: 'distance', threshold: 65, emoji: '👑' }
+        },
+        Ride: {
+            lifetime: { metric: 'distance', threshold: 100, emoji: '💲' },
+            weekly: { metric: 'distance', threshold: 300, emoji: '💰' },
+            milestone: [
+                { metric: 'distance', threshold: 200, emoji: '🧈', name: 'Double Century' },
+                { metric: 'distance', threshold: 250, emoji: '💎', name: 'Extreme Endurance' }
+            ],
+            ultraWeekly: { metric: 'distance', threshold: 600, emoji: '👑' }
+        },
+        Elevation: {
+            lifetime: { metric: 'elevation', threshold: 1000, emoji: '💲' },
+            weekly: { metric: 'elevation', threshold: 5000, emoji: '💰' },
+            milestone: [
+                { metric: 'elevation', threshold: 10000, emoji: '🧈', name: 'Climb Crusher' },
+                { metric: 'elevation', threshold: 25000, emoji: '💎', name: 'Peak Performer' }
+            ],
+            ultraWeekly: { metric: 'elevation', threshold: 50000, emoji: '👑' }
+        },
+        kcal: {
+            lifetime: { metric: 'calories', threshold: 1000, emoji: '💲' },
+            weekly: { metric: 'calories', threshold: 6000, emoji: '💰' },
+            milestone: [
+                { metric: 'calories', threshold: 3000, emoji: '🧈', name: 'Metabolism Boost' },
+                { metric: 'calories', threshold: 7500, emoji: '💎', name: 'Metabolic Master' }
+            ],
+            ultraWeekly: { metric: 'calories', threshold: 8000, emoji: '👑' }
+        },
+        Segment: {
+            lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
+            weekly: { metric: 'segmentCompletions', threshold: 5, emoji: '💰' },
+            milestone: [
+                { metric: 'segmentCompletions', threshold: 10, emoji: '🧈', name: '10 Completions' },
+                { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions' },
+                { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions' }
+            ],
+            ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '👑' }
+        }
     };
 
     const toNonNegativeInteger = (value) => {
@@ -1174,6 +1225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             { name: 'Distance Ride', achievements: [] },
             { name: 'Elevation', achievements: [] },
             { name: 'Calories (kcal)', achievements: [] },
+            { name: 'Segments', achievements: [] },
         ];
 
         const findCategory = (categoryName) => categories.find(cat => cat.name === categoryName);
@@ -1287,215 +1339,248 @@ document.addEventListener('DOMContentLoaded', async () => {
         const runActivities = activityList.filter(activity => (activity.type || '').toUpperCase() === 'RUN');
         const rideActivities = activityList.filter(activity => (activity.type || '').toUpperCase() === 'RIDE');
 
-        const runDefinitions = [
-            {
-                threshold: 10,
-                emoji: '💲',
-                name: '10km Run',
-                description: 'Completed a run of at least 10 km',
-            },
-            {
-                threshold: 21,
-                emoji: '🧈',
-                name: '21km Run',
-                description: 'Completed a run of at least 21 km (half marathon)',
-            },
-            {
-                threshold: 42,
-                emoji: '💎',
-                name: '42km Run',
-                description: 'Completed a run of at least 42 km (marathon)',
-            },
-        ];
-        const runCounts = accumulateThresholdCounts(runActivities, runDefinitions, getDistanceKm);
-        runDefinitions.forEach((definition, index) => {
-            pushAchievement('Distance Run', {
-                ...definition,
-                count: runCounts[index],
+        if (coinConfig?.Run) {
+            const runConfig = coinConfig.Run;
+            const runActivityDefinitions = [
+                {
+                    threshold: runConfig.lifetime.threshold,
+                    emoji: runConfig.lifetime.emoji,
+                    name: `${runConfig.lifetime.threshold}km Run`,
+                    description: `Completed a run of at least ${runConfig.lifetime.threshold} km`,
+                },
+                ...runConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold}km Run`,
+                    description: `Completed a run of at least ${milestone.threshold} km`,
+                })),
+            ];
+            const runCounts = accumulateThresholdCounts(runActivities, runActivityDefinitions, getDistanceKm);
+            runActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Run', {
+                    ...definition,
+                    count: runCounts[index],
+                });
             });
-        });
 
-        const runWeeklyDefinitions = [
-            {
-                threshold: 50,
-                emoji: '💰',
-                name: 'Run 50km Week',
-                description: 'Weeks with at least 50 km of running',
-            },
-            {
-                threshold: 100,
-                emoji: '👑',
-                name: 'Run 100km Week',
-                description: 'Weeks with at least 100 km of running',
-            },
-        ];
-        const runWeeklyCounts = accumulateWeeklyThresholdCounts(runActivities, runWeeklyDefinitions, getDistanceKm);
-        runWeeklyDefinitions.forEach((definition, index) => {
-            pushAchievement('Distance Run', {
-                ...definition,
-                count: runWeeklyCounts[index],
+            const runWeeklyDefinitions = [
+                {
+                    threshold: runConfig.weekly.threshold,
+                    emoji: runConfig.weekly.emoji,
+                    name: `Run ${runConfig.weekly.threshold}km Week`,
+                    description: `Weeks with at least ${runConfig.weekly.threshold} km of running`,
+                },
+                {
+                    threshold: runConfig.ultraWeekly.threshold,
+                    emoji: runConfig.ultraWeekly.emoji,
+                    name: `Run ${runConfig.ultraWeekly.threshold}km Week`,
+                    description: `Weeks with at least ${runConfig.ultraWeekly.threshold} km of running`,
+                },
+            ];
+            const runWeeklyCounts = accumulateWeeklyThresholdCounts(runActivities, runWeeklyDefinitions, getDistanceKm);
+            runWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Run', {
+                    ...definition,
+                    count: runWeeklyCounts[index],
+                });
             });
-        });
+        }
 
-        const rideDefinitions = [
-            {
-                threshold: 50,
-                emoji: '💲',
-                name: '50km Ride',
-                description: 'Completed a ride of at least 50 km',
-            },
-            {
-                threshold: 100,
-                emoji: '🧈',
-                name: '100km Ride',
-                description: 'Completed a ride of at least 100 km',
-            },
-            {
-                threshold: 200,
-                emoji: '💎',
-                name: '200km Ride',
-                description: 'Completed a ride of at least 200 km',
-            },
-        ];
-        const rideCounts = accumulateThresholdCounts(rideActivities, rideDefinitions, getDistanceKm);
-        rideDefinitions.forEach((definition, index) => {
-            pushAchievement('Distance Ride', {
-                ...definition,
-                count: rideCounts[index],
+        if (coinConfig?.Ride) {
+            const rideConfig = coinConfig.Ride;
+            const rideActivityDefinitions = [
+                {
+                    threshold: rideConfig.lifetime.threshold,
+                    emoji: rideConfig.lifetime.emoji,
+                    name: `${rideConfig.lifetime.threshold}km Ride`,
+                    description: `Completed a ride of at least ${rideConfig.lifetime.threshold} km`,
+                },
+                ...rideConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold}km Ride`,
+                    description: `Completed a ride of at least ${milestone.threshold} km`,
+                })),
+            ];
+            const rideCounts = accumulateThresholdCounts(rideActivities, rideActivityDefinitions, getDistanceKm);
+            rideActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Ride', {
+                    ...definition,
+                    count: rideCounts[index],
+                });
             });
-        });
 
-        const rideWeeklyDefinitions = [
-            {
-                threshold: 300,
-                emoji: '💰',
-                name: 'Ride 300km Week',
-                description: 'Weeks with at least 300 km of riding',
-            },
-            {
-                threshold: 500,
-                emoji: '👑',
-                name: 'Ride 500km Week',
-                description: 'Weeks with at least 500 km of riding',
-            },
-        ];
-        const rideWeeklyCounts = accumulateWeeklyThresholdCounts(rideActivities, rideWeeklyDefinitions, getDistanceKm);
-        rideWeeklyDefinitions.forEach((definition, index) => {
-            pushAchievement('Distance Ride', {
-                ...definition,
-                count: rideWeeklyCounts[index],
+            const rideWeeklyDefinitions = [
+                {
+                    threshold: rideConfig.weekly.threshold,
+                    emoji: rideConfig.weekly.emoji,
+                    name: `Ride ${rideConfig.weekly.threshold}km Week`,
+                    description: `Weeks with at least ${rideConfig.weekly.threshold} km of riding`,
+                },
+                {
+                    threshold: rideConfig.ultraWeekly.threshold,
+                    emoji: rideConfig.ultraWeekly.emoji,
+                    name: `Ride ${rideConfig.ultraWeekly.threshold}km Week`,
+                    description: `Weeks with at least ${rideConfig.ultraWeekly.threshold} km of riding`,
+                },
+            ];
+            const rideWeeklyCounts = accumulateWeeklyThresholdCounts(rideActivities, rideWeeklyDefinitions, getDistanceKm);
+            rideWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Ride', {
+                    ...definition,
+                    count: rideWeeklyCounts[index],
+                });
             });
-        });
+        }
 
-        const elevationDefinitions = [
-            {
-                threshold: 1000,
-                emoji: '💲',
-                name: '1000m Elevation',
-                description: 'Activities with at least 1,000 m of climbing',
-            },
-            {
-                threshold: 2500,
-                emoji: '🧈',
-                name: '2500m Elevation',
-                description: 'Activities with at least 2,500 m of climbing',
-            },
-            {
-                threshold: 4000,
-                emoji: '💎',
-                name: '4000m Elevation',
-                description: 'Activities with at least 4,000 m of climbing',
-            },
-        ];
-        const elevationCounts = accumulateThresholdCounts(activityList, elevationDefinitions, getElevationGain);
-        elevationDefinitions.forEach((definition, index) => {
-            pushAchievement('Elevation', {
-                ...definition,
-                count: elevationCounts[index],
+        if (coinConfig?.Elevation) {
+            const elevationConfig = coinConfig.Elevation;
+            const elevationActivityDefinitions = [
+                {
+                    threshold: elevationConfig.lifetime.threshold,
+                    emoji: elevationConfig.lifetime.emoji,
+                    name: `${elevationConfig.lifetime.threshold.toLocaleString()}m Elevation`,
+                    description: `Activities with at least ${elevationConfig.lifetime.threshold.toLocaleString()} m of climbing`,
+                },
+                ...elevationConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold.toLocaleString()}m Elevation`,
+                    description: `Activities with at least ${milestone.threshold.toLocaleString()} m of climbing`,
+                })),
+            ];
+            const elevationCounts = accumulateThresholdCounts(activityList, elevationActivityDefinitions, getElevationGain);
+            elevationActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Elevation', {
+                    ...definition,
+                    count: elevationCounts[index],
+                });
             });
-        });
 
-        const elevationMonthlyDefinitions = [
-            {
-                threshold: 30000,
-                emoji: '💰',
-                name: '30k Elevation Month',
-                description: 'Months with at least 30,000 m climbed',
-            },
-        ];
-        const elevationMonthlyCounts = accumulateMonthlyThresholdCounts(activityList, elevationMonthlyDefinitions, getElevationGain);
-        elevationMonthlyDefinitions.forEach((definition, index) => {
-            pushAchievement('Elevation', {
-                ...definition,
-                count: elevationMonthlyCounts[index],
+            const elevationWeeklyDefinitions = [
+                {
+                    threshold: elevationConfig.weekly.threshold,
+                    emoji: elevationConfig.weekly.emoji,
+                    name: `${elevationConfig.weekly.threshold.toLocaleString()}m Climb Week`,
+                    description: `Weeks climbing at least ${elevationConfig.weekly.threshold.toLocaleString()} m`,
+                },
+                {
+                    threshold: elevationConfig.ultraWeekly.threshold,
+                    emoji: elevationConfig.ultraWeekly.emoji,
+                    name: `${elevationConfig.ultraWeekly.threshold.toLocaleString()}m Climb Week`,
+                    description: `Weeks climbing at least ${elevationConfig.ultraWeekly.threshold.toLocaleString()} m`,
+                },
+            ];
+            const elevationWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, elevationWeeklyDefinitions, getElevationGain);
+            elevationWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Elevation', {
+                    ...definition,
+                    count: elevationWeeklyCounts[index],
+                });
             });
-        });
+        }
 
-        const everestingDefinitions = [
-            {
-                threshold: EVEREST_HEIGHT_M,
-                emoji: '👑',
-                name: 'Everesting Crowd',
-                description: 'Activities with elevation gain matching Mt. Everest (8,849 m)',
-            },
-        ];
-        const everestingCounts = accumulateThresholdCounts(activityList, everestingDefinitions, getElevationGain);
-        everestingDefinitions.forEach((definition, index) => {
-            pushAchievement('Elevation', {
-                ...definition,
-                count: everestingCounts[index],
+        if (coinConfig?.kcal) {
+            const calorieConfig = coinConfig.kcal;
+            const calorieActivityDefinitions = [
+                {
+                    threshold: calorieConfig.lifetime.threshold,
+                    emoji: calorieConfig.lifetime.emoji,
+                    name: `${calorieConfig.lifetime.threshold} kcal Activity`,
+                    description: `Activities burning at least ${calorieConfig.lifetime.threshold.toLocaleString()} kcal`,
+                },
+                ...calorieConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold} kcal Activity`,
+                    description: `Activities burning at least ${milestone.threshold.toLocaleString()} kcal`,
+                })),
+            ];
+            const calorieCounts = accumulateThresholdCounts(activityList, calorieActivityDefinitions, calculateActivityCalories);
+            calorieActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Calories (kcal)', {
+                    ...definition,
+                    count: calorieCounts[index],
+                });
             });
-        });
 
-        const calorieDefinitions = [
-            {
-                threshold: 1000,
-                emoji: '💲',
-                name: '1000 kcal Activity',
-                description: 'Burned at least 1,000 kcal in an activity',
-            },
-            {
-                threshold: 2000,
-                emoji: '🧈',
-                name: '2000 kcal Activity',
-                description: 'Burned at least 2,000 kcal in an activity',
-            },
-            {
-                threshold: 3500,
-                emoji: '💎',
-                name: '3500 kcal Activity',
-                description: 'Burned at least 3,500 kcal in an activity',
-            },
-        ];
-        const calorieCounts = accumulateThresholdCounts(activityList, calorieDefinitions, calculateActivityCalories);
-        calorieDefinitions.forEach((definition, index) => {
-            pushAchievement('Calories (kcal)', {
-                ...definition,
-                count: calorieCounts[index],
+            const calorieWeeklyDefinitions = [
+                {
+                    threshold: calorieConfig.weekly.threshold,
+                    emoji: calorieConfig.weekly.emoji,
+                    name: `${calorieConfig.weekly.threshold.toLocaleString()} kcal Week`,
+                    description: `Weeks burning at least ${calorieConfig.weekly.threshold.toLocaleString()} kcal`,
+                },
+                {
+                    threshold: calorieConfig.ultraWeekly.threshold,
+                    emoji: calorieConfig.ultraWeekly.emoji,
+                    name: `${calorieConfig.ultraWeekly.threshold.toLocaleString()} kcal Week`,
+                    description: `Weeks burning at least ${calorieConfig.ultraWeekly.threshold.toLocaleString()} kcal`,
+                },
+            ];
+            const calorieWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, calorieWeeklyDefinitions, calculateActivityCalories);
+            calorieWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Calories (kcal)', {
+                    ...definition,
+                    count: calorieWeeklyCounts[index],
+                });
             });
-        });
+        }
 
-        const calorieWeeklyDefinitions = [
-            {
-                threshold: 15000,
-                emoji: '💰',
-                name: '15k kcal Week',
-                description: 'Weeks burning at least 15,000 kcal',
-            },
-            {
-                threshold: 25000,
-                emoji: '👑',
-                name: '25k kcal Week',
-                description: 'Weeks burning at least 25,000 kcal',
-            },
-        ];
-        const calorieWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, calorieWeeklyDefinitions, calculateActivityCalories);
-        calorieWeeklyDefinitions.forEach((definition, index) => {
-            pushAchievement('Calories (kcal)', {
-                ...definition,
-                count: calorieWeeklyCounts[index],
+        const getSegmentCompletionCount = (activity) => {
+            if (Array.isArray(activity?.segment_efforts)) {
+                return activity.segment_efforts.length;
+            }
+            const segmentCount = Number(activity?.segment_count);
+            return Number.isFinite(segmentCount) ? segmentCount : 0;
+        };
+
+        if (coinConfig?.Segment) {
+            const segmentConfig = coinConfig.Segment;
+            const segmentActivityDefinitions = [
+                {
+                    threshold: segmentConfig.lifetime.threshold,
+                    emoji: segmentConfig.lifetime.emoji,
+                    name: `${segmentConfig.lifetime.threshold} Segment Completion`,
+                    description: `Activities completing at least ${segmentConfig.lifetime.threshold} segment${segmentConfig.lifetime.threshold === 1 ? '' : 's'}`,
+                },
+                ...segmentConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold} Segment Completions`,
+                    description: `Activities completing at least ${milestone.threshold} segments`,
+                })),
+            ];
+            const segmentCounts = accumulateThresholdCounts(activityList, segmentActivityDefinitions, getSegmentCompletionCount);
+            segmentActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Segments', {
+                    ...definition,
+                    count: segmentCounts[index],
+                });
             });
-        });
+
+            const segmentWeeklyDefinitions = [
+                {
+                    threshold: segmentConfig.weekly.threshold,
+                    emoji: segmentConfig.weekly.emoji,
+                    name: `${segmentConfig.weekly.threshold} Segment Week`,
+                    description: `Weeks with at least ${segmentConfig.weekly.threshold} segment completions`,
+                },
+                {
+                    threshold: segmentConfig.ultraWeekly.threshold,
+                    emoji: segmentConfig.ultraWeekly.emoji,
+                    name: `${segmentConfig.ultraWeekly.threshold} Segment Week`,
+                    description: `Weeks with at least ${segmentConfig.ultraWeekly.threshold} segment completions`,
+                },
+            ];
+            const segmentWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, segmentWeeklyDefinitions, getSegmentCompletionCount);
+            segmentWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Segments', {
+                    ...definition,
+                    count: segmentWeeklyCounts[index],
+                });
+            });
+        }
 
         const medalsEarned = [];
         const activityYears = Array.from(new Set(activityList
@@ -4008,6 +4093,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const everestSummits = elevationGain / EVEREST_HEIGHT_M;
         const pizzaCount = calories / PIZZA_KCAL;
         const likes = getActivityLikesCount(activity);
+        const segmentCompletions = Array.isArray(activity.segment_efforts)
+            ? activity.segment_efforts.length
+            : (Number.isFinite(Number(activity?.segment_count)) ? Number(activity.segment_count) : 0);
 
         return {
             distanceKm,
@@ -4016,7 +4104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             globeTrips,
             everestSummits,
             pizzaCount,
-            likes
+            likes,
+            segmentCompletions,
         };
     }
 
@@ -7598,55 +7687,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     activeRankConfig = rankConfig;
 
     // === Coin Configuration ===
-    const coinConfig = {
-        'Run': {
-            lifetime: { metric: 'distance', threshold: 10, emoji: '💲' },
-            weekly: { metric: 'distance', threshold: 30, emoji: '💰' },
-            milestone: [
-                { metric: 'distance', threshold: 21, emoji: '🧈', name: 'Half Marathon' },
-                { metric: 'distance', threshold: 42, emoji: '💎', name: 'Full Marathon' }
-            ],
-            ultraWeekly: { metric: 'distance', threshold: 65, emoji: '👑' }
-        },
-        'Ride': {
-            lifetime: { metric: 'distance', threshold: 100, emoji: '💲' },
-            weekly: { metric: 'distance', threshold: 300, emoji: '💰' },
-            milestone: [
-                { metric: 'distance', threshold: 200, emoji: '🧈', name: 'Double Century' },
-                { metric: 'distance', threshold: 250, emoji: '💎', name: 'Extreme Endurance' }
-            ],
-            ultraWeekly: { metric: 'distance', threshold: 600, emoji: '👑' }
-        },
-        'Elevation': {
-            lifetime: { metric: 'elevation', threshold: 1000, emoji: '💲' },
-            weekly: { metric: 'elevation', threshold: 5000, emoji: '💰' },
-            milestone: [
-                { metric: 'elevation', threshold: 10000, emoji: '🧈', name: 'Climb Crusher' },
-                { metric: 'elevation', threshold: 25000, emoji: '💎', name: 'Peak Performer' }
-            ],
-            ultraWeekly: { metric: 'elevation', threshold: 50000, emoji: '👑' }
-        },
-        'kcal': {
-            lifetime: { metric: 'calories', threshold: 1000, emoji: '💲' },
-            weekly: { metric: 'calories', threshold: 6000, emoji: '💰' },
-            milestone: [
-                { metric: 'calories', threshold: 3000, emoji: '🧈', name: 'Metabolism Boost' },
-                { metric: 'calories', threshold: 7500, emoji: '💎', name: 'Metabolic Master' }
-            ],
-            ultraWeekly: { metric: 'calories', threshold: 8000, emoji: '👑' }
-        },
-        'Segment': { // New category for Segment Completions
-            lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
-            weekly: { metric: 'segmentCompletions', threshold: 5, emoji: '💰' },
-            milestone: [
-                { metric: 'segmentCompletions', threshold: 10, emoji: '🧈', name: '10 Completions' },
-                { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions' },
-                { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions' }
-            ],
-            ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '👑' }
-        }
-    };
-
     function getActivityMedals(activity = {}) {
         if (!activity || !medalsConfig) {
             return [];
@@ -7699,60 +7739,105 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function getActivityCoinRewards(activity = {}, statsOverride = null) {
         const rewards = [];
+        const addCoin = (emoji) => {
+            if (!emoji) {
+                return;
+            }
+            if (!rewards.includes(emoji)) {
+                rewards.push(emoji);
+            }
+        };
         const stats = statsOverride || computeActivitySmallStats(activity);
         const type = (activity.type || '').toUpperCase();
 
         if (coinConfig?.Run && type === 'RUN') {
             const runConfig = coinConfig.Run;
             if (stats.distanceKm >= runConfig.lifetime.threshold) {
-                rewards.push(runConfig.lifetime.emoji);
+                addCoin(runConfig.lifetime.emoji);
             }
             if (stats.distanceKm >= runConfig.weekly.threshold) {
-                rewards.push(runConfig.weekly.emoji);
+                addCoin(runConfig.weekly.emoji);
             }
             runConfig.milestone.forEach(milestone => {
                 if (stats.distanceKm >= milestone.threshold) {
-                    rewards.push(milestone.emoji);
+                    addCoin(milestone.emoji);
                 }
             });
             if (stats.distanceKm >= runConfig.ultraWeekly.threshold) {
-                rewards.push(runConfig.ultraWeekly.emoji);
+                addCoin(runConfig.ultraWeekly.emoji);
             }
         }
 
         if (coinConfig?.Ride && type === 'RIDE') {
             const rideConfig = coinConfig.Ride;
             if (stats.distanceKm >= rideConfig.lifetime.threshold) {
-                rewards.push(rideConfig.lifetime.emoji);
+                addCoin(rideConfig.lifetime.emoji);
             }
             if (stats.distanceKm >= rideConfig.weekly.threshold) {
-                rewards.push(rideConfig.weekly.emoji);
+                addCoin(rideConfig.weekly.emoji);
             }
             rideConfig.milestone.forEach(milestone => {
                 if (stats.distanceKm >= milestone.threshold) {
-                    rewards.push(milestone.emoji);
+                    addCoin(milestone.emoji);
                 }
             });
             if (stats.distanceKm >= rideConfig.ultraWeekly.threshold) {
-                rewards.push(rideConfig.ultraWeekly.emoji);
+                addCoin(rideConfig.ultraWeekly.emoji);
+            }
+        }
+
+        if (coinConfig?.Elevation) {
+            const elevationConfig = coinConfig.Elevation;
+            if (stats.elevationGain >= elevationConfig.lifetime.threshold) {
+                addCoin(elevationConfig.lifetime.emoji);
+            }
+            if (stats.elevationGain >= elevationConfig.weekly.threshold) {
+                addCoin(elevationConfig.weekly.emoji);
+            }
+            elevationConfig.milestone.forEach(milestone => {
+                if (stats.elevationGain >= milestone.threshold) {
+                    addCoin(milestone.emoji);
+                }
+            });
+            if (stats.elevationGain >= elevationConfig.ultraWeekly.threshold) {
+                addCoin(elevationConfig.ultraWeekly.emoji);
             }
         }
 
         if (coinConfig?.kcal) {
             const kcalConfig = coinConfig.kcal;
             if (stats.calories >= kcalConfig.lifetime.threshold) {
-                rewards.push(kcalConfig.lifetime.emoji);
+                addCoin(kcalConfig.lifetime.emoji);
             }
             if (stats.calories >= kcalConfig.weekly.threshold) {
-                rewards.push(kcalConfig.weekly.emoji);
+                addCoin(kcalConfig.weekly.emoji);
             }
             kcalConfig.milestone.forEach(milestone => {
                 if (stats.calories >= milestone.threshold) {
-                    rewards.push(milestone.emoji);
+                    addCoin(milestone.emoji);
                 }
             });
             if (stats.calories >= kcalConfig.ultraWeekly.threshold) {
-                rewards.push(kcalConfig.ultraWeekly.emoji);
+                addCoin(kcalConfig.ultraWeekly.emoji);
+            }
+        }
+
+        if (coinConfig?.Segment) {
+            const segmentConfig = coinConfig.Segment;
+            const completions = Number(stats.segmentCompletions) || 0;
+            if (completions >= segmentConfig.lifetime.threshold) {
+                addCoin(segmentConfig.lifetime.emoji);
+            }
+            if (completions >= segmentConfig.weekly.threshold) {
+                addCoin(segmentConfig.weekly.emoji);
+            }
+            segmentConfig.milestone.forEach(milestone => {
+                if (completions >= milestone.threshold) {
+                    addCoin(milestone.emoji);
+                }
+            });
+            if (completions >= segmentConfig.ultraWeekly.threshold) {
+                addCoin(segmentConfig.ultraWeekly.emoji);
             }
         }
 

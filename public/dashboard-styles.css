@@ -780,7 +780,8 @@
             min-width: 0;
         }
 
-        #profile-metric-pills .profile-metrics__row {
+        .profile-metrics.stats-card__pills .profile-metrics__row,
+        .profile-card__coins.stats-card__pills > .profile-metrics__row {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
@@ -788,11 +789,26 @@
             gap: 0.5rem;
         }
 
-        #profile-metric-pills .profile-metric-pill {
+        .profile-metrics.stats-card__pills .profile-metric-pill,
+        .profile-card__coins.stats-card__pills .profile-metric-pill {
             flex: 0 0 auto;
             width: auto;
             min-width: 3rem;
             padding: 0.4rem 0.65rem;
+        }
+
+        @media (max-width: 640px) {
+            .profile-card__coins.stats-card__pills .profile-metric-pill {
+                flex: 1 1 calc(50% - 0.45rem);
+                min-width: min(8.5rem, 100%);
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .profile-card__coins.stats-card__pills .profile-metric-pill {
+                flex-basis: 100%;
+            }
         }
 
         .profile-metric-pill:hover {
@@ -1676,6 +1692,18 @@
             .wallet-total-pill {
                 flex-basis: 100%;
             }
+        }
+
+        body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-card__coin {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+            text-align: center;
+        }
+
+        body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-card__coin-emoji {
+            line-height: 1;
         }
 
         .wallet-total-pill__icon {

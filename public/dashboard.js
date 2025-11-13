@@ -3934,6 +3934,63 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    const resolvePositiveNumber = (value) => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+    };
+
+    function computeLifetimeFunStats({ activities = [], totals = {} } = {}) {
+        const aggregated = Array.isArray(activities)
+            ? activities.reduce((acc, activity) => {
+                const stats = computeActivitySmallStats(activity);
+                acc.distanceKm += stats.distanceKm;
+                acc.elevationGain += stats.elevationGain;
+                acc.calories += stats.calories;
+                acc.likes += stats.likes;
+                return acc;
+            }, {
+                distanceKm: 0,
+                elevationGain: 0,
+                calories: 0,
+                likes: 0,
+            })
+            : {
+                distanceKm: 0,
+                elevationGain: 0,
+                calories: 0,
+                likes: 0,
+            };
+
+        const totalDistanceMeters = resolvePositiveNumber(totals?.distance);
+        if (totalDistanceMeters > 0) {
+            aggregated.distanceKm = totalDistanceMeters / 1000;
+        }
+
+        const totalElevationGain = resolvePositiveNumber(totals?.elevation);
+        if (totalElevationGain > 0) {
+            aggregated.elevationGain = totalElevationGain;
+        }
+
+        const totalCalories = resolvePositiveNumber(totals?.calories);
+        if (totalCalories > 0) {
+            aggregated.calories = totalCalories;
+        }
+
+        const globeTrips = aggregated.distanceKm / EARTH_CIRCUMFERENCE_KM;
+        const everestSummits = aggregated.elevationGain / EVEREST_HEIGHT_M;
+        const pizzas = aggregated.calories / PIZZA_KCAL;
+
+        return {
+            distanceKm: aggregated.distanceKm,
+            elevationGain: aggregated.elevationGain,
+            calories: aggregated.calories,
+            globeTrips: Number.isFinite(globeTrips) && globeTrips > 0 ? globeTrips : 0,
+            everestSummits: Number.isFinite(everestSummits) && everestSummits > 0 ? everestSummits : 0,
+            pizzas: Number.isFinite(pizzas) && pizzas > 0 ? pizzas : 0,
+            likes: aggregated.likes,
+        };
+    }
+
     const refreshLoadingProgressBar = () => {
         if (!loadingProgressBarFill || loadingStepElements.length === 0) {
             return;
@@ -8205,24 +8262,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Always calculate the fun stats from the lifetime activity history rather than the
         // currently filtered view so the numbers remain consistent across filters.
         const lifetimeActivitiesForStats = Array.isArray(allData.activities) ? allData.activities : activities;
-        const aggregatedSmallStats = lifetimeActivitiesForStats.reduce((acc, activity) => {
-            const stats = computeActivitySmallStats(activity);
-            acc.distanceKm += stats.distanceKm;
-            acc.elevationGain += stats.elevationGain;
-            acc.calories += stats.calories;
-            acc.globeTrips += stats.globeTrips;
-            acc.everestSummits += stats.everestSummits;
-            acc.pizzas += stats.pizzaCount;
-            acc.likes += stats.likes;
-            return acc;
-        }, {
-            distanceKm: 0,
-            elevationGain: 0,
-            calories: 0,
-            globeTrips: 0,
-            everestSummits: 0,
-            pizzas: 0,
-            likes: 0
+        const lifetimeTotals = (data?.totals && typeof data.totals === 'object')
+            ? data.totals
+            : (allData?.totals || {});
+        const aggregatedSmallStats = computeLifetimeFunStats({
+            activities: lifetimeActivitiesForStats,
+            totals: lifetimeTotals,
         });
 
         if (globeTotalElement) {

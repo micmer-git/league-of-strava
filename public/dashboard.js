@@ -8613,15 +8613,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                             cardCoin.classList.add(className);
                         });
                     }
+                    const coinEmoji = document.createElement('span');
+                    coinEmoji.className = 'achievement-card__coin-emoji';
+                    coinEmoji.textContent = emoji;
                     const coinValue = document.createElement('span');
                     coinValue.className = 'achievement-card__coin-value';
                     coinValue.textContent = countValue;
                     const coinLabel = document.createElement('span');
                     coinLabel.className = 'achievement-card__coin-label';
-                    coinLabel.textContent = `${emoji} ${rowConfig.label}`;
+                    coinLabel.textContent = rowConfig.label;
                     const coinNote = document.createElement('span');
                     coinNote.className = 'achievement-card__coin-note';
                     coinNote.textContent = detailLabel;
+                    cardCoin.appendChild(coinEmoji);
                     cardCoin.appendChild(coinValue);
                     cardCoin.appendChild(coinLabel);
                     cardCoin.appendChild(coinNote);

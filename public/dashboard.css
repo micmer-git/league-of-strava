@@ -533,11 +533,6 @@ button,
 
 .insight-anchor--block {
     display: block;
-    width: 100%;
-}
-
-.insight-anchor--block > * {
-    width: 100%;
 }
 
 .insight-popover {

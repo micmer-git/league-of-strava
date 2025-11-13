@@ -1242,6 +1242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const buildLifetimeRewardSummary = (activities = []) => {
         const activityList = Array.isArray(activities) ? activities : [];
+        const aggregateContext = createAggregateContext(activityList);
         const categories = [
             { name: 'Distance Run', achievements: [] },
             { name: 'Distance Ride', achievements: [] },
@@ -1625,7 +1626,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             let count = 0;
 
-            if (result.isDayBased) {
+            if (typeof medal.aggregateCriteria === 'function') {
+                try {
+                    const aggregateCount = medal.aggregateCriteria(activityList, aggregateContext);
+                    if (Number.isFinite(aggregateCount) && aggregateCount > 0) {
+                        count = Math.floor(aggregateCount);
+                    }
+                } catch (error) {
+                    count = 0;
+                }
+            } else if (result.isDayBased) {
                 const resolvedDates = new Set();
                 const addResolvedDate = (value) => {
                     const normalized = normalizeMonthDayToken(value);
@@ -6019,7 +6029,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         let marathonCount = 0;
-        const dayBuckets = new Map();
         const yearlyDistance = {};
         const yearlyHours = {};
         const yearlyElevation = {};
@@ -6030,15 +6039,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            const { year, dayKey } = calendarReference;
+            const { year } = calendarReference;
 
             const distanceMeters = Number.isFinite(activity.distance) ? activity.distance : 0;
             const movingTimeSeconds = Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
             const elevationGain = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
             const normalizedType = (activity.type || '').toUpperCase();
             const isRun = normalizedType.includes('RUN');
-            const isRide = normalizedType.includes('RIDE');
-            const isSwim = normalizedType.includes('SWIM');
 
             yearlyDistance[year] = (yearlyDistance[year] || 0) + (distanceMeters / 1000);
             yearlyHours[year] = (yearlyHours[year] || 0) + (movingTimeSeconds / 3600);
@@ -6047,22 +6054,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (isRun && distanceMeters >= 42195) {
                 marathonCount += 1;
             }
-
-            const bucketKey = dayKey;
-            if (!dayBuckets.has(bucketKey)) {
-                dayBuckets.set(bucketKey, { run: 0, ride: 0, swim: 0 });
-            }
-            const bucket = dayBuckets.get(bucketKey);
-            if (isRun) {
-                bucket.run += distanceMeters;
-            }
-            if (isRide) {
-                bucket.ride += distanceMeters;
-            }
-            if (isSwim) {
-                bucket.swim += distanceMeters;
-            }
         });
+
+        const aggregateContext = createAggregateContext(lifetimeActivities);
 
         let halfIronmanCount = 0;
         let fullIronmanCount = 0;
@@ -6070,22 +6064,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const meetsHalfIronman = (bucket) => {
             const standardThreshold =
-                meetsWithFlex(bucket.swim, 1900) &&
-                meetsWithFlex(bucket.ride, 90000) &&
-                meetsWithFlex(bucket.run, 21100);
+                meetsWithFlex(bucket.swimDistance, 1900) &&
+                meetsWithFlex(bucket.rideDistance, 90000) &&
+                meetsWithFlex(bucket.runDistance, 21100);
             const relaxedThreshold =
-                bucket.swim >= 1700 &&
-                bucket.ride >= 80000 &&
-                bucket.run >= 20000;
+                bucket.swimDistance >= 1700 &&
+                bucket.rideDistance >= 80000 &&
+                bucket.runDistance >= 20000;
             return standardThreshold || relaxedThreshold;
         };
 
-        dayBuckets.forEach(bucket => {
+        aggregateContext.dailySummaries.forEach(bucket => {
             const meetsHalf = meetsHalfIronman(bucket);
             const meetsFull =
-                meetsWithFlex(bucket.swim, 3700) &&
-                meetsWithFlex(bucket.ride, 175000) &&
-                meetsWithFlex(bucket.run, 40000);
+                meetsWithFlex(bucket.swimDistance, 3700) &&
+                meetsWithFlex(bucket.rideDistance, 175000) &&
+                meetsWithFlex(bucket.runDistance, 40000);
 
             if (meetsFull) {
                 fullIronmanCount += 1;
@@ -6153,6 +6147,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 count: megaElevationYears
             });
         }
+
+        BEST_CLASS_MEDALS.forEach((medal) => {
+            if (typeof medal.aggregateResolver !== 'function') {
+                return;
+            }
+            const rawCount = medal.aggregateResolver(aggregateContext);
+            const normalizedCount = Number.isFinite(rawCount) ? Math.floor(Math.max(rawCount, 0)) : 0;
+            if (normalizedCount > 0) {
+                achievements.push({
+                    emoji: medal.emoji,
+                    label: medal.name,
+                    description: medal.description,
+                    count: normalizedCount,
+                });
+            }
+        });
 
         return achievements;
     };
@@ -7695,8 +7705,286 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 'Performance Challenges';
     };
 
+    const DAY_IN_MS = 24 * 60 * 60 * 1000;
+    const METERS_IN_KILOMETER = 1000;
+    const SECONDS_IN_HOUR = 3600;
+
+    const createAggregateContext = (activityList = []) => {
+        const summariesByDate = new Map();
+
+        if (!Array.isArray(activityList) || activityList.length === 0) {
+            return { dailySummaries: [], byDate: summariesByDate };
+        }
+
+        const getOrCreateSummary = (dateKey) => {
+            if (!summariesByDate.has(dateKey)) {
+                summariesByDate.set(dateKey, {
+                    dateKey,
+                    totalActivities: 0,
+                    totalMovingTimeSeconds: 0,
+                    totalElevationGain: 0,
+                    runDistance: 0,
+                    runActivities: 0,
+                    rideDistance: 0,
+                    rideActivities: 0,
+                    swimDistance: 0,
+                    swimActivities: 0,
+                });
+            }
+            return summariesByDate.get(dateKey);
+        };
+
+        activityList.forEach(activity => {
+            const dateKey = getActivityDateKey(activity);
+            if (!dateKey) {
+                return;
+            }
+
+            const summary = getOrCreateSummary(dateKey);
+
+            const movingTimeSeconds = Number(activity.moving_time) || 0;
+            const elevationGain = Number(activity.total_elevation_gain) || 0;
+            const distanceMeters = Number(activity.distance) || 0;
+            const normalizedType = (activity.type || '').toUpperCase();
+
+            summary.totalActivities += 1;
+            summary.totalMovingTimeSeconds += movingTimeSeconds > 0 ? movingTimeSeconds : 0;
+            summary.totalElevationGain += elevationGain > 0 ? elevationGain : 0;
+
+            if (normalizedType.includes('RUN')) {
+                summary.runActivities += 1;
+                summary.runDistance += distanceMeters > 0 ? distanceMeters : 0;
+            }
+
+            if (normalizedType.includes('RIDE')) {
+                summary.rideActivities += 1;
+                summary.rideDistance += distanceMeters > 0 ? distanceMeters : 0;
+            }
+
+            if (normalizedType.includes('SWIM')) {
+                summary.swimActivities += 1;
+                summary.swimDistance += distanceMeters > 0 ? distanceMeters : 0;
+            }
+        });
+
+        const dailySummaries = Array.from(summariesByDate.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+        return { dailySummaries, byDate: summariesByDate };
+    };
+
+    const countDailyMatches = (dailySummaries, predicate) => {
+        if (!Array.isArray(dailySummaries) || dailySummaries.length === 0) {
+            return 0;
+        }
+
+        return dailySummaries.reduce((accumulator, summary) => {
+            try {
+                return predicate(summary) ? accumulator + 1 : accumulator;
+            } catch (error) {
+                return accumulator;
+            }
+        }, 0);
+    };
+
+    const countConsecutiveDailyMatches = (dailySummaries, predicate, requiredLength) => {
+        if (!Array.isArray(dailySummaries) || dailySummaries.length === 0 || !Number.isFinite(requiredLength) || requiredLength <= 0) {
+            return 0;
+        }
+
+        let count = 0;
+        let streak = 0;
+        let previousDate = null;
+
+        dailySummaries.forEach(summary => {
+            const currentDate = new Date(`${summary.dateKey}T00:00:00Z`);
+            const qualifies = (() => {
+                try {
+                    return predicate(summary);
+                } catch (error) {
+                    return false;
+                }
+            })();
+
+            if (!qualifies || Number.isNaN(currentDate.getTime())) {
+                streak = 0;
+                previousDate = null;
+                return;
+            }
+
+            if (previousDate) {
+                const diffDays = Math.round((currentDate - previousDate) / DAY_IN_MS);
+                streak = diffDays === 1 ? streak + 1 : 1;
+            } else {
+                streak = 1;
+            }
+
+            if (streak >= requiredLength) {
+                count += 1;
+            }
+
+            previousDate = currentDate;
+        });
+
+        return count;
+    };
+
+    const aggregateBestClassResolvers = {
+        runRideOneDay: (context) => countDailyMatches(context?.dailySummaries, summary => summary.runDistance >= 10 * METERS_IN_KILOMETER && summary.rideDistance >= 40 * METERS_IN_KILOMETER),
+        runRideSwimOneDay: (context) => countDailyMatches(
+            context?.dailySummaries,
+            summary => summary.runDistance >= 10 * METERS_IN_KILOMETER
+                && summary.rideDistance >= 40 * METERS_IN_KILOMETER
+                && summary.swimDistance >= 1 * METERS_IN_KILOMETER
+        ),
+        doubleRunDay: (context) => countDailyMatches(context?.dailySummaries, summary => summary.runActivities >= 2),
+        doubleRideDay: (context) => countDailyMatches(context?.dailySummaries, summary => summary.rideActivities >= 2),
+        threeActivitiesOneDay: (context) => countDailyMatches(context?.dailySummaries, summary => summary.totalActivities >= 3),
+        consecutiveRide100: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.rideDistance >= 100 * METERS_IN_KILOMETER, 2),
+        consecutiveRide150: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.rideDistance >= 150 * METERS_IN_KILOMETER, 2),
+        consecutiveFiveHourDaysTwo: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.totalMovingTimeSeconds >= 5 * SECONDS_IN_HOUR, 2),
+        consecutiveFiveHourDaysThree: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.totalMovingTimeSeconds >= 5 * SECONDS_IN_HOUR, 3),
+        consecutiveRun10k: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.runDistance >= 10 * METERS_IN_KILOMETER, 2),
+        consecutiveHalfMarathons: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.runDistance >= 21 * METERS_IN_KILOMETER, 2),
+        consecutiveMarathons: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.runDistance >= 42 * METERS_IN_KILOMETER, 2),
+        consecutiveElevation1500: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.totalElevationGain >= 1500, 2),
+        consecutiveElevation3000: (context) => countConsecutiveDailyMatches(context?.dailySummaries, summary => summary.totalElevationGain >= 3000, 2),
+        olympicTriathlons: (context) => countDailyMatches(
+            context?.dailySummaries,
+            summary => summary.swimDistance >= 1.5 * METERS_IN_KILOMETER
+                && summary.rideDistance >= 40 * METERS_IN_KILOMETER
+                && summary.runDistance >= 10 * METERS_IN_KILOMETER
+        ),
+    };
+
+    const BEST_CLASS_MEDALS = [
+        {
+            name: 'Run & Ride One Day',
+            emoji: '🏃‍♂️🚴‍♂️',
+            description: 'Completed at least 10 km of running and 40 km of riding on the same day.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.runRideOneDay,
+        },
+        {
+            name: 'Run, Ride & Swim One Day',
+            emoji: '🏃‍♂️🚴‍♂️🏊‍♂️',
+            description: 'Logged qualifying run, ride and swim sessions within the same day.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.runRideSwimOneDay,
+        },
+        {
+            name: 'Double Run Day',
+            emoji: '🏃‍♂️2️⃣',
+            description: 'Recorded two separate runs on the same day.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.doubleRunDay,
+        },
+        {
+            name: 'Double Ride One Day',
+            emoji: '🚴‍♂️2️⃣',
+            description: 'Completed two distinct rides within a single day.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.doubleRideDay,
+        },
+        {
+            name: '3 Activities One Day',
+            emoji: '3️⃣',
+            description: 'Stacked three or more activities into one day.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.threeActivitiesOneDay,
+        },
+        {
+            name: '2 Days Consecutive of 100 km Ride',
+            emoji: '🚴‍♂️💯',
+            description: 'Rode at least 100 km on back-to-back days.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveRide100,
+        },
+        {
+            name: '2 Days Consecutive of 150 km Ride',
+            emoji: '🚴‍♂️🔁',
+            description: 'Delivered 150 km rides on two consecutive days.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveRide150,
+        },
+        {
+            name: '2 Days Consecutive 5h+ Each Day',
+            emoji: '⏱️⏱️',
+            description: 'Logged more than five hours of training on two straight days.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysTwo,
+        },
+        {
+            name: '3 Days Consecutive 5h+ Each Day',
+            emoji: '⏱️⏱️⏱️',
+            description: 'Maintained five-hour training days across a three-day stretch.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysThree,
+        },
+        {
+            name: '2 Days of 10 km Consecutive Run',
+            emoji: '🏃‍♂️💨',
+            description: 'Ran at least 10 km on two consecutive days.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveRun10k,
+        },
+        {
+            name: '2 Half Marathons Back to Back',
+            emoji: '🛡️🏃‍♂️',
+            description: 'Hit half-marathon distance on consecutive days.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveHalfMarathons,
+        },
+        {
+            name: '2 Marathons Back to Back',
+            emoji: '🔥🏃‍♂️',
+            description: 'Completed marathon-distance runs on consecutive days.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveMarathons,
+        },
+        {
+            name: '2 Days Consecutive 1500 m Elevation',
+            emoji: '🧗‍♂️🧗‍♂️',
+            description: 'Climbed at least 1,500 m of elevation on two straight days.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveElevation1500,
+        },
+        {
+            name: 'Olympic Triathlons Completed',
+            emoji: '🏅',
+            description: 'Pieced together Olympic triathlon distances within a day.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.olympicTriathlons,
+        },
+        {
+            name: '2 Days Back to Back 3000 m Elevation',
+            emoji: '🗻🗻',
+            description: 'Stacked 3,000 m elevation days consecutively.',
+            category: 'Best in Class',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveElevation3000,
+        },
+    ];
+
+    const mapBestClassMedalToConfig = (medal) => ({
+        name: medal.name,
+        emoji: medal.emoji,
+        description: medal.description,
+        category: medal.category || 'Best in Class',
+        aggregateCriteria: (activities, context) => {
+            const resolvedContext = context || createAggregateContext(activities);
+            try {
+                const rawCount = medal.aggregateResolver(resolvedContext);
+                if (!Number.isFinite(rawCount) || rawCount <= 0) {
+                    return 0;
+                }
+                return Math.floor(rawCount);
+            } catch (error) {
+                return 0;
+            }
+        },
+    });
+
     // === Medals Configuration ===
     const medalsConfig = [
+        ...BEST_CLASS_MEDALS.map(mapBestClassMedalToConfig),
         // Special Days Medals
         {
             name: 'Christmas Champion',

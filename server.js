@@ -86,6 +86,29 @@ const TRACKED_SEGMENTS = [
   // Add more segments as needed
 ];
 
+const REWARD_DEFINITION_DIGEST = process.env.REWARD_DEFINITION_DIGEST || '2024-05-20-best-class-medals-v1';
+
+function createLoadingInfo({
+  userId,
+  cacheTimestamp,
+  cacheAgeMs = 0,
+  storedTimestamp = null,
+  servedFrom = 'live',
+  hasActivitiesBackup = false,
+  stale = false,
+}) {
+  return {
+    userId: userId ? String(userId) : null,
+    digest: REWARD_DEFINITION_DIGEST,
+    cacheTimestamp: Number.isFinite(cacheTimestamp) ? cacheTimestamp : Date.now(),
+    cacheAgeMs: Number.isFinite(cacheAgeMs) ? cacheAgeMs : 0,
+    storedSnapshotTimestamp: storedTimestamp || null,
+    servedFrom,
+    hasActivitiesBackup: Boolean(hasActivitiesBackup),
+    stale: Boolean(stale),
+  };
+}
+
 // Helper function to pause execution (to respect rate limits)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -415,9 +438,22 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
 
   if (!forceRefresh) {
     const cachedEntry = sharedSnapshotCache.getEntry(cacheKey);
-    if (cachedEntry?.value && isValidSnapshotPayload(cachedEntry.value)) {
+    if (cachedEntry?.value && isValidSnapshotPayload(cachedEntry.value)
+      && cachedEntry.value.rewardDefinitionDigest === REWARD_DEFINITION_DIGEST) {
+      const loadingInfo = createLoadingInfo({
+        userId,
+        cacheTimestamp: cachedEntry.timestamp,
+        cacheAgeMs: cachedEntry.ageMs,
+        storedTimestamp: cachedEntry.value?.storedTimestamp || cachedEntry.value?.loadingInfo?.storedSnapshotTimestamp || null,
+        servedFrom: 'cache',
+        hasActivitiesBackup: Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0),
+        stale: false,
+      });
       return res.json({
         ...cachedEntry.value,
+        rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+        loadingInfo,
         cached: true,
         stale: false,
         cacheTimestamp: cachedEntry.timestamp,
@@ -435,16 +471,28 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
     }
 
     const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
+    const cacheTimestamp = Date.now();
+    const hasActivitiesBackup = Array.isArray(normalizedPayload.activities) && normalizedPayload.activities.length > 0;
+    const loadingInfo = createLoadingInfo({
+      userId,
+      cacheTimestamp,
+      cacheAgeMs: 0,
+      storedTimestamp: snapshot.timestamp || null,
+      servedFrom: 'snapshot',
+      hasActivitiesBackup,
+      stale: false,
+    });
+
     const payloadWithMetadata = {
       ...normalizedPayload,
       stored: true,
       storedTimestamp: snapshot.timestamp || null,
       userId,
+      rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+      loadingInfo,
     };
 
     sharedSnapshotCache.set(cacheKey, payloadWithMetadata);
-
-    const cacheTimestamp = Date.now();
 
     return res.json({
       ...payloadWithMetadata,
@@ -458,8 +506,20 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
 
     const cachedEntry = sharedSnapshotCache.getEntry(cacheKey);
     if (cachedEntry?.value && isValidSnapshotPayload(cachedEntry.value)) {
+      const loadingInfo = createLoadingInfo({
+        userId,
+        cacheTimestamp: cachedEntry.timestamp,
+        cacheAgeMs: cachedEntry.ageMs,
+        storedTimestamp: cachedEntry.value.storedTimestamp ?? cachedEntry.value?.loadingInfo?.storedSnapshotTimestamp ?? null,
+        servedFrom: 'cache',
+        hasActivitiesBackup: Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0),
+        stale: true,
+      });
       return res.status(200).json({
         ...cachedEntry.value,
+        rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+        loadingInfo,
         cached: true,
         stale: true,
         cacheTimestamp: cachedEntry.timestamp,
@@ -610,11 +670,29 @@ app.get('/api/strava-data', async (req, res) => {
 
       if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
         console.log(`Stored snapshot located for athlete ${userId} from ${existingSnapshot.timestamp}.`);
+        const storedPayload = recalculateSnapshotTotals(existingSnapshot.payload);
         const cacheTimestamp = Date.now();
-        userDataCache.set(cacheKey, existingSnapshot.payload);
+        const hasBackupActivities = Array.isArray(storedPayload.activities) && storedPayload.activities.length > 0;
+        const loadingInfo = createLoadingInfo({
+          userId,
+          cacheTimestamp,
+          cacheAgeMs: 0,
+          storedTimestamp: existingSnapshot.timestamp || null,
+          servedFrom: 'snapshot',
+          hasActivitiesBackup: hasBackupActivities,
+          stale: false,
+        });
+
+        const normalizedPayload = {
+          ...storedPayload,
+          rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+          loadingInfo,
+        };
+
+        userDataCache.set(cacheKey, normalizedPayload);
 
         return res.json({
-          ...existingSnapshot.payload,
+          ...normalizedPayload,
           cached: true,
           stale: false,
           stored: true,
@@ -631,8 +709,21 @@ app.get('/api/strava-data', async (req, res) => {
 
         if (cachedEntry) {
           console.log(`Serving cached dashboard payload for athlete ${userId} after snapshot retrieval failure.`);
+          const cachedHasBackup = Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
+            || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0);
+          const fallbackLoadingInfo = createLoadingInfo({
+            userId,
+            cacheTimestamp: cachedEntry.timestamp,
+            cacheAgeMs: cachedEntry.ageMs,
+            storedTimestamp: cachedEntry.value?.loadingInfo?.storedSnapshotTimestamp || null,
+            servedFrom: 'cache',
+            hasActivitiesBackup: cachedHasBackup,
+            stale: true,
+          });
           return res.json({
             ...cachedEntry.value,
+            rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+            loadingInfo: fallbackLoadingInfo,
             cached: true,
             stale: true,
             stored: false,
@@ -652,8 +743,21 @@ app.get('/api/strava-data', async (req, res) => {
 
       if (cachedEntry) {
         console.log(`No stored snapshot found for athlete ${userId}; falling back to cached dashboard payload.`);
+        const cachedHasBackup = Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0);
+        const fallbackLoadingInfo = createLoadingInfo({
+          userId,
+          cacheTimestamp: cachedEntry.timestamp,
+          cacheAgeMs: cachedEntry.ageMs,
+          storedTimestamp: existingSnapshot?.timestamp || cachedEntry.value?.loadingInfo?.storedSnapshotTimestamp || null,
+          servedFrom: 'cache',
+          hasActivitiesBackup: cachedHasBackup,
+          stale: true,
+        });
         return res.json({
           ...cachedEntry.value,
+          rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+          loadingInfo: fallbackLoadingInfo,
           cached: true,
           stale: true,
           stored: false,
@@ -696,14 +800,30 @@ app.get('/api/strava-data', async (req, res) => {
     }
 
     if (!forceRefresh && existingCacheEntry) {
-      console.log(`Serving cached Strava data for athlete ${userId}`);
-      return res.json({
-        ...existingCacheEntry.value,
-        cached: true,
-        stale: false,
-        cacheTimestamp: existingCacheEntry.timestamp,
-        cacheAgeMs: existingCacheEntry.ageMs,
-      });
+      if (existingCacheEntry.value?.rewardDefinitionDigest === REWARD_DEFINITION_DIGEST) {
+        console.log(`Serving cached Strava data for athlete ${userId}`);
+        const cachedHasBackup = Boolean(existingCacheEntry.value?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(existingCacheEntry.value?.activities) && existingCacheEntry.value.activities.length > 0);
+        const loadingInfo = createLoadingInfo({
+          userId,
+          cacheTimestamp: existingCacheEntry.timestamp,
+          cacheAgeMs: existingCacheEntry.ageMs,
+          storedTimestamp: existingCacheEntry.value?.loadingInfo?.storedSnapshotTimestamp || existingSnapshot?.timestamp || null,
+          servedFrom: 'cache',
+          hasActivitiesBackup: cachedHasBackup,
+          stale: false,
+        });
+        return res.json({
+          ...existingCacheEntry.value,
+          rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+          loadingInfo,
+          cached: true,
+          stale: false,
+          cacheTimestamp: existingCacheEntry.timestamp,
+          cacheAgeMs: existingCacheEntry.ageMs,
+        });
+      }
+      console.log(`Cached payload digest mismatch for athlete ${userId}; ignoring cached entry.`);
     }
 
     const normalizedRequestedPages = Math.max(1, requestedPageCount);
@@ -903,6 +1023,21 @@ app.get('/api/strava-data', async (req, res) => {
     }
 
     const cacheTimestamp = Date.now();
+    const hasActivitiesBackup = knownActivityKeySet.size > 0
+      || (Array.isArray(responsePayload.activities) && responsePayload.activities.length > 0);
+    const loadingInfo = createLoadingInfo({
+      userId,
+      cacheTimestamp,
+      cacheAgeMs: 0,
+      storedTimestamp: existingSnapshot?.timestamp || null,
+      servedFrom: forceRefresh ? 'force-refresh' : (mergedWithStoredSnapshot ? 'snapshot+live' : 'live'),
+      hasActivitiesBackup,
+      stale: false,
+    });
+
+    responsePayload.rewardDefinitionDigest = REWARD_DEFINITION_DIGEST;
+    responsePayload.loadingInfo = loadingInfo;
+
     userDataCache.set(cacheKey, responsePayload);
 
     res.json({
@@ -912,6 +1047,7 @@ app.get('/api/strava-data', async (req, res) => {
       aggregated: mergedWithStoredSnapshot,
       cacheTimestamp,
       cacheAgeMs: 0,
+      loadingInfo,
     });
   } catch (error) {
     const statusCode = error.statusCode || error.response?.status || 500;
@@ -950,8 +1086,21 @@ app.get('/api/strava-data', async (req, res) => {
         }
 
         console.log(`Returning cached data for athlete ${userId} after rate limit response.`);
+        const cachedHasBackup = Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0);
+        const fallbackLoadingInfo = createLoadingInfo({
+          userId,
+          cacheTimestamp: cachedEntry.timestamp,
+          cacheAgeMs: cachedEntry.ageMs,
+          storedTimestamp: cachedEntry.value?.loadingInfo?.storedSnapshotTimestamp || existingSnapshot?.timestamp || null,
+          servedFrom: 'cache',
+          hasActivitiesBackup: cachedHasBackup,
+          stale: true,
+        });
         return res.status(200).json({
           ...cachedEntry.value,
+          rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+          loadingInfo: fallbackLoadingInfo,
           cached: true,
           stale: true,
           retryAfter,
@@ -979,12 +1128,10 @@ app.get('/api/strava-data', async (req, res) => {
         const storedSnapshot = await getLatestUserSnapshot(userId);
         if (storedSnapshot?.payload) {
           console.log(`Returning stored snapshot for athlete ${userId} after live fetch failure.`);
-          if (cacheKey) {
-            userDataCache.set(cacheKey, storedSnapshot.payload);
-          }
+          const normalizedStored = recalculateSnapshotTotals(storedSnapshot.payload);
           const cacheTimestamp = Date.now();
           const storedActivityMetadata = mergeActivityMetadata(
-            normalizeActivityMetadata(storedSnapshot.payload.activityMetadata),
+            normalizeActivityMetadata(normalizedStored.activityMetadata),
             {
               warnings: ['Live Strava fetch failed, so displaying the most recent stored snapshot instead.'],
               partial: true,
@@ -992,7 +1139,7 @@ app.get('/api/strava-data', async (req, res) => {
           );
 
           const storedPageInfo = {
-            ...(storedSnapshot.payload.pageInfo || {}),
+            ...(normalizedStored.pageInfo || {}),
             warnings: storedActivityMetadata.warnings,
             errors: storedActivityMetadata.errors,
             rateLimited: storedActivityMetadata.rateLimited,
@@ -1008,8 +1155,31 @@ app.get('/api/strava-data', async (req, res) => {
             storedPageInfo.lastAttemptedPage = storedActivityMetadata.lastAttemptedPage;
           }
 
+          const hasStoredActivities = Array.isArray(normalizedStored.activities) && normalizedStored.activities.length > 0;
+          const loadingInfo = createLoadingInfo({
+            userId,
+            cacheTimestamp,
+            cacheAgeMs: 0,
+            storedTimestamp: storedSnapshot.timestamp || null,
+            servedFrom: 'snapshot',
+            hasActivitiesBackup: hasStoredActivities,
+            stale: true,
+          });
+
+          const enrichedStoredPayload = {
+            ...normalizedStored,
+            rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+            loadingInfo,
+            activityMetadata: storedActivityMetadata,
+            pageInfo: storedPageInfo,
+          };
+
+          if (cacheKey) {
+            userDataCache.set(cacheKey, enrichedStoredPayload);
+          }
+
           return res.status(200).json({
-            ...storedSnapshot.payload,
+            ...enrichedStoredPayload,
             cached: true,
             stale: true,
             stored: true,
@@ -1017,8 +1187,6 @@ app.get('/api/strava-data', async (req, res) => {
             cacheTimestamp,
             cacheAgeMs: 0,
             message: 'Live Strava fetch failed. Returning stored snapshot.',
-            activityMetadata: storedActivityMetadata,
-            pageInfo: storedPageInfo,
           });
         }
       } catch (snapshotError) {

@@ -1072,7 +1072,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     let balanceCompareYears = false;
     const walletChartData = {
         coins: { labels: [], coinBreakdown: {}, medalBreakdown: [], timelineLabels: [], coinTimeline: {} },
-        balance: { labels: [], values: [], compareLabels: MONTH_COMPARISON_LABELS, compareDatasets: [] }
+        balance: {
+            labels: [],
+            values: [],
+            perPeriodValues: [],
+            periodMeta: [],
+            barColors: [],
+            barBorderColors: [],
+            barHoverColors: [],
+            compareLabels: MONTH_COMPARISON_LABELS,
+            compareDatasets: []
+        }
     };
 
     const computeActivitiesCacheKey = (activities = []) => {
@@ -3389,26 +3399,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : [
                     {
                         type: 'bar',
-                        label: 'Quarterly balance',
+                        label: 'Annual haul',
                         data: Array.isArray(dataset.perPeriodValues) ? dataset.perPeriodValues : [],
                         borderColor: barBorderColors,
                         backgroundColor: barColors,
                         hoverBackgroundColor: barHoverColors,
-                        borderRadius: 6,
-                        maxBarThickness: 36,
-                        yAxisID: 'yQuarter',
+                        borderRadius: 8,
+                        maxBarThickness: 44,
+                        yAxisID: 'yAnnual',
                         order: 2,
                         periodMeta,
                     },
                     {
+                        type: 'line',
                         label: 'Cumulative balance',
-                        data: dataset.values,
+                        data: Array.isArray(dataset.values) ? dataset.values : [],
                         borderColor: '#16a34a',
-                        backgroundColor: 'rgba(22, 163, 74, 0.2)',
-                        fill: true,
+                        backgroundColor: 'transparent',
+                        fill: false,
                         tension: 0.35,
-                        pointRadius: 3,
-                        pointHoverRadius: 4,
+                        pointBackgroundColor: '#16a34a',
+                        pointBorderColor: '#f8fafc',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
                         yAxisID: 'y',
                         order: 1,
                         periodMeta,
@@ -3424,8 +3438,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    hover: {
+                        mode: 'index',
+                        intersect: false,
+                    },
                     layout: {
-                        padding: { top: 18, right: 16, bottom: 12, left: 16 }
+                        padding: { top: 18, right: 12, bottom: 16, left: 12 }
                     },
                     plugins: {
                         legend: {
@@ -3436,6 +3458,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                         },
                         tooltip: {
+                            mode: 'index',
+                            intersect: false,
                             bodyFont: tooltipBodyFont,
                             titleFont: tooltipTitleFont,
                             callbacks: {
@@ -3453,14 +3477,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 label: (context) => {
                                     const value = context.parsed.y || 0;
                                     const datasetLabel = context.dataset?.label || 'Balance';
-                                    const isQuarterDataset = context.dataset?.yAxisID === 'yQuarter';
+                                    const isAnnualDataset = context.dataset?.yAxisID === 'yAnnual';
                                     if (useComparison) {
                                         return `${datasetLabel}: ${formatMillions(value)}`;
                                     }
-                                    if (isQuarterDataset) {
-                                        return `Quarter haul: ${usdCodeFormatter.format(value)}`;
+                                    if (isAnnualDataset) {
+                                        return `Annual haul: ${usdCodeFormatter.format(value)}`;
                                     }
                                     return `Cumulative balance: ${formatMillions(value)}`;
+                                },
+                                afterBody: (contexts) => {
+                                    if (!contexts || contexts.length === 0 || useComparison) {
+                                        return '';
+                                    }
+                                    const meta = contexts.reduce((acc, ctx) => acc || ctx.dataset?.periodMeta?.[ctx.dataIndex], null);
+                                    if (!meta) {
+                                        return '';
+                                    }
+                                    const lines = [];
+                                    if (Number.isFinite(meta.cumulative)) {
+                                        lines.push(`Cumulative total: ${usdCodeFormatter.format(meta.cumulative)}`);
+                                    }
+                                    if (Number.isFinite(meta.changeValue) && meta.changeValue !== 0) {
+                                        const changeValue = Math.abs(meta.changeValue);
+                                        const prefix = meta.changeValue > 0 ? '+' : '−';
+                                        const percentLabel = formatPercentLabel(meta.changePercent);
+                                        const percentSuffix = percentLabel ? ` (${percentLabel})` : '';
+                                        lines.push(`Change vs prior year: ${prefix}${usdCodeFormatter.format(changeValue)}${percentSuffix}`);
+                                    }
+                                    return lines;
                                 },
                                 footer: (contexts) => {
                                     if (!contexts.length) {
@@ -3494,10 +3539,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                             ticks: {
                                 color: axisColor,
                                 font: tickFont,
-                                padding: 8
+                                padding: 8,
+                                callback: (value, index) => {
+                                    if (useComparison) {
+                                        return chartLabels[index] || value;
+                                    }
+                                    const meta = periodMeta[index];
+                                    return meta?.year ? meta.year : value;
+                                }
                             },
                             grid: {
-                                color: gridColor
+                                color: gridColor,
+                                drawOnChartArea: false
                             }
                         },
                         y: {
@@ -3517,20 +3570,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 color: gridColor
                             }
                         },
-                        yQuarter: {
+                        yAnnual: {
                             position: 'right',
                             beginAtZero: true,
                             ticks: {
                                 color: axisColor,
                                 font: tickFont,
                                 padding: 6,
-                                stepSize: 100_000,
                                 callback: (value) => {
                                     if (!Number.isFinite(value)) {
-                                        return '$0k';
+                                        return '$0';
                                     }
-                                    const thousands = Math.round(value / 1_000);
-                                    return `$${thousands}k`;
+                                    const absolute = Math.abs(value);
+                                    if (absolute >= 1_000_000) {
+                                        return `$${(absolute / 1_000_000).toFixed(1)}M`;
+                                    }
+                                    if (absolute >= 1_000) {
+                                        return `$${Math.round(absolute / 1_000)}k`;
+                                    }
+                                    return usdCodeFormatter.format(absolute);
                                 }
                             },
                             grid: {
@@ -3823,9 +3881,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        const filteredQuarterly = buildQuarterlyValueSeries(metricsForFiltered);
         const lifetimeQuarterly = buildQuarterlyValueSeries(metricsForYearly);
-        const { sortedQuarters, cumulativeValues: balanceValues, perPeriodValues } = filteredQuarterly;
 
         const lifetimeLatest = lifetimeQuarterly.latestEntry;
         const lifetimePrevious = lifetimeQuarterly.previousEntry;
@@ -3845,29 +3901,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             quarterChangeValue,
             yearChangeValue
         };
-        const periodMeta = sortedQuarters.map((key) => {
-            const [yearStr, quarterStr] = key.split('-Q');
-            const year = Number(yearStr);
-            const quarter = Number(quarterStr);
+        const annualTotals = sortedYears.map((year) => {
+            const totals = quarterlyTotalsByYear.get(year) || [];
+            return totals.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+        });
+        let runningAnnualTotal = 0;
+        const cumulativeAnnualValues = annualTotals.map((value) => {
+            const numericValue = Number.isFinite(value) ? value : 0;
+            runningAnnualTotal += numericValue;
+            return runningAnnualTotal;
+        });
+        const periodMeta = sortedYears.map((year, index) => {
             const colors = yearColorAssignments.get(year)
                 || { border: '#2563eb', background: 'rgba(37, 99, 235, 0.28)', hover: 'rgba(37, 99, 235, 0.32)' };
-            const hasValidNumbers = Number.isFinite(year) && Number.isFinite(quarter);
+            const annualValue = Number.isFinite(annualTotals[index]) ? annualTotals[index] : 0;
+            const previousValue = index > 0 && Number.isFinite(annualTotals[index - 1])
+                ? annualTotals[index - 1]
+                : null;
+            const changeValue = Number.isFinite(previousValue)
+                ? annualValue - previousValue
+                : null;
+            const changePercent = Number.isFinite(previousValue) && previousValue !== 0
+                ? calculatePercentChange(annualValue, previousValue)
+                : null;
             return {
-                key,
-                label: hasValidNumbers ? `Q${quarter} ${year}` : key,
+                key: String(year),
+                label: `Year ${year}`,
                 year,
-                quarter,
                 colors,
+                value: annualValue,
+                cumulative: cumulativeAnnualValues[index] || 0,
+                changeValue,
+                changePercent,
             };
         });
-        const quarterLabels = periodMeta.map(meta => meta.label);
+        const yearLabels = periodMeta.map(meta => meta.key);
         const barColors = periodMeta.map(meta => meta.colors.background);
         const barBorderColors = periodMeta.map(meta => meta.colors.border);
         const barHoverColors = periodMeta.map(meta => meta.colors.hover || meta.colors.background);
         walletChartData.balance = {
-            labels: quarterLabels,
-            values: balanceValues,
-            perPeriodValues,
+            labels: yearLabels,
+            values: cumulativeAnnualValues,
+            perPeriodValues: annualTotals,
             compareLabels: QUARTER_LABELS,
             compareDatasets,
             periodMeta,

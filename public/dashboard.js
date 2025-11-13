@@ -449,6 +449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
     let pendingWalletRender = false;
     const profileRefreshButton = document.getElementById('profile-refresh');
+    const manualSyncButton = document.getElementById('fetch-strava-button');
     const setProfileRefreshLoadingState = (isLoading) => {
         if (!profileRefreshButton) {
             return;
@@ -463,6 +464,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             profileRefreshButton.removeAttribute('disabled');
             profileRefreshButton.removeAttribute('aria-busy');
+        }
+    };
+    const setManualSyncButtonState = (isLoading) => {
+        if (!manualSyncButton) {
+            return;
+        }
+
+        const loading = Boolean(isLoading);
+        manualSyncButton.disabled = loading;
+
+        if (loading) {
+            manualSyncButton.setAttribute('aria-busy', 'true');
+        } else {
+            manualSyncButton.removeAttribute('aria-busy');
         }
     };
     const rankModalElement = document.getElementById('rank-modal');
@@ -1037,9 +1052,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 pullToRefreshLabel.textContent = 'Refreshing…';
             }
 
-            Promise.resolve(window.dashboardMobile.refresh({ showLoading: true })).finally(() => {
-                window.setTimeout(() => resetPullIndicator(true), 150);
-            });
+            Promise.resolve(window.dashboardMobile.refresh({ showLoading: true }))
+                .then((result) => {
+                    if (result && typeof result === 'object' && 'status' in result) {
+                        handleSyncResponse(result);
+                    }
+                })
+                .finally(() => {
+                    window.setTimeout(() => resetPullIndicator(true), 150);
+                });
         };
 
         const handleTouchEnd = () => {
@@ -8286,6 +8307,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadStoredSnapshotIfAvailable();
         }
 
+        let manualSyncResult = null;
+
+        const requestManualSync = async () => {
+            const response = await fetch('/api/strava/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                cache: 'no-store',
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                const error = new Error(errorText || `Sync request failed with status ${response.status}`);
+                error.status = response.status;
+                throw error;
+            }
+
+            return response.json();
+        };
+
+        if (forceRefresh) {
+            try {
+                manualSyncResult = await requestManualSync();
+            } catch (syncError) {
+                console.error('Failed to initiate Strava sync:', syncError);
+                manualSyncResult = {
+                    status: 'sync_failed',
+                    error: syncError?.message || 'Unable to start sync.',
+                };
+            }
+        }
+
         try {
             const params = new URLSearchParams();
             if (Number.isFinite(nextActivitiesPageStart)) {
@@ -8335,16 +8389,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.error('Error refreshing leaderboard after data sync:', leaderboardError);
                 }
             }
+
+            if (manualSyncResult && typeof manualSyncResult === 'object') {
+                if (!('data' in manualSyncResult)) {
+                    manualSyncResult.data = data;
+                }
+                return manualSyncResult;
+            }
+
+            return data;
         } catch (error) {
             console.error('Error fetching Strava data:', error);
+            let friendlyMessage = 'Error fetching Strava data. Please try again later.';
+            if (error?.message) {
+                friendlyMessage = `Error fetching Strava data: ${error.message}. Retrying may help.`;
+            }
             if (errorMessage) {
                 errorMessage.classList.remove('hidden');
-                const friendlyMessage = error?.message
-                    ? `Error fetching Strava data: ${error.message}. Retrying may help.`
-                    : 'Error fetching Strava data. Please try again later.';
                 errorMessage.textContent = friendlyMessage;
             }
             updateInitialLoadingState('fetch', 'complete', 'We hit a snag reaching Strava — give it another try in a moment.');
+            return manualSyncResult ?? { status: 'sync_failed', error: error?.message || friendlyMessage };
         } finally {
             isFetchingActivities = false;
             // Fade out the spinner after all operations are complete
@@ -8371,8 +8436,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (showLoading) {
                 showSpinner();
             }
-            await fetchData({ forceRefresh: true });
-            return true;
+            const syncResult = await fetchData({ forceRefresh: true });
+            return syncResult ?? true;
         },
         onPanelChange: (callback) => {
             if (typeof callback !== 'function') {
@@ -8400,6 +8465,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     window.dashboardMobile = dashboardMobileApi;
+
+    const handleSyncResponse = (syncResult = null) => {
+        if (!syncResult || typeof syncResult !== 'object') {
+            return;
+        }
+
+        const { status } = syncResult;
+
+        if (status === 'full_sync_started') {
+            updateInitialLoadingState('finalize', 'active', 'Syncing full history... This may take a moment.');
+            return;
+        }
+
+        if (status === 'delta_sync_complete') {
+            completeInitialLoading('Data refreshed successfully!');
+            fadeOutSpinner();
+            return;
+        }
+
+        if (status === 'sync_failed') {
+            completeInitialLoading('Error starting sync. Please try again.');
+            fadeOutSpinner();
+        }
+    };
 
     // === Function to Process and Display Data ===
     const processAndDisplayData = (data, options = {}) => {
@@ -9607,6 +9696,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn("No rank trigger elements found in the DOM.");
     }
 
+    if (manualSyncButton) {
+        manualSyncButton.addEventListener('click', async () => {
+            if (manualSyncButton.disabled) {
+                return;
+            }
+
+            setManualSyncButtonState(true);
+            showSpinner();
+
+            try {
+                const syncResult = await fetchData({ forceRefresh: true });
+                handleSyncResponse(syncResult);
+            } catch (error) {
+                console.error('Sync initiation failed:', error);
+                completeInitialLoading('Error starting sync. Please try again.');
+                fadeOutSpinner();
+            } finally {
+                setManualSyncButtonState(false);
+            }
+        });
+    } else {
+        console.warn("'fetch-strava-button' element not found in the DOM.");
+    }
+
     if (profileRefreshButton) {
         profileRefreshButton.addEventListener('click', async (event) => {
             event.preventDefault();
@@ -9620,13 +9733,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (window.dashboardMobile?.refresh) {
                     const refreshed = await window.dashboardMobile.refresh({ showLoading: true });
 
+                    if (refreshed && typeof refreshed === 'object' && 'status' in refreshed) {
+                        handleSyncResponse(refreshed);
+                    }
+
                     if (refreshed === false && !isSharedView) {
                         showSpinner();
-                        await fetchData({ forceRefresh: true });
+                        const manualResult = await fetchData({ forceRefresh: true });
+                        handleSyncResponse(manualResult);
                     }
                 } else {
                     showSpinner();
-                    await fetchData({ forceRefresh: true });
+                    const manualResult = await fetchData({ forceRefresh: true });
+                    handleSyncResponse(manualResult);
                 }
             } catch (refreshError) {
                 console.error('Dashboard refresh failed:', refreshError);

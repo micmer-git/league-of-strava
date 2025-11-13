@@ -95,9 +95,11 @@ const LEADERBOARD_HEADER = [
 ];
 const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
 const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
+const USER_SYNC_HEADER = ['timestamp', 'source', 'payload'];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
 const SNAPSHOT_CHUNK_PREFIX = '__CHUNK__';
+const SYNC_SHEET_PREFIX = 'sync_';
 
 function sanitizeSheetTitle(value) {
   const fallback = 'user';
@@ -257,6 +259,21 @@ async function ensureUserSnapshotSheet(userId) {
   return sheetName;
 }
 
+function getUserSyncSheetTitle(userId) {
+  const sanitizedId = sanitizeSheetTitle(userId ?? 'user');
+  return `${SYNC_SHEET_PREFIX}${sanitizedId}`;
+}
+
+async function ensureUserSyncSheet(userId) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = getUserSyncSheetTitle(userId);
+  await ensureSheetExists(sheetName, USER_SYNC_HEADER);
+  return sheetName;
+}
+
 async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
   if (!SPREADSHEET_ID) {
     throw new Error('SPREADSHEET_ID environment variable is not set.');
@@ -279,6 +296,49 @@ async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
     ...payloadChunks.map(chunkValue => [
       timestamp,
       `${source ?? 'strava'}:chunk`,
+      chunkValue,
+    ]),
+  ];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    resource: {
+      values: rowsToAppend,
+    },
+  });
+
+  return {
+    timestamp,
+    sheetName,
+    payloadMetadata,
+  };
+}
+
+async function appendUserSyncEntry({ userId, payload = [], source = 'sync' }) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = await ensureUserSyncSheet(userId);
+  const timestamp = new Date().toISOString();
+  const {
+    storedValue: serializedPayload,
+    metadata: payloadMetadata,
+    chunks: payloadChunks = [],
+  } = serializeSnapshotPayload(payload);
+
+  const rowsToAppend = [
+    [
+      timestamp,
+      source ?? 'sync',
+      serializedPayload,
+    ],
+    ...payloadChunks.map(chunkValue => [
+      timestamp,
+      `${source ?? 'sync'}:chunk`,
       chunkValue,
     ]),
   ];
@@ -413,6 +473,133 @@ async function getLatestUserSnapshot(userId) {
   }
 
   return null;
+}
+
+async function getLatestUserSyncEntry(userId) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = getUserSyncSheetTitle(userId);
+  const exists = await sheetExists(sheetName);
+
+  if (!exists) {
+    return null;
+  }
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A2:C100000`,
+  });
+
+  const values = res.data.values || [];
+  if (values.length === 0) {
+    return null;
+  }
+
+  const chunkAccumulator = [];
+
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const [timestamp = '', source = 'sync', payloadRaw = '{}'] = values[index];
+
+    if (typeof payloadRaw === 'string' && payloadRaw.startsWith(`${SNAPSHOT_CHUNK_PREFIX}|`)) {
+      const [prefix, chunkIndex = '-1', chunkTotal = '0', ...rest] = payloadRaw.split('|');
+
+      if (prefix === SNAPSHOT_CHUNK_PREFIX) {
+        chunkAccumulator.push({
+          index: Number.parseInt(chunkIndex, 10),
+          chunkCount: Number.parseInt(chunkTotal, 10),
+          data: rest.join('|'),
+        });
+        continue;
+      }
+    }
+
+    const parsed = safeJsonParse(payloadRaw);
+
+    if (parsed.ok && parsed.value && parsed.value.__chunked === true) {
+      const chunkCount = parsed.value.chunkCount || 0;
+
+      if (chunkCount === 0) {
+        return {
+          timestamp,
+          source,
+          payload: {
+            error: 'Chunked payload metadata missing chunk count',
+          },
+          payloadMetadata: {
+            serialized: true,
+            compressed: true,
+            chunked: true,
+            valid: false,
+          },
+        };
+      }
+
+      if (chunkAccumulator.length < chunkCount) {
+        return {
+          timestamp,
+          source,
+          payload: {
+            error: 'Incomplete chunked payload data',
+            expectedChunks: chunkCount,
+            receivedChunks: chunkAccumulator.length,
+          },
+          payloadMetadata: {
+            serialized: true,
+            compressed: true,
+            chunked: true,
+            valid: false,
+            chunkCount,
+          },
+        };
+      }
+
+      const chunkSet = chunkAccumulator.splice(0, chunkCount);
+      const sortedChunks = chunkSet
+        .filter(chunk => typeof chunk.data === 'string')
+        .sort((a, b) => (a.index || 0) - (b.index || 0));
+      const reconstructedPayload = sortedChunks.map(chunk => chunk.data || '').join('');
+
+      const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(reconstructedPayload);
+
+      return {
+        timestamp,
+        source,
+        payload: decodedPayload,
+        payloadMetadata: {
+          ...metadata,
+          chunked: true,
+          chunkCount,
+          encodedLength: parsed.value.encodedLength || reconstructedPayload.length,
+          originalLength: parsed.value.originalLength || (metadata ? metadata.originalLength : undefined),
+        },
+      };
+    }
+
+    const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(payloadRaw);
+
+    return {
+      timestamp,
+      source,
+      payload: decodedPayload,
+      payloadMetadata: metadata,
+    };
+  }
+
+  return null;
+}
+
+async function storeUserDataInSheet(userId, activities, source = 'sync') {
+  if (!Array.isArray(activities)) {
+    throw new Error('Activities payload must be an array.');
+  }
+
+  return appendUserSyncEntry({
+    userId,
+    payload: activities,
+    source,
+  });
 }
 
 async function appendLeaderboardEntry({
@@ -827,6 +1014,9 @@ module.exports = {
   getUserData,
   appendUserSnapshot,
   getLatestUserSnapshot,
+  appendUserSyncEntry,
+  getLatestUserSyncEntry,
+  storeUserDataInSheet,
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
   getUserEntries,

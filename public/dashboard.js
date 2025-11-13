@@ -6883,7 +6883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (totalValueDollars > 0) {
                 const breakdownLines = Object.entries(coinCounts)
                     .filter(([, count]) => count > 0)
-                    .map(([emoji, count]) => `${count.toLocaleString()} ${emoji} = ${usdCodeFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
+                    .map(([emoji, count]) => `${count.toLocaleString()}× ${emoji} = ${usdCodeFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
                 const tooltipLines = [];
 
                 if (breakdownLines.length > 0) {
@@ -6909,7 +6909,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             Object.entries(coinCounts).forEach(([emoji, count]) => {
-                if (!count) {
+                if (!count || emoji === '💲') {
                     return;
                 }
 
@@ -6925,14 +6925,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const countSpan = document.createElement('span');
                 countSpan.className = 'text-[10px] font-semibold';
-                countSpan.textContent = count.toLocaleString();
+                countSpan.textContent = `${count.toLocaleString()}×`;
 
                 badge.appendChild(countSpan);
                 badge.appendChild(emojiSpan);
 
                 const coinValue = count * (COIN_VALUE_MAP[emoji] || 0);
-                const tooltipText = `${count.toLocaleString()} ${emoji} minted = ${usdCodeFormatter.format(coinValue)}`;
-                badge.setAttribute('aria-label', `${count.toLocaleString()} ${emoji} minted worth ${usdCodeFormatter.format(coinValue)}`);
+                const countLabel = `${count.toLocaleString()}× ${emoji}`;
+                const tooltipText = `${countLabel} minted = ${usdCodeFormatter.format(coinValue)}`;
+                badge.setAttribute('aria-label', `${countLabel} minted worth ${usdCodeFormatter.format(coinValue)}`);
                 attachTooltip(badge, tooltipText);
 
                 smallStatsGroup.appendChild(badge);
@@ -7743,9 +7744,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!emoji) {
                 return;
             }
-            if (!rewards.includes(emoji)) {
-                rewards.push(emoji);
-            }
+            rewards.push(emoji);
         };
         const stats = statsOverride || computeActivitySmallStats(activity);
         const type = (activity.type || '').toUpperCase();

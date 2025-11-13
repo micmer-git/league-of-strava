@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/site-header.js" defer></script>
   <!-- Update table styles for sticky name column -->
   <style>
     .leaderboard-table {
@@ -37,9 +38,31 @@
   <script src="/leaderboard.js" defer></script>
 </head>
 <body class="leaderboard-body">
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="site-header__brand" href="/">
+        <img src="/static/league-of-strava.png" alt="League of Strava logo">
+        <span class="site-header__brand-text">League of Strava</span>
+      </a>
+      <button id="site-nav-toggle" class="site-header__toggle" type="button" aria-expanded="false" aria-controls="site-primary-nav">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="site-header__toggle-bars" aria-hidden="true"></span>
+        <span aria-hidden="true">Menu</span>
+      </button>
+      <nav id="site-primary-nav" class="site-header__nav" aria-label="Primary navigation">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/leaderboard" aria-current="page">Leaderboard</a>
+        <a href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">Donate</a>
+      </nav>
+    </div>
+  </header>
   <main class="leaderboard-main">
     <section class="leaderboard-container" aria-labelledby="leaderboard-heading">
-      <h1 id="leaderboard-heading" class="sr-only">Global Leaderboard</h1>
+      <header class="leaderboard-header">
+        <h1 id="leaderboard-heading">Global Leaderboard</h1>
+        <p class="leaderboard-subtitle">See how every League of Strava athlete stacks up in real time.</p>
+      </header>
       <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
         <table class="leaderboard-table">
           <thead>

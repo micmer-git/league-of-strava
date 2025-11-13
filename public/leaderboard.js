@@ -112,7 +112,37 @@ document.addEventListener('DOMContentLoaded', () => {
         () => fetch('/api/leaderboard', { cache: 'no-store' }),
         { attempts: 3, retryDelay: 750, validate: isValidLeaderboardPayload },
       );
-      const entries = Array.isArray(data.leaderboard) ? data.leaderboard : [];
+      const entries = Array.isArray(data.leaderboard) ? [...data.leaderboard] : [];
+
+      entries.sort((a, b) => {
+        const levelDiff = (Number(b.level) || 0) - (Number(a.level) || 0);
+        if (levelDiff !== 0) {
+          return levelDiff;
+        }
+
+        const walletDiff = (Number(b.walletBalance) || 0) - (Number(a.walletBalance) || 0);
+        if (walletDiff !== 0) {
+          return walletDiff;
+        }
+
+        const haulDiff = (Number(b.totalHaulValue) || 0) - (Number(a.totalHaulValue) || 0);
+        if (haulDiff !== 0) {
+          return haulDiff;
+        }
+
+        const coinDiff = (Number(b.coins) || 0) - (Number(a.coins) || 0);
+        if (coinDiff !== 0) {
+          return coinDiff;
+        }
+
+        const parsedB = Date.parse(b.timestamp || '');
+        const parsedA = Date.parse(a.timestamp || '');
+        if (Number.isFinite(parsedB) && Number.isFinite(parsedA)) {
+          return parsedB - parsedA;
+        }
+
+        return 0;
+      });
 
       if (entries.length === 0) {
         renderMessageRow('No leaderboard entries yet. Submit user data to get started!');
@@ -133,9 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
           : safeDisplayName;
         const levelValue = Number(entry.level ?? 0);
         const levelLabel = Number.isFinite(levelValue) ? formatDecimal(levelValue) : '0';
-        const levelEmoji = escapeHtml(entry.emoji || getRankEmoji(index + 1));
+        const levelEmoji = escapeHtml(getRankEmoji(index + 1));
         const safeLevelLabel = escapeHtml(levelLabel);
-        const levelCellMarkup = `<span class="sr-only">Level </span>${safeLevelLabel}${levelEmoji ? ` <span aria-hidden="true">${levelEmoji}</span>` : ''}`;
+        const levelCellParts = [`<span class="sr-only">Level </span>${safeLevelLabel}`];
+        if (levelEmoji) {
+          levelCellParts.push(` <span aria-hidden="true">${levelEmoji}</span>`);
+        }
+        const levelCellMarkup = levelCellParts.join('');
         const coinTotals = getCoinTotals(entry);
         const medalCount = getMedalCount(entry);
         const walletValue = resolveWalletBalance(entry, coinTotals, medalCount);

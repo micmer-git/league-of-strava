@@ -12,6 +12,7 @@ const {
   getUserEntries,
   appendUserSnapshot,
   getLatestUserSnapshot,
+  listSnapshotUserIds,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 const { PersistentCache } = require('./services/cache');
 
@@ -277,7 +278,122 @@ app.get('/api/user-data/:userId', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const leaderboard = await getLeaderboardLatestEntries();
-    return res.json({ leaderboard });
+    const leaderboardByUser = new Map();
+
+    leaderboard.forEach((entry) => {
+      if (entry && typeof entry === 'object') {
+        const userId = entry.userId ? String(entry.userId).trim() : '';
+        if (userId) {
+          leaderboardByUser.set(userId, entry);
+        }
+      }
+    });
+
+    let additionalEntries = [];
+
+    try {
+      const snapshotUserIds = await listSnapshotUserIds();
+      const missingUserIds = snapshotUserIds.filter(userId => userId && !leaderboardByUser.has(String(userId)));
+
+      if (missingUserIds.length > 0) {
+        const pendingEntries = [];
+
+        for (const rawUserId of missingUserIds) {
+          const userId = String(rawUserId).trim();
+          if (!userId) {
+            continue;
+          }
+
+          try {
+            const snapshot = await getLatestUserSnapshot(userId);
+            if (!snapshot?.payload || !isValidSnapshotPayload(snapshot.payload)) {
+              continue;
+            }
+
+            const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
+            const summary = buildLeaderboardSummary(normalizedPayload);
+
+            if (!summary.userId) {
+              summary.userId = userId;
+            }
+
+            if (!summary.displayName || !summary.displayName.trim()) {
+              const athlete = normalizedPayload?.athlete || {};
+              const nameParts = [athlete.firstname, athlete.lastname]
+                .map(part => (part && String(part).trim()) || '')
+                .filter(Boolean);
+              summary.displayName = nameParts.join(' ') || athlete.username || userId;
+            }
+
+            summary.timestamp = snapshot.timestamp || new Date().toISOString();
+            pendingEntries.push(summary);
+            leaderboardByUser.set(userId, summary);
+          } catch (snapshotError) {
+            console.warn(`Unable to build leaderboard summary for ${userId}:`, snapshotError.message);
+          }
+        }
+
+        if (pendingEntries.length > 0) {
+          additionalEntries = pendingEntries;
+          const persistenceResults = await Promise.allSettled(
+            pendingEntries.map(entry => appendLeaderboardEntry(entry)),
+          );
+          persistenceResults.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              const failedEntry = pendingEntries[index];
+              const failedUserId = failedEntry?.userId ?? 'unknown athlete';
+              const reason = result.reason?.message || result.reason || 'Unknown error';
+              console.warn(`Failed to persist computed leaderboard entry for ${failedUserId}: ${reason}`);
+            }
+          });
+        }
+      }
+    } catch (snapshotListError) {
+      console.warn('Unable to check for additional leaderboard users:', snapshotListError.message);
+    }
+
+    const combinedEntries = [...leaderboard, ...additionalEntries];
+
+    const sortedEntries = combinedEntries
+      .filter(entry => entry && typeof entry === 'object')
+      .map(entry => ({
+        ...entry,
+        level: Number(entry.level) || 0,
+        totalHaulValue: Number(entry.totalHaulValue) || 0,
+        coins: Number(entry.coins) || 0,
+        walletBalance: Number(entry.walletBalance) || Number(entry.totalHaulValue) || 0,
+      }))
+      .sort((a, b) => {
+        const levelDiff = (b.level || 0) - (a.level || 0);
+        if (levelDiff !== 0) {
+          return levelDiff;
+        }
+
+        const walletDiff = (b.walletBalance || 0) - (a.walletBalance || 0);
+        if (walletDiff !== 0) {
+          return walletDiff;
+        }
+
+        const haulDiff = (b.totalHaulValue || 0) - (a.totalHaulValue || 0);
+        if (haulDiff !== 0) {
+          return haulDiff;
+        }
+
+        const coinDiff = (b.coins || 0) - (a.coins || 0);
+        if (coinDiff !== 0) {
+          return coinDiff;
+        }
+
+        const parsedB = Date.parse(b.timestamp || '');
+        const parsedA = Date.parse(a.timestamp || '');
+        if (Number.isFinite(parsedB) && Number.isFinite(parsedA)) {
+          return parsedB - parsedA;
+        }
+
+        return 0;
+      });
+
+    return res.json({ leaderboard: sortedEntries });
   } catch (error) {
     console.error('Error retrieving leaderboard data:', error.message);
     return res.status(500).json({ error: 'Failed to retrieve leaderboard data' });

@@ -974,24 +974,56 @@
         }
       };
 
+      const rarityColorSequence = ['🟢', '🔵', '🟣', '🟡', '🟠', '🔴', '⚫️'];
+
       const baseMedalDefinitions = [
         {
           title: 'Cronache della Compagnia',
           description: 'Traguardi stagionali ispirati alle tappe della Terra di Mezzo.',
           emoji: '📜',
           medals: [
-            { name: "Alba a Hobbiton", detail: 'Ogni giorno attivo nella settimana inaugurale dell’anno.', achieved: true },
-            { name: 'Veglia a Valfenda', detail: 'Due settimane consecutive con meditazione post-allenamento.', achieved: true },
-            { name: 'Solstizio di Rohan', detail: 'Corsa lunga oltre 30 km durante il solstizio estivo.', achieved: false },
-            { name: 'Veglia di Minas Tirith', detail: 'Cinque sessioni mattutine prima delle 6:00.', achieved: true },
-            { name: "Autunno a Lórien", detail: 'Partecipazione a tre trail in boschi o parchi storici.', achieved: true },
-            { name: 'Inverno a Fornost', detail: 'Attività outdoor con temperatura sotto zero per tre giorni.', achieved: false },
-            { name: "Fuoco di Amon Dîn", detail: 'Allenamento di potenza completato il giorno dei fuochi.', achieved: true },
-            { name: 'Maratona di Pelennor', detail: '42 km totali in un singolo weekend multi-attività.', achieved: false },
-            { name: 'Settimana dei Palantír', detail: 'Monitoraggio completo dei dati per sette giorni di fila.', achieved: true },
-            { name: "Cerchio dell'Anno", detail: 'Dodici mesi consecutivi con almeno 120 km totali.', achieved: false },
-            { name: 'Aurora su Bree', detail: 'Cinque uscite all’alba nella stessa settimana.', achieved: false },
-            { name: 'Nebbie di Hithaeglir', detail: 'Due lunghi sopra le nuvole nello stesso mese.', achieved: true },
+            {
+              name: 'Hobbiton Dawn',
+              icon: `🌅 ${rarityColorSequence[0]}`,
+              detail: 'Attività all’alba nella settimana inaugurale dell’anno.',
+              achieved: true,
+            },
+            {
+              name: 'Valfenda Vigil',
+              icon: `🌙 ${rarityColorSequence[1]}`,
+              detail: 'Meditazioni post-allenamento per due settimane consecutive.',
+              achieved: true,
+            },
+            {
+              name: 'Rohan Solstice',
+              icon: `🌞 ${rarityColorSequence[2]}`,
+              detail: 'Corsa lunga oltre 30 km durante il solstizio estivo.',
+              achieved: false,
+            },
+            {
+              name: 'Minas Beacon',
+              icon: `🔥 ${rarityColorSequence[3]}`,
+              detail: 'Cinque sessioni mattutine prima delle 6:00.',
+              achieved: true,
+            },
+            {
+              name: 'Lórien Ember',
+              icon: `🍂 ${rarityColorSequence[4]}`,
+              detail: 'Tre trail in boschi o parchi storici nello stesso mese.',
+              achieved: true,
+            },
+            {
+              name: 'Fornost Frost',
+              icon: `❄️ ${rarityColorSequence[5]}`,
+              detail: 'Attività outdoor con temperatura sotto zero per tre giorni.',
+              achieved: false,
+            },
+            {
+              name: 'Palantír Orbit',
+              icon: `🔮 ${rarityColorSequence[6]}`,
+              detail: 'Monitoraggio completo dei dati per sette giorni consecutivi.',
+              achieved: true,
+            },
           ],
         },
         {
@@ -999,18 +1031,48 @@
           description: 'Combinazioni multi-sport dedicate alle casate della Terra di Mezzo.',
           emoji: '⚒️',
           medals: [
-            { name: 'Duello di Helcaraxë', detail: 'Nuoto in acque fredde + corsa trail nello stesso giorno.', achieved: true },
-            { name: 'Staffetta dei Dúnedain', detail: 'Ride di 100 km seguito da run da 15 km in team.', achieved: false },
-            { name: 'Triade di Númenor', detail: 'Triathlon completo con tempi negativ split.', achieved: false },
-            { name: 'Ronda di Ithilien', detail: 'Workout forza + corsa notturna + yoga rigenerante.', achieved: true },
-            { name: 'Sfida di Anárion', detail: 'Sessione HIIT seguita da lungo in bici il giorno dopo.', achieved: true },
-            { name: 'Giro di Fangorn', detail: 'Gravel ride, trail run e meditazione in natura.', achieved: true },
-            { name: 'Lame di Dol Guldur', detail: 'Due lavori di qualità in 24 ore su discipline diverse.', achieved: false },
-            { name: 'Passeggiata degli Entwives', detail: 'Camminata recupero condivisa con la community.', achieved: true },
-            { name: 'Anello di Celebrimbor', detail: 'Costruisci un piano settimanale con tre combinazioni diverse.', achieved: true },
-            { name: 'Battito di Beleriand', detail: 'Superi 900 kcal in un giorno con mix run + swim.', achieved: false },
-            { name: 'Crogiolo di Khazad-dûm', detail: 'Rowing, strength e corsa brevi nello stesso pomeriggio.', achieved: true },
-            { name: 'Carica dei Rohirrim', detail: 'Back-to-back ride + run con transizione sotto i 10 minuti.', achieved: false },
+            {
+              name: 'Helcaraxë Clash',
+              icon: `🌊 ${rarityColorSequence[0]}`,
+              detail: 'Nuoto in acque fredde e trail nello stesso giorno.',
+              achieved: true,
+            },
+            {
+              name: 'Dúnedain Relay',
+              icon: `🤝 ${rarityColorSequence[1]}`,
+              detail: 'Ride da 100 km seguita da run da 15 km in squadra.',
+              achieved: false,
+            },
+            {
+              name: 'Númenor Triad',
+              icon: `⚡ ${rarityColorSequence[2]}`,
+              detail: 'Triathlon completo con negative split nelle tre discipline.',
+              achieved: false,
+            },
+            {
+              name: 'Ithilien Watch',
+              icon: `🌌 ${rarityColorSequence[3]}`,
+              detail: 'Forza, corsa notturna e yoga rigenerante in 24 ore.',
+              achieved: true,
+            },
+            {
+              name: 'Anárion Surge',
+              icon: `🔥 ${rarityColorSequence[4]}`,
+              detail: 'HIIT seguito da lungo in bici il giorno successivo.',
+              achieved: true,
+            },
+            {
+              name: 'Fangorn Circuit',
+              icon: `🌲 ${rarityColorSequence[5]}`,
+              detail: 'Gravel, trail run e meditazione immersiva nello stesso weekend.',
+              achieved: true,
+            },
+            {
+              name: 'Dol Guldur Edge',
+              icon: `🗡️ ${rarityColorSequence[6]}`,
+              detail: 'Due lavori di qualità in 24 ore su discipline diverse.',
+              achieved: false,
+            },
           ],
         },
         {
@@ -1018,18 +1080,48 @@
           description: 'Azioni comunitarie e momenti epici condivisi con la Compagnia.',
           emoji: '🌟',
           medals: [
-            { name: 'Sentinella dei Feudi', detail: 'Guida un evento di gruppo con più di 12 partecipanti.', achieved: true },
-            { name: 'Eco di Edoras', detail: 'Raccogli 150 kudos su una singola attività.', achieved: false },
-            { name: 'Luce di Eärendil', detail: 'Allenamento serale concluso con report motivazionale.', achieved: true },
-            { name: 'Custode dei Palantír', detail: 'Condividi analisi dati settimanale con il club.', achieved: true },
-            { name: 'Festa a Minas Anor', detail: 'Organizza un incontro post-gara con il team.', achieved: true },
-            { name: 'Veglia dei Guardiani', detail: 'Tre settimane consecutive di supporto ai compagni.', achieved: false },
-            { name: 'Pattuglia di Osgiliath', detail: 'Sicurezza e supporto logistico in una granfondo.', achieved: true },
-            { name: 'Voce degli Eldar', detail: 'Podcast o live di coaching per la community.', achieved: false },
-            { name: 'Raccolto di Hobbiton', detail: 'Evento benefico con raccolta fondi superiore a 500€.', achieved: true },
-            { name: 'Giuramento dei Nove', detail: 'Partecipa a nove sfide social entro l’anno.', achieved: false },
-            { name: 'Lanterna di Annúminas', detail: 'Report settimanale pubblicato per un mese consecutivo.', achieved: true },
-            { name: 'Eco di Tol Eressëa', detail: 'Collabora con un altro club per un evento condiviso.', achieved: false },
+            {
+              name: 'Feudi Sentinel',
+              icon: `🛡️ ${rarityColorSequence[0]}`,
+              detail: 'Evento di gruppo guidato con oltre dodici partecipanti.',
+              achieved: true,
+            },
+            {
+              name: 'Edoras Echo',
+              icon: `📣 ${rarityColorSequence[1]}`,
+              detail: 'Raccogli 150 kudos su una singola attività.',
+              achieved: false,
+            },
+            {
+              name: 'Eärendil Gleam',
+              icon: `✨ ${rarityColorSequence[2]}`,
+              detail: 'Allenamento serale seguito da report motivazionale.',
+              achieved: true,
+            },
+            {
+              name: 'Palantír Keeper',
+              icon: `🔭 ${rarityColorSequence[3]}`,
+              detail: 'Analisi dati settimanale condivisa con il club.',
+              achieved: true,
+            },
+            {
+              name: 'Minas Revel',
+              icon: `🎉 ${rarityColorSequence[4]}`,
+              detail: 'Incontro post-gara organizzato per la compagnia.',
+              achieved: true,
+            },
+            {
+              name: 'Guardiani Vigil',
+              icon: `🕯️ ${rarityColorSequence[5]}`,
+              detail: 'Tre settimane consecutive di supporto attivo ai compagni.',
+              achieved: false,
+            },
+            {
+              name: 'Annúminas Lantern',
+              icon: `🏮 ${rarityColorSequence[6]}`,
+              detail: 'Report settimanale pubblicato per un mese consecutivo.',
+              achieved: true,
+            },
           ],
         },
         {
@@ -1037,16 +1129,48 @@
           description: 'Streak disciplinati che scandiscono settimane, stagioni e oltre.',
           emoji: '🔁',
           medals: [
-            { name: 'Sette Giorni di Corsa', detail: 'Corsa quotidiana per una settimana intera.', achieved: true },
-            { name: 'Trenta Giorni di Corsa', detail: 'Running streak ininterrotto per trenta giorni.', achieved: false },
-            { name: 'Sette Giorni in Sella', detail: 'Bici ogni giorno per sette giorni consecutivi.', achieved: true },
-            { name: 'Trenta Giorni in Sella', detail: 'Cavalcate quotidiane per un intero mese.', achieved: false },
-            { name: 'Sette Giorni in Vasca', detail: 'Sessioni di nuoto per ogni giorno della settimana.', achieved: true },
-            { name: 'Quattordici Giorni Allenati', detail: 'Attività registrate per due settimane senza pause.', achieved: true },
-            { name: 'Mese Senza Soste', detail: 'Allenamenti quotidiani lungo trenta giorni consecutivi.', achieved: false },
-            { name: 'Stagione di Focus', detail: 'Novanta giorni di attività senza interruzioni.', achieved: false },
-            { name: 'Semestre di Resilienza', detail: 'Centottantadue giorni consecutivi con almeno un allenamento.', achieved: false },
-            { name: 'Anno di Tenacia', detail: 'Un intero anno di attività registrate giorno dopo giorno.', achieved: false },
+            {
+              name: 'Run Seven',
+              icon: `🏃‍♂️ ${rarityColorSequence[0]}`,
+              detail: 'Corsa quotidiana per sette giorni consecutivi.',
+              achieved: true,
+            },
+            {
+              name: 'Run Thirty',
+              icon: `🏃‍♀️ ${rarityColorSequence[1]}`,
+              detail: 'Running streak ininterrotto per trenta giorni.',
+              achieved: false,
+            },
+            {
+              name: 'Ride Seven',
+              icon: `🚴‍♂️ ${rarityColorSequence[2]}`,
+              detail: 'Uscite in bici quotidiane per una settimana intera.',
+              achieved: true,
+            },
+            {
+              name: 'Ride Thirty',
+              icon: `🚴‍♀️ ${rarityColorSequence[3]}`,
+              detail: 'Cavalcate giornaliere per un intero mese.',
+              achieved: false,
+            },
+            {
+              name: 'Swim Seven',
+              icon: `🏊‍♂️ ${rarityColorSequence[4]}`,
+              detail: 'Sessioni di nuoto per ogni giorno della settimana.',
+              achieved: true,
+            },
+            {
+              name: 'Focus Season',
+              icon: `🧭 ${rarityColorSequence[5]}`,
+              detail: 'Novanta giorni consecutivi con almeno un’attività registrata.',
+              achieved: false,
+            },
+            {
+              name: 'Tenacia Year',
+              icon: `🏆 ${rarityColorSequence[6]}`,
+              detail: 'Un anno intero di allenamenti senza interruzioni.',
+              achieved: false,
+            },
           ],
         },
       ];
@@ -1153,11 +1277,17 @@
         const classMedalsDescription =
           classAssignment?.entry?.description?.trim() ||
           'Sigilli dedicati alla tua classe più performante.';
-        const classMedals = buildBestClassMedals(profile, classAssignment);
+        const classMedals = buildBestClassMedals(profile, classAssignment).map((medal, index) => ({
+          ...medal,
+          icon: medal.icon || `${crest} ${rarityColorSequence[index % rarityColorSequence.length]}`,
+        }));
 
         const replicatedBase = baseMedalDefinitions.map((definition) => ({
           ...definition,
-          medals: definition.medals.map((medal) => ({ ...medal })),
+          medals: definition.medals.map((medal, index) => ({
+            ...medal,
+            icon: medal.icon || `${definition.emoji} ${rarityColorSequence[index % rarityColorSequence.length]}`,
+          })),
         }));
 
         return [
@@ -1197,7 +1327,7 @@
           medalList.className = 'medal-list';
           medalList.setAttribute('role', 'list');
 
-          medals.forEach(({ name, detail, achieved }) => {
+          medals.forEach(({ name, detail, achieved, icon }) => {
             const listItem = document.createElement('li');
             listItem.className = `medal ${achieved ? 'medal--achieved' : 'medal--locked'}`;
             listItem.setAttribute('role', 'listitem');
@@ -1206,9 +1336,14 @@
             const detailMarkup = detailContent
               ? `<span class="medal__detail">${detailContent}</span>`
               : '';
-            const icon = achieved ? '🏅' : '🔒';
+            const resolvedIcon = (() => {
+              if (typeof icon === 'string' && icon.trim()) {
+                return icon.trim();
+              }
+              return achieved ? '🏅' : '🔒';
+            })();
             listItem.innerHTML = `
-              <div class="medal__icon" aria-hidden="true">${icon}</div>
+              <div class="medal__icon" aria-hidden="true">${resolvedIcon}</div>
               <div class="medal__copy">
                 <span class="medal__name">${name}</span>
                 ${detailMarkup}

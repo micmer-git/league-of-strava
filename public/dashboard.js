@@ -10740,6 +10740,46 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     },
                     {
+                        title: 'Longest Ride Distance',
+                        icon: '🚵',
+                        compute: (activity) => {
+                            if (!isRideActivity(activity)) {
+                                return null;
+                            }
+
+                            const distanceKm = (Number(activity.distance) || 0) / 1000;
+                            if (distanceKm <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: distanceKm,
+                                value: distanceKm
+                            };
+                        },
+                        formatter: (distanceKm) => `${distanceKm.toFixed(1)} km`
+                    },
+                    {
+                        title: 'Top Elevation Ride',
+                        icon: '🌄',
+                        compute: (activity) => {
+                            if (!isRideActivity(activity)) {
+                                return null;
+                            }
+
+                            const elevation = Number(activity.total_elevation_gain) || 0;
+                            if (elevation <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: elevation,
+                                value: elevation
+                            };
+                        },
+                        formatter: (elevation) => `${Math.round(elevation)} m`
+                    },
+                    {
                         title: 'Longest Run Distance',
                         icon: '🛤️',
                         compute: (activity) => {
@@ -10778,6 +10818,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                             };
                         },
                         formatter: (elevation) => `${Math.round(elevation)} m`
+                    },
+                    {
+                        title: 'Longest Activity Duration',
+                        icon: '⏱️',
+                        compute: (activity) => {
+                            const movingTime = Number(activity.moving_time) || 0;
+                            const elapsedTime = Number(activity.elapsed_time) || 0;
+                            const durationSeconds = Math.max(movingTime, elapsedTime);
+
+                            if (durationSeconds <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: durationSeconds,
+                                value: durationSeconds
+                            };
+                        },
+                        formatter: (seconds) => formatDurationShort(seconds)
+                    },
+                    {
+                        title: 'Highest Calorie Burn',
+                        icon: '🔥',
+                        compute: (activity) => {
+                            const calories = calculateActivityCalories(activity);
+                            if (calories <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: calories,
+                                value: calories
+                            };
+                        },
+                        formatter: (calories) => formatCalories(calories)
                     }
                 ];
 

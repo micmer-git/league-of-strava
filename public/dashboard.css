@@ -1276,7 +1276,7 @@ to { opacity: 1; transform: translateY(0); }
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem 0.65rem;
-    align-items: baseline;
+    align-items: flex-start;
 }
 
 .profile-card__balance-label {
@@ -1308,6 +1308,16 @@ to { opacity: 1; transform: translateY(0); }
 .profile-card__balance-change {
     font-size: 0.85rem;
     white-space: nowrap;
+    cursor: pointer;
+    border-radius: 0.35rem;
+    padding: 0.15rem 0.4rem;
+    transition: background-color var(--transition-base, 0.2s ease), box-shadow var(--transition-base, 0.2s ease);
+}
+
+.profile-card__balance-change:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+    background-color: rgba(59, 130, 246, 0.12);
 }
 
 .profile-card__sync {
@@ -1352,7 +1362,6 @@ to { opacity: 1; transform: translateY(0); }
 }
 
 .profile-card__balance-change--secondary {
-    display: none;
     opacity: 0.7;
 }
 

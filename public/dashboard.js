@@ -2974,46 +2974,68 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const formattedValue = formatThousandChange(valueChange);
         const formattedPercent = formatPercentLabel(percentValue);
+        const hasValue = Boolean(formattedValue);
+        const hasPercent = Boolean(formattedPercent);
 
-        if (!formattedValue && !formattedPercent) {
+        let tooltipText = '';
+
+        if (!hasValue && !hasPercent) {
             element.textContent = `${shortLabel} —`;
             element.classList.add('profile-card__balance-change--neutral');
             element.setAttribute('aria-label', `${longLabel} change unavailable`);
-            return;
-        }
-
-        const valuePart = formattedValue ?? '—';
-        let displayText = `${shortLabel} ${valuePart}`;
-
-        if (formattedPercent) {
-            displayText += ` (${formattedPercent})`;
-        }
-
-        if (formattedValue || formattedPercent) {
-            displayText += '.';
-        }
-
-        element.textContent = displayText;
-
-        if (formattedValue) {
-            if (formattedValue.startsWith('-')) {
-                element.classList.add('profile-card__balance-change--negative');
-            } else if (formattedValue === '$0k') {
-                element.classList.add('profile-card__balance-change--neutral');
-            }
-        } else if (formattedPercent) {
-            if (percentValue < 0) {
-                element.classList.add('profile-card__balance-change--negative');
-            } else if (percentValue === 0) {
-                element.classList.add('profile-card__balance-change--neutral');
-            }
+            tooltipText = `${longLabel} Achievement Wallet change isn't available yet. Keep logging activities to unlock this trend.`;
         } else {
-            element.classList.add('profile-card__balance-change--neutral');
+            const valuePart = hasValue ? formattedValue : '—';
+            let displayText = `${shortLabel} ${valuePart}`;
+
+            if (hasPercent) {
+                displayText += ` (${formattedPercent})`;
+            }
+
+            if (hasValue || hasPercent) {
+                displayText += '.';
+            }
+
+            element.textContent = displayText;
+
+            if (hasValue) {
+                if (formattedValue.startsWith('-')) {
+                    element.classList.add('profile-card__balance-change--negative');
+                } else if (formattedValue === '$0k') {
+                    element.classList.add('profile-card__balance-change--neutral');
+                }
+            } else if (hasPercent) {
+                if (Number.isFinite(percentValue) && percentValue < 0) {
+                    element.classList.add('profile-card__balance-change--negative');
+                } else if (Number.isFinite(percentValue) && percentValue === 0) {
+                    element.classList.add('profile-card__balance-change--neutral');
+                }
+            } else {
+                element.classList.add('profile-card__balance-change--neutral');
+            }
+
+            const ariaValue = formattedValue ?? 'not available';
+            const ariaPercent = hasPercent ? ` (${formattedPercent})` : '';
+            element.setAttribute('aria-label', `${longLabel} change ${ariaValue}${ariaPercent}`);
+
+            const timeframeDescription = longLabel === 'Three-month'
+                ? 'the last three months'
+                : longLabel === 'One-year'
+                    ? 'the last year'
+                    : longLabel.toLowerCase();
+            const changeVerb = hasValue ? 'is' : 'shows';
+            const valueSummary = hasValue ? formattedValue : 'no recorded dollar change';
+            const percentSummary = hasPercent ? ` (${formattedPercent})` : '';
+            tooltipText = `${longLabel} Achievement Wallet change ${changeVerb} ${valueSummary}${percentSummary}. Includes coins and medals unlocked over ${timeframeDescription}.`;
         }
 
-        const ariaValue = formattedValue ?? 'not available';
-        const ariaPercent = formattedPercent ? ` (${formattedPercent})` : '';
-        element.setAttribute('aria-label', `${longLabel} change ${ariaValue}${ariaPercent}`);
+        if (!element.hasAttribute('tabindex')) {
+            element.setAttribute('tabindex', '0');
+        }
+        element.setAttribute('role', 'button');
+        element.dataset.walletChangePeriod = shortLabel;
+
+        attachTooltip(element, tooltipText);
     };
 
     const formatHoursDisplay = (hours) => {

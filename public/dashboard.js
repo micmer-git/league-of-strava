@@ -105,8 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         Run: 'km',
         Ride: 'km',
         Elevation: 'm',
-        Calories: '',
-        Segments: ''
+        Calories: ''
     };
 
     const MEDAL_RARITY_LEVELS = [
@@ -368,8 +367,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         'Distance Ride': { label: 'Ride', icon: '🚴' },
         Elevation: { label: 'Elevation', icon: '🧗' },
         'Calories (kcal)': { label: 'Calories', icon: '🔥' },
-        Segments: { label: 'Segments', icon: '📍' },
     };
+    const EXCLUDED_WALLET_CATEGORIES = new Set(['Segments']);
 
     const coinConfig = {
         Run: {
@@ -407,16 +406,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 { metric: 'calories', threshold: 7500, emoji: '💎', name: 'Metabolic Master' }
             ],
             ultraWeekly: { metric: 'calories', threshold: 8000, emoji: '👑' }
-        },
-        Segment: {
-            lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
-            weekly: { metric: 'segmentCompletions', threshold: 5, emoji: '💰' },
-            milestone: [
-                { metric: 'segmentCompletions', threshold: 10, emoji: '🧈', name: '10 Completions' },
-                { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions' },
-                { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions' }
-            ],
-            ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '👑' }
         }
     };
 
@@ -693,14 +682,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
     const rankInfoButton = document.getElementById('rank-info-button');
-    const globeStatButton = document.getElementById('globe-stat');
-    const everestStatButton = document.getElementById('everest-stat');
-    const pizzaStatButton = document.getElementById('pizza-stat');
-    const likesStatButton = document.getElementById('likes-stat');
-    const globeTotalElement = document.getElementById('globe-total');
-    const everestTotalElement = document.getElementById('everest-total');
-    const pizzaTotalElement = document.getElementById('pizza-total');
-    const likesTotalElement = document.getElementById('likes-total');
+    let globeStatButton = document.getElementById('globe-stat');
+    let everestStatButton = document.getElementById('everest-stat');
+    let pizzaStatButton = document.getElementById('pizza-stat');
+    let likesStatButton = document.getElementById('likes-stat');
+    let globeTotalElement = document.getElementById('globe-total');
+    let everestTotalElement = document.getElementById('everest-total');
+    let pizzaTotalElement = document.getElementById('pizza-total');
+    let likesTotalElement = document.getElementById('likes-total');
+    let renderFunStats = () => {};
     const profileWalletTotalElement = document.getElementById('profile-wallet-total');
     const shareButton = document.getElementById('share-dashboard');
     const shareCardPreview = document.getElementById('share-card-preview');
@@ -879,6 +869,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     let canPersistPanelState = true;
 
     const refreshPanelReferences = () => {
+        globeStatButton = document.getElementById('globe-stat');
+        everestStatButton = document.getElementById('everest-stat');
+        pizzaStatButton = document.getElementById('pizza-stat');
+        likesStatButton = document.getElementById('likes-stat');
+        globeTotalElement = document.getElementById('globe-total');
+        everestTotalElement = document.getElementById('everest-total');
+        pizzaTotalElement = document.getElementById('pizza-total');
+        likesTotalElement = document.getElementById('likes-total');
+        walletSummaryElements.coinsCount = document.getElementById('wallet-summary-coins-count');
+        walletSummaryElements.coinsValue = document.getElementById('wallet-summary-coins-value');
+        walletSummaryElements.medalCount = document.getElementById('wallet-summary-medal-count');
+        walletSummaryElements.medalValue = document.getElementById('wallet-summary-medal-value');
+        walletSummaryElements.totalValue = document.getElementById('wallet-summary-total-value');
+        walletSummaryElements.totalDetail = document.getElementById('wallet-summary-total-detail');
         activitiesContainer = document.getElementById('activities-container');
         activitiesEmptyState = document.getElementById('activities-empty');
         medalsSection = document.getElementById('medals-section');
@@ -910,6 +914,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chartToggleButtons.balance = chartToggleBalanceButton;
         achievementWallet = document.getElementById('achievement-wallet');
         updateActivitiesMedalInfo();
+        renderFunStats();
     };
 
     const onPanelReady = (panelName, callback) => {
@@ -1723,15 +1728,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const categories = Array.isArray(summary.categories)
-            ? summary.categories.map(category => ({
-                name: category.name,
-                achievements: Array.isArray(category.achievements)
-                    ? category.achievements.map(achievement => ({
-                        ...achievement,
-                        count: toNonNegativeInteger(achievement?.count),
-                    }))
-                    : [],
-            }))
+            ? summary.categories
+                .filter(category => category && !EXCLUDED_WALLET_CATEGORIES.has(category.name))
+                .map(category => ({
+                    name: category.name,
+                    achievements: Array.isArray(category.achievements)
+                        ? category.achievements.map(achievement => ({
+                            ...achievement,
+                            count: toNonNegativeInteger(achievement?.count),
+                        }))
+                        : [],
+                }))
             : [];
 
         const medalCount = toNonNegativeInteger(summary.medalSummary?.count);
@@ -1789,7 +1796,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             { name: 'Distance Ride', achievements: [] },
             { name: 'Elevation', achievements: [] },
             { name: 'Calories (kcal)', achievements: [] },
-            { name: 'Segments', achievements: [] },
         ];
 
         const findCategory = (categoryName) => categories.find(cat => cat.name === categoryName);
@@ -1847,40 +1853,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             weeklyTotals.forEach(total => {
-                definitions.forEach((definition, index) => {
-                    if (total >= definition.threshold) {
-                        counts[index] += 1;
-                    }
-                });
-            });
-
-            return counts;
-        };
-
-        const accumulateMonthlyThresholdCounts = (activities, definitions, valueExtractor) => {
-            const counts = new Array(definitions.length).fill(0);
-            if (!Array.isArray(activities) || activities.length === 0) {
-                return counts;
-            }
-
-            const monthlyTotals = new Map();
-            activities.forEach(activity => {
-                const value = valueExtractor(activity);
-                if (!Number.isFinite(value) || value <= 0) {
-                    return;
-                }
-
-                const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
-                if (Number.isNaN(activityDate.getTime())) {
-                    return;
-                }
-
-                const monthKey = `${activityDate.getFullYear()}-${String(activityDate.getMonth() + 1).padStart(2, '0')}`;
-                const currentTotal = monthlyTotals.get(monthKey) || 0;
-                monthlyTotals.set(monthKey, currentTotal + value);
-            });
-
-            monthlyTotals.forEach(total => {
                 definitions.forEach((definition, index) => {
                     if (total >= definition.threshold) {
                         counts[index] += 1;
@@ -2091,61 +2063,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        const getSegmentCompletionCount = (activity) => {
-            if (Array.isArray(activity?.segment_efforts)) {
-                return activity.segment_efforts.length;
-            }
-            const segmentCount = Number(activity?.segment_count);
-            return Number.isFinite(segmentCount) ? segmentCount : 0;
-        };
-
-        if (coinConfig?.Segment) {
-            const segmentConfig = coinConfig.Segment;
-            const segmentActivityDefinitions = [
-                {
-                    threshold: segmentConfig.lifetime.threshold,
-                    emoji: segmentConfig.lifetime.emoji,
-                    name: `${segmentConfig.lifetime.threshold} Segment Completion`,
-                    description: `Activities completing at least ${segmentConfig.lifetime.threshold} segment${segmentConfig.lifetime.threshold === 1 ? '' : 's'}`,
-                },
-                ...segmentConfig.milestone.map(milestone => ({
-                    threshold: milestone.threshold,
-                    emoji: milestone.emoji,
-                    name: milestone.name || `${milestone.threshold} Segment Completions`,
-                    description: `Activities completing at least ${milestone.threshold} segments`,
-                })),
-            ];
-            const segmentCounts = accumulateThresholdCounts(activityList, segmentActivityDefinitions, getSegmentCompletionCount);
-            segmentActivityDefinitions.forEach((definition, index) => {
-                pushAchievement('Segments', {
-                    ...definition,
-                    count: segmentCounts[index],
-                });
-            });
-
-            const segmentWeeklyDefinitions = [
-                {
-                    threshold: segmentConfig.weekly.threshold,
-                    emoji: segmentConfig.weekly.emoji,
-                    name: `${segmentConfig.weekly.threshold} Segment Week`,
-                    description: `Weeks with at least ${segmentConfig.weekly.threshold} segment completions`,
-                },
-                {
-                    threshold: segmentConfig.ultraWeekly.threshold,
-                    emoji: segmentConfig.ultraWeekly.emoji,
-                    name: `${segmentConfig.ultraWeekly.threshold} Segment Week`,
-                    description: `Weeks with at least ${segmentConfig.ultraWeekly.threshold} segment completions`,
-                },
-            ];
-            const segmentWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, segmentWeeklyDefinitions, getSegmentCompletionCount);
-            segmentWeeklyDefinitions.forEach((definition, index) => {
-                pushAchievement('Segments', {
-                    ...definition,
-                    count: segmentWeeklyCounts[index],
-                });
-            });
-        }
-
         const medalsEarned = [];
         const activityYears = Array.from(new Set(activityList
             .map(activity => {
@@ -2332,6 +2249,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         quarterChangeValue: null,
         yearChangeValue: null
     };
+    let latestFunStats = null;
+    let latestFunStatsContext = { hasActivities: false };
+    let latestWalletSummaryPayload = null;
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
@@ -6176,9 +6096,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const everestSummits = elevationGain / EVEREST_HEIGHT_M;
         const pizzaCount = calories / PIZZA_KCAL;
         const likes = getActivityLikesCount(activity);
-        const segmentCompletions = Array.isArray(activity.segment_efforts)
-            ? activity.segment_efforts.length
-            : (Number.isFinite(Number(activity?.segment_count)) ? Number(activity.segment_count) : 0);
 
         return {
             distanceKm,
@@ -6188,7 +6105,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             everestSummits,
             pizzaCount,
             likes,
-            segmentCompletions,
         };
     }
 
@@ -7871,7 +7787,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }, medalBreakdown = []) => {
-        const totals = computeWalletCoinTotals(achievementCategories);
+        const sanitizedCategories = Array.isArray(achievementCategories)
+            ? achievementCategories.filter(category => category && !EXCLUDED_WALLET_CATEGORIES.has(category.name))
+            : [];
+        const sanitizedMedalSummary = {
+            count: toNonNegativeInteger(medalSummary?.count),
+            value: Number.isFinite(medalSummary?.value) ? medalSummary.value : toNonNegativeInteger(medalSummary?.count) * MEDAL_DOLLAR_VALUE,
+        };
+        const sanitizedMedalBreakdown = Array.isArray(medalBreakdown)
+            ? medalBreakdown.map(medal => ({
+                ...medal,
+                count: toNonNegativeInteger(medal?.count),
+            }))
+            : [];
+
+        latestWalletSummaryPayload = {
+            categories: sanitizedCategories.map(category => ({
+                name: category.name,
+                achievements: Array.isArray(category.achievements)
+                    ? category.achievements.map(achievement => ({
+                        ...achievement,
+                        count: toNonNegativeInteger(achievement?.count),
+                    }))
+                    : [],
+            })),
+            medalSummary: sanitizedMedalSummary,
+            medalBreakdown: sanitizedMedalBreakdown,
+        };
+
+        const totals = computeWalletCoinTotals(latestWalletSummaryPayload.categories);
         const elementMap = {
             '💲': 'coin-dollar',
             '💰': 'coin-money',
@@ -7903,8 +7847,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return sum + (coinValue * normalizedCount);
         }, 0);
 
-        const medalCount = toNonNegativeInteger(medalSummary?.count);
-        const medalValue = medalCount * MEDAL_DOLLAR_VALUE;
+        const medalCount = sanitizedMedalSummary.count;
+        const medalValue = sanitizedMedalSummary.value;
         const combinedValue = totalCoinValue + medalValue;
 
         const totalCoinCount = Object.values(totals).reduce(
@@ -7932,8 +7876,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const aggregatedMedals = new Map();
-        if (Array.isArray(medalBreakdown)) {
-            medalBreakdown.forEach(medal => {
+        if (Array.isArray(latestWalletSummaryPayload.medalBreakdown)) {
+            latestWalletSummaryPayload.medalBreakdown.forEach(medal => {
                 const count = toNonNegativeInteger(medal?.count);
                 if (count <= 0) {
                     return;
@@ -7995,6 +7939,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         );
 
         return totals;
+    };
+
+    const reapplyAchievementSummaries = () => {
+        renderFunStats();
+        if (!latestWalletSummaryPayload) {
+            return;
+        }
+        updateCoinSummaryFromWallet(
+            latestWalletSummaryPayload.categories,
+            latestWalletSummaryPayload.medalSummary,
+            latestWalletSummaryPayload.medalBreakdown,
+        );
     };
 
     const ensureInsightAnchor = (element) => {
@@ -8122,6 +8078,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.dataset.tooltipBound = 'true';
         element.classList.add('tooltip-target');
     };
+
+    renderFunStats = (stats = latestFunStats, context = latestFunStatsContext) => {
+        if (!stats) {
+            return;
+        }
+
+        const hasActivities = Boolean(context?.hasActivities);
+
+        if (globeTotalElement) {
+            globeTotalElement.textContent = formatStatValue(stats.globeTrips);
+        }
+        if (everestTotalElement) {
+            everestTotalElement.textContent = formatStatValue(stats.everestSummits);
+        }
+        if (pizzaTotalElement) {
+            pizzaTotalElement.textContent = formatStatValue(stats.pizzas);
+        }
+
+        if (globeStatButton) {
+            const message = hasActivities
+                ? `Total distance ${formatDistance(stats.distanceKm)} — ${formatStatValue(stats.globeTrips)} globe trips.`
+                : 'No distance recorded for the selected period.';
+            attachTooltip(globeStatButton, message);
+        }
+        if (everestStatButton) {
+            const message = hasActivities
+                ? `Total elevation ${formatElevation(stats.elevationGain)} — ${formatStatValue(stats.everestSummits)} Everest climbs.`
+                : 'No elevation recorded for the selected period.';
+            attachTooltip(everestStatButton, message);
+        }
+        if (pizzaStatButton) {
+            const message = hasActivities
+                ? `Energy burned ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzas)}.`
+                : 'No heart rate data to estimate calories for this period.';
+            attachTooltip(pizzaStatButton, message);
+        }
+        if (likesTotalElement) {
+            likesTotalElement.textContent = formatCount(stats.likes);
+        }
+        if (likesStatButton) {
+            const totalLikes = stats.likes;
+            const message = hasActivities
+                ? `${formatCount(totalLikes)} kudos collected across all visible activities.`
+                : 'No kudos recorded for the selected period.';
+            likesStatButton.setAttribute('aria-label', message);
+            attachTooltip(likesStatButton, message);
+        }
+    };
+    renderFunStats();
 
     document.addEventListener('click', (event) => {
         if (!event.target.closest('.insight-anchor')) {
@@ -10443,25 +10448,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        if (coinConfig?.Segment) {
-            const segmentConfig = coinConfig.Segment;
-            const completions = Number(stats.segmentCompletions) || 0;
-            if (completions >= segmentConfig.lifetime.threshold) {
-                addCoin(segmentConfig.lifetime.emoji);
-            }
-            if (completions >= segmentConfig.weekly.threshold) {
-                addCoin(segmentConfig.weekly.emoji);
-            }
-            segmentConfig.milestone.forEach(milestone => {
-                if (completions >= milestone.threshold) {
-                    addCoin(milestone.emoji);
-                }
-            });
-            if (completions >= segmentConfig.ultraWeekly.threshold) {
-                addCoin(segmentConfig.ultraWeekly.emoji);
-            }
-        }
-
         return rewards;
     }
 
@@ -11201,46 +11187,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             activities: lifetimeActivitiesForStats,
             totals: lifetimeTotals,
         });
-
-        if (globeTotalElement) {
-            globeTotalElement.textContent = formatStatValue(aggregatedSmallStats.globeTrips);
-        }
-        if (everestTotalElement) {
-            everestTotalElement.textContent = formatStatValue(aggregatedSmallStats.everestSummits);
-        }
-        if (pizzaTotalElement) {
-            pizzaTotalElement.textContent = formatStatValue(aggregatedSmallStats.pizzas);
-        }
-
-        if (globeStatButton) {
-            const message = hasActivities
-                ? `Total distance ${formatDistance(aggregatedSmallStats.distanceKm)} — ${formatStatValue(aggregatedSmallStats.globeTrips)} globe trips.`
-                : 'No distance recorded for the selected period.';
-            attachTooltip(globeStatButton, message);
-        }
-        if (everestStatButton) {
-            const message = hasActivities
-                ? `Total elevation ${formatElevation(aggregatedSmallStats.elevationGain)} — ${formatStatValue(aggregatedSmallStats.everestSummits)} Everest climbs.`
-                : 'No elevation recorded for the selected period.';
-            attachTooltip(everestStatButton, message);
-        }
-        if (pizzaStatButton) {
-            const message = hasActivities
-                ? `Energy burned ${formatCalories(aggregatedSmallStats.calories)} ≈ ${formatPizzas(aggregatedSmallStats.pizzas)}.`
-                : 'No heart rate data to estimate calories for this period.';
-            attachTooltip(pizzaStatButton, message);
-        }
-        if (likesTotalElement) {
-            likesTotalElement.textContent = formatCount(aggregatedSmallStats.likes);
-        }
-        if (likesStatButton) {
-            const totalLikes = aggregatedSmallStats.likes;
-            const message = hasActivities
-                ? `${formatCount(totalLikes)} kudos collected across all visible activities.`
-                : 'No kudos recorded for the selected period.';
-            likesStatButton.setAttribute('aria-label', message);
-            attachTooltip(likesStatButton, message);
-        }
+        latestFunStats = aggregatedSmallStats;
+        latestFunStatsContext = { hasActivities };
+        renderFunStats(aggregatedSmallStats, latestFunStatsContext);
 
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
@@ -11434,7 +11383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             categories.forEach((category) => {
                 const key = category?.name;
-                if (!key || seenWalletKeys.has(key)) {
+                if (!key || EXCLUDED_WALLET_CATEGORIES.has(key) || seenWalletKeys.has(key)) {
                     return;
                 }
                 const meta = WALLET_CATEGORY_META[key] || {};
@@ -12672,6 +12621,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindCoinShortcutButtons();
         bindPanelShortcutButtons();
         bindBalanceYearToggle();
+        reapplyAchievementSummaries();
     });
 
     onPanelReady('achievements', () => {
@@ -12679,6 +12629,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindPanelShortcutButtons();
         bindCoinShortcutButtons();
         bindLoadMoreButton();
+        reapplyAchievementSummaries();
         if (Array.isArray(allData.activities)) {
             applyFilters(lastActivitiesRenderOptions);
         }

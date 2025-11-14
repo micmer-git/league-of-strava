@@ -2823,7 +2823,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return output || rawName;
     };
 
-    const updateActivitiesMedalInfo = () => {
+    function updateActivitiesMedalInfo() {
         if (!activitiesMedalInfo) {
             return;
         }
@@ -2888,7 +2888,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             activitiesMedalInfoDescription.textContent = infoParts.join(' • ');
             activitiesMedalInfoDescription.classList.toggle('hidden', infoParts.length === 0);
         }
-    };
+    }
 
     const updateMedalFilterBanner = () => {
         if (medalFilterBanner) {

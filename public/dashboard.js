@@ -30,14 +30,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
     const MEDAL_OTHER_COLOR = '#94a3b8';
     const BALANCE_YEAR_COLOR_PALETTE = [
-        { border: '#2563eb', background: 'rgba(37, 99, 235, 0.18)', hover: 'rgba(37, 99, 235, 0.32)' },
-        { border: '#16a34a', background: 'rgba(22, 163, 74, 0.18)', hover: 'rgba(22, 163, 74, 0.32)' },
-        { border: '#f97316', background: 'rgba(249, 115, 22, 0.18)', hover: 'rgba(249, 115, 22, 0.32)' },
-        { border: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)', hover: 'rgba(139, 92, 246, 0.32)' },
-        { border: '#14b8a6', background: 'rgba(20, 184, 166, 0.18)', hover: 'rgba(20, 184, 166, 0.32)' },
-        { border: '#ef4444', background: 'rgba(239, 68, 68, 0.18)', hover: 'rgba(239, 68, 68, 0.32)' },
-        { border: '#f59e0b', background: 'rgba(245, 158, 11, 0.18)', hover: 'rgba(245, 158, 11, 0.32)' },
-        { border: '#6366f1', background: 'rgba(99, 102, 241, 0.18)', hover: 'rgba(99, 102, 241, 0.32)' }
+        { border: '#bbf7d0', background: 'rgba(187, 247, 208, 0.45)', hover: 'rgba(187, 247, 208, 0.6)' },
+        { border: '#86efac', background: 'rgba(134, 239, 172, 0.4)', hover: 'rgba(134, 239, 172, 0.55)' },
+        { border: '#4ade80', background: 'rgba(74, 222, 128, 0.36)', hover: 'rgba(74, 222, 128, 0.5)' },
+        { border: '#22c55e', background: 'rgba(34, 197, 94, 0.32)', hover: 'rgba(34, 197, 94, 0.46)' },
+        { border: '#16a34a', background: 'rgba(22, 163, 74, 0.28)', hover: 'rgba(22, 163, 74, 0.42)' },
+        { border: '#15803d', background: 'rgba(21, 128, 61, 0.26)', hover: 'rgba(21, 128, 61, 0.38)' },
+        { border: '#166534', background: 'rgba(22, 101, 52, 0.24)', hover: 'rgba(22, 101, 52, 0.36)' },
+        { border: '#14532d', background: 'rgba(20, 83, 45, 0.22)', hover: 'rgba(20, 83, 45, 0.34)' }
     ];
     const MONTH_COMPARISON_LABELS = Array.from({ length: 12 }, (_, index) => {
         const date = new Date(2000, index, 1);
@@ -3876,7 +3876,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const comparisonMonthlyDatasets = useComparison
                 ? (Array.isArray(dataset.compareMonthlyDatasets) ? dataset.compareMonthlyDatasets : []).map(entry => ({
                     type: 'bar',
-                    label: entry.label || `${entry.baseLabel || 'Year'} monthly haul`,
+                    label: entry.label || entry.baseLabel || 'Year',
                     data: Array.isArray(entry.data) ? entry.data : [],
                     backgroundColor: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
                     borderColor: entry.borderColor || '#2563eb',
@@ -4492,7 +4492,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 backgroundColor: paletteEntry.background,
             });
             compareMonthlyDatasets.push({
-                label: `${yearLabel} monthly haul`,
+                label: yearLabel,
                 baseLabel: yearLabel,
                 data: monthlyTotals,
                 backgroundColor: paletteEntry.background,

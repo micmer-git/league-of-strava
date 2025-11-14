@@ -2145,6 +2145,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         return Math.round(numeric).toString();
     };
 
+    const formatDurationShort = (seconds) => {
+        const totalSeconds = Math.round(Number(seconds));
+        if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+            return '—';
+        }
+
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const remainingSeconds = totalSeconds % 60;
+
+        if (hours > 0) {
+            return `${hours}h ${minutes.toString().padStart(2, '0')}m ${remainingSeconds.toString().padStart(2, '0')}s`;
+        }
+
+        if (minutes > 0) {
+            return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
+        }
+
+        return `${remainingSeconds}s`;
+    };
+
+    const formatPace = (secondsPerKm) => {
+        const totalSeconds = Math.round(Number(secondsPerKm));
+        if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+            return '—';
+        }
+
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')} /km`;
+    };
+
+    const isRunActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('run') || sportType.includes('run');
+    };
+
+    const isRideActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('ride') || sportType.includes('ride');
+    };
+
     const getCoinTotals = (entry) => {
         return COIN_EMOJIS.reduce((acc, emoji) => {
             const value = entry?.coinBreakdown?.[emoji] ?? entry?.[emoji];
@@ -10569,46 +10621,207 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (hasActivities) {
+                const TEN_KM_METERS = 10000;
+                const HALF_MARATHON_METERS = 21097.5;
+                const MARATHON_METERS = 42195;
+                const HUNDRED_KM_METERS = 100000;
+
                 const metrics = [
                     {
-                        title: 'Highest Elevation',
+                        title: 'Fastest 10K Run',
+                        icon: '⚡',
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
+
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < TEN_KM_METERS || movingTime <= 0) {
+                                return null;
+                            }
+
+                            const normalizedTime = movingTime * (TEN_KM_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: normalizedTime / (TEN_KM_METERS / 1000)
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const durationText = formatDurationShort(seconds);
+                            const paceText = formatPace(result?.pace);
+                            return paceText === '—' ? durationText : `${durationText} (${paceText})`;
+                        }
+                    },
+                    {
+                        title: 'Fastest Half Marathon',
+                        icon: '🏃',
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
+
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < HALF_MARATHON_METERS || movingTime <= 0) {
+                                return null;
+                            }
+
+                            const normalizedTime = movingTime * (HALF_MARATHON_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: normalizedTime / (HALF_MARATHON_METERS / 1000)
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const durationText = formatDurationShort(seconds);
+                            const paceText = formatPace(result?.pace);
+                            return paceText === '—' ? durationText : `${durationText} (${paceText})`;
+                        }
+                    },
+                    {
+                        title: 'Fastest Marathon',
+                        icon: '🎽',
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
+
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < MARATHON_METERS || movingTime <= 0) {
+                                return null;
+                            }
+
+                            const normalizedTime = movingTime * (MARATHON_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: normalizedTime / (MARATHON_METERS / 1000)
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const durationText = formatDurationShort(seconds);
+                            const paceText = formatPace(result?.pace);
+                            return paceText === '—' ? durationText : `${durationText} (${paceText})`;
+                        }
+                    },
+                    {
+                        title: 'Fastest 100K Ride',
+                        icon: '🚴',
+                        compute: (activity) => {
+                            if (!isRideActivity(activity)) {
+                                return null;
+                            }
+
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < HUNDRED_KM_METERS || movingTime <= 0) {
+                                return null;
+                            }
+
+                            const normalizedTime = movingTime * (HUNDRED_KM_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: (distance > 0)
+                                    ? (distance / 1000) / (movingTime / 3600)
+                                    : null
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const timeText = formatDurationShort(seconds);
+                            const averageSpeed = Number.isFinite(result?.pace)
+                                ? `${result.pace.toFixed(1)} km/h`
+                                : null;
+                            return averageSpeed ? `${timeText} (${averageSpeed})` : timeText;
+                        }
+                    },
+                    {
+                        title: 'Longest Run Distance',
+                        icon: '🛤️',
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
+
+                            const distanceKm = (Number(activity.distance) || 0) / 1000;
+                            if (distanceKm <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: distanceKm,
+                                value: distanceKm
+                            };
+                        },
+                        formatter: (distanceKm) => `${distanceKm.toFixed(1)} km`
+                    },
+                    {
+                        title: 'Biggest Run Climb',
                         icon: '🏔️',
-                        selector: (activity) => activity.total_elevation_gain || 0,
-                        formatter: (value) => `${Math.round(value)} m`
-                    },
-                    {
-                        title: 'Longest Distance',
-                        icon: '🚲',
-                        selector: (activity) => (activity.distance || 0) / 1000,
-                        formatter: (value) => `${value.toFixed(1)} km`
-                    },
-                    {
-                        title: 'Longest Duration',
-                        icon: '⏱️',
-                        selector: (activity) => (activity.moving_time || 0) / 3600,
-                        formatter: (value) => `${value.toFixed(1)} hrs`
-                    },
-                    {
-                        title: 'Highest Heart Effort',
-                        icon: '❤️',
-                        selector: (activity) => ((activity.average_heartrate || 0) * ((activity.moving_time || 0) / 60)),
-                        formatter: (value) => `${Math.round(value)} bpm·min`
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
+
+                            const elevation = Number(activity.total_elevation_gain) || 0;
+                            if (elevation <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: elevation,
+                                value: elevation
+                            };
+                        },
+                        formatter: (elevation) => `${Math.round(elevation)} m`
                     }
                 ];
 
                 metrics.forEach(metric => {
                     let bestActivity = null;
-                    let bestValue = -Infinity;
+                    let bestScore = Number.NEGATIVE_INFINITY;
+                    let bestValue = null;
+                    let bestResult = null;
 
                     activities.forEach(activity => {
-                        const value = metric.selector(activity);
-                        if (value > bestValue) {
+                        const result = typeof metric.compute === 'function'
+                            ? metric.compute(activity)
+                            : null;
+
+                        if (!result) {
+                            return;
+                        }
+
+                        const normalizedResult = typeof result === 'object' && result !== null && 'score' in result
+                            ? result
+                            : { score: result, value: result };
+
+                        const score = Number(normalizedResult.score);
+                        const value = Number(normalizedResult.value);
+
+                        if (!Number.isFinite(score) || !Number.isFinite(value)) {
+                            return;
+                        }
+
+                        if (score > bestScore) {
+                            bestScore = score;
                             bestValue = value;
                             bestActivity = activity;
+                            bestResult = normalizedResult;
                         }
                     });
 
-                    if (!bestActivity || !Number.isFinite(bestValue) || bestValue <= 0) {
+                    if (
+                        !bestActivity
+                        || !Number.isFinite(bestScore)
+                        || bestScore === Number.NEGATIVE_INFINITY
+                        || !Number.isFinite(bestValue)
+                        || bestValue <= 0
+                    ) {
                         return;
                     }
 
@@ -10645,7 +10858,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     const valueLabel = document.createElement('span');
                     valueLabel.className = 'top-performance-card__value text-sm text-slate-600 dark:text-slate-300 break-words';
-                    valueLabel.textContent = metric.formatter(bestValue);
+                    const formattedValue = typeof metric.formatter === 'function'
+                        ? metric.formatter(bestValue, bestActivity, bestResult)
+                        : String(bestValue);
+                    valueLabel.textContent = formattedValue;
 
                     metricHeader.append(titleLabel, valueLabel);
                     titleWrapper.append(metricHeader);

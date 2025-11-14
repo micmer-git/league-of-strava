@@ -3015,117 +3015,288 @@ body.dark .medals-category__title {
     display: none;
 }
 
-.rank-modal__rewards {
+.rank-modal__carousel {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
+    min-height: 0;
 }
 
-.rank-modal__rewards[hidden] {
-    display: none;
+.rank-modal__carousel-viewport {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    background: rgba(148, 163, 184, 0.12);
+    padding: 0.35rem 0;
 }
 
-.rank-modal__rewards-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: #0f172a;
-}
-
-.rank-modal__reward-track {
+.rank-modal__carousel-track {
     display: flex;
-    gap: 0.75rem;
-    overflow-x: auto;
-    padding: 0 0.25rem 0.35rem;
-    margin: 0 -0.25rem;
-    scroll-snap-type: x proximity;
+    transition: transform 320ms ease;
+    will-change: transform;
 }
 
-.rank-modal__reward-track::-webkit-scrollbar {
-    height: 6px;
+.rank-modal__slide {
+    flex: 0 0 100%;
+    min-width: 0;
+    padding: 0.25rem 0.85rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
-.rank-modal__reward-track::-webkit-scrollbar-thumb {
-    background: rgba(15, 23, 42, 0.25);
-    border-radius: 999px;
+.rank-modal__slide.is-active {
+    pointer-events: auto;
 }
 
-.rank-modal__reward-card {
+.rank-modal__slide[aria-hidden="true"] {
+    pointer-events: none;
+}
+
+.rank-modal__slide--rank {
+    padding-block: 1rem 1.25rem;
+}
+
+.rank-modal__slide--rank .rank-modal__summary {
     flex: 0 0 auto;
-    min-width: min(260px, 85%);
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    border-radius: 18px;
-    padding: 1rem 1.25rem;
-    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.15);
-    scroll-snap-align: start;
 }
 
-.rank-modal__reward-card-header {
+.rank-modal__slide--rank .rank-modal__list {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.rank-modal__slide--snapshot {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(236, 244, 255, 0.86));
+    border-radius: 22px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: 0 20px 36px rgba(15, 23, 42, 0.18);
+}
+
+.rank-modal__carousel-controls {
     display: flex;
-    align-items: baseline;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+}
+
+.rank-modal__carousel-button {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 999px;
+    width: 2.1rem;
+    height: 2.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #1f2937;
+    box-shadow: 0 12px 24px rgba(148, 163, 184, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.rank-modal__carousel-button:disabled {
+    opacity: 0.45;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.rank-modal__carousel-button:not(:disabled):hover,
+.rank-modal__carousel-button:not(:disabled):focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 28px rgba(59, 130, 246, 0.2);
+    background: rgba(59, 130, 246, 0.14);
+    color: #1d4ed8;
+}
+
+.rank-modal__carousel-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.rank-modal__carousel-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    border: none;
+    background: rgba(148, 163, 184, 0.35);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.rank-modal__carousel-dot.is-active {
+    background: #2563eb;
+    transform: scale(1.1);
+}
+
+.rank-modal__carousel-dot:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.5);
+    outline-offset: 2px;
+}
+
+.rank-modal__snapshot-header {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
+    gap: 1rem;
 }
 
-.rank-modal__reward-card-label {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: #0f172a;
-}
-
-.rank-modal__reward-card-range {
-    font-size: 0.75rem;
-    color: rgba(51, 65, 85, 0.75);
-    white-space: nowrap;
-}
-
-.rank-modal__reward-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem 0.75rem;
-}
-
-.rank-modal__reward-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    padding: 0.65rem;
-    border-radius: 14px;
-    background: rgba(148, 163, 184, 0.18);
-}
-
-.rank-modal__reward-metric--highlight {
-    grid-column: 1 / -1;
-    background: rgba(37, 99, 235, 0.14);
-    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.25);
-}
-
-.rank-modal__reward-metric-label {
-    font-size: 0.75rem;
-    color: rgba(15, 23, 42, 0.7);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.rank-modal__reward-metric-value {
+.rank-modal__snapshot-heading {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+}
+
+.rank-modal__snapshot-label {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #0f172a;
+}
+
+.rank-modal__snapshot-range {
+    font-size: 0.8rem;
+    color: rgba(51, 65, 85, 0.75);
+}
+
+.rank-modal__snapshot-total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.rank-modal__snapshot-total-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1d4ed8;
+}
+
+.rank-modal__snapshot-total-breakdown {
+    font-size: 0.75rem;
+    color: rgba(37, 99, 235, 0.8);
+    text-align: right;
+}
+
+.rank-modal__snapshot-total-breakdown.is-muted {
+    color: rgba(51, 65, 85, 0.65);
+}
+
+.rank-modal__snapshot-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.75rem;
+}
+
+.rank-modal__snapshot-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 14px 28px rgba(148, 163, 184, 0.22);
+}
+
+.rank-modal__snapshot-stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(15, 23, 42, 0.65);
+}
+
+.rank-modal__snapshot-stat-value {
     font-size: 1rem;
     font-weight: 600;
     color: #0f172a;
 }
 
-.rank-modal__reward-value-primary {
-    line-height: 1.2;
-}
-
-.rank-modal__reward-value-secondary {
+.rank-modal__snapshot-stat-secondary {
     font-size: 0.75rem;
     font-weight: 500;
-    color: rgba(37, 99, 235, 0.8);
+    color: rgba(37, 99, 235, 0.85);
+}
+
+.rank-modal__snapshot-rewards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+}
+
+.rank-modal__snapshot-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.85rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+
+.rank-modal__snapshot-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.rank-modal__snapshot-section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.rank-modal__snapshot-section-total {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(37, 99, 235, 0.85);
+}
+
+.rank-modal__snapshot-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.rank-modal__snapshot-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.rank-modal__snapshot-emoji {
+    font-size: 1rem;
+}
+
+.rank-modal__snapshot-name {
+    flex: 1 1 auto;
+    font-size: 0.8rem;
+    color: rgba(51, 65, 85, 0.8);
+}
+
+.rank-modal__snapshot-count {
+    font-weight: 600;
+}
+
+.rank-modal__snapshot-subvalue {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: rgba(37, 99, 235, 0.75);
+}
+
+.rank-modal__snapshot-empty {
+    font-size: 0.8rem;
+    color: rgba(51, 65, 85, 0.7);
+}
+
+.rank-modal__snapshot-more {
+    font-size: 0.75rem;
+    color: rgba(51, 65, 85, 0.7);
 }
 
 .rank-modal__summary-item {
@@ -3277,47 +3448,100 @@ body.dark .medals-category__title {
     background: rgba(30, 41, 59, 0.6);
 }
 
-.dark .rank-modal__rewards-title {
+.dark .rank-modal__carousel-viewport {
+    background: rgba(30, 41, 59, 0.55);
+}
+
+.dark .rank-modal__slide--snapshot {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.9));
+    box-shadow: 0 24px 44px rgba(2, 6, 23, 0.6);
+}
+
+.dark .rank-modal__carousel-button {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(148, 163, 184, 0.35);
     color: #e2e8f0;
 }
 
-.dark .rank-modal__reward-track::-webkit-scrollbar-thumb {
-    background: rgba(226, 232, 240, 0.2);
+.dark .rank-modal__carousel-button:not(:disabled):hover,
+.dark .rank-modal__carousel-button:not(:disabled):focus-visible {
+    background: rgba(59, 130, 246, 0.28);
+    color: #bfdbfe;
 }
 
-.dark .rank-modal__reward-card {
-    background: rgba(15, 23, 42, 0.82);
-    border-color: rgba(148, 163, 184, 0.25);
-    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.6);
+.dark .rank-modal__carousel-dot {
+    background: rgba(148, 163, 184, 0.45);
 }
 
-.dark .rank-modal__reward-card-label {
+.dark .rank-modal__carousel-dot.is-active {
+    background: #60a5fa;
+}
+
+.dark .rank-modal__snapshot-label {
     color: #f8fafc;
 }
 
-.dark .rank-modal__reward-card-range {
+.dark .rank-modal__snapshot-range {
     color: rgba(148, 163, 184, 0.85);
 }
 
-.dark .rank-modal__reward-metric {
-    background: rgba(30, 41, 59, 0.7);
+.dark .rank-modal__snapshot-total-value {
+    color: #60a5fa;
 }
 
-.dark .rank-modal__reward-metric--highlight {
-    background: rgba(37, 99, 235, 0.3);
-    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.4);
+.dark .rank-modal__snapshot-total-breakdown {
+    color: rgba(147, 197, 253, 0.85);
 }
 
-.dark .rank-modal__reward-metric-label {
+.dark .rank-modal__snapshot-total-breakdown.is-muted {
+    color: rgba(148, 163, 184, 0.75);
+}
+
+.dark .rank-modal__snapshot-stat {
+    background: rgba(30, 41, 59, 0.82);
+    box-shadow: 0 16px 32px rgba(2, 6, 23, 0.55);
+}
+
+.dark .rank-modal__snapshot-stat-label {
     color: rgba(226, 232, 240, 0.75);
 }
 
-.dark .rank-modal__reward-metric-value {
+.dark .rank-modal__snapshot-stat-value {
     color: #f8fafc;
 }
 
-.dark .rank-modal__reward-value-secondary {
-    color: rgba(191, 219, 254, 0.9);
+.dark .rank-modal__snapshot-stat-secondary {
+    color: rgba(147, 197, 253, 0.9);
+}
+
+.dark .rank-modal__snapshot-section {
+    background: rgba(30, 41, 59, 0.78);
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.3);
+}
+
+.dark .rank-modal__snapshot-section-title {
+    color: #e2e8f0;
+}
+
+.dark .rank-modal__snapshot-section-total {
+    color: rgba(147, 197, 253, 0.9);
+}
+
+.dark .rank-modal__snapshot-item {
+    color: #f1f5f9;
+}
+
+.dark .rank-modal__snapshot-name {
+    color: rgba(226, 232, 240, 0.8);
+}
+
+.dark .rank-modal__snapshot-subvalue {
+    color: rgba(147, 197, 253, 0.85);
+}
+
+.dark .rank-modal__snapshot-empty,
+.dark .rank-modal__snapshot-more {
+    color: rgba(203, 213, 225, 0.85);
 }
 
 .dark .rank-modal__summary-label {

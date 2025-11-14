@@ -556,12 +556,47 @@
 <span class="sr-only">Close rank information</span>
 </button>
 </header>
-        <div class="rank-modal__summary" hidden="" id="rank-modal-summary"></div>
-        <div class="rank-modal__rewards" hidden="" id="rank-modal-rewards">
-          <h3 class="rank-modal__rewards-title">Recent haul snapshots</h3>
-          <div class="rank-modal__reward-track" role="list"></div>
+        <div class="rank-modal__carousel" data-rank-carousel="">
+          <div class="rank-modal__carousel-viewport">
+            <div class="rank-modal__carousel-track" id="rank-modal-carousel-track" role="list">
+              <section
+                aria-hidden="false"
+                aria-roledescription="slide"
+                class="rank-modal__slide rank-modal__slide--rank is-active"
+                data-rank-carousel-label="Ranking system"
+                data-rank-carousel-slide="rank"
+                id="rank-modal-slide-rank"
+                role="group"
+              >
+                <div class="rank-modal__summary" hidden="" id="rank-modal-summary"></div>
+                <div class="rank-modal__list" id="rank-modal-list" role="list"></div>
+              </section>
+            </div>
+          </div>
+          <div class="rank-modal__carousel-controls">
+            <button
+              aria-label="Show previous panel"
+              class="rank-modal__carousel-button"
+              data-rank-carousel-prev=""
+              disabled
+              hidden
+              type="button"
+            >
+              <span aria-hidden="true">◀</span>
+            </button>
+            <div class="rank-modal__carousel-dots" hidden id="rank-modal-dots" role="tablist"></div>
+            <button
+              aria-label="Show next panel"
+              class="rank-modal__carousel-button"
+              data-rank-carousel-next=""
+              disabled
+              hidden
+              type="button"
+            >
+              <span aria-hidden="true">▶</span>
+            </button>
+          </div>
         </div>
-        <div class="rank-modal__list" id="rank-modal-list" role="list"></div>
 </div>
 </div>
 <nav aria-label="Dashboard navigation" class="dashboard-bottom-nav">

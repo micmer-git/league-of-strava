@@ -509,7 +509,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
-    const rankModalRewardsElement = document.getElementById('rank-modal-rewards');
+    const rankCarouselElement = document.querySelector('[data-rank-carousel]');
+    const rankCarouselTrackElement = document.getElementById('rank-modal-carousel-track');
+    const rankCarouselDotsElement = document.getElementById('rank-modal-dots');
+    const rankCarouselPrevButton = document.querySelector('[data-rank-carousel-prev]');
+    const rankCarouselNextButton = document.querySelector('[data-rank-carousel-next]');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
@@ -1882,6 +1886,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         { key: 'monthly', label: 'Last 30 days', days: 30 },
     ];
     let rankRewardSnapshots = [];
+    let rankCarouselIndex = 0;
     let hasActivitiesState = false;
 
     const MASTER_PRESTIGE_MAX = 1000;
@@ -2682,6 +2687,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             coinValue: 0,
             medalCount: 0,
             coinCounts,
+            medalDetails: [],
             windowStartTimestamp: null,
             windowEndTimestamp: null,
         };
@@ -2726,6 +2732,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const medals = getActivityMedals(activity);
             if (Array.isArray(medals) && medals.length > 0) {
                 accumulator.medalCount += medals.length;
+                medals.forEach((medal) => {
+                    if (!medal) {
+                        return;
+                    }
+                    if (accumulator.medalDetails.length >= 60) {
+                        return;
+                    }
+                    accumulator.medalDetails.push(medal);
+                });
             }
 
             const activityTimestamp = activityDate.getTime();
@@ -2756,6 +2771,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalCount: accumulator.medalCount,
             medalValue,
             totalValue: accumulator.coinValue + medalValue,
+            coinCounts: { ...accumulator.coinCounts },
+            medalDetails: accumulator.medalDetails.slice(),
             startDate,
             endDate,
             rangeLabel: formatRewardSnapshotRange(startDate, endDate),
@@ -2767,6 +2784,431 @@ document.addEventListener('DOMContentLoaded', async () => {
         return RANK_REWARD_PERIODS.map((period) =>
             buildRankRewardSnapshotForPeriod(activities, period, referenceDate)
         );
+    };
+
+    const sanitizeCarouselIdFragment = (value, fallback) => {
+        if (typeof value !== 'string') {
+            return fallback;
+        }
+
+        const normalized = value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+        return normalized || fallback;
+    };
+
+    const getRankCarouselSlides = () => {
+        if (!rankCarouselTrackElement) {
+            return [];
+        }
+
+        return Array.from(rankCarouselTrackElement.children).filter((child) =>
+            child instanceof HTMLElement && child.classList.contains('rank-modal__slide')
+        );
+    };
+
+    const updateRankCarouselNavButtons = (totalSlides = getRankCarouselSlides().length) => {
+        const hideNav = totalSlides <= 1;
+
+        if (rankCarouselPrevButton) {
+            rankCarouselPrevButton.hidden = hideNav;
+            rankCarouselPrevButton.disabled = hideNav || rankCarouselIndex <= 0;
+        }
+
+        if (rankCarouselNextButton) {
+            rankCarouselNextButton.hidden = hideNav;
+            rankCarouselNextButton.disabled = hideNav || rankCarouselIndex >= totalSlides - 1;
+        }
+
+        if (rankCarouselDotsElement) {
+            rankCarouselDotsElement.hidden = hideNav;
+        }
+    };
+
+    const setRankCarouselIndex = (index) => {
+        const slides = getRankCarouselSlides();
+
+        if (slides.length === 0) {
+            rankCarouselIndex = 0;
+            if (rankCarouselTrackElement) {
+                rankCarouselTrackElement.style.transform = '';
+            }
+            updateRankCarouselNavButtons(0);
+            return;
+        }
+
+        const numericIndex = Number.isFinite(Number(index)) ? Number(index) : 0;
+        const clamped = Math.min(Math.max(numericIndex, 0), slides.length - 1);
+        rankCarouselIndex = clamped;
+
+        if (rankCarouselTrackElement) {
+            rankCarouselTrackElement.style.transform = `translateX(-${clamped * 100}%)`;
+        }
+
+        slides.forEach((slide, slideIndex) => {
+            const isActive = slideIndex === clamped;
+            slide.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            slide.classList.toggle('is-active', isActive);
+        });
+
+        if (rankCarouselDotsElement) {
+            Array.from(rankCarouselDotsElement.children).forEach((dot, dotIndex) => {
+                if (!(dot instanceof HTMLElement)) {
+                    return;
+                }
+                const isActive = dotIndex === clamped;
+                dot.classList.toggle('is-active', isActive);
+                dot.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+        }
+
+        updateRankCarouselNavButtons(slides.length);
+    };
+
+    const rebuildRankCarouselDots = () => {
+        if (!rankCarouselDotsElement) {
+            return;
+        }
+
+        const slides = getRankCarouselSlides();
+        rankCarouselDotsElement.innerHTML = '';
+
+        slides.forEach((slide, index) => {
+            const dot = document.createElement('button');
+            dot.type = 'button';
+            dot.className = 'rank-modal__carousel-dot';
+            dot.setAttribute('data-rank-carousel-index', String(index));
+
+            const label = slide.dataset.rankCarouselLabel
+                || (index === 0 ? 'Rank overview' : `Snapshot ${index}`);
+            dot.setAttribute('aria-label', label);
+
+            if (slide.id) {
+                dot.setAttribute('aria-controls', slide.id);
+            }
+
+            if (index === rankCarouselIndex) {
+                dot.classList.add('is-active');
+                dot.setAttribute('aria-pressed', 'true');
+            } else {
+                dot.setAttribute('aria-pressed', 'false');
+            }
+
+            rankCarouselDotsElement.appendChild(dot);
+        });
+    };
+
+    const refreshRankCarousel = ({ resetIndex = false } = {}) => {
+        if (!rankCarouselTrackElement) {
+            return;
+        }
+
+        const slides = getRankCarouselSlides();
+        if (slides.length === 0) {
+            rankCarouselIndex = 0;
+            rankCarouselTrackElement.style.transform = '';
+            if (rankCarouselDotsElement) {
+                rankCarouselDotsElement.innerHTML = '';
+                rankCarouselDotsElement.hidden = true;
+            }
+            updateRankCarouselNavButtons(0);
+            return;
+        }
+
+        rankCarouselIndex = resetIndex ? 0 : Math.min(rankCarouselIndex, slides.length - 1);
+        rebuildRankCarouselDots();
+        setRankCarouselIndex(rankCarouselIndex);
+    };
+
+    const createRankSnapshotSlide = (snapshot, index = 0) => {
+        if (!snapshot || typeof snapshot !== 'object') {
+            return null;
+        }
+
+        const safeCoinValue = Number.isFinite(snapshot.coinValue) ? snapshot.coinValue : 0;
+        const safeMedalValue = Number.isFinite(snapshot.medalValue) ? snapshot.medalValue : 0;
+        const safeTotalValue = Number.isFinite(snapshot.totalValue)
+            ? snapshot.totalValue
+            : safeCoinValue + safeMedalValue;
+
+        const label = snapshot.label || 'Recent window';
+        const rangeLabel = snapshot.rangeLabel
+            || formatRewardSnapshotRange(snapshot.startDate, snapshot.endDate);
+
+        const slide = document.createElement('section');
+        slide.className = 'rank-modal__slide rank-modal__slide--snapshot';
+        slide.dataset.rankCarouselSlide = 'snapshot';
+        slide.dataset.rankCarouselLabel = label;
+        const sanitizedKey = sanitizeCarouselIdFragment(
+            snapshot.key ? `snapshot-${snapshot.key}` : `snapshot-${index + 1}`,
+            `snapshot-${index + 1}`
+        );
+        slide.id = `rank-modal-slide-${sanitizedKey}`;
+        slide.setAttribute('role', 'group');
+        slide.setAttribute('aria-roledescription', 'slide');
+        slide.setAttribute('aria-hidden', 'true');
+
+        const header = document.createElement('header');
+        header.className = 'rank-modal__snapshot-header';
+
+        const headingGroup = document.createElement('div');
+        headingGroup.className = 'rank-modal__snapshot-heading';
+
+        const labelElement = document.createElement('p');
+        labelElement.className = 'rank-modal__snapshot-label';
+        labelElement.textContent = label;
+
+        headingGroup.appendChild(labelElement);
+
+        if (rangeLabel) {
+            const rangeElement = document.createElement('p');
+            rangeElement.className = 'rank-modal__snapshot-range';
+            rangeElement.textContent = rangeLabel;
+            headingGroup.appendChild(rangeElement);
+        }
+
+        const totalGroup = document.createElement('div');
+        totalGroup.className = 'rank-modal__snapshot-total';
+
+        const totalValueElement = document.createElement('p');
+        totalValueElement.className = 'rank-modal__snapshot-total-value';
+        totalValueElement.textContent = usdCodeFormatter.format(safeTotalValue);
+
+        const totalBreakdown = [];
+        if (safeCoinValue > 0) {
+            totalBreakdown.push(`Coins ${usdCodeFormatter.format(safeCoinValue)}`);
+        }
+        if (safeMedalValue > 0) {
+            totalBreakdown.push(`Medals ${usdCodeFormatter.format(safeMedalValue)}`);
+        }
+
+        const totalDetailElement = document.createElement('p');
+        totalDetailElement.className = 'rank-modal__snapshot-total-breakdown';
+        if (totalBreakdown.length > 0) {
+            totalDetailElement.textContent = totalBreakdown.join(' • ');
+        } else {
+            totalDetailElement.textContent = '—';
+            totalDetailElement.classList.add('is-muted');
+        }
+
+        totalGroup.append(totalValueElement, totalDetailElement);
+        header.append(headingGroup, totalGroup);
+        slide.appendChild(header);
+
+        const metricsGrid = document.createElement('div');
+        metricsGrid.className = 'rank-modal__snapshot-metrics';
+
+        const metrics = [
+            {
+                label: 'Activities',
+                value: formatCount(snapshot.activities),
+            },
+            {
+                label: 'Training hours',
+                value: Number.isFinite(snapshot.hours) && snapshot.hours > 0
+                    ? `${formatHoursDisplay(snapshot.hours)} h`
+                    : '—',
+            },
+            {
+                label: 'Coins minted',
+                value: formatCount(snapshot.coinsTotal),
+                secondary: safeCoinValue > 0 ? usdCodeFormatter.format(safeCoinValue) : null,
+            },
+            {
+                label: 'Medals unlocked',
+                value: formatCount(snapshot.medalCount),
+                secondary: safeMedalValue > 0 ? usdCodeFormatter.format(safeMedalValue) : null,
+            },
+        ];
+
+        metrics.forEach((metric) => {
+            const stat = document.createElement('div');
+            stat.className = 'rank-modal__snapshot-stat';
+
+            const statLabel = document.createElement('span');
+            statLabel.className = 'rank-modal__snapshot-stat-label';
+            statLabel.textContent = metric.label;
+
+            const statValue = document.createElement('span');
+            statValue.className = 'rank-modal__snapshot-stat-value';
+            statValue.textContent = metric.value;
+
+            stat.append(statLabel, statValue);
+
+            if (metric.secondary) {
+                const statSecondary = document.createElement('span');
+                statSecondary.className = 'rank-modal__snapshot-stat-secondary';
+                statSecondary.textContent = metric.secondary;
+                stat.appendChild(statSecondary);
+            }
+
+            metricsGrid.appendChild(stat);
+        });
+
+        slide.appendChild(metricsGrid);
+
+        const rewardsWrapper = document.createElement('div');
+        rewardsWrapper.className = 'rank-modal__snapshot-rewards';
+
+        const coinCountsSource = (snapshot.coinCounts && typeof snapshot.coinCounts === 'object')
+            ? snapshot.coinCounts
+            : (snapshot.coinBreakdown && typeof snapshot.coinBreakdown === 'object')
+                ? snapshot.coinBreakdown
+                : {};
+
+        const coinEntries = Object.entries(coinCountsSource)
+            .filter(([, value]) => {
+                const numericValue = Number(value);
+                return Number.isFinite(numericValue) && numericValue > 0;
+            })
+            .sort(([, aCount], [, bCount]) => Number(bCount) - Number(aCount));
+
+        const coinItems = coinEntries.map(([emoji, rawCount]) => {
+            const count = Number(rawCount);
+            const item = document.createElement('li');
+            item.className = 'rank-modal__snapshot-item';
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'rank-modal__snapshot-emoji';
+            emojiSpan.textContent = emoji;
+
+            const countSpan = document.createElement('span');
+            countSpan.className = 'rank-modal__snapshot-count';
+            countSpan.textContent = `×${formatCount(count)}`;
+
+            item.append(emojiSpan, countSpan);
+
+            const coinDollarValue = (COIN_VALUE_MAP[emoji] || 0) * count;
+            if (coinDollarValue > 0) {
+                const valueSpan = document.createElement('span');
+                valueSpan.className = 'rank-modal__snapshot-subvalue';
+                valueSpan.textContent = usdCodeFormatter.format(coinDollarValue);
+                item.appendChild(valueSpan);
+            }
+
+            return item;
+        });
+
+        const medalDetails = Array.isArray(snapshot.medalDetails) ? snapshot.medalDetails : [];
+        const medalCounts = new Map();
+
+        medalDetails.forEach((medal) => {
+            if (!medal || (typeof medal !== 'object')) {
+                return;
+            }
+
+            const emoji = typeof medal.emoji === 'string' && medal.emoji.trim()
+                ? medal.emoji.trim()
+                : '🏅';
+            const name = typeof medal.name === 'string' && medal.name.trim()
+                ? medal.name.trim()
+                : 'Medal';
+            const key = `${emoji}|${name}`;
+            const existing = medalCounts.get(key) || { emoji, label: name, count: 0 };
+            existing.count += 1;
+            medalCounts.set(key, existing);
+        });
+
+        const medalEntries = Array.from(medalCounts.values())
+            .sort((a, b) => b.count - a.count);
+
+        const MAX_MEDAL_ITEMS = 4;
+        const medalItems = [];
+        const displayedMedals = medalEntries.slice(0, MAX_MEDAL_ITEMS);
+
+        let remainingMedals = 0;
+        if (medalEntries.length > MAX_MEDAL_ITEMS) {
+            remainingMedals = medalEntries
+                .slice(MAX_MEDAL_ITEMS)
+                .reduce((sum, entry) => sum + entry.count, 0);
+        }
+
+        if (displayedMedals.length === 0 && Number.isFinite(snapshot.medalCount) && snapshot.medalCount > 0) {
+            displayedMedals.push({ emoji: '🏅', label: 'Medals', count: snapshot.medalCount });
+            remainingMedals = 0;
+        }
+
+        displayedMedals.forEach((entry) => {
+            const item = document.createElement('li');
+            item.className = 'rank-modal__snapshot-item';
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'rank-modal__snapshot-emoji';
+            emojiSpan.textContent = entry.emoji;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'rank-modal__snapshot-name';
+            nameSpan.textContent = entry.label;
+
+            const countSpan = document.createElement('span');
+            countSpan.className = 'rank-modal__snapshot-count';
+            countSpan.textContent = `×${formatCount(entry.count)}`;
+
+            item.append(emojiSpan, nameSpan, countSpan);
+            medalItems.push(item);
+        });
+
+        if (remainingMedals > 0) {
+            const moreItem = document.createElement('li');
+            moreItem.className = 'rank-modal__snapshot-more';
+            moreItem.textContent = `+${formatCount(remainingMedals)} more`;
+            medalItems.push(moreItem);
+        }
+
+        const buildSnapshotSection = (title, total, items, emptyLabel) => {
+            const section = document.createElement('section');
+            section.className = 'rank-modal__snapshot-section';
+
+            const sectionHeader = document.createElement('header');
+            sectionHeader.className = 'rank-modal__snapshot-section-header';
+
+            const titleElement = document.createElement('p');
+            titleElement.className = 'rank-modal__snapshot-section-title';
+            titleElement.textContent = title;
+
+            const totalElement = document.createElement('span');
+            totalElement.className = 'rank-modal__snapshot-section-total';
+            totalElement.textContent = total;
+
+            sectionHeader.append(titleElement, totalElement);
+            section.appendChild(sectionHeader);
+
+            const list = document.createElement('ul');
+            list.className = 'rank-modal__snapshot-list';
+
+            if (items.length > 0) {
+                items.forEach((item) => list.appendChild(item));
+            } else {
+                const emptyItem = document.createElement('li');
+                emptyItem.className = 'rank-modal__snapshot-empty';
+                emptyItem.textContent = emptyLabel;
+                list.appendChild(emptyItem);
+            }
+
+            section.appendChild(list);
+            return section;
+        };
+
+        rewardsWrapper.append(
+            buildSnapshotSection(
+                'Coins',
+                formatCount(snapshot.coinsTotal),
+                coinItems,
+                'No coins minted'
+            ),
+            buildSnapshotSection(
+                'Medals',
+                formatCount(snapshot.medalCount),
+                medalItems,
+                'No medals unlocked'
+            ),
+        );
+
+        slide.appendChild(rewardsWrapper);
+
+        return slide;
     };
 
     const renderRankModal = () => {
@@ -2824,123 +3266,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             rankModalSummaryElement.hidden = summaryFragments.length === 0;
         }
 
-        if (rankModalRewardsElement) {
-            const rewardTrackElement = rankModalRewardsElement.querySelector('.rank-modal__reward-track');
-            if (rewardTrackElement) {
-                rewardTrackElement.innerHTML = '';
-                const snapshots = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
-                    ? rankRewardSnapshots
-                    : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
+        if (rankCarouselTrackElement) {
+            const existingSnapshotSlides = rankCarouselTrackElement.querySelectorAll('[data-rank-carousel-slide="snapshot"]');
+            existingSnapshotSlides.forEach((slide) => {
+                if (slide instanceof HTMLElement) {
+                    slide.remove();
+                }
+            });
 
-                snapshots.forEach((snapshot) => {
-                    if (!snapshot) {
-                        return;
-                    }
+            const snapshots = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
+                ? rankRewardSnapshots
+                : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
 
-                    const card = document.createElement('article');
-                    card.className = 'rank-modal__reward-card';
-                    card.setAttribute('role', 'listitem');
-                    card.setAttribute('data-period-key', snapshot.key || '');
-
-                    const header = document.createElement('header');
-                    header.className = 'rank-modal__reward-card-header';
-
-                    const label = document.createElement('p');
-                    label.className = 'rank-modal__reward-card-label';
-                    label.textContent = snapshot.label || 'Recent window';
-
-                    const range = document.createElement('p');
-                    range.className = 'rank-modal__reward-card-range';
-                    range.textContent = snapshot.rangeLabel || '';
-
-                    header.append(label, range);
-                    card.appendChild(header);
-
-                    const metricsList = document.createElement('dl');
-                    metricsList.className = 'rank-modal__reward-metrics';
-
-                    const safeCoinValue = Number.isFinite(snapshot.coinValue) ? snapshot.coinValue : 0;
-                    const safeMedalValue = Number.isFinite(snapshot.medalValue) ? snapshot.medalValue : 0;
-                    const safeTotalValue = Number.isFinite(snapshot.totalValue)
-                        ? snapshot.totalValue
-                        : safeCoinValue + safeMedalValue;
-
-                    const totalBreakdown = [];
-                    if (safeCoinValue > 0) {
-                        totalBreakdown.push(`Coins ${usdCodeFormatter.format(safeCoinValue)}`);
-                    }
-                    if (safeMedalValue > 0) {
-                        totalBreakdown.push(`Medals ${usdCodeFormatter.format(safeMedalValue)}`);
-                    }
-
-                    const metrics = [
-                        {
-                            label: 'Activities',
-                            value: formatCount(snapshot.activities),
-                        },
-                        {
-                            label: 'Training hours',
-                            value: Number.isFinite(snapshot.hours) && snapshot.hours > 0
-                                ? `${formatHoursDisplay(snapshot.hours)} h`
-                                : '—',
-                        },
-                        {
-                            label: 'Coins minted',
-                            value: formatCount(snapshot.coinsTotal),
-                            secondary: safeCoinValue > 0 ? usdCodeFormatter.format(safeCoinValue) : null,
-                        },
-                        {
-                            label: 'Medals unlocked',
-                            value: formatCount(snapshot.medalCount),
-                            secondary: safeMedalValue > 0 ? usdCodeFormatter.format(safeMedalValue) : null,
-                        },
-                        {
-                            label: 'Total haul',
-                            value: usdCodeFormatter.format(safeTotalValue),
-                            secondary: totalBreakdown.join(' • ') || null,
-                            highlight: true,
-                        },
-                    ];
-
-                    metrics.forEach((metric) => {
-                        const metricWrapper = document.createElement('div');
-                        metricWrapper.className = 'rank-modal__reward-metric';
-                        if (metric.highlight) {
-                            metricWrapper.classList.add('rank-modal__reward-metric--highlight');
-                        }
-
-                        const term = document.createElement('dt');
-                        term.className = 'rank-modal__reward-metric-label';
-                        term.textContent = metric.label;
-
-                        const description = document.createElement('dd');
-                        description.className = 'rank-modal__reward-metric-value';
-
-                        const primary = document.createElement('span');
-                        primary.className = 'rank-modal__reward-value-primary';
-                        primary.textContent = metric.value;
-                        description.appendChild(primary);
-
-                        if (metric.secondary) {
-                            const secondary = document.createElement('span');
-                            secondary.className = 'rank-modal__reward-value-secondary';
-                            secondary.textContent = metric.secondary;
-                            description.appendChild(secondary);
-                        }
-
-                        metricWrapper.append(term, description);
-                        metricsList.appendChild(metricWrapper);
-                    });
-
-                    card.appendChild(metricsList);
-                    rewardTrackElement.appendChild(card);
-                });
-            }
-
-            const hasRewards = Boolean(rewardTrackElement && rewardTrackElement.children.length > 0);
-            rankModalRewardsElement.hidden = !hasRewards;
-            rankModalRewardsElement.setAttribute('aria-hidden', hasRewards ? 'false' : 'true');
+            snapshots.forEach((snapshot, snapshotIndex) => {
+                const slide = createRankSnapshotSlide(snapshot, snapshotIndex);
+                if (slide) {
+                    rankCarouselTrackElement.appendChild(slide);
+                }
+            });
         }
+
+        refreshRankCarousel({ resetIndex: true });
 
         if (config.length === 0) {
             const emptyState = document.createElement('p');
@@ -9665,6 +10011,59 @@ document.addEventListener('DOMContentLoaded', async () => {
                 event.preventDefault();
                 closeRankModal();
             });
+        });
+    }
+
+    if (rankCarouselPrevButton) {
+        rankCarouselPrevButton.addEventListener('click', () => {
+            setRankCarouselIndex(rankCarouselIndex - 1);
+        });
+    }
+
+    if (rankCarouselNextButton) {
+        rankCarouselNextButton.addEventListener('click', () => {
+            setRankCarouselIndex(rankCarouselIndex + 1);
+        });
+    }
+
+    if (rankCarouselDotsElement) {
+        rankCarouselDotsElement.addEventListener('click', (event) => {
+            const target = event.target instanceof HTMLElement
+                ? event.target.closest('[data-rank-carousel-index]')
+                : null;
+
+            if (!target) {
+                return;
+            }
+
+            const targetIndex = Number(target.getAttribute('data-rank-carousel-index'));
+            if (Number.isFinite(targetIndex)) {
+                setRankCarouselIndex(targetIndex);
+            }
+        });
+    }
+
+    if (rankCarouselElement) {
+        rankCarouselElement.addEventListener('keydown', (event) => {
+            if (event.defaultPrevented) {
+                return;
+            }
+
+            if (event.key === 'ArrowLeft') {
+                if (rankCarouselIndex > 0) {
+                    setRankCarouselIndex(rankCarouselIndex - 1);
+                    event.preventDefault();
+                }
+                return;
+            }
+
+            if (event.key === 'ArrowRight') {
+                const slides = getRankCarouselSlides();
+                if (rankCarouselIndex < slides.length - 1) {
+                    setRankCarouselIndex(rankCarouselIndex + 1);
+                    event.preventDefault();
+                }
+            }
         });
     }
 

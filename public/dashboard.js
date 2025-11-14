@@ -29,8 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
     const MEDAL_OTHER_COLOR = '#94a3b8';
-    const WALLET_GRADIENT_START = { r: 161, g: 98, b: 7 }; // dark amber
-    const WALLET_GRADIENT_END = { r: 20, g: 83, b: 45 }; // deep emerald
+    const WALLET_GRADIENT_START = { r: 148, g: 163, b: 184 }; // slate grey
+    const WALLET_GRADIENT_END = { r: 22, g: 101, b: 52 }; // deep emerald
     const WALLET_BACKGROUND_ALPHA_START = 0.28;
     const WALLET_BACKGROUND_ALPHA_END = 0.48;
     const WALLET_HOVER_ALPHA_BOOST = 0.12;
@@ -1162,7 +1162,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartCanvas.classList.add('hidden');
     }
 
+    let walletZoomPluginAvailable = false;
+
     if (typeof Chart !== 'undefined') {
+        const zoomPlugin = (typeof window !== 'undefined')
+            ? (window.ChartZoom || window.chartjsPluginZoom || window['chartjs-plugin-zoom'])
+            : null;
+        if (zoomPlugin && typeof Chart.register === 'function') {
+            Chart.register(zoomPlugin);
+            walletZoomPluginAvailable = true;
+        }
+        if (!walletZoomPluginAvailable) {
+            const registry = Chart.registry;
+            if (registry?.plugins?.get) {
+                walletZoomPluginAvailable = Boolean(registry.plugins.get('zoom'));
+            } else if (typeof registry?.getPlugin === 'function') {
+                walletZoomPluginAvailable = Boolean(registry.getPlugin('zoom'));
+            } else if (Chart._plugins?.get) {
+                walletZoomPluginAvailable = Boolean(Chart._plugins.get('zoom'));
+            }
+        }
         const defaultFontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";
         Chart.defaults.font.family = defaultFontFamily;
         Chart.defaults.font.size = 13;
@@ -1192,6 +1211,206 @@ document.addEventListener('DOMContentLoaded', async () => {
     let walletChartInstance = null;
     let walletChartClickSelection = null;
     let walletChartEventsBound = false;
+
+    const storeWalletChartScaleDefaults = (chart) => {
+        if (!chart) {
+            return;
+        }
+        const scales = chart.scales || {};
+        const defaults = {};
+        Object.entries(scales).forEach(([scaleId, scale]) => {
+            if (!scale || !scale.options) {
+                return;
+            }
+            defaults[scaleId] = {
+                min: scale.options.min,
+                max: scale.options.max,
+                suggestedMin: scale.options.suggestedMin,
+                suggestedMax: scale.options.suggestedMax,
+                beginAtZero: scale.options.beginAtZero,
+            };
+        });
+        chart.$walletOriginalScales = defaults;
+        Object.values(scales).forEach((scale) => {
+            if (scale) {
+                scale.$walletZoomActive = false;
+            }
+        });
+    };
+
+    const restoreWalletChartScaleDefaults = (chart) => {
+        if (!chart || !chart.$walletOriginalScales) {
+            return;
+        }
+        Object.entries(chart.scales || {}).forEach(([scaleId, scale]) => {
+            const original = chart.$walletOriginalScales[scaleId];
+            if (!scale || !scale.options || !original) {
+                return;
+            }
+            scale.options.min = original.min;
+            scale.options.max = original.max;
+            scale.options.suggestedMin = original.suggestedMin;
+            scale.options.suggestedMax = original.suggestedMax;
+            scale.options.beginAtZero = original.beginAtZero;
+            scale.$walletZoomActive = false;
+        });
+    };
+
+    const getWalletDatasetValue = (entry) => {
+        if (Number.isFinite(entry)) {
+            return entry;
+        }
+        if (entry && typeof entry === 'object') {
+            if (Number.isFinite(entry.y)) {
+                return entry.y;
+            }
+            if (Number.isFinite(entry.value)) {
+                return entry.value;
+            }
+        }
+        return Number.NaN;
+    };
+
+    const computeWalletAxisRange = (chart, axisId, startIndex, endIndex) => {
+        const datasets = Array.isArray(chart?.data?.datasets) ? chart.data.datasets : [];
+        let min = Number.POSITIVE_INFINITY;
+        let max = Number.NEGATIVE_INFINITY;
+
+        datasets.forEach((dataset, datasetIndex) => {
+            if (!dataset || (dataset.yAxisID || 'y') !== axisId) {
+                return;
+            }
+            const meta = chart.getDatasetMeta ? chart.getDatasetMeta(datasetIndex) : null;
+            if (meta?.hidden) {
+                return;
+            }
+            const data = Array.isArray(dataset.data) ? dataset.data : [];
+            for (let index = startIndex; index <= endIndex; index += 1) {
+                const value = getWalletDatasetValue(data[index]);
+                if (!Number.isFinite(value)) {
+                    continue;
+                }
+                if (value < min) {
+                    min = value;
+                }
+                if (value > max) {
+                    max = value;
+                }
+            }
+        });
+
+        if (min === Number.POSITIVE_INFINITY || max === Number.NEGATIVE_INFINITY) {
+            return null;
+        }
+
+        if (min === max) {
+            const padding = Math.max(1, Math.abs(min) * 0.05);
+            return { min: min - padding, max: max + padding };
+        }
+
+        return { min, max };
+    };
+
+    const updateWalletChartDynamicRanges = (chart) => {
+        if (!chart || !walletZoomPluginAvailable) {
+            return;
+        }
+
+        const xScale = chart.scales?.x;
+        const labelsLength = chart.data?.labels?.length || 0;
+        if (!xScale || labelsLength === 0) {
+            return;
+        }
+
+        const startIndex = Math.max(0, Math.floor(xScale.min ?? 0));
+        const endIndex = Math.min(labelsLength - 1, Math.ceil(xScale.max ?? (labelsLength - 1)));
+
+        Object.entries(chart.scales || {}).forEach(([scaleId, scale]) => {
+            if (!scale || !scale.options || scaleId === 'x') {
+                return;
+            }
+
+            const range = computeWalletAxisRange(chart, scaleId, startIndex, endIndex);
+            if (range) {
+                const delta = range.max - range.min;
+                const padding = delta > 0 ? delta * 0.08 : Math.max(1, Math.abs(range.max) * 0.08);
+                scale.options.beginAtZero = false;
+                scale.options.suggestedMin = range.min - padding;
+                scale.options.suggestedMax = range.max + padding;
+                scale.$walletZoomActive = true;
+            } else if (scale.$walletZoomActive) {
+                const original = chart.$walletOriginalScales?.[scaleId];
+                if (original) {
+                    scale.options.beginAtZero = original.beginAtZero;
+                    scale.options.suggestedMin = original.suggestedMin;
+                    scale.options.suggestedMax = original.suggestedMax;
+                    scale.options.min = original.min;
+                    scale.options.max = original.max;
+                }
+                scale.$walletZoomActive = false;
+            }
+        });
+    };
+
+    const resetWalletChartZoom = (chart) => {
+        if (!chart) {
+            return;
+        }
+        if (typeof chart.resetZoom === 'function') {
+            chart.resetZoom();
+        }
+        restoreWalletChartScaleDefaults(chart);
+        if (typeof chart.update === 'function') {
+            chart.update();
+        }
+    };
+
+    const handleWalletZoomComplete = ({ chart }) => {
+        if (!chart) {
+            return;
+        }
+        updateWalletChartDynamicRanges(chart);
+        if (typeof chart.update === 'function') {
+            chart.update('none');
+        }
+    };
+
+    const buildWalletZoomOptions = (labelsLength) => {
+        if (!walletZoomPluginAvailable) {
+            return undefined;
+        }
+        return {
+            limits: {
+                x: {
+                    min: 0,
+                    max: labelsLength ? labelsLength - 1 : undefined,
+                },
+            },
+            pan: {
+                enabled: true,
+                mode: 'xy',
+                modifierKey: 'shift',
+                onPanComplete: handleWalletZoomComplete,
+            },
+            zoom: {
+                wheel: {
+                    enabled: true,
+                    modifierKey: 'ctrl',
+                },
+                pinch: {
+                    enabled: true,
+                },
+                drag: {
+                    enabled: true,
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    borderColor: 'rgba(16, 185, 129, 0.35)',
+                    borderWidth: 1,
+                },
+                mode: 'xy',
+                onZoomComplete: handleWalletZoomComplete,
+            },
+        };
+    };
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
@@ -3729,6 +3948,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const getRelativeEventPosition = (event) => {
+            const rect = walletChartCanvas.getBoundingClientRect();
+            const clientX = event.clientX ?? (event.touches && event.touches[0]?.clientX);
+            const clientY = event.clientY ?? (event.touches && event.touches[0]?.clientY);
+            if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+                return { x: 0, y: 0 };
+            }
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top,
+            };
+        };
+
+        const highlightFromEvent = (event, { allowEmpty = false } = {}) => {
+            if (!walletChartInstance || walletChartClickSelection) {
+                return;
+            }
+            if (event.type === 'pointermove' && event.buttons) {
+                return;
+            }
+            const elements = walletChartInstance.getElementsAtEventForMode(
+                event,
+                'index',
+                { intersect: false },
+                true,
+            ) || [];
+            if (!elements.length && !allowEmpty) {
+                return;
+            }
+            if (!elements.length) {
+                clearWalletChartActiveElements({ preserveSelection: true });
+                return;
+            }
+            const position = getRelativeEventPosition(event);
+            updateWalletChartActiveElements(elements, position);
+        };
+
         walletChartCanvas.addEventListener('click', (event) => {
             if (!walletChartInstance) {
                 return;
@@ -3765,6 +4021,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateWalletChartActiveElements(elements, position);
         });
 
+        walletChartCanvas.addEventListener('pointermove', (event) => {
+            highlightFromEvent(event, { allowEmpty: true });
+        });
+
+        walletChartCanvas.addEventListener('pointerdown', (event) => {
+            if (event.pointerType === 'touch') {
+                return;
+            }
+            highlightFromEvent(event);
+        });
+
+        walletChartCanvas.addEventListener('touchstart', (event) => {
+            highlightFromEvent(event);
+        }, { passive: true });
+
+        walletChartCanvas.addEventListener('touchmove', (event) => {
+            highlightFromEvent(event, { allowEmpty: true });
+        }, { passive: true });
+
         walletChartCanvas.addEventListener('mousemove', () => {
             if (walletChartClickSelection) {
                 walletChartClickSelection = null;
@@ -3773,6 +4048,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         walletChartCanvas.addEventListener('mouseleave', () => {
             clearWalletChartActiveElements();
+        });
+
+        walletChartCanvas.addEventListener('pointerleave', () => {
+            if (walletChartInstance && walletChartClickSelection) {
+                const { datasetIndex, index } = walletChartClickSelection;
+                if (Number.isInteger(datasetIndex) && Number.isInteger(index)) {
+                    updateWalletChartActiveElements([
+                        { datasetIndex, index },
+                    ], { x: 0, y: 0 });
+                    return;
+                }
+            }
+            clearWalletChartActiveElements({ preserveSelection: true });
+        });
+
+        walletChartCanvas.addEventListener('dblclick', () => {
+            if (walletZoomPluginAvailable && walletChartInstance) {
+                resetWalletChartZoom(walletChartInstance);
+            }
         });
 
         walletChartEventsBound = true;
@@ -4189,7 +4483,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         return `${label}: ${value.toLocaleString()}`;
                                     }
                                 }
-                            }
+                            },
+                            zoom: buildWalletZoomOptions(timelineLabels.length)
                         },
                         scales: {
                             x: {
@@ -4217,6 +4512,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                 });
+                storeWalletChartScaleDefaults(walletChartInstance);
             } else {
                 coinChartMode = 'stacked';
                 const datasets = [];
@@ -4279,7 +4575,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         return `${label}: ${value.toLocaleString()}`;
                                     }
                                 }
-                            }
+                            },
+                            zoom: buildWalletZoomOptions((dataset.labels || []).length)
                         },
                         scales: {
                             x: {
@@ -4327,6 +4624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                 });
+                storeWalletChartScaleDefaults(walletChartInstance);
             }
         } else {
             const hasCompareData = Array.isArray(dataset.compareDatasets) && dataset.compareDatasets.length > 1;
@@ -4599,7 +4897,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 }
                                 return `Total collected: ${baseLabel}`;
                             }
-                        }
+                        },
+                        zoom: buildWalletZoomOptions(chartLabels.length)
                     },
                     scales: {
                         x: {
@@ -4708,6 +5007,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 plugins: chartPlugins
             });
+            storeWalletChartScaleDefaults(walletChartInstance);
         }
 
         ensureWalletChartEvents();

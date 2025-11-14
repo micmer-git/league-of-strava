@@ -2715,6 +2715,9 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 }
 
 .medals-category__title {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -2725,6 +2728,38 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 .dark .medals-category__title,
 body.dark .medals-category__title {
     color: rgba(226, 232, 240, 0.85);
+}
+
+.medals-category__emoji {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.medals-category__name {
+    flex: 0 1 auto;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.medals-category__tier {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(100, 116, 139, 0.8);
+}
+
+.medals-category__description {
+    margin: 0;
+    font-size: 0.72rem;
+    color: rgba(100, 116, 139, 0.85);
+}
+
+.dark .medals-category__tier,
+.dark .medals-category__description,
+body.dark .medals-category__tier,
+body.dark .medals-category__description {
+    color: rgba(226, 232, 240, 0.7);
 }
 
 .medals-list {

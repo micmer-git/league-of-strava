@@ -11713,6 +11713,39 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 ];
 
+                const groupRowMap = new Map();
+
+                const ensureGroupRow = (group) => {
+                    if (!group || !group.key) {
+                        return null;
+                    }
+
+                    if (!groupRowMap.has(group.key)) {
+                        const row = document.createElement('div');
+                        row.className = 'top-performances-row flex flex-col gap-3';
+                        row.dataset.performanceGroup = group.key;
+
+                        const rowHeader = document.createElement('div');
+                        rowHeader.className = 'top-performances-row__header flex items-center gap-2';
+
+                        const rowTitle = document.createElement('h4');
+                        rowTitle.className = 'top-performances-row__title text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400';
+                        rowTitle.textContent = group.label;
+
+                        rowHeader.appendChild(rowTitle);
+                        row.appendChild(rowHeader);
+
+                        const rowContent = document.createElement('div');
+                        rowContent.className = 'top-performances-row__content grid gap-3';
+                        row.appendChild(rowContent);
+
+                        bestActivitiesContainer.appendChild(row);
+                        groupRowMap.set(group.key, { row, content: rowContent });
+                    }
+
+                    return groupRowMap.get(group.key) || null;
+                };
+
                 const metrics = [
                     {
                         title: 'Fastest 10K Run',
@@ -11903,6 +11936,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 ];
 
+                let cardsCreated = 0;
+
                 metrics.forEach(metric => {
                     const targetGroupKeys = Array.isArray(metric.appliesTo) && metric.appliesTo.length > 0
                         ? metric.appliesTo
@@ -11989,36 +12024,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return;
                     }
 
-                    const card = document.createElement('div');
-                    card.className = 'top-performance-card rounded-lg p-4 shadow-sm flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4';
-
-                    const infoWrapper = document.createElement('div');
-                    infoWrapper.className = 'top-performance-card__content flex min-w-0 flex-1 items-start gap-3';
-
-                    const iconSpan = document.createElement('span');
-                    iconSpan.className = 'text-3xl';
-                    iconSpan.textContent = metric.icon;
-
-                    const titleWrapper = document.createElement('div');
-                    titleWrapper.className = 'flex min-w-0 flex-col gap-2';
-
-                    const metricHeader = document.createElement('div');
-                    metricHeader.className = 'top-performance-card__metric flex flex-wrap items-baseline gap-2';
-
-                    const titleLabel = document.createElement('span');
-                    titleLabel.className = 'top-performance-card__title text-base font-semibold leading-tight break-words';
-                    titleLabel.textContent = metric.title;
-
-                    metricHeader.appendChild(titleLabel);
-                    titleWrapper.appendChild(metricHeader);
-
-                    const entriesWrapper = document.createElement('div');
-                    entriesWrapper.className = 'top-performance-card__entries flex flex-col gap-2';
-
                     groupEntries.forEach(entry => {
                         if (!entry) {
                             return;
                         }
+
+                        const row = ensureGroupRow(entry.group);
+                        if (!row) {
+                            return;
+                        }
+
+                        const card = document.createElement('div');
+                        card.className = 'top-performance-card rounded-lg p-4 shadow-sm flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4';
+                        card.dataset.performanceMetric = metric.title;
+
+                        const infoWrapper = document.createElement('div');
+                        infoWrapper.className = 'top-performance-card__content flex min-w-0 flex-1 items-start gap-3';
+
+                        const iconSpan = document.createElement('span');
+                        iconSpan.className = 'text-3xl';
+                        iconSpan.textContent = metric.icon;
+
+                        const titleWrapper = document.createElement('div');
+                        titleWrapper.className = 'flex min-w-0 flex-col gap-2';
+
+                        const metricHeader = document.createElement('div');
+                        metricHeader.className = 'top-performance-card__metric flex flex-wrap items-baseline gap-2';
+
+                        const titleLabel = document.createElement('span');
+                        titleLabel.className = 'top-performance-card__title text-base font-semibold leading-tight break-words';
+                        titleLabel.textContent = metric.title;
+
+                        metricHeader.appendChild(titleLabel);
+                        titleWrapper.appendChild(metricHeader);
+
+                        const entriesWrapper = document.createElement('div');
+                        entriesWrapper.className = 'top-performance-card__entries flex flex-col gap-2';
 
                         const entryTag = entry.hasResult && entry.activityUrl ? 'a' : 'div';
                         const entryElement = document.createElement(entryTag);
@@ -12031,19 +12072,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             entryElement.setAttribute('aria-label', `${metric.title} — best ${entry.group.label.toLowerCase()} activity on Strava`);
                         }
 
-                        const entryHeader = document.createElement('div');
-                        entryHeader.className = 'flex flex-wrap items-baseline gap-2';
-
-                        const typeLabel = document.createElement('span');
-                        typeLabel.className = 'top-performance-card__type text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400';
-                        typeLabel.textContent = entry.group.label;
-
                         const valueLabel = document.createElement('span');
                         valueLabel.className = 'top-performance-card__value text-sm text-slate-600 dark:text-slate-300 break-words';
                         valueLabel.textContent = entry.formattedValue || '—';
-
-                        entryHeader.append(typeLabel, valueLabel);
-                        entryElement.appendChild(entryHeader);
+                        entryElement.appendChild(valueLabel);
 
                         if (entry.hasResult) {
                             const activityName = document.createElement('span');
@@ -12060,19 +12092,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         entriesWrapper.appendChild(entryElement);
+                        titleWrapper.appendChild(entriesWrapper);
+
+                        infoWrapper.appendChild(iconSpan);
+                        infoWrapper.appendChild(titleWrapper);
+
+                        card.appendChild(infoWrapper);
+                        row.content.appendChild(card);
+                        cardsCreated += 1;
                     });
-
-                    titleWrapper.appendChild(entriesWrapper);
-
-                    infoWrapper.appendChild(iconSpan);
-                    infoWrapper.appendChild(titleWrapper);
-
-                    card.appendChild(infoWrapper);
-
-                    bestActivitiesContainer.appendChild(card);
                 });
 
-                if (!bestActivitiesContainer.hasChildNodes() && topPerformancesEmptyState) {
+                if (cardsCreated === 0 && topPerformancesEmptyState) {
+                    bestActivitiesContainer.innerHTML = '';
                     topPerformancesEmptyState.classList.remove('hidden');
                 }
             } else if (topPerformancesEmptyState) {

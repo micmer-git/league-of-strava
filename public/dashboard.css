@@ -2591,6 +2591,90 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     background-color: rgba(148, 163, 184, 0.5);
 }
 
+.activities-medal-info {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0 0 1.25rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.875rem;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--color-text);
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.activities-medal-info__content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.activities-medal-info__emoji {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.activities-medal-info__text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.activities-medal-info__label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: inherit;
+}
+
+.activities-medal-info__description {
+    font-size: 0.85rem;
+    color: rgba(15, 23, 42, 0.75);
+}
+
+.activities-medal-info__clear {
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    border: none;
+    background: rgba(59, 130, 246, 0.15);
+    color: rgba(15, 23, 42, 0.75);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.activities-medal-info__clear:hover,
+.activities-medal-info__clear:focus-visible {
+    background: rgba(59, 130, 246, 0.25);
+    color: rgba(15, 23, 42, 0.95);
+}
+
+.dark .activities-medal-info {
+    border: 1px solid rgba(147, 197, 253, 0.35);
+    background: rgba(37, 99, 235, 0.22);
+    color: #e0f2fe;
+}
+
+.dark .activities-medal-info__description {
+    color: rgba(226, 232, 240, 0.85);
+}
+
+.dark .activities-medal-info__clear {
+    background: rgba(37, 99, 235, 0.25);
+    color: rgba(226, 232, 240, 0.9);
+}
+
+.dark .activities-medal-info__clear:hover,
+.dark .activities-medal-info__clear:focus-visible {
+    background: rgba(37, 99, 235, 0.35);
+    color: #f8fafc;
+}
+
 #activities-section {
     background: linear-gradient(170deg, rgba(255, 255, 255, 0.96), rgba(255, 239, 224, 0.95));
     border: 1px solid rgba(249, 115, 22, 0.22);

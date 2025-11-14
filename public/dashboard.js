@@ -518,6 +518,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activitiesSectionElement = document.getElementById('activities-section');
     let activityFilterSummary = document.getElementById('activity-filter-summary');
     let activityFilterActive = document.getElementById('activity-filter-active');
+    let activitiesMedalInfo = document.getElementById('activities-medal-info');
+    let activitiesMedalInfoEmoji = document.getElementById('activities-medal-info-emoji');
+    let activitiesMedalInfoLabel = document.getElementById('activities-medal-info-label');
+    let activitiesMedalInfoDescription = document.getElementById('activities-medal-info-description');
+    let activitiesMedalInfoClearButton = document.getElementById('activities-medal-info-clear');
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
@@ -598,6 +603,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         activitiesSectionElement = document.getElementById('activities-section');
         activityFilterSummary = document.getElementById('activity-filter-summary');
         activityFilterActive = document.getElementById('activity-filter-active');
+        activitiesMedalInfo = document.getElementById('activities-medal-info');
+        activitiesMedalInfoEmoji = document.getElementById('activities-medal-info-emoji');
+        activitiesMedalInfoLabel = document.getElementById('activities-medal-info-label');
+        activitiesMedalInfoDescription = document.getElementById('activities-medal-info-description');
+        activitiesMedalInfoClearButton = document.getElementById('activities-medal-info-clear');
         activitiesFilterOpenButton = document.getElementById('activities-filter-open');
         loadMoreButton = document.getElementById('load-more-btn');
         activityFetchWarning = document.getElementById('activities-fetch-warning');
@@ -613,6 +623,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chartToggleButtons.coins = chartToggleCoinsButton;
         chartToggleButtons.balance = chartToggleBalanceButton;
         achievementWallet = document.getElementById('achievement-wallet');
+        updateActivitiesMedalInfo();
     };
 
     const onPanelReady = (panelName, callback) => {
@@ -2812,61 +2823,93 @@ document.addEventListener('DOMContentLoaded', async () => {
         return output || rawName;
     };
 
-    const updateMedalFilterBanner = () => {
-        if (!medalFilterBanner) {
+    const updateActivitiesMedalInfo = () => {
+        if (!activitiesMedalInfo) {
             return;
         }
 
-        if (activeMedalFilter) {
-            medalFilterBanner.classList.remove('hidden');
-            const emojiValue = activeMedalMeta?.emoji || '';
-            const normalizedCount = toNonNegativeInteger(activeMedalMeta?.count);
-            const countValue = normalizedCount.toLocaleString();
-            if (medalFilterLabel) {
-                const labelParts = [];
-                if (emojiValue) {
-                    labelParts.push(emojiValue);
-                }
-                if (activeMedalFilter) {
-                    labelParts.push(activeMedalFilter);
-                }
-                medalFilterLabel.textContent = labelParts.join(' ').trim();
+        if (!activeMedalFilter) {
+            activitiesMedalInfo.classList.add('hidden');
+            activitiesMedalInfo.setAttribute('aria-hidden', 'true');
+            if (activitiesMedalInfoEmoji) {
+                activitiesMedalInfoEmoji.textContent = '';
+                activitiesMedalInfoEmoji.classList.add('hidden');
             }
-            if (medalFilterEmoji) {
-                medalFilterEmoji.textContent = emojiValue;
-                medalFilterEmoji.classList.toggle('hidden', !emojiValue);
+            if (activitiesMedalInfoLabel) {
+                activitiesMedalInfoLabel.textContent = '';
             }
-            if (medalFilterDescription) {
-                const descriptionParts = [];
-                if (countValue || emojiValue) {
-                    const summary = [countValue, emojiValue].filter(Boolean).join(' ').trim();
-                    if (summary) {
-                        descriptionParts.push(summary);
-                    }
-                }
-                const categoryLabel = activeMedalMeta?.category;
-                if (categoryLabel) {
-                    descriptionParts.push(categoryLabel);
-                }
-                const descriptionText = activeMedalMeta?.description?.trim();
-                if (descriptionText) {
-                    descriptionParts.push(descriptionText);
-                }
-                medalFilterDescription.textContent = descriptionParts.join(' — ') || 'Medal activity overview.';
+            if (activitiesMedalInfoDescription) {
+                activitiesMedalInfoDescription.textContent = '';
+                activitiesMedalInfoDescription.classList.add('hidden');
             }
-        } else {
-            medalFilterBanner.classList.add('hidden');
-            if (medalFilterLabel) {
-                medalFilterLabel.textContent = '';
-            }
-            if (medalFilterEmoji) {
-                medalFilterEmoji.textContent = '';
-                medalFilterEmoji.classList.add('hidden');
-            }
-            if (medalFilterDescription) {
-                medalFilterDescription.textContent = '';
-            }
+            return;
         }
+
+        const emojiValue = activeMedalMeta?.emoji || '';
+        const normalizedCount = toNonNegativeInteger(activeMedalMeta?.count);
+        const countValue = normalizedCount.toLocaleString();
+        const categoryLabel = typeof activeMedalMeta?.category === 'string'
+            ? activeMedalMeta.category.trim()
+            : '';
+        const descriptionText = typeof activeMedalMeta?.description === 'string'
+            ? activeMedalMeta.description.trim()
+            : '';
+
+        activitiesMedalInfo.classList.remove('hidden');
+        activitiesMedalInfo.removeAttribute('aria-hidden');
+
+        if (activitiesMedalInfoEmoji) {
+            activitiesMedalInfoEmoji.textContent = emojiValue;
+            activitiesMedalInfoEmoji.classList.toggle('hidden', !emojiValue);
+        }
+
+        if (activitiesMedalInfoLabel) {
+            const labelParts = [];
+            if (emojiValue) {
+                labelParts.push(emojiValue);
+            }
+            if (activeMedalFilter) {
+                labelParts.push(activeMedalFilter);
+            }
+            activitiesMedalInfoLabel.textContent = labelParts.join(' ').trim();
+        }
+
+        if (activitiesMedalInfoDescription) {
+            const infoParts = [];
+            if (categoryLabel) {
+                infoParts.push(categoryLabel);
+            }
+            if (descriptionText) {
+                infoParts.push(descriptionText);
+            }
+            if (infoParts.length === 0) {
+                infoParts.push(normalizedCount > 0 ? `${countValue} earned` : 'Not earned yet');
+            }
+            activitiesMedalInfoDescription.textContent = infoParts.join(' • ');
+            activitiesMedalInfoDescription.classList.toggle('hidden', infoParts.length === 0);
+        }
+    };
+
+    const updateMedalFilterBanner = () => {
+        if (medalFilterBanner) {
+            medalFilterBanner.classList.add('hidden');
+            medalFilterBanner.setAttribute('aria-hidden', 'true');
+        }
+
+        if (medalFilterLabel) {
+            medalFilterLabel.textContent = '';
+        }
+
+        if (medalFilterEmoji) {
+            medalFilterEmoji.textContent = '';
+            medalFilterEmoji.classList.add('hidden');
+        }
+
+        if (medalFilterDescription) {
+            medalFilterDescription.textContent = '';
+        }
+
+        updateActivitiesMedalInfo();
     };
 
     const updateMedalButtonStates = () => {
@@ -10299,10 +10342,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const bindActivitiesMedalInfoClearButton = () => {
+        if (!activitiesMedalInfoClearButton || activitiesMedalInfoClearButton.dataset.initialized === 'true') {
+            return;
+        }
+
+        activitiesMedalInfoClearButton.dataset.initialized = 'true';
+        activitiesMedalInfoClearButton.addEventListener('click', () => {
+            if (resetMedalFilterState()) {
+                renderActivitiesList();
+            }
+        });
+    };
+
     bindActivitiesFilterOpenButton();
+    bindActivitiesMedalInfoClearButton();
     onPanelReady('activities', () => {
         refreshPanelReferences();
         bindActivitiesFilterOpenButton();
+        bindActivitiesMedalInfoClearButton();
     });
 
     activitiesFilterDismissButtons.forEach((button) => {

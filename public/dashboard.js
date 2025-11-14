@@ -2437,7 +2437,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         } = rankProgressState;
 
         const levelProgressFillElement = document.getElementById('level-progress-fill');
-        const levelProgressRecentElement = document.getElementById('level-progress-recent');
 
         const safeTotalHours = Number.isFinite(totalHours) ? totalHours : 0;
         const currentMinHours = Number.isFinite(currentRank?.minHours) ? currentRank.minHours : 0;
@@ -2460,16 +2459,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             levelProgressFillElement.style.width = `${progressPercent.toFixed(2)}%`;
         }
 
-        if (levelProgressRecentElement) {
-            let monthlyPercent = 0;
-            if (spanHours && monthValue > 0) {
-                const cappedMonthly = Math.min(monthValue, spanHours);
-                monthlyPercent = Math.min(100, Math.max(0, (cappedMonthly / spanHours) * 100));
-            }
-            const effectiveMonthlyPercent = Math.min(progressPercent, monthlyPercent);
-            levelProgressRecentElement.style.width = `${effectiveMonthlyPercent.toFixed(2)}%`;
-        }
-
         if (rankingProgressLabelElement) {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
             rankingProgressLabelElement.textContent = `${label} total`;
@@ -2479,18 +2468,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (rankingProgressMonthlyElement) {
             const formattedMonthly = formatHoursDisplay(monthValue);
             const prefix = monthValue > 0 ? '+' : '';
-            const hasMonthlyHours = monthValue > 0;
-            const monthlyLabel = hasMonthlyHours
-                ? `${prefix}${formattedMonthly} h last month`
-                : 'No hours logged last month';
+            const monthlyLabel = `${prefix}${formattedMonthly} h last month`;
             rankingProgressMonthlyElement.textContent = monthlyLabel;
             rankingProgressMonthlyElement.setAttribute(
                 'aria-label',
-                hasMonthlyHours
+                monthValue > 0
                     ? `${formattedMonthly} hours recorded in the last month`
                     : 'No hours recorded in the last month'
             );
-            rankingProgressMonthlyElement.classList.toggle('is-empty', !hasMonthlyHours);
         }
 
         if (nextRankElement) {

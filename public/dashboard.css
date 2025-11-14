@@ -1425,7 +1425,7 @@ to { opacity: 1; transform: translateY(0); }
 }
 
 .profile-card__share-action {
-    margin-left: -0.15rem;
+    margin-left: 0.5rem;
 }
 
 .profile-card__level-group {
@@ -1881,6 +1881,7 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     overflow: hidden;
 }
 
+
 .profile-card__progress-fill {
     position: absolute;
     top: 0;
@@ -1888,15 +1889,9 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     left: 0;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(135deg, #2563eb, #38bdf8);
+    background: #2563eb;
     transition: width 0.3s ease, background 0.3s ease;
     z-index: 1;
-}
-
-.profile-card__progress-fill--recent {
-    background: linear-gradient(135deg, #22c55e, #10b981);
-    box-shadow: inset 0 0 12px rgba(34, 197, 94, 0.35);
-    z-index: 2;
 }
 
 .profile-card__progress-fill.is-negative {
@@ -1908,27 +1903,30 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 }
 
 
+
 .profile-card__progress-overlay {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: flex-start;
+    gap: 0.4rem;
     padding: 0 0.6rem;
     font-size: 0.72rem;
     font-weight: 600;
-    color: #0f172a;
+    color: #ffffff;
     flex-wrap: wrap;
 }
+
 
 .profile-card__progress-label {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
     color: inherit;
-    flex: 1 1 auto;
-    min-width: 0;
+    flex: 0 0 auto;
 }
+
 
 .profile-card__progress-monthly {
     display: inline-flex;
@@ -1936,11 +1934,7 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     justify-content: center;
     font-weight: 700;
     white-space: nowrap;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.92), rgba(16, 185, 129, 0.98));
-    color: #ecfdf5;
-    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.25);
+    color: #4ade80;
     flex: 0 0 auto;
 }
 

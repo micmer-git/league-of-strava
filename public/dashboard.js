@@ -744,6 +744,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let filterApplyTimeout = null;
     let coinChartMode = 'stacked';
     let medalInventory = [];
+    let medalContributionMap = new Map();
+    let medalContributionHighlightsByDate = new Map();
     const walletMetricsCache = { key: null, metrics: [] };
     const rewardSummaryCache = { key: null, summary: null };
     let visibleMedalCount = 0;
@@ -1198,6 +1200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalSummary: { count: 0, value: 0 },
                 medalsEarned: [],
                 medalInventory: [],
+                medalContributions: [],
             };
         }
 
@@ -1229,6 +1232,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }))
             : [];
 
+        const medalContributions = Array.isArray(summary.medalContributions)
+            ? summary.medalContributions.map(entry => ({
+                name: entry?.name || '',
+                emoji: entry?.emoji || '',
+                description: entry?.description || '',
+                dates: Array.isArray(entry?.dates) ? entry.dates.slice() : [],
+            }))
+            : [];
+
         return {
             categories,
             medalSummary: {
@@ -1237,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             medalsEarned,
             medalInventory,
+            medalContributions,
         };
     };
 
@@ -1742,11 +1755,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return a.name.localeCompare(b.name);
         });
 
+        const medalContributions = computeMedalContributionEntries(aggregateContext?.dailySummaries);
+
         return {
             categories,
             medalSummary,
             medalsEarned,
             medalInventory: sortedMedals,
+            medalContributions,
         };
     };
 
@@ -3083,7 +3099,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         medalFilteredActivities = sortedActivities.filter(activity => {
             const medalsForActivity = getActivityMedals(activity);
-            return medalsForActivity.some(medal => medal.name === activeMedalFilter);
+            if (medalsForActivity.some(medal => medal.name === activeMedalFilter)) {
+                return true;
+            }
+
+            const contributionMeta = medalContributionMap.get(activeMedalFilter);
+            if (!contributionMeta) {
+                return false;
+            }
+
+            const dateKey = getActivityDateKey(activity);
+            if (!dateKey) {
+                return false;
+            }
+
+            return contributionMeta.dates.has(dateKey);
         });
     };
 
@@ -6148,22 +6178,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        BEST_CLASS_MEDALS.forEach((medal) => {
-            if (typeof medal.aggregateResolver !== 'function') {
-                return;
-            }
-            const rawCount = medal.aggregateResolver(aggregateContext);
-            const normalizedCount = Number.isFinite(rawCount) ? Math.floor(Math.max(rawCount, 0)) : 0;
-            if (normalizedCount > 0) {
-                achievements.push({
-                    emoji: medal.emoji,
-                    label: medal.name,
-                    description: medal.description,
-                    count: normalizedCount,
-                });
-            }
-        });
-
         return achievements;
     };
 
@@ -7897,6 +7911,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Rode at least 100 km on back-to-back days.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveRide100,
+            consecutiveConfig: {
+                predicate: summary => summary.rideDistance >= 100 * METERS_IN_KILOMETER,
+                requiredLength: 2,
+            },
         },
         {
             name: '2 Days Consecutive of 150 km Ride',
@@ -7904,6 +7922,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Delivered 150 km rides on two consecutive days.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveRide150,
+            consecutiveConfig: {
+                predicate: summary => summary.rideDistance >= 150 * METERS_IN_KILOMETER,
+                requiredLength: 2,
+            },
         },
         {
             name: '2 Days Consecutive 5h+ Each Day',
@@ -7911,6 +7933,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Logged more than five hours of training on two straight days.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysTwo,
+            consecutiveConfig: {
+                predicate: summary => summary.totalMovingTimeSeconds >= 5 * SECONDS_IN_HOUR,
+                requiredLength: 2,
+            },
         },
         {
             name: '3 Days Consecutive 5h+ Each Day',
@@ -7918,6 +7944,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Maintained five-hour training days across a three-day stretch.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysThree,
+            consecutiveConfig: {
+                predicate: summary => summary.totalMovingTimeSeconds >= 5 * SECONDS_IN_HOUR,
+                requiredLength: 3,
+            },
         },
         {
             name: '2 Days of 10 km Consecutive Run',
@@ -7925,6 +7955,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Ran at least 10 km on two consecutive days.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveRun10k,
+            consecutiveConfig: {
+                predicate: summary => summary.runDistance >= 10 * METERS_IN_KILOMETER,
+                requiredLength: 2,
+            },
         },
         {
             name: '2 Half Marathons Back to Back',
@@ -7932,6 +7966,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Hit half-marathon distance on consecutive days.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveHalfMarathons,
+            consecutiveConfig: {
+                predicate: summary => summary.runDistance >= 21 * METERS_IN_KILOMETER,
+                requiredLength: 2,
+            },
         },
         {
             name: '2 Marathons Back to Back',
@@ -7939,6 +7977,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Completed marathon-distance runs on consecutive days.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveMarathons,
+            consecutiveConfig: {
+                predicate: summary => summary.runDistance >= 42 * METERS_IN_KILOMETER,
+                requiredLength: 2,
+            },
         },
         {
             name: '2 Days Consecutive 1500 m Elevation',
@@ -7946,6 +7988,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Climbed at least 1,500 m of elevation on two straight days.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveElevation1500,
+            consecutiveConfig: {
+                predicate: summary => summary.totalElevationGain >= 1500,
+                requiredLength: 2,
+            },
         },
         {
             name: 'Olympic Triathlons Completed',
@@ -7960,6 +8006,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Stacked 3,000 m elevation days consecutively.',
             category: 'Best in Class',
             aggregateResolver: aggregateBestClassResolvers.consecutiveElevation3000,
+            consecutiveConfig: {
+                predicate: summary => summary.totalElevationGain >= 3000,
+                requiredLength: 2,
+            },
         },
     ];
 
@@ -7981,6 +8031,111 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         },
     });
+
+    function collectConsecutiveContributionDates(dailySummaries, predicate, requiredLength) {
+        if (
+            !Array.isArray(dailySummaries)
+            || dailySummaries.length === 0
+            || typeof predicate !== 'function'
+            || !Number.isFinite(requiredLength)
+            || requiredLength <= 0
+        ) {
+            return [];
+        }
+
+        const contributions = new Set();
+        let streakDates = [];
+        let previousDate = null;
+
+        const finalizeStreak = () => {
+            if (streakDates.length >= requiredLength) {
+                streakDates.forEach(dateKey => contributions.add(dateKey));
+            }
+            streakDates = [];
+            previousDate = null;
+        };
+
+        dailySummaries.forEach(summary => {
+            const dateKey = summary?.dateKey;
+            if (!dateKey) {
+                finalizeStreak();
+                return;
+            }
+
+            const currentDate = new Date(`${dateKey}T00:00:00Z`);
+            if (Number.isNaN(currentDate.getTime())) {
+                finalizeStreak();
+                return;
+            }
+
+            let qualifies = false;
+            try {
+                qualifies = Boolean(predicate(summary));
+            } catch (error) {
+                qualifies = false;
+            }
+
+            if (!qualifies) {
+                finalizeStreak();
+                return;
+            }
+
+            if (previousDate) {
+                const diffDays = Math.round((currentDate - previousDate) / DAY_IN_MS);
+                if (diffDays !== 1) {
+                    finalizeStreak();
+                }
+            }
+
+            if (streakDates.length === 0 || streakDates[streakDates.length - 1] !== dateKey) {
+                streakDates.push(dateKey);
+            }
+
+            if (streakDates.length >= requiredLength) {
+                streakDates.forEach(value => contributions.add(value));
+            }
+
+            previousDate = currentDate;
+        });
+
+        finalizeStreak();
+
+        return Array.from(contributions).sort();
+    }
+
+    function computeMedalContributionEntries(dailySummaries = []) {
+        if (!Array.isArray(dailySummaries) || dailySummaries.length === 0) {
+            return [];
+        }
+
+        const entries = [];
+
+        BEST_CLASS_MEDALS.forEach(medal => {
+            const config = medal?.consecutiveConfig;
+            const predicate = config?.predicate;
+            const requiredLength = Number.isFinite(config?.requiredLength)
+                ? config.requiredLength
+                : 0;
+
+            if (typeof predicate !== 'function' || requiredLength <= 1) {
+                return;
+            }
+
+            const dates = collectConsecutiveContributionDates(dailySummaries, predicate, requiredLength);
+            if (dates.length === 0) {
+                return;
+            }
+
+            entries.push({
+                name: medal.name,
+                emoji: medal.emoji || '🏅',
+                description: medal.description || '',
+                dates,
+            });
+        });
+
+        return entries;
+    }
 
     // === Medals Configuration ===
     const medalsConfig = [
@@ -8704,6 +8859,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 highlights.push({ emoji, description });
             }
         };
+
+        const dateKey = getActivityDateKey(activity);
+        if (dateKey && medalContributionHighlightsByDate.has(dateKey)) {
+            const contributionHighlights = medalContributionHighlightsByDate.get(dateKey) || [];
+            contributionHighlights.forEach(({ medalName, emoji, description }) => {
+                const detailParts = [];
+                if (medalName) {
+                    detailParts.push(`Contributed to ${medalName}`);
+                }
+                if (description) {
+                    detailParts.push(description);
+                }
+                const detailText = detailParts.join(' — ') || medalName || 'Consecutive achievement contribution';
+                pushHighlight(emoji || '🏅', detailText);
+            });
+        }
 
         if (type === 'RUN') {
             const thresholds = [10, 21, 42, 50, 100];
@@ -9525,6 +9696,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                 count: toNonNegativeInteger(medal?.count),
             }))
             : [];
+
+        medalContributionMap = new Map();
+        medalContributionHighlightsByDate = new Map();
+
+        const contributionEntries = Array.isArray(lifetimeRewardSummary.medalContributions)
+            ? lifetimeRewardSummary.medalContributions
+            : [];
+
+        contributionEntries.forEach(entry => {
+            const medalName = entry?.name;
+            if (!medalName) {
+                return;
+            }
+
+            const datesArray = Array.isArray(entry.dates)
+                ? entry.dates.filter(dateKey => typeof dateKey === 'string' && dateKey)
+                : [];
+            const dateSet = new Set(datesArray);
+
+            medalContributionMap.set(medalName, {
+                emoji: entry.emoji || '🏅',
+                description: entry.description || '',
+                dates: dateSet,
+            });
+
+            dateSet.forEach(dateKey => {
+                if (!medalContributionHighlightsByDate.has(dateKey)) {
+                    medalContributionHighlightsByDate.set(dateKey, []);
+                }
+                medalContributionHighlightsByDate.get(dateKey).push({
+                    medalName,
+                    emoji: entry.emoji || '🏅',
+                    description: entry.description || '',
+                });
+            });
+        });
 
         updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
 

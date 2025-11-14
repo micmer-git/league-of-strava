@@ -509,6 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
+    const rankModalRewardsElement = document.getElementById('rank-modal-rewards');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
@@ -1876,6 +1877,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentMonthHours: 0,
         previousMonthHours: 0,
     };
+    const RANK_REWARD_PERIODS = [
+        { key: 'weekly', label: 'Last 7 days', days: 7 },
+        { key: 'monthly', label: 'Last 30 days', days: 30 },
+    ];
+    let rankRewardSnapshots = [];
     let hasActivitiesState = false;
 
     const MASTER_PRESTIGE_MAX = 1000;
@@ -2562,6 +2568,155 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateRankProgressBar();
 
+    const createEmptyCoinCounts = () => {
+        return COIN_EMOJIS.reduce((counts, emoji) => {
+            counts[emoji] = 0;
+            return counts;
+        }, {});
+    };
+
+    const formatRewardSnapshotRange = (start, end) => {
+        const hasValidStart = start instanceof Date && !Number.isNaN(start.getTime());
+        const hasValidEnd = end instanceof Date && !Number.isNaN(end.getTime());
+
+        if (!hasValidStart && !hasValidEnd) {
+            return 'Recent period';
+        }
+
+        const resolvedStart = hasValidStart ? start : end;
+        const resolvedEnd = hasValidEnd ? end : resolvedStart;
+
+        if (!resolvedStart || !resolvedEnd) {
+            return 'Recent period';
+        }
+
+        const sameDay = resolvedStart.toDateString() === resolvedEnd.toDateString();
+        const sameYear = resolvedStart.getFullYear() === resolvedEnd.getFullYear();
+        const sameMonth = sameYear && resolvedStart.getMonth() === resolvedEnd.getMonth();
+        const includeYear = !sameYear || resolvedStart.getFullYear() !== new Date().getFullYear();
+
+        const startOptions = { month: 'short', day: 'numeric' };
+        const endOptions = { month: 'short', day: 'numeric' };
+
+        if (includeYear) {
+            startOptions.year = 'numeric';
+            endOptions.year = 'numeric';
+        } else if (!sameMonth && !sameDay) {
+            endOptions.month = 'short';
+        }
+
+        const startLabel = resolvedStart.toLocaleDateString(undefined, startOptions);
+        if (sameDay) {
+            return startLabel;
+        }
+
+        const endLabel = resolvedEnd.toLocaleDateString(undefined, endOptions);
+        return `${startLabel} – ${endLabel}`;
+    };
+
+    const buildRankRewardSnapshotForPeriod = (activities, period, referenceDate = new Date()) => {
+        const now = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+            ? new Date(referenceDate)
+            : new Date();
+        const windowStart = new Date(now);
+        windowStart.setHours(0, 0, 0, 0);
+        windowStart.setDate(windowStart.getDate() - (Math.max(1, Number(period.days) || 1) - 1));
+
+        const coinCounts = createEmptyCoinCounts();
+        const accumulator = {
+            activities: 0,
+            hours: 0,
+            coinsTotal: 0,
+            coinValue: 0,
+            medalCount: 0,
+            coinCounts,
+            windowStartTimestamp: null,
+            windowEndTimestamp: null,
+        };
+
+        const sourceActivities = Array.isArray(activities) ? activities : [];
+
+        sourceActivities.forEach((activity) => {
+            const rawDate = activity?.start_date_local || activity?.start_date;
+            if (!rawDate) {
+                return;
+            }
+
+            const activityDate = new Date(rawDate);
+            if (Number.isNaN(activityDate.getTime())) {
+                return;
+            }
+
+            if (activityDate < windowStart || activityDate > now) {
+                return;
+            }
+
+            accumulator.activities += 1;
+
+            const movingTimeSeconds = Number.isFinite(activity?.moving_time)
+                ? activity.moving_time
+                : 0;
+            accumulator.hours += movingTimeSeconds / 3600;
+
+            const coins = getActivityCoinRewards(activity);
+            if (Array.isArray(coins) && coins.length > 0) {
+                coins.forEach((emoji) => {
+                    if (emoji in accumulator.coinCounts) {
+                        accumulator.coinCounts[emoji] += 1;
+                    } else {
+                        accumulator.coinCounts[emoji] = 1;
+                    }
+                    accumulator.coinsTotal += 1;
+                    accumulator.coinValue += COIN_VALUE_MAP[emoji] || 0;
+                });
+            }
+
+            const medals = getActivityMedals(activity);
+            if (Array.isArray(medals) && medals.length > 0) {
+                accumulator.medalCount += medals.length;
+            }
+
+            const activityTimestamp = activityDate.getTime();
+            if (accumulator.windowStartTimestamp === null || activityTimestamp < accumulator.windowStartTimestamp) {
+                accumulator.windowStartTimestamp = activityTimestamp;
+            }
+            if (accumulator.windowEndTimestamp === null || activityTimestamp > accumulator.windowEndTimestamp) {
+                accumulator.windowEndTimestamp = activityTimestamp;
+            }
+        });
+
+        const medalValue = accumulator.medalCount * MEDAL_DOLLAR_VALUE;
+        const startDate = accumulator.windowStartTimestamp !== null
+            ? new Date(accumulator.windowStartTimestamp)
+            : windowStart;
+        const endDate = accumulator.windowEndTimestamp !== null
+            ? new Date(accumulator.windowEndTimestamp)
+            : now;
+
+        return {
+            key: period.key,
+            label: period.label,
+            days: period.days,
+            activities: accumulator.activities,
+            hours: accumulator.hours,
+            coinsTotal: accumulator.coinsTotal,
+            coinValue: accumulator.coinValue,
+            medalCount: accumulator.medalCount,
+            medalValue,
+            totalValue: accumulator.coinValue + medalValue,
+            startDate,
+            endDate,
+            rangeLabel: formatRewardSnapshotRange(startDate, endDate),
+        };
+    };
+
+    const buildRankRewardSnapshots = (activities) => {
+        const referenceDate = new Date();
+        return RANK_REWARD_PERIODS.map((period) =>
+            buildRankRewardSnapshotForPeriod(activities, period, referenceDate)
+        );
+    };
+
     const renderRankModal = () => {
         if (!rankModalListElement) {
             return;
@@ -2615,6 +2770,124 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .map((fragment) => fragment.trim())
                 .join('');
             rankModalSummaryElement.hidden = summaryFragments.length === 0;
+        }
+
+        if (rankModalRewardsElement) {
+            const rewardTrackElement = rankModalRewardsElement.querySelector('.rank-modal__reward-track');
+            if (rewardTrackElement) {
+                rewardTrackElement.innerHTML = '';
+                const snapshots = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
+                    ? rankRewardSnapshots
+                    : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
+
+                snapshots.forEach((snapshot) => {
+                    if (!snapshot) {
+                        return;
+                    }
+
+                    const card = document.createElement('article');
+                    card.className = 'rank-modal__reward-card';
+                    card.setAttribute('role', 'listitem');
+                    card.setAttribute('data-period-key', snapshot.key || '');
+
+                    const header = document.createElement('header');
+                    header.className = 'rank-modal__reward-card-header';
+
+                    const label = document.createElement('p');
+                    label.className = 'rank-modal__reward-card-label';
+                    label.textContent = snapshot.label || 'Recent window';
+
+                    const range = document.createElement('p');
+                    range.className = 'rank-modal__reward-card-range';
+                    range.textContent = snapshot.rangeLabel || '';
+
+                    header.append(label, range);
+                    card.appendChild(header);
+
+                    const metricsList = document.createElement('dl');
+                    metricsList.className = 'rank-modal__reward-metrics';
+
+                    const safeCoinValue = Number.isFinite(snapshot.coinValue) ? snapshot.coinValue : 0;
+                    const safeMedalValue = Number.isFinite(snapshot.medalValue) ? snapshot.medalValue : 0;
+                    const safeTotalValue = Number.isFinite(snapshot.totalValue)
+                        ? snapshot.totalValue
+                        : safeCoinValue + safeMedalValue;
+
+                    const totalBreakdown = [];
+                    if (safeCoinValue > 0) {
+                        totalBreakdown.push(`Coins ${usdCodeFormatter.format(safeCoinValue)}`);
+                    }
+                    if (safeMedalValue > 0) {
+                        totalBreakdown.push(`Medals ${usdCodeFormatter.format(safeMedalValue)}`);
+                    }
+
+                    const metrics = [
+                        {
+                            label: 'Activities',
+                            value: formatCount(snapshot.activities),
+                        },
+                        {
+                            label: 'Training hours',
+                            value: Number.isFinite(snapshot.hours) && snapshot.hours > 0
+                                ? `${formatHoursDisplay(snapshot.hours)} h`
+                                : '—',
+                        },
+                        {
+                            label: 'Coins minted',
+                            value: formatCount(snapshot.coinsTotal),
+                            secondary: safeCoinValue > 0 ? usdCodeFormatter.format(safeCoinValue) : null,
+                        },
+                        {
+                            label: 'Medals unlocked',
+                            value: formatCount(snapshot.medalCount),
+                            secondary: safeMedalValue > 0 ? usdCodeFormatter.format(safeMedalValue) : null,
+                        },
+                        {
+                            label: 'Total haul',
+                            value: usdCodeFormatter.format(safeTotalValue),
+                            secondary: totalBreakdown.join(' • ') || null,
+                            highlight: true,
+                        },
+                    ];
+
+                    metrics.forEach((metric) => {
+                        const metricWrapper = document.createElement('div');
+                        metricWrapper.className = 'rank-modal__reward-metric';
+                        if (metric.highlight) {
+                            metricWrapper.classList.add('rank-modal__reward-metric--highlight');
+                        }
+
+                        const term = document.createElement('dt');
+                        term.className = 'rank-modal__reward-metric-label';
+                        term.textContent = metric.label;
+
+                        const description = document.createElement('dd');
+                        description.className = 'rank-modal__reward-metric-value';
+
+                        const primary = document.createElement('span');
+                        primary.className = 'rank-modal__reward-value-primary';
+                        primary.textContent = metric.value;
+                        description.appendChild(primary);
+
+                        if (metric.secondary) {
+                            const secondary = document.createElement('span');
+                            secondary.className = 'rank-modal__reward-value-secondary';
+                            secondary.textContent = metric.secondary;
+                            description.appendChild(secondary);
+                        }
+
+                        metricWrapper.append(term, description);
+                        metricsList.appendChild(metricWrapper);
+                    });
+
+                    card.appendChild(metricsList);
+                    rewardTrackElement.appendChild(card);
+                });
+            }
+
+            const hasRewards = Boolean(rewardTrackElement && rewardTrackElement.children.length > 0);
+            rankModalRewardsElement.hidden = !hasRewards;
+            rankModalRewardsElement.setAttribute('aria-hidden', hasRewards ? 'false' : 'true');
         }
 
         if (config.length === 0) {
@@ -9880,6 +10153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentMonthHours: Number.isFinite(monthlyHours?.currentMonth) ? monthlyHours.currentMonth : 0,
             previousMonthHours: Number.isFinite(monthlyHours?.previousMonth) ? monthlyHours.previousMonth : 0,
         };
+        rankRewardSnapshots = buildRankRewardSnapshots(lifetimeActivities);
         updateRankProgressBar();
 
         // Update the ranking progress bar

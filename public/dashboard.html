@@ -313,6 +313,19 @@
 <span>Adjust filters</span>
 </button>
 </header>
+        <div aria-live="polite" class="activities-medal-info hidden" id="activities-medal-info" role="status" aria-hidden="true">
+          <div class="activities-medal-info__content">
+            <span class="activities-medal-info__emoji" id="activities-medal-info-emoji"></span>
+            <div class="activities-medal-info__text">
+              <span class="activities-medal-info__label" id="activities-medal-info-label"></span>
+              <span class="activities-medal-info__description" id="activities-medal-info-description"></span>
+            </div>
+          </div>
+          <button class="activities-medal-info__clear" id="activities-medal-info-clear" type="button">
+            <span aria-hidden="true">✕</span>
+            <span class="sr-only">Remove medal filter</span>
+          </button>
+        </div>
 <span class="panel-card__empty hidden" id="activities-empty">No activities match your filters.</span>
 <div class="activities-list" id="activities-container"></div>
 <div class="panel-card__footer">

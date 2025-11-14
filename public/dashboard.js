@@ -10120,7 +10120,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Always calculate the fun stats from the lifetime activity history rather than the
         // currently filtered view so the numbers remain consistent across filters.
-        const lifetimeActivitiesForStats = Array.isArray(allData.activities) ? allData.activities : activities;
+        const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
+            ? allData.activities
+            : activities;
+        const lifetimeActivitiesForStats = lifetimeActivities;
         const lifetimeTotals = (data?.totals && typeof data.totals === 'object')
             ? data.totals
             : (allData?.totals || {});
@@ -10272,9 +10275,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'level-progress' element not found in the DOM.");
         }
 
-        const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
-            ? allData.activities
-            : activities;
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
 

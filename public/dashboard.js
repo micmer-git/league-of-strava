@@ -29,20 +29,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
     const MEDAL_OTHER_COLOR = '#94a3b8';
-    const BALANCE_YEAR_COLOR_PALETTE = [
-        { border: '#bbf7d0', background: 'rgba(187, 247, 208, 0.45)', hover: 'rgba(187, 247, 208, 0.6)' },
-        { border: '#86efac', background: 'rgba(134, 239, 172, 0.4)', hover: 'rgba(134, 239, 172, 0.55)' },
-        { border: '#4ade80', background: 'rgba(74, 222, 128, 0.36)', hover: 'rgba(74, 222, 128, 0.5)' },
-        { border: '#22c55e', background: 'rgba(34, 197, 94, 0.32)', hover: 'rgba(34, 197, 94, 0.46)' },
-        { border: '#16a34a', background: 'rgba(22, 163, 74, 0.28)', hover: 'rgba(22, 163, 74, 0.42)' },
-        { border: '#15803d', background: 'rgba(21, 128, 61, 0.26)', hover: 'rgba(21, 128, 61, 0.38)' },
-        { border: '#166534', background: 'rgba(22, 101, 52, 0.24)', hover: 'rgba(22, 101, 52, 0.36)' },
-        { border: '#14532d', background: 'rgba(20, 83, 45, 0.22)', hover: 'rgba(20, 83, 45, 0.34)' }
-    ];
+    const WALLET_GRADIENT_START = { r: 161, g: 98, b: 7 }; // dark amber
+    const WALLET_GRADIENT_END = { r: 20, g: 83, b: 45 }; // deep emerald
+    const WALLET_BACKGROUND_ALPHA_START = 0.28;
+    const WALLET_BACKGROUND_ALPHA_END = 0.48;
+    const WALLET_HOVER_ALPHA_BOOST = 0.12;
     const MONTH_COMPARISON_LABELS = Array.from({ length: 12 }, (_, index) => {
         const date = new Date(2000, index, 1);
         return date.toLocaleDateString(undefined, { month: 'short' });
     });
+    const toHex = (value) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, '0');
+    const interpolate = (start, end, factor) => start + (end - start) * factor;
+    const clamp01 = (value) => Math.min(1, Math.max(0, value));
+    const buildWalletGradientEntry = (factor) => {
+        const clampedFactor = clamp01(Number.isFinite(factor) ? factor : 0);
+        const r = Math.round(interpolate(WALLET_GRADIENT_START.r, WALLET_GRADIENT_END.r, clampedFactor));
+        const g = Math.round(interpolate(WALLET_GRADIENT_START.g, WALLET_GRADIENT_END.g, clampedFactor));
+        const b = Math.round(interpolate(WALLET_GRADIENT_START.b, WALLET_GRADIENT_END.b, clampedFactor));
+        const border = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        const backgroundAlpha = interpolate(WALLET_BACKGROUND_ALPHA_START, WALLET_BACKGROUND_ALPHA_END, clampedFactor);
+        const hoverAlpha = Math.min(0.9, backgroundAlpha + WALLET_HOVER_ALPHA_BOOST);
+        const toRgba = (alpha) => `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
+        return {
+            border,
+            background: toRgba(backgroundAlpha),
+            hover: toRgba(hoverAlpha),
+        };
+    };
+    const getWalletGradientForIndex = (index, total) => {
+        if (!Number.isFinite(total) || total <= 1) {
+            return buildWalletGradientEntry(1);
+        }
+        const position = clamp01(index / (total - 1));
+        return buildWalletGradientEntry(position);
+    };
+    const buildWalletGradientPalette = (total) => {
+        if (!Number.isFinite(total) || total <= 0) {
+            return [];
+        }
+        return Array.from({ length: Math.trunc(total) }, (_, index) => getWalletGradientForIndex(index, total));
+    };
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const MEDALS_PAGE_SIZE = Number.POSITIVE_INFINITY;
     const COIN_LABEL_OVERRIDES = {
@@ -1163,6 +1189,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let activeChartKey = 'balance';
     let walletChartInstance = null;
+    let walletChartClickSelection = null;
+    let walletChartEventsBound = false;
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
@@ -2368,7 +2396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (value === 0) {
-            return '$0k';
+            return null;
         }
 
         const thousands = Math.abs(value) / 1_000;
@@ -3328,10 +3356,101 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const destroyWalletChart = () => {
+        walletChartClickSelection = null;
         if (walletChartInstance) {
             walletChartInstance.destroy();
             walletChartInstance = null;
         }
+    };
+
+    const updateWalletChartActiveElements = (elements, eventPosition = { x: 0, y: 0 }) => {
+        if (!walletChartInstance) {
+            return;
+        }
+
+        if (typeof walletChartInstance.setActiveElements === 'function') {
+            walletChartInstance.setActiveElements(elements);
+        }
+
+        const tooltip = walletChartInstance.tooltip;
+        if (tooltip) {
+            if (typeof tooltip.setActiveElements === 'function') {
+                tooltip.setActiveElements(elements, eventPosition);
+            } else if (Array.isArray(tooltip._active)) {
+                tooltip._active = elements;
+                if (typeof tooltip.update === 'function') {
+                    tooltip.update();
+                }
+            }
+        }
+
+        if (typeof walletChartInstance.update === 'function') {
+            walletChartInstance.update();
+        }
+    };
+
+    const clearWalletChartActiveElements = ({ preserveSelection = false } = {}) => {
+        if (!preserveSelection) {
+            walletChartClickSelection = null;
+        }
+        if (!walletChartInstance) {
+            return;
+        }
+        updateWalletChartActiveElements([], { x: 0, y: 0 });
+    };
+
+    const ensureWalletChartEvents = () => {
+        if (walletChartEventsBound || !walletChartCanvas) {
+            return;
+        }
+
+        walletChartCanvas.addEventListener('click', (event) => {
+            if (!walletChartInstance) {
+                return;
+            }
+
+            const elements = walletChartInstance.getElementsAtEventForMode(
+                event,
+                'nearest',
+                { intersect: false },
+                true,
+            ) || [];
+
+            if (elements.length === 0) {
+                clearWalletChartActiveElements();
+                return;
+            }
+
+            const primary = elements[0];
+            const isSameSelection = walletChartClickSelection
+                && walletChartClickSelection.datasetIndex === primary.datasetIndex
+                && walletChartClickSelection.index === primary.index;
+
+            if (isSameSelection) {
+                clearWalletChartActiveElements();
+                return;
+            }
+
+            walletChartClickSelection = { datasetIndex: primary.datasetIndex, index: primary.index };
+            const rect = walletChartCanvas.getBoundingClientRect();
+            const position = {
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top,
+            };
+            updateWalletChartActiveElements(elements, position);
+        });
+
+        walletChartCanvas.addEventListener('mousemove', () => {
+            if (walletChartClickSelection) {
+                walletChartClickSelection = null;
+            }
+        });
+
+        walletChartCanvas.addEventListener('mouseleave', () => {
+            clearWalletChartActiveElements();
+        });
+
+        walletChartEventsBound = true;
     };
 
     const walletPointLabelPlugin = {
@@ -4266,6 +4385,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        ensureWalletChartEvents();
         updateToggleStates(activeChartKey);
     };
 
@@ -4415,10 +4535,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
+        const walletGradientPalette = buildWalletGradientPalette(sortedYears.length);
         const yearColorAssignments = new Map();
         sortedYears.forEach((year, index) => {
-            const paletteEntry = yearColorAssignments.get(year)
-                || BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
+            const paletteEntry = walletGradientPalette[index] || getWalletGradientForIndex(index, sortedYears.length);
             yearColorAssignments.set(year, {
                 border: paletteEntry.border,
                 background: paletteEntry.background,
@@ -4541,7 +4661,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return runningTotal;
             });
 
-            const paletteEntry = BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
+            const paletteEntry = walletGradientPalette[index] || getWalletGradientForIndex(index, sortedYears.length);
             const yearLabel = String(year);
             compareDatasets.push({
                 label: yearLabel,

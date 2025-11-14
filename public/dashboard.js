@@ -764,17 +764,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
-    const rankCarouselElement = document.querySelector('[data-rank-carousel]');
-    const rankCarouselTrackElement = document.getElementById('rank-modal-carousel-track');
-    const rankCarouselDotsElement = document.getElementById('rank-modal-dots');
-    const rankCarouselPrevButton = document.querySelector('[data-rank-carousel-prev]');
-    const rankCarouselNextButton = document.querySelector('[data-rank-carousel-next]');
+    const rankModalContentElement = document.getElementById('rank-modal-content');
+    const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
         month: document.getElementById('profile-wallet-change-month'),
         year: document.getElementById('profile-wallet-change-year')
+    };
+    const walletChangeSnapshotKeyMap = {
+        '3m': 'quarter',
+        '1y': 'yearly',
     };
     const walletSummaryElements = {
         coinsCount: document.getElementById('wallet-summary-coins-count'),
@@ -2370,9 +2371,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const RANK_REWARD_PERIODS = [
         { key: 'weekly', label: 'Last 7 days', days: 7 },
         { key: 'monthly', label: 'Last 30 days', days: 30 },
+        { key: 'quarter', label: 'Last 90 days', days: 90 },
+        { key: 'yearly', label: 'Last 365 days', days: 365 },
     ];
     let rankRewardSnapshots = [];
-    let rankCarouselIndex = 0;
+    let highlightedRankSnapshotElement = null;
     let hasActivitiesState = false;
 
     const MASTER_PRESTIGE_MAX = 1000;
@@ -3307,129 +3310,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return normalized || fallback;
     };
 
-    const getRankCarouselSlides = () => {
-        if (!rankCarouselTrackElement) {
-            return [];
-        }
-
-        return Array.from(rankCarouselTrackElement.children).filter((child) =>
-            child instanceof HTMLElement && child.classList.contains('rank-modal__slide')
-        );
-    };
-
-    const updateRankCarouselNavButtons = (totalSlides = getRankCarouselSlides().length) => {
-        const hideNav = totalSlides <= 1;
-
-        if (rankCarouselPrevButton) {
-            rankCarouselPrevButton.hidden = hideNav;
-            rankCarouselPrevButton.disabled = hideNav || rankCarouselIndex <= 0;
-        }
-
-        if (rankCarouselNextButton) {
-            rankCarouselNextButton.hidden = hideNav;
-            rankCarouselNextButton.disabled = hideNav || rankCarouselIndex >= totalSlides - 1;
-        }
-
-        if (rankCarouselDotsElement) {
-            rankCarouselDotsElement.hidden = hideNav;
-        }
-    };
-
-    const setRankCarouselIndex = (index) => {
-        const slides = getRankCarouselSlides();
-
-        if (slides.length === 0) {
-            rankCarouselIndex = 0;
-            if (rankCarouselTrackElement) {
-                rankCarouselTrackElement.style.transform = '';
-            }
-            updateRankCarouselNavButtons(0);
-            return;
-        }
-
-        const numericIndex = Number.isFinite(Number(index)) ? Number(index) : 0;
-        const clamped = Math.min(Math.max(numericIndex, 0), slides.length - 1);
-        rankCarouselIndex = clamped;
-
-        if (rankCarouselTrackElement) {
-            rankCarouselTrackElement.style.transform = `translateX(-${clamped * 100}%)`;
-        }
-
-        slides.forEach((slide, slideIndex) => {
-            const isActive = slideIndex === clamped;
-            slide.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-            slide.classList.toggle('is-active', isActive);
-        });
-
-        if (rankCarouselDotsElement) {
-            Array.from(rankCarouselDotsElement.children).forEach((dot, dotIndex) => {
-                if (!(dot instanceof HTMLElement)) {
-                    return;
-                }
-                const isActive = dotIndex === clamped;
-                dot.classList.toggle('is-active', isActive);
-                dot.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-            });
-        }
-
-        updateRankCarouselNavButtons(slides.length);
-    };
-
-    const rebuildRankCarouselDots = () => {
-        if (!rankCarouselDotsElement) {
-            return;
-        }
-
-        const slides = getRankCarouselSlides();
-        rankCarouselDotsElement.innerHTML = '';
-
-        slides.forEach((slide, index) => {
-            const dot = document.createElement('button');
-            dot.type = 'button';
-            dot.className = 'rank-modal__carousel-dot';
-            dot.setAttribute('data-rank-carousel-index', String(index));
-
-            const label = slide.dataset.rankCarouselLabel
-                || (index === 0 ? 'Rank overview' : `Snapshot ${index}`);
-            dot.setAttribute('aria-label', label);
-
-            if (slide.id) {
-                dot.setAttribute('aria-controls', slide.id);
-            }
-
-            if (index === rankCarouselIndex) {
-                dot.classList.add('is-active');
-                dot.setAttribute('aria-pressed', 'true');
-            } else {
-                dot.setAttribute('aria-pressed', 'false');
-            }
-
-            rankCarouselDotsElement.appendChild(dot);
-        });
-    };
-
-    const refreshRankCarousel = ({ resetIndex = false } = {}) => {
-        if (!rankCarouselTrackElement) {
-            return;
-        }
-
-        const slides = getRankCarouselSlides();
-        if (slides.length === 0) {
-            rankCarouselIndex = 0;
-            rankCarouselTrackElement.style.transform = '';
-            if (rankCarouselDotsElement) {
-                rankCarouselDotsElement.innerHTML = '';
-                rankCarouselDotsElement.hidden = true;
-            }
-            updateRankCarouselNavButtons(0);
-            return;
-        }
-
-        rankCarouselIndex = resetIndex ? 0 : Math.min(rankCarouselIndex, slides.length - 1);
-        rebuildRankCarouselDots();
-        setRankCarouselIndex(rankCarouselIndex);
-    };
-
     const createRankSnapshotSlide = (snapshot, index = 0) => {
         if (!snapshot || typeof snapshot !== 'object') {
             return null;
@@ -3446,17 +3326,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             || formatRewardSnapshotRange(snapshot.startDate, snapshot.endDate);
 
         const slide = document.createElement('section');
-        slide.className = 'rank-modal__slide rank-modal__slide--snapshot';
-        slide.dataset.rankCarouselSlide = 'snapshot';
-        slide.dataset.rankCarouselLabel = label;
+        slide.className = 'rank-modal__snapshot';
         const sanitizedKey = sanitizeCarouselIdFragment(
             snapshot.key ? `snapshot-${snapshot.key}` : `snapshot-${index + 1}`,
             `snapshot-${index + 1}`
         );
-        slide.id = `rank-modal-slide-${sanitizedKey}`;
-        slide.setAttribute('role', 'group');
-        slide.setAttribute('aria-roledescription', 'slide');
-        slide.setAttribute('aria-hidden', 'true');
+        const snapshotKey = typeof snapshot.key === 'string'
+            ? snapshot.key.trim().toLowerCase()
+            : '';
+        slide.dataset.rankSnapshot = 'true';
+        if (snapshotKey) {
+            slide.dataset.rankSnapshotKey = snapshotKey;
+        }
+        slide.id = `rank-modal-snapshot-${sanitizedKey}`;
+        slide.setAttribute('role', 'region');
 
         const header = document.createElement('header');
         header.className = 'rank-modal__snapshot-header';
@@ -3469,6 +3352,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         labelElement.textContent = label;
 
         headingGroup.appendChild(labelElement);
+
+        const headingId = `${slide.id}-heading`;
+        labelElement.id = headingId;
+        slide.setAttribute('aria-labelledby', headingId);
 
         if (rangeLabel) {
             const rangeElement = document.createElement('p');
@@ -3774,13 +3661,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             rankModalSummaryElement.hidden = summaryFragments.length === 0;
         }
 
-        if (rankCarouselTrackElement) {
-            const existingSnapshotSlides = rankCarouselTrackElement.querySelectorAll('[data-rank-carousel-slide="snapshot"]');
-            existingSnapshotSlides.forEach((slide) => {
-                if (slide instanceof HTMLElement) {
-                    slide.remove();
-                }
-            });
+        if (rankModalSnapshotsElement) {
+            rankModalSnapshotsElement.innerHTML = '';
 
             const snapshots = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
                 ? rankRewardSnapshots
@@ -3789,12 +3671,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             snapshots.forEach((snapshot, snapshotIndex) => {
                 const slide = createRankSnapshotSlide(snapshot, snapshotIndex);
                 if (slide) {
-                    rankCarouselTrackElement.appendChild(slide);
+                    rankModalSnapshotsElement.appendChild(slide);
                 }
             });
-        }
 
-        refreshRankCarousel({ resetIndex: true });
+            rankModalSnapshotsElement.classList.toggle(
+                'rank-modal__snapshots--empty',
+                !rankModalSnapshotsElement.hasChildNodes()
+            );
+        }
 
         if (config.length === 0) {
             const emptyState = document.createElement('p');
@@ -3838,11 +3723,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const clearRankSnapshotHighlight = () => {
+        if (highlightedRankSnapshotElement) {
+            highlightedRankSnapshotElement.classList.remove('is-highlighted');
+            highlightedRankSnapshotElement = null;
+        }
+    };
+
+    const highlightRankSnapshot = (snapshotKey) => {
+        if (!rankModalSnapshotsElement || !snapshotKey) {
+            clearRankSnapshotHighlight();
+            return null;
+        }
+
+        const normalizedKey = snapshotKey.toLowerCase();
+        const target = Array.from(rankModalSnapshotsElement.querySelectorAll('[data-rank-snapshot="true"]'))
+            .find((section) => {
+                const key = (section.dataset.rankSnapshotKey || '').toLowerCase();
+                return key === normalizedKey;
+            });
+
+        clearRankSnapshotHighlight();
+
+        if (target) {
+            target.classList.add('is-highlighted');
+            highlightedRankSnapshotElement = target;
+        }
+
+        return target || null;
+    };
+
     const closeRankModal = () => {
         if (!rankModalElement || rankModalElement.hidden) {
             return;
         }
 
+        clearRankSnapshotHighlight();
         rankModalElement.hidden = true;
         rankModalElement.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('rank-modal-open');
@@ -3858,7 +3774,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         rankModalPreviouslyFocusedElement = null;
     };
 
-    const openRankModal = () => {
+    const openRankModal = ({ snapshotKey = null } = {}) => {
         if (!rankModalElement) {
             return;
         }
@@ -3869,14 +3785,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         renderRankModal();
 
+        let highlightedElement = null;
+        if (snapshotKey) {
+            highlightedElement = highlightRankSnapshot(snapshotKey);
+        } else {
+            clearRankSnapshotHighlight();
+        }
+
         rankModalElement.hidden = false;
         rankModalElement.setAttribute('aria-hidden', 'false');
         document.body.classList.add('rank-modal-open');
         setRankTriggerExpanded(true);
 
         const currentItem = rankModalListElement?.querySelector('.rank-modal__item.is-current');
-        if (currentItem && typeof currentItem.scrollIntoView === 'function') {
+        const ensureScrollTop = () => {
+            if (rankModalContentElement) {
+                rankModalContentElement.scrollTop = 0;
+            } else if (rankModalElement) {
+                rankModalElement.scrollTop = 0;
+            }
+        };
+
+        if (highlightedElement) {
+            requestAnimationFrame(() => {
+                try {
+                    highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } catch (scrollError) {
+                    console.warn('Unable to scroll highlighted snapshot into view:', scrollError);
+                }
+            });
+        } else if (currentItem && typeof currentItem.scrollIntoView === 'function') {
             currentItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } else {
+            ensureScrollTop();
         }
 
         const focusTarget = rankModalCloseButton || currentItem;
@@ -3886,6 +3827,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (error) {
                 console.warn('Unable to focus rank modal control:', error);
             }
+        } else {
+            ensureScrollTop();
         }
     };
 
@@ -10685,59 +10628,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    if (rankCarouselPrevButton) {
-        rankCarouselPrevButton.addEventListener('click', () => {
-            setRankCarouselIndex(rankCarouselIndex - 1);
-        });
-    }
-
-    if (rankCarouselNextButton) {
-        rankCarouselNextButton.addEventListener('click', () => {
-            setRankCarouselIndex(rankCarouselIndex + 1);
-        });
-    }
-
-    if (rankCarouselDotsElement) {
-        rankCarouselDotsElement.addEventListener('click', (event) => {
-            const target = event.target instanceof HTMLElement
-                ? event.target.closest('[data-rank-carousel-index]')
-                : null;
-
-            if (!target) {
-                return;
-            }
-
-            const targetIndex = Number(target.getAttribute('data-rank-carousel-index'));
-            if (Number.isFinite(targetIndex)) {
-                setRankCarouselIndex(targetIndex);
-            }
-        });
-    }
-
-    if (rankCarouselElement) {
-        rankCarouselElement.addEventListener('keydown', (event) => {
-            if (event.defaultPrevented) {
-                return;
-            }
-
-            if (event.key === 'ArrowLeft') {
-                if (rankCarouselIndex > 0) {
-                    setRankCarouselIndex(rankCarouselIndex - 1);
-                    event.preventDefault();
-                }
-                return;
-            }
-
-            if (event.key === 'ArrowRight') {
-                const slides = getRankCarouselSlides();
-                if (rankCarouselIndex < slides.length - 1) {
-                    setRankCarouselIndex(rankCarouselIndex + 1);
-                    event.preventDefault();
-                }
-            }
-        });
-    }
-
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') {
             return;
@@ -12627,12 +12517,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const bindWalletChangeSnapshotTriggers = () => {
+        const elements = [
+            walletBalanceChangeElements.month,
+            walletBalanceChangeElements.year,
+        ].filter(Boolean);
+
+        elements.forEach((element) => {
+            if (element.dataset.walletSnapshotBound === 'true') {
+                return;
+            }
+
+            const activateSnapshot = (event) => {
+                const periodKey = (element.dataset.walletChangePeriod || '').toLowerCase();
+                const snapshotKey = walletChangeSnapshotKeyMap[periodKey];
+                if (!snapshotKey) {
+                    return;
+                }
+
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+                hideTooltip();
+                openRankModal({ snapshotKey });
+            };
+
+            element.addEventListener('click', (event) => {
+                activateSnapshot(event);
+            });
+
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    activateSnapshot(event);
+                }
+            });
+
+            element.dataset.walletSnapshotBound = 'true';
+        });
+    };
+
     bindChartToggleButtons();
     bindPanelShortcutButtons();
     bindCoinShortcutButtons();
     bindBalanceYearToggle();
     bindLoadMoreButton();
     bindMedalsLoadMoreButton();
+    bindWalletChangeSnapshotTriggers();
 
     onPanelReady('wallet', () => {
         refreshPanelReferences();
@@ -12640,6 +12572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindCoinShortcutButtons();
         bindPanelShortcutButtons();
         bindBalanceYearToggle();
+        bindWalletChangeSnapshotTriggers();
     });
 
     onPanelReady('achievements', () => {
@@ -12647,6 +12580,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindPanelShortcutButtons();
         bindCoinShortcutButtons();
         bindLoadMoreButton();
+        bindWalletChangeSnapshotTriggers();
         if (Array.isArray(allData.activities)) {
             applyFilters(lastActivitiesRenderOptions);
         }

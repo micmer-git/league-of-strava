@@ -108,6 +108,261 @@ document.addEventListener('DOMContentLoaded', async () => {
         Calories: '',
         Segments: ''
     };
+
+    const MEDAL_RARITY_LEVELS = [
+        {
+            key: 'verdant',
+            name: 'Verdant',
+            tier: 'Common',
+            emoji: '🟢',
+            description: 'Season openers, holiday check-ins and rhythm-setting routines.',
+        },
+        {
+            key: 'cerulean',
+            name: 'Cerulean',
+            tier: 'Uncommon',
+            emoji: '🔵',
+            description: 'Signature calendar efforts and the first sparks of consistency.',
+        },
+        {
+            key: 'amethyst',
+            name: 'Amethyst',
+            tier: 'Rare',
+            emoji: '🟣',
+            description: 'Technique-forward doubles and sharpened efforts that demand intention.',
+        },
+        {
+            key: 'auric',
+            name: 'Auric',
+            tier: 'Epic',
+            emoji: '🟡',
+            description: 'Loaded training weeks, demanding gradients and multi-discipline showcases.',
+        },
+        {
+            key: 'ember',
+            name: 'Ember',
+            tier: 'Legendary',
+            emoji: '🟠',
+            description: 'Relentless blocks of output, metabolic pushes and back-to-back endurance.',
+        },
+        {
+            key: 'crimson',
+            name: 'Crimson',
+            tier: 'Mythic',
+            emoji: '🔴',
+            description: 'Ultra distances, towering elevation and consecutive sufferfests.',
+        },
+        {
+            key: 'obsidian',
+            name: 'Obsidian',
+            tier: 'Ascendant',
+            emoji: '⚫️',
+            description: 'Season-defining grit reserved for once-a-year mastery.',
+        },
+    ];
+
+    const MEDAL_RARITY_META_MAP = new Map(MEDAL_RARITY_LEVELS.map((level, index) => [
+        level.key,
+        { ...level, index },
+    ]));
+    const DEFAULT_MEDAL_RARITY_KEY = MEDAL_RARITY_LEVELS[0].key;
+
+    const normalizeRarityKey = (key) => {
+        if (typeof key !== 'string') {
+            return DEFAULT_MEDAL_RARITY_KEY;
+        }
+        const normalized = key.trim().toLowerCase();
+        return MEDAL_RARITY_META_MAP.has(normalized)
+            ? normalized
+            : DEFAULT_MEDAL_RARITY_KEY;
+    };
+
+    const getMedalRarityMeta = (key) => {
+        const normalized = normalizeRarityKey(key);
+        return MEDAL_RARITY_META_MAP.get(normalized) || MEDAL_RARITY_META_MAP.get(DEFAULT_MEDAL_RARITY_KEY);
+    };
+
+    const formatMedalRarityLabel = (key) => {
+        const meta = getMedalRarityMeta(key);
+        return `${meta.emoji} ${meta.name} · ${meta.tier}`;
+    };
+
+    const buildMedalRarityPayload = (rarityKeyInput) => {
+        const meta = getMedalRarityMeta(rarityKeyInput);
+        return {
+            rarityKey: meta.key,
+            rarityLabel: formatMedalRarityLabel(meta.key),
+            rarityIndex: meta.index,
+            rarityEmoji: meta.emoji,
+            rarityTier: meta.tier,
+            rarityDescription: meta.description,
+        };
+    };
+
+    const MEDAL_RARITY_OVERRIDES = (() => {
+        const map = new Map();
+        const assign = (rarityKey, names) => {
+            const normalizedKey = normalizeRarityKey(rarityKey);
+            names.forEach((name) => {
+                if (typeof name === 'string' && name.trim()) {
+                    map.set(name, normalizedKey);
+                }
+            });
+        };
+
+        assign('verdant', [
+            'Easter Enthusiast',
+            'Pi Day Pace Setter',
+            'Summer Solstice Sprinter',
+            'Super Nice Day',
+            'Night Owl',
+            'Early Riser',
+        ]);
+
+        assign('cerulean', [
+            'Christmas Champion',
+            'New Year’s Hero',
+            'Valentine’s Victor',
+            'Independence Day Icon',
+            'Halloween Hero',
+            'Thanksgiving Titan',
+            'Mother’s Day Master',
+            'Father’s Day Fighter',
+            'Labor Day Legend',
+            'Global Running Day Star',
+            'Leap Day Legend',
+            'Double Run Day',
+            '2 Days of 10 km Consecutive Run',
+            'Run Streak — 7 Days',
+            'Ride Streak — 7 Days',
+            'Swim Streak — 7 Days',
+            'Marathon Finisher',
+            'Cycling Streak',
+        ]);
+
+        assign('amethyst', [
+            'Run & Ride One Day',
+            '3 Activities One Day',
+            'Coppa Coppi Protector',
+            'Vertical Velocity',
+            'Urban Ladder',
+            'Power Pedaler',
+            'Tempo Trailblazer',
+            'Peak Fueler',
+            'Crowd Pleaser',
+            'Training Fortnight',
+        ]);
+
+        assign('auric', [
+            'Run, Ride & Swim One Day',
+            'Double Ride One Day',
+            'Steep Climber',
+            'Alpine Sprinter',
+            'Coastal Century',
+            'Ridge Explorer',
+            'Gradient Guru',
+            'Switchback Cyclist',
+            'Run Streak — 30 Days',
+            'Ride Streak — 30 Days',
+            'Training Month Milestone',
+        ]);
+
+        assign('ember', [
+            '2 Days Consecutive of 100 km Ride',
+            '2 Days Consecutive 5h+ Each Day',
+            '7-Day Caloric Champion',
+            'Skyline Charge',
+            'Evergreen Endurance',
+            'Hefty Haul',
+            'Season of Consistency',
+            'Skyward Cyclist',
+        ]);
+
+        assign('crimson', [
+            '2 Days Consecutive of 150 km Ride',
+            '3 Days Consecutive 5h+ Each Day',
+            '2 Half Marathons Back to Back',
+            '2 Days Consecutive 1500 m Elevation',
+            'Summit Strider',
+            'Ultra Voyager',
+            'Mountain Marathoner',
+            'Volcanic Vertical',
+            'Ultra Runner',
+            'Half-Year Sentinel',
+            'Community Star',
+        ]);
+
+        assign('obsidian', [
+            '2 Marathons Back to Back',
+            'Olympic Triathlons Completed',
+            '2 Days Back to Back 3000 m Elevation',
+            'Year of Grit',
+            'Legend of Kudos',
+        ]);
+
+        return map;
+    })();
+
+    const resolveMedalRarityKey = (medal = {}) => {
+        if (medal && typeof medal.rarity === 'string') {
+            return normalizeRarityKey(medal.rarity);
+        }
+        if (medal && typeof medal.rarityKey === 'string') {
+            return normalizeRarityKey(medal.rarityKey);
+        }
+
+        const overrideKey = MEDAL_RARITY_OVERRIDES.get(medal?.name);
+        if (overrideKey) {
+            return overrideKey;
+        }
+
+        if (medal?.streakCriteria) {
+            const minLength = Number(medal.streakCriteria.minLength) || 0;
+            if (minLength >= 365) {
+                return 'obsidian';
+            }
+            if (minLength >= 182) {
+                return 'crimson';
+            }
+            if (minLength >= 90) {
+                return 'ember';
+            }
+            if (minLength >= 30) {
+                return 'auric';
+            }
+            if (minLength >= 14) {
+                return 'amethyst';
+            }
+            if (minLength >= 5) {
+                return 'cerulean';
+            }
+            return DEFAULT_MEDAL_RARITY_KEY;
+        }
+
+        if (medal?.consecutiveConfig && Number.isFinite(Number(medal.consecutiveConfig.requiredLength))) {
+            const required = Number(medal.consecutiveConfig.requiredLength);
+            if (required >= 3) {
+                return 'crimson';
+            }
+            if (required >= 2) {
+                return 'ember';
+            }
+        }
+
+        if (medal?.dates || medal?.dynamicDateResolver) {
+            return DEFAULT_MEDAL_RARITY_KEY;
+        }
+
+        if (medal?.aggregateCriteria || medal?.aggregateResolver) {
+            return 'auric';
+        }
+
+        if (typeof medal?.criteria === 'function') {
+            return 'amethyst';
+        }
+
+        return DEFAULT_MEDAL_RARITY_KEY;
+    };
     const WALLET_CATEGORY_META = {
         'Distance Run': { label: 'Run', icon: '🏃' },
         'Distance Ride': { label: 'Ride', icon: '🚴' },
@@ -1258,16 +1513,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const medalCount = toNonNegativeInteger(summary.medalSummary?.count);
 
-        const medalsEarned = Array.isArray(summary.medalsEarned)
-            ? summary.medalsEarned.map(medal => ({
+        const applyRarityMetadata = (medal = {}) => {
+            const raritySource = medal?.rarityKey || medal?.rarity || medal?.rarityLabel;
+            const rarityPayload = buildMedalRarityPayload(raritySource || resolveMedalRarityKey(medal));
+            return {
                 ...medal,
+                ...rarityPayload,
+                legacyCategory: medal?.legacyCategory || medal?.category || '',
+            };
+        };
+
+        const medalsEarned = Array.isArray(summary.medalsEarned)
+            ? summary.medalsEarned.map((medal) => ({
+                ...applyRarityMetadata(medal),
                 count: toNonNegativeInteger(medal?.count),
             }))
             : [];
 
         const medalInventory = Array.isArray(summary.medalInventory)
-            ? summary.medalInventory.map(medal => ({
-                ...medal,
+            ? summary.medalInventory.map((medal) => ({
+                ...applyRarityMetadata(medal),
                 count: toNonNegativeInteger(medal?.count),
             }))
             : [];
@@ -1668,6 +1933,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const allMedals = medalsConfig.map(medal => {
             const medalCategory = resolveMedalCategory(medal);
+            const rarityPayload = buildMedalRarityPayload(resolveMedalRarityKey(medal));
             const result = {
                 name: medal.name,
                 emoji: medal.emoji,
@@ -1675,6 +1941,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 count: 0,
                 isDayBased: Boolean((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver),
                 category: medalCategory,
+                legacyCategory: medalCategory,
+                ...rarityPayload,
             };
 
             let count = 0;
@@ -1775,17 +2043,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const sortedMedals = allMedals.slice().sort((a, b) => {
-            const categoryA = a.category || 'Other';
-            const categoryB = b.category || 'Other';
-            if (categoryA !== categoryB) {
-                return categoryA.localeCompare(categoryB);
+            const rarityComparison = (a.rarityIndex ?? Number.MAX_SAFE_INTEGER) - (b.rarityIndex ?? Number.MAX_SAFE_INTEGER);
+            if (rarityComparison !== 0) {
+                return rarityComparison;
+            }
+            if ((b.count || 0) !== (a.count || 0)) {
+                return (b.count || 0) - (a.count || 0);
             }
             const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
             if (dayComparison !== 0) {
                 return dayComparison;
-            }
-            if ((b.count || 0) !== (a.count || 0)) {
-                return (b.count || 0) - (a.count || 0);
             }
             const orderA = medalOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
             const orderB = medalOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
@@ -3201,11 +3468,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const emojiValue = activeMedalMeta?.emoji || '';
         const normalizedCount = toNonNegativeInteger(activeMedalMeta?.count);
         const countValue = normalizedCount.toLocaleString();
-        const categoryLabel = typeof activeMedalMeta?.category === 'string'
+        const rarityLabel = typeof activeMedalMeta?.category === 'string'
             ? activeMedalMeta.category.trim()
+            : '';
+        const legacyCategory = typeof activeMedalMeta?.legacyCategory === 'string'
+            ? activeMedalMeta.legacyCategory.trim()
             : '';
         const descriptionText = typeof activeMedalMeta?.description === 'string'
             ? activeMedalMeta.description.trim()
+            : '';
+        const rarityDescription = typeof activeMedalMeta?.rarityDescription === 'string'
+            ? activeMedalMeta.rarityDescription.trim()
             : '';
 
         activitiesMedalInfo.classList.remove('hidden');
@@ -3229,11 +3502,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (activitiesMedalInfoDescription) {
             const infoParts = [];
-            if (categoryLabel) {
-                infoParts.push(categoryLabel);
+            if (rarityLabel) {
+                infoParts.push(rarityLabel);
+            }
+            if (legacyCategory && legacyCategory !== rarityLabel) {
+                infoParts.push(legacyCategory);
             }
             if (descriptionText) {
                 infoParts.push(descriptionText);
+            }
+            if (rarityDescription && rarityDescription !== descriptionText) {
+                infoParts.push(rarityDescription);
             }
             if (infoParts.length === 0) {
                 infoParts.push(normalizedCount > 0 ? `${countValue} earned` : 'Not earned yet');
@@ -3294,11 +3573,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             : null;
 
         const datasetCount = Number.parseInt(button.dataset.medalCount, 10);
+        const raritySource = button.dataset.medalRarityKey
+            || inventoryMedal?.rarityKey
+            || inventoryMedal?.rarity
+            || button.dataset.medalRarityLabel;
+        const rarityPayload = buildMedalRarityPayload(raritySource);
+        const rarityLabel = inventoryMedal?.rarityLabel
+            || button.dataset.medalRarityLabel
+            || rarityPayload.rarityLabel;
+        const legacyCategory = inventoryMedal?.legacyCategory
+            || button.dataset.medalLegacyCategory
+            || inventoryMedal?.category
+            || '';
+        const rarityDescription = inventoryMedal?.rarityDescription
+            || button.dataset.medalRarityDescription
+            || rarityPayload.rarityDescription
+            || '';
+
         return {
             name: medalName,
             emoji: inventoryMedal?.emoji || button.dataset.medalEmoji || '',
             description: inventoryMedal?.description || button.dataset.medalDescription || '',
-            category: inventoryMedal?.category || button.dataset.medalCategory || '',
+            category: rarityLabel || inventoryMedal?.category || button.dataset.medalCategory || '',
+            legacyCategory,
+            rarityKey: rarityPayload.rarityKey,
+            rarityLabel,
+            rarityDescription,
             count: toNonNegativeInteger(inventoryMedal?.count ?? datasetCount)
         };
     };
@@ -3344,23 +3644,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const sliceEnd = Math.min(visibleMedalCount, medalInventory.length);
         const medalsToRender = medalInventory.slice(0, sliceEnd);
-        const categoryOrder = [];
-        const medalsByCategory = new Map();
+        const rarityOrder = [];
+        const medalsByRarity = new Map();
 
-        medalsToRender.forEach(medal => {
-            const categoryName = medal.category || 'Other Achievements';
-            if (!medalsByCategory.has(categoryName)) {
-                medalsByCategory.set(categoryName, []);
-                categoryOrder.push(categoryName);
+        medalsToRender.forEach((medal) => {
+            const rarityKey = normalizeRarityKey(medal?.rarityKey);
+            if (!medalsByRarity.has(rarityKey)) {
+                const meta = getMedalRarityMeta(rarityKey);
+                medalsByRarity.set(rarityKey, {
+                    meta,
+                    label: medal?.rarityLabel || formatMedalRarityLabel(rarityKey),
+                    medals: [],
+                });
+                rarityOrder.push(rarityKey);
             }
-            medalsByCategory.get(categoryName).push(medal);
+            medalsByRarity.get(rarityKey).medals.push(medal);
         });
 
-        const calendarCategoryName = 'Calendar Moments';
-        const orderedCategories = categoryOrder.filter(name => name !== calendarCategoryName);
-        if (categoryOrder.includes(calendarCategoryName)) {
-            orderedCategories.push(calendarCategoryName);
-        }
+        const orderedRarities = rarityOrder.sort((a, b) => {
+            const indexA = getMedalRarityMeta(a).index;
+            const indexB = getMedalRarityMeta(b).index;
+            return indexA - indexB;
+        });
 
         const createDescriptionSnippet = (description, limit = 120) => {
             const trimmed = (description || '').trim();
@@ -3376,21 +3681,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             return `${safeSlice.trimEnd()}…`;
         };
 
-        orderedCategories.forEach(categoryName => {
+        orderedRarities.forEach((rarityKey) => {
+            const group = medalsByRarity.get(rarityKey);
+            if (!group) {
+                return;
+            }
+            const { meta, medals: groupedMedals } = group;
+            const displayLabel = group.label || formatMedalRarityLabel(rarityKey);
+
             const wrapper = document.createElement('div');
             wrapper.className = 'medals-category';
-            wrapper.dataset.category = categoryName;
+            wrapper.dataset.rarity = rarityKey;
 
             const heading = document.createElement('h4');
             heading.className = 'medals-category__title';
-            heading.textContent = categoryName;
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'medals-category__emoji';
+            emojiSpan.textContent = meta?.emoji || '🏅';
+            heading.appendChild(emojiSpan);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'medals-category__name';
+            nameSpan.textContent = meta?.name || displayLabel;
+            heading.appendChild(nameSpan);
+
+            if (meta?.tier) {
+                const tierSpan = document.createElement('span');
+                tierSpan.className = 'medals-category__tier';
+                tierSpan.textContent = meta.tier;
+                heading.appendChild(tierSpan);
+            }
+
             wrapper.appendChild(heading);
+
+            const descriptionText = meta?.description || '';
+            if (descriptionText) {
+                const description = document.createElement('p');
+                description.className = 'medals-category__description';
+                description.textContent = descriptionText;
+                wrapper.appendChild(description);
+            }
 
             const list = document.createElement('ol');
             list.className = 'medals-list';
             list.setAttribute('role', 'list');
 
-            medalsByCategory.get(categoryName).forEach((medal, index) => {
+            groupedMedals.forEach((medal) => {
                 const listItem = document.createElement('li');
                 listItem.className = 'medals-list__item';
 
@@ -3444,7 +3781,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 attachTooltip(medalButton, medalTooltip);
                 medalButton.dataset.medalName = medal.name;
                 medalButton.dataset.medalEmoji = medal.emoji || '';
-                medalButton.dataset.medalCategory = medal.category || '';
+                const rarityLabel = medal.rarityLabel || displayLabel;
+                medalButton.dataset.medalCategory = rarityLabel;
+                medalButton.dataset.medalRarityKey = rarityKey;
+                medalButton.dataset.medalRarityLabel = rarityLabel;
+                medalButton.dataset.medalLegacyCategory = medal.legacyCategory || medal.category || '';
+                medalButton.dataset.medalRarityDescription = medal.rarityDescription || descriptionText || '';
                 medalButton.dataset.medalDescription = medal.description || '';
                 medalButton.dataset.medalCount = medalCount.toString();
                 medalButton.addEventListener('click', handleMedalButtonClick);
@@ -8115,12 +8457,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         activeMedalFilter = medal.name;
+        const rarityPayload = buildMedalRarityPayload(medal?.rarityKey || medal?.rarityLabel || medal?.rarity);
         activeMedalMeta = {
             name: medal.name,
             emoji: medal.emoji || '',
             count: toNonNegativeInteger(medal.count),
             description: medal.description || '',
-            category: medal.category || ''
+            category: medal.rarityLabel || rarityPayload.rarityLabel,
+            legacyCategory: medal.legacyCategory || medal.category || '',
+            rarityKey: rarityPayload.rarityKey,
+            rarityLabel: medal.rarityLabel || rarityPayload.rarityLabel,
+            rarityDescription: medal.rarityDescription || rarityPayload.rarityDescription,
         };
         medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
 
@@ -9335,7 +9682,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     name: medal.name,
                     emoji: medal.emoji,
                     description: medal.description || '',
-                    category: resolveMedalCategory(medal)
+                    category: resolveMedalCategory(medal),
+                    legacyCategory: resolveMedalCategory(medal),
+                    ...buildMedalRarityPayload(resolveMedalRarityKey(medal))
                 });
             }
         });

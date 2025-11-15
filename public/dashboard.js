@@ -1479,11 +1479,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const buildStravaAuthRedirectUrl = () => {
-        const redirectTarget = new URL('/dashboard', window.location.origin);
-        redirectTarget.searchParams.set('sync', '1');
-        const authUrl = new URL('/auth/strava', window.location.origin);
-        authUrl.searchParams.set('redirect', `${redirectTarget.pathname}${redirectTarget.search}`);
-        return authUrl.toString();
+        if (typeof window === 'undefined' || !window.location) {
+            return '/auth/strava';
+        }
+
+        try {
+            const currentUrl = new URL(window.location.href);
+            const redirectTarget = new URL(currentUrl.href);
+            redirectTarget.searchParams.set('sync', '1');
+            const redirectPath = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+            const authUrl = new URL('/auth/strava', window.location.origin);
+            authUrl.searchParams.set('redirect', redirectPath);
+            return authUrl.toString();
+        } catch (error) {
+            console.error('Failed to construct Strava auth redirect URL:', error);
+            return '/auth/strava';
+        }
+    };
+
+    const createStravaAuthRedirectError = () => {
+        const error = new Error('Redirecting to Strava for authentication.');
+        error.name = 'StravaAuthRequiredError';
+        error.isAuthRedirect = true;
+        return error;
+    };
+
+    const createStravaAuthRedirectResult = () => ({
+        status: 'auth_redirect',
+        isAuthRedirect: true,
+    });
+
+    const redirectToStravaAuth = () => {
+        if (typeof window === 'undefined' || !window.location) {
+            return;
+        }
+
+        const authUrl = buildStravaAuthRedirectUrl();
+        if (authUrl) {
+            window.location.href = authUrl;
+        }
     };
     const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
     const coinMixCanvas = document.getElementById('coin-mix-chart');
@@ -2474,8 +2508,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const response = await requestFactory();
 
                 if (response.status === 401) {
-                    window.location.href = '/auth/strava';
-                    return Promise.reject(new Error('Redirecting to Strava for authentication.'));
+                    redirectToStravaAuth();
+                    throw createStravaAuthRedirectError();
                 }
 
                 if (allowNotFound && response.status === 404) {
@@ -11632,6 +11666,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cache: 'no-store',
             });
 
+            if (response.status === 401) {
+                redirectToStravaAuth();
+                throw createStravaAuthRedirectError();
+            }
+
             if (!response.ok) {
                 const errorText = await response.text();
                 const error = new Error(errorText || `Sync request failed with status ${response.status}`);
@@ -11646,15 +11685,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 manualSyncResult = await requestManualSync();
             } catch (syncError) {
-                console.error('Failed to initiate Strava sync:', syncError);
-                manualSyncResult = {
-                    status: 'sync_failed',
-                    error: syncError?.message || 'Unable to start sync.',
-                };
+                if (syncError?.isAuthRedirect) {
+                    manualSyncResult = createStravaAuthRedirectResult();
+                } else {
+                    console.error('Failed to initiate Strava sync:', syncError);
+                    manualSyncResult = {
+                        status: 'sync_failed',
+                        error: syncError?.message || 'Unable to start sync.',
+                    };
+                }
             }
         }
 
         try {
+            if (manualSyncResult?.isAuthRedirect) {
+                return manualSyncResult;
+            }
+
             const params = new URLSearchParams();
             if (Number.isFinite(nextActivitiesPageStart)) {
                 params.set('startPage', String(nextActivitiesPageStart));
@@ -11713,6 +11760,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             return data;
         } catch (error) {
+            if (error?.isAuthRedirect) {
+                return manualSyncResult ?? createStravaAuthRedirectResult();
+            }
+
             console.error('Error fetching Strava data:', error);
             let friendlyMessage = 'Error fetching Strava data. Please try again later.';
             if (error?.message) {
@@ -13417,6 +13468,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (manualSyncButton) {
         manualSyncButton.addEventListener('click', async () => {
             if (manualSyncButton.disabled) {
+                return;
+            }
+
+            if (isSharedView) {
+                redirectToStravaAuth();
                 return;
             }
 

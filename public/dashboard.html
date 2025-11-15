@@ -590,6 +590,22 @@
         </div>
       </div>
     </div>
+    <div aria-hidden="true" class="rank-modal" hidden="" id="profile-period-modal">
+      <div class="rank-modal__backdrop" data-profile-period-dismiss=""></div>
+      <div aria-describedby="profile-period-modal-description" aria-labelledby="profile-period-modal-title" aria-modal="true" class="rank-modal__dialog rank-modal__dialog--wide" role="dialog">
+        <header class="rank-modal__header rank-modal__header--compact">
+          <div class="rank-modal__title-group">
+            <p class="rank-modal__title-text" id="profile-period-modal-title" role="heading" aria-level="2">Recent period overview</p>
+            <p class="rank-modal__title-description" id="profile-period-modal-description">Wallet change snapshot.</p>
+          </div>
+          <button class="rank-modal__close" data-profile-period-dismiss="" id="profile-period-modal-close" type="button">
+            <span aria-hidden="true">✕</span>
+            <span class="sr-only">Close period overview</span>
+          </button>
+        </header>
+        <div class="rank-modal__content rank-modal__content--period" id="profile-period-modal-content"></div>
+      </div>
+    </div>
 <nav aria-label="Dashboard navigation" class="dashboard-bottom-nav">
 <div class="dashboard-bottom-nav__list">
 <button aria-pressed="true" class="dashboard-bottom-nav__button is-active" data-dashboard-nav="profile" type="button">

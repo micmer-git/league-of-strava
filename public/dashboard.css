@@ -3089,6 +3089,32 @@ body.dark .medals-category__description {
     overflow: hidden;
 }
 
+.rank-modal__dialog--wide {
+    width: min(640px, 100%);
+    max-height: min(85vh, 720px);
+}
+
+.rank-modal__header--compact {
+    gap: 0.75rem;
+}
+
+.rank-modal__header--compact .rank-modal__title-group {
+    gap: 0.25rem;
+}
+
+.rank-modal__title-group .rank-modal__title-text {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.rank-modal__title-group .rank-modal__title-description {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-text-secondary);
+}
+
 .rank-modal__summary {
     display: grid;
     gap: 0.75rem;
@@ -3108,6 +3134,10 @@ body.dark .medals-category__description {
     max-height: calc(90vh - 8rem);
     overflow-y: auto;
     padding-right: 0.35rem;
+}
+
+.rank-modal__content--period {
+    gap: 1.25rem;
 }
 
 .rank-modal__overview {

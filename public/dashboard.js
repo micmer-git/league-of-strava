@@ -125,6 +125,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         Calories: ''
     };
 
+    const PROFILE_PERIOD_KEY_BY_SHORT_LABEL = {
+        '3M': 'quarter',
+        '1Y': 'yearly',
+    };
+
+    const PROFILE_PERIOD_MODAL_METADATA = {
+        quarter: {
+            title: 'Last 3 Months Overview',
+            description: 'Your wallet, effort, and rewards across the previous 90 days.',
+        },
+        yearly: {
+            title: 'Last Year Overview',
+            description: 'Your wallet, effort, and rewards across the previous 365 days.',
+        },
+    };
+
     const MEDAL_RARITY_LEVELS = [
         {
             key: 'verdant',
@@ -731,6 +747,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? Array.from(shareModalElement.querySelectorAll('[data-share-modal-dismiss]'))
         : [];
     let shareModalReturnFocusTo = null;
+    let profilePeriodModalReturnFocusTo = null;
+    let profilePeriodModalActiveTrigger = null;
     let activitiesFilterReturnFocusTo = null;
     let pendingActivitiesOptions = null;
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
@@ -782,6 +800,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletModalSnapshotsElement = document.getElementById('wallet-modal-snapshots');
     const walletModalCloseButton = document.getElementById('wallet-modal-close');
     const walletModalDismissElements = Array.from(document.querySelectorAll('[data-wallet-modal-dismiss]'));
+    const profilePeriodModalElement = document.getElementById('profile-period-modal');
+    const profilePeriodModalContentElement = document.getElementById('profile-period-modal-content');
+    const profilePeriodModalTitleElement = document.getElementById('profile-period-modal-title');
+    const profilePeriodModalDescriptionElement = document.getElementById('profile-period-modal-description');
+    const profilePeriodModalCloseButton = document.getElementById('profile-period-modal-close');
+    const profilePeriodModalDismissElements = Array.from(document.querySelectorAll('[data-profile-period-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
         month: document.getElementById('profile-wallet-change-month'),
@@ -3032,7 +3056,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.setAttribute('role', 'button');
         element.dataset.walletChangePeriod = shortLabel;
 
-        attachTooltip(element, tooltipText);
+        const periodKey = PROFILE_PERIOD_KEY_BY_SHORT_LABEL[shortLabel] || null;
+
+        if (periodKey) {
+            bindProfilePeriodModal(element, {
+                periodKey,
+                longLabel,
+                tooltipText,
+            });
+        } else {
+            attachTooltip(element, tooltipText);
+        }
     };
 
     const formatHoursDisplay = (hours) => {
@@ -3195,6 +3229,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalDetails: [],
             windowStartTimestamp: null,
             windowEndTimestamp: null,
+            distanceKm: 0,
+            elevationGain: 0,
+            calories: 0,
         };
 
         const sourceActivities = Array.isArray(activities) ? activities : [];
@@ -3248,6 +3285,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
+            const smallStats = computeActivitySmallStats(activity);
+            if (smallStats) {
+                accumulator.distanceKm += Number.isFinite(smallStats.distanceKm) ? smallStats.distanceKm : 0;
+                accumulator.elevationGain += Number.isFinite(smallStats.elevationGain) ? smallStats.elevationGain : 0;
+                accumulator.calories += Number.isFinite(smallStats.calories) ? smallStats.calories : 0;
+            }
+
             const activityTimestamp = activityDate.getTime();
             if (accumulator.windowStartTimestamp === null || activityTimestamp < accumulator.windowStartTimestamp) {
                 accumulator.windowStartTimestamp = activityTimestamp;
@@ -3281,6 +3325,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             startDate,
             endDate,
             rangeLabel: formatRewardSnapshotRange(startDate, endDate),
+            distanceKm: accumulator.distanceKm,
+            elevationGain: accumulator.elevationGain,
+            calories: accumulator.calories,
         };
     };
 
@@ -3303,6 +3350,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         return normalized || fallback;
     };
+
+    function formatDistanceStatValue(km) {
+        const numeric = Number(km);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+
+        const safeValue = Math.max(0, numeric);
+        let fractionDigits = 2;
+
+        if (safeValue >= 100) {
+            fractionDigits = 0;
+        } else if (safeValue >= 10) {
+            fractionDigits = 1;
+        }
+
+        return `${safeValue.toLocaleString(undefined, {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+        })} km`;
+    }
+
+    function formatElevationStatValue(meters) {
+        const numeric = Number(meters);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+
+        const rounded = Math.round(numeric);
+        return `${rounded.toLocaleString()} m`;
+    }
+
+    function formatCaloriesStatValue(calories) {
+        const numeric = Number(calories);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+
+        const rounded = Math.round(numeric);
+        return `${rounded.toLocaleString()} kcal`;
+    }
 
     const createRankSnapshotSlide = (snapshot, index = 0, options = {}) => {
         if (!snapshot || typeof snapshot !== 'object') {
@@ -3403,6 +3491,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 value: Number.isFinite(snapshot.hours) && snapshot.hours > 0
                     ? `${formatHoursDisplay(snapshot.hours)} h`
                     : '—',
+            },
+            {
+                label: 'Distance covered',
+                value: formatDistanceStatValue(snapshot.distanceKm),
+            },
+            {
+                label: 'Elevation gain',
+                value: formatElevationStatValue(snapshot.elevationGain),
+            },
+            {
+                label: 'Energy burned',
+                value: formatCaloriesStatValue(snapshot.calories),
             },
             {
                 label: 'Coins minted',
@@ -3963,6 +4063,187 @@ document.addEventListener('DOMContentLoaded', async () => {
             ensureScrollTop();
         }
     };
+
+    function getRankSnapshotForPeriodKey(periodKey) {
+        if (!periodKey) {
+            return null;
+        }
+
+        const normalizedKey = String(periodKey).toLowerCase();
+        const snapshotSource = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
+            ? rankRewardSnapshots
+            : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
+
+        return snapshotSource.find((snapshot) => (snapshot?.key || '').toLowerCase() === normalizedKey) || null;
+    }
+
+    function renderProfilePeriodModal(periodKey, { label = '', summary = '' } = {}) {
+        if (!profilePeriodModalContentElement) {
+            return;
+        }
+
+        profilePeriodModalContentElement.innerHTML = '';
+
+        const snapshot = getRankSnapshotForPeriodKey(periodKey);
+        const metadata = PROFILE_PERIOD_MODAL_METADATA[periodKey] || {};
+        const titleText = metadata.title
+            || (label ? `${label} overview` : 'Wallet change overview');
+
+        if (profilePeriodModalTitleElement) {
+            profilePeriodModalTitleElement.textContent = titleText;
+        }
+
+        if (profilePeriodModalDescriptionElement) {
+            const baseDescription = metadata.description
+                || (summary ? summary.replace(/\.$/, '') : 'Wallet change snapshot.');
+            const rangeDetail = snapshot?.rangeLabel ? ` • ${snapshot.rangeLabel}` : '';
+            profilePeriodModalDescriptionElement.textContent = `${baseDescription}${rangeDetail}`;
+        }
+
+        if (!snapshot) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__empty';
+            emptyState.textContent = 'Wallet change insights are still loading. Fetch the latest activities and try again.';
+            profilePeriodModalContentElement.appendChild(emptyState);
+            return;
+        }
+
+        const slide = createRankSnapshotSlide(snapshot, 0, { idPrefix: 'profile-period' });
+        if (slide) {
+            profilePeriodModalContentElement.appendChild(slide);
+        }
+    }
+
+    function openProfilePeriodModal({ periodKey, trigger } = {}) {
+        if (!profilePeriodModalElement) {
+            return;
+        }
+
+        const label = trigger?.dataset?.profilePeriodLabel || '';
+        const summary = trigger?.dataset?.profilePeriodSummary || '';
+
+        renderProfilePeriodModal(periodKey, { label, summary });
+
+        if (periodKey) {
+            profilePeriodModalElement.dataset.profilePeriodKey = periodKey;
+        } else {
+            delete profilePeriodModalElement.dataset.profilePeriodKey;
+        }
+
+        if (label) {
+            profilePeriodModalElement.dataset.profilePeriodLabel = label;
+        } else {
+            delete profilePeriodModalElement.dataset.profilePeriodLabel;
+        }
+
+        if (summary) {
+            profilePeriodModalElement.dataset.profilePeriodSummary = summary;
+        } else {
+            delete profilePeriodModalElement.dataset.profilePeriodSummary;
+        }
+
+        profilePeriodModalElement.hidden = false;
+        profilePeriodModalElement.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('rank-modal-open');
+
+        profilePeriodModalReturnFocusTo = trigger instanceof HTMLElement
+            ? trigger
+            : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+        profilePeriodModalActiveTrigger = trigger instanceof HTMLElement ? trigger : null;
+
+        if (profilePeriodModalActiveTrigger) {
+            profilePeriodModalActiveTrigger.setAttribute('aria-expanded', 'true');
+        }
+
+        const focusTarget = profilePeriodModalCloseButton
+            || profilePeriodModalElement.querySelector('[data-profile-period-dismiss]');
+
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            try {
+                focusTarget.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to focus profile period modal control:', error);
+            }
+        }
+    }
+
+    function closeProfilePeriodModal() {
+        if (!profilePeriodModalElement || profilePeriodModalElement.hidden) {
+            return;
+        }
+
+        profilePeriodModalElement.hidden = true;
+        profilePeriodModalElement.setAttribute('aria-hidden', 'true');
+
+        if ((!rankModalElement || rankModalElement.hidden) && (!walletModalElement || walletModalElement.hidden)) {
+            document.body.classList.remove('rank-modal-open');
+        }
+
+        if (profilePeriodModalActiveTrigger) {
+            profilePeriodModalActiveTrigger.setAttribute('aria-expanded', 'false');
+        }
+
+        const focusTarget = profilePeriodModalReturnFocusTo;
+        profilePeriodModalActiveTrigger = null;
+        profilePeriodModalReturnFocusTo = null;
+
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            try {
+                focusTarget.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to restore focus after closing period modal:', error);
+            }
+        }
+    }
+
+    function bindProfilePeriodModal(element, { periodKey, longLabel, tooltipText } = {}) {
+        if (!element || !periodKey) {
+            return;
+        }
+
+        element.dataset.profilePeriodKey = periodKey;
+
+        if (longLabel) {
+            element.dataset.profilePeriodLabel = longLabel;
+        } else {
+            delete element.dataset.profilePeriodLabel;
+        }
+
+        if (tooltipText) {
+            element.dataset.profilePeriodSummary = tooltipText;
+        } else {
+            delete element.dataset.profilePeriodSummary;
+        }
+
+        element.setAttribute('aria-haspopup', 'dialog');
+        if (!element.hasAttribute('aria-expanded')) {
+            element.setAttribute('aria-expanded', 'false');
+        }
+
+        if (!element.dataset.profilePeriodBound) {
+            const activate = () => {
+                openProfilePeriodModal({
+                    periodKey: element.dataset.profilePeriodKey,
+                    trigger: element,
+                });
+            };
+
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                activate();
+            });
+
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    activate();
+                }
+            });
+
+            element.dataset.profilePeriodBound = 'true';
+        }
+    }
 
     const formatDistance = (km) => {
         if (!Number.isFinite(km)) return '0.00 km';
@@ -10845,6 +11126,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (profilePeriodModalDismissElements.length > 0) {
+        profilePeriodModalDismissElements.forEach((element) => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeProfilePeriodModal();
+            });
+        });
+    }
+
+    if (profilePeriodModalElement) {
+        profilePeriodModalElement.addEventListener('click', (event) => {
+            if (event.target === profilePeriodModalElement) {
+                closeProfilePeriodModal();
+            }
+        });
+    }
+
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') {
             return;
@@ -10857,6 +11155,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
             hideWeeklySnapshotModal();
+            return;
+        }
+
+        if (profilePeriodModalElement && !profilePeriodModalElement.hidden) {
+            closeProfilePeriodModal();
             return;
         }
 
@@ -11354,6 +11657,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             previousMonthHours: Number.isFinite(monthlyHours?.previousMonth) ? monthlyHours.previousMonth : 0,
         };
         rankRewardSnapshots = buildRankRewardSnapshots(lifetimeActivities);
+
+        if (profilePeriodModalElement && !profilePeriodModalElement.hidden) {
+            const activePeriodKey = profilePeriodModalElement.dataset.profilePeriodKey;
+            if (activePeriodKey) {
+                renderProfilePeriodModal(activePeriodKey, {
+                    label: profilePeriodModalElement.dataset.profilePeriodLabel || '',
+                    summary: profilePeriodModalElement.dataset.profilePeriodSummary || '',
+                });
+            }
+        }
         updateRankProgressBar();
 
         // Update the ranking progress bar

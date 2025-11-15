@@ -7200,11 +7200,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return readCacheEntry(key, CACHE_TTL.DASHBOARD);
             };
 
-            if (isSharedView && sharedUserId) {
-                const sharedEntry = tryRead(CACHE_KEYS.DASHBOARD(sharedUserId));
-                if (sharedEntry?.data) {
-                    return sharedEntry.data;
+            if (isSharedView) {
+                if (sharedUserId) {
+                    const sharedEntry = tryRead(CACHE_KEYS.DASHBOARD(sharedUserId));
+                    if (sharedEntry?.data) {
+                        return sharedEntry.data;
+                    }
                 }
+
+                return null;
             }
 
             const selfKey = CACHE_KEYS.DASHBOARD('self');

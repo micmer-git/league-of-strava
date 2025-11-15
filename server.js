@@ -113,6 +113,29 @@ function createLoadingInfo({
 // Helper function to pause execution (to respect rate limits)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+function parseBooleanLike(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
+    }
+
+    if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 function encodeStateParam(payload) {
   try {
     const json = JSON.stringify(payload);
@@ -558,14 +581,28 @@ app.post('/api/strava/sync', async (req, res) => {
       return res.status(400).json({ error: 'Unable to resolve Strava athlete.' });
     }
 
-    const existingSyncEntry = await getLatestUserSyncEntry(userId);
+    const wantsFullHistoricalSync = parseBooleanLike(req.body?.fullHistory);
+    if (wantsFullHistoricalSync) {
+      console.log(`User ${userId}: Received request to force a full historical sync via manual refresh.`);
+    }
 
-    if (!existingSyncEntry) {
-      console.log(`User ${userId}: Kicking off FULL historical sync.`);
+    const existingSyncEntry = wantsFullHistoricalSync
+      ? null
+      : await getLatestUserSyncEntry(userId);
+
+    if (wantsFullHistoricalSync || !existingSyncEntry) {
+      if (wantsFullHistoricalSync) {
+        console.log(`User ${userId}: Kicking off FORCED full historical sync.`);
+      } else {
+        console.log(`User ${userId}: Kicking off FULL historical sync.`);
+      }
       runFullHistoricalSync(userId, accessToken).catch((error) => {
         console.error(`User ${userId}: FAILED full historical sync.`, error);
       });
-      return res.json({ status: 'full_sync_started' });
+      return res.json({
+        status: 'full_sync_started',
+        forcedFullSync: wantsFullHistoricalSync,
+      });
     }
 
     let existingActivities = [];
@@ -581,7 +618,10 @@ app.post('/api/strava/sync', async (req, res) => {
       runFullHistoricalSync(userId, accessToken).catch((error) => {
         console.error(`User ${userId}: FAILED full historical sync after payload decode error.`, error);
       });
-      return res.json({ status: 'full_sync_started' });
+      return res.json({
+        status: 'full_sync_started',
+        forcedFullSync: wantsFullHistoricalSync,
+      });
     }
 
     const updatedData = await runDeltaSync(userId, accessToken, existingActivities);

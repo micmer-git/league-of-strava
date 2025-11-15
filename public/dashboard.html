@@ -302,17 +302,19 @@
 <section aria-labelledby="tab-activities" class="dashboard-panel" data-dashboard-panel="activities" id="panel-activities" role="tabpanel">
 
 <section class="panel-card panel-card--soft bg-white/95 dark:bg-gray-800/95 shadow-lg rounded-2xl activities-panel" id="activities-section">
-<header class="panel-card__header panel-card__header--split">
-<div>
-<h3 class="panel-card__title">Activity Filters</h3>
-<div aria-hidden="true" class="filter-active-tags hidden" id="activity-filter-active" role="status" aria-live="polite"></div>
-<p class="panel-card__subtitle" id="activity-filter-summary"></p>
-</div>
-<button class="filter-button filter-button--primary" id="activities-filter-open" type="button">
-<span aria-hidden="true">🎯</span>
-<span>Adjust filters</span>
-</button>
-</header>
+  <header class="panel-card__header panel-card__header--split activities-panel__header">
+    <div class="activities-panel__header-body">
+      <div class="activities-panel__title-row">
+        <h3 class="panel-card__title">Activities</h3>
+        <button class="filter-button filter-button--primary filter-button--icon" id="activities-filter-open" type="button">
+          <span aria-hidden="true" class="activities-filter-icon">⚙️</span>
+          <span class="sr-only">Adjust activity filters</span>
+        </button>
+      </div>
+      <div aria-hidden="true" class="filter-active-tags hidden" id="activity-filter-active" role="status" aria-live="polite"></div>
+      <p class="panel-card__subtitle" id="activity-filter-summary"></p>
+    </div>
+  </header>
         <div aria-live="polite" class="activities-medal-info hidden" id="activities-medal-info" role="status" aria-hidden="true">
           <div class="activities-medal-info__content">
             <span class="activities-medal-info__emoji" id="activities-medal-info-emoji"></span>

@@ -11668,6 +11668,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     'Content-Type': 'application/json',
                 },
                 cache: 'no-store',
+                body: JSON.stringify({
+                    fullHistory: true,
+                }),
             });
 
             if (response.status === 401) {

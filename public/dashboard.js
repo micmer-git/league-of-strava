@@ -8427,6 +8427,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     };
 
+    const clearQuickFilterSelection = () => {
+        activeQuickFilter = null;
+        quickFilterButtons.forEach((button) => {
+            button.classList.remove('is-active');
+            button.setAttribute('aria-pressed', 'false');
+        });
+    };
+
     const formatRangeDescription = (minValue = null, maxValue = null, label = '', decimals = 0, unitSuffix = '') => {
         if (minValue === null && maxValue === null) {
             return null;
@@ -8446,28 +8454,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const describeActivityFilters = (filters = DEFAULT_ACTIVITY_FILTERS) => {
-        const descriptions = [];
+        const descriptors = [];
 
         if (filters.type && filters.type !== 'all') {
-            descriptions.push(`Type · ${formatActivityTypeLabel(filters.type)}`);
+            descriptors.push({
+                label: `Type · ${formatActivityTypeLabel(filters.type)}`,
+                onRemove: () => {
+                    currentActivityFilters.type = 'all';
+                    if (activityTypeFilter) {
+                        setSelectValue(activityTypeFilter, 'all');
+                    }
+                    clearQuickFilterSelection();
+                    return true;
+                }
+            });
         }
 
-        const hoursDescription = formatRangeDescription(filters.minHours, filters.maxHours, 'Hours', 1, 'h');
-        if (hoursDescription) {
-            descriptions.push(hoursDescription);
-        }
+        const addRangeDescriptor = ({ label, minKey, maxKey, decimals = 0, unitSuffix = '', minInput = null, maxInput = null }) => {
+            const description = formatRangeDescription(filters[minKey], filters[maxKey], label, decimals, unitSuffix);
+            if (!description) {
+                return;
+            }
 
-        const distanceDescription = formatRangeDescription(filters.minDistance, filters.maxDistance, 'Distance', 0, ' km');
-        if (distanceDescription) {
-            descriptions.push(distanceDescription);
-        }
+            descriptors.push({
+                label: description,
+                onRemove: () => {
+                    currentActivityFilters[minKey] = null;
+                    currentActivityFilters[maxKey] = null;
+                    if (minInput) {
+                        minInput.value = '';
+                    }
+                    if (maxInput) {
+                        maxInput.value = '';
+                    }
+                    clearQuickFilterSelection();
+                    return true;
+                }
+            });
+        };
 
-        const elevationDescription = formatRangeDescription(filters.minElevation, filters.maxElevation, 'Elevation', 0, ' m');
-        if (elevationDescription) {
-            descriptions.push(elevationDescription);
-        }
+        addRangeDescriptor({
+            label: 'Hours',
+            minKey: 'minHours',
+            maxKey: 'maxHours',
+            decimals: 1,
+            unitSuffix: 'h',
+            minInput: activityHoursMinInput,
+            maxInput: activityHoursMaxInput
+        });
 
-        return descriptions;
+        addRangeDescriptor({
+            label: 'Distance',
+            minKey: 'minDistance',
+            maxKey: 'maxDistance',
+            unitSuffix: ' km',
+            minInput: activityDistanceMinInput,
+            maxInput: activityDistanceMaxInput
+        });
+
+        addRangeDescriptor({
+            label: 'Elevation',
+            minKey: 'minElevation',
+            maxKey: 'maxElevation',
+            unitSuffix: ' m',
+            minInput: activityElevationMinInput,
+            maxInput: activityElevationMaxInput
+        });
+
+        return descriptors;
     };
 
     const updateActivityFilterActiveText = () => {
@@ -8475,17 +8529,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const descriptions = describeActivityFilters(currentActivityFilters);
+        const descriptors = describeActivityFilters(currentActivityFilters);
 
         if (activeMedalFilter) {
             const medalDescription = activeMedalMeta?.emoji
                 ? `Medal · ${activeMedalMeta.emoji} ${activeMedalFilter}`
                 : `Medal · ${activeMedalFilter}`;
-            descriptions.push(medalDescription);
+            descriptors.push({
+                label: medalDescription,
+                onRemove: () => resetMedalFilterState()
+            });
         }
 
         activityFilterActive.innerHTML = '';
-        const hasDescriptions = descriptions.length > 0;
+        const hasDescriptions = descriptors.length > 0;
         activityFilterActive.classList.toggle('hidden', !hasDescriptions);
         if (!hasDescriptions) {
             activityFilterActive.setAttribute('aria-hidden', 'true');
@@ -8495,10 +8552,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         activityFilterActive.removeAttribute('aria-hidden');
 
         const fragment = document.createDocumentFragment();
-        descriptions.forEach((description) => {
+        descriptors.forEach(({ label, onRemove }) => {
             const pill = document.createElement('span');
             pill.className = 'filter-active-tags__pill';
-            pill.textContent = description;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'filter-active-tags__pill-text';
+            textSpan.textContent = label;
+            pill.appendChild(textSpan);
+
+            if (typeof onRemove === 'function') {
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'filter-active-tags__pill-remove';
+                removeButton.setAttribute('aria-label', `Remove filter ${label}`);
+                removeButton.textContent = '×';
+                removeButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (filterApplyTimeout) {
+                        clearTimeout(filterApplyTimeout);
+                        filterApplyTimeout = null;
+                    }
+                    const removalResult = onRemove();
+                    if (removalResult !== false) {
+                        requestActivitiesRender({ preserveVisibleCount: false });
+                    } else {
+                        updateActivityFilterActiveText();
+                    }
+                });
+                pill.appendChild(removeButton);
+            }
+
             fragment.appendChild(pill);
         });
 
@@ -8529,18 +8614,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             activityFilterSummary.textContent = baseSummary;
         }
 
-        const filterDescriptions = describeActivityFilters(currentActivityFilters);
+        const filterDescriptors = describeActivityFilters(currentActivityFilters);
         if (activeMedalFilter) {
             const medalDescription = activeMedalMeta?.emoji
                 ? `Medal: ${activeMedalMeta.emoji} ${activeMedalFilter}`
                 : `Medal: ${activeMedalFilter}`;
-            filterDescriptions.push(medalDescription);
+            filterDescriptors.push({ label: medalDescription });
         }
 
         const summaryLines = [];
         summaryLines.push(activityFilterSummary.textContent);
-        if (filterDescriptions.length > 0) {
-            summaryLines.push(`Filters: ${filterDescriptions.join(' · ')}`);
+        if (filterDescriptors.length > 0) {
+            const filterSummaryText = filterDescriptors
+                .map(descriptor => descriptor.label)
+                .join(' · ');
+            summaryLines.push(`Filters: ${filterSummaryText}`);
         }
 
         activityFilterSummary.innerHTML = summaryLines
@@ -8782,11 +8870,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
         currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
-        activeQuickFilter = null;
-        quickFilterButtons.forEach(button => {
-            button.classList.remove('is-active');
-            button.setAttribute('aria-pressed', 'false');
-        });
+        clearQuickFilterSelection();
     };
 
     const quickFilterHandlers = {
@@ -9082,7 +9166,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             statsRow.className = 'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center';
 
             const smallStatsGroup = document.createElement('div');
-            smallStatsGroup.className = 'flex flex-wrap items-center gap-2';
+            smallStatsGroup.className = 'activity-card__stats-group flex flex-wrap items-center gap-2';
+
+            const appendBadgeBreak = () => {
+                if (smallStatsGroup.childElementCount === 0) {
+                    return;
+                }
+                const lastChild = smallStatsGroup.lastElementChild;
+                if (lastChild instanceof HTMLElement && lastChild.classList.contains('activity-card__badge-break')) {
+                    return;
+                }
+                const breakElement = document.createElement('span');
+                breakElement.className = 'activity-card__badge-break';
+                smallStatsGroup.appendChild(breakElement);
+            };
             smallStatsGroup.appendChild(createBadge({
                 icon: '🏔️',
                 valueText: formatStatValue(stats.everestSummits),
@@ -9169,6 +9266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             if (medalRewards.length > 0) {
+                appendBadgeBreak();
                 medalRewards.forEach(medal => {
                     const medalBadge = document.createElement('button');
                     medalBadge.type = 'button';
@@ -9182,6 +9280,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const achievementHighlights = getActivityAchievementHighlights(activity, stats);
             if (achievementHighlights.length > 0) {
+                appendBadgeBreak();
                 const emojiCounts = new Map();
                 const emojiDescriptions = new Map();
 
@@ -12442,11 +12541,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (activeQuickFilter === filterKey) {
-                activeQuickFilter = null;
-                quickFilterButtons.forEach(btn => {
-                    btn.classList.remove('is-active');
-                    btn.setAttribute('aria-pressed', 'false');
-                });
                 resetActivityFilterInputs();
                 requestActivitiesRender({ preserveVisibleCount: false });
                 return;

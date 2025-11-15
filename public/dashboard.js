@@ -7983,6 +7983,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const yearlyDistance = {};
         const yearlyHours = {};
         const yearlyElevation = {};
+        const yearlyRunDistance = {};
+        const yearlyRideDistance = {};
+        const yearlyDollars = {};
+        const monthlyRunDistance = {};
+        const monthlyRideDistance = {};
+        const monthlyDollars = {};
+        let totalActivities = 0;
 
         lifetimeActivities.forEach(activity => {
             const calendarReference = getActivityCalendarReference(activity);
@@ -7991,12 +7998,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const { year } = calendarReference;
+            const dayKey = calendarReference.dayKey || null;
+            const monthKey = dayKey ? dayKey.slice(0, 7) : null;
 
             const distanceMeters = Number.isFinite(activity.distance) ? activity.distance : 0;
             const movingTimeSeconds = Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
             const elevationGain = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
             const normalizedType = (activity.type || '').toUpperCase();
             const isRun = normalizedType.includes('RUN');
+            const isRide = normalizedType.includes('RIDE');
+
+            totalActivities += 1;
 
             yearlyDistance[year] = (yearlyDistance[year] || 0) + (distanceMeters / 1000);
             yearlyHours[year] = (yearlyHours[year] || 0) + (movingTimeSeconds / 3600);
@@ -8004,6 +8016,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (isRun && distanceMeters >= 42195) {
                 marathonCount += 1;
+            }
+
+            if (isRun) {
+                yearlyRunDistance[year] = (yearlyRunDistance[year] || 0) + (distanceMeters / 1000);
+                if (monthKey) {
+                    monthlyRunDistance[monthKey] = (monthlyRunDistance[monthKey] || 0) + (distanceMeters / 1000);
+                }
+            }
+
+            if (isRide) {
+                yearlyRideDistance[year] = (yearlyRideDistance[year] || 0) + (distanceMeters / 1000);
+                if (monthKey) {
+                    monthlyRideDistance[monthKey] = (monthlyRideDistance[monthKey] || 0) + (distanceMeters / 1000);
+                }
+            }
+
+            const dollarsEarned = Math.max(0, (movingTimeSeconds / 3600) * 10);
+            yearlyDollars[year] = (yearlyDollars[year] || 0) + dollarsEarned;
+            if (monthKey) {
+                monthlyDollars[monthKey] = (monthlyDollars[monthKey] || 0) + dollarsEarned;
             }
         });
 
@@ -8096,6 +8128,94 @@ document.addEventListener('DOMContentLoaded', async () => {
                 label: '200k Climber',
                 description: 'Gained 200,000 m of elevation in a calendar year.',
                 count: megaElevationYears
+            });
+        }
+
+        const millionDollarYears = Object.values(yearlyDollars).filter(total => Math.round(total) >= 1_000_000).length;
+        if (millionDollarYears > 0) {
+            achievements.push({
+                emoji: '🤑',
+                label: 'Million Dollar Year',
+                description: 'Earned at least $1,000,000 in estimated training value within a calendar year.',
+                count: millionDollarYears
+            });
+        }
+
+        const run1000KmYears = Object.values(yearlyRunDistance).filter(km => km >= 1000).length;
+        if (run1000KmYears > 0) {
+            achievements.push({
+                emoji: '🏃‍♂️',
+                label: '1,000 km Run Year',
+                description: 'Ran at least 1,000 km in a calendar year.',
+                count: run1000KmYears
+            });
+        }
+
+        const run2500KmYears = Object.values(yearlyRunDistance).filter(km => km >= 2500).length;
+        if (run2500KmYears > 0) {
+            achievements.push({
+                emoji: '🏃‍♂️🔥',
+                label: '2,500 km Run Year',
+                description: 'Ran at least 2,500 km in a calendar year.',
+                count: run2500KmYears
+            });
+        }
+
+        const ride5000KmYears = Object.values(yearlyRideDistance).filter(km => km >= 5000).length;
+        if (ride5000KmYears > 0) {
+            achievements.push({
+                emoji: '🚴‍♂️',
+                label: '5,000 km Ride Year',
+                description: 'Rode at least 5,000 km in a calendar year.',
+                count: ride5000KmYears
+            });
+        }
+
+        if (totalActivities >= 1000) {
+            achievements.push({
+                emoji: '📈',
+                label: '1,000 Activities Lifetime',
+                description: 'Logged at least 1,000 activities overall.',
+                count: 1
+            });
+        }
+
+        if (totalActivities >= 2500) {
+            achievements.push({
+                emoji: '🌟',
+                label: '2,500 Activities Lifetime',
+                description: 'Logged at least 2,500 activities overall.',
+                count: 1
+            });
+        }
+
+        const run400KmMonths = Object.values(monthlyRunDistance).filter(km => km >= 400).length;
+        if (run400KmMonths > 0) {
+            achievements.push({
+                emoji: '🏃‍♂️📆',
+                label: '400 km Run Month',
+                description: 'Ran at least 400 km within a single calendar month.',
+                count: run400KmMonths
+            });
+        }
+
+        const ride1000KmMonths = Object.values(monthlyRideDistance).filter(km => km >= 1000).length;
+        if (ride1000KmMonths > 0) {
+            achievements.push({
+                emoji: '🚴‍♂️📆',
+                label: '1,000 km Ride Month',
+                description: 'Rode at least 1,000 km within a single calendar month.',
+                count: ride1000KmMonths
+            });
+        }
+
+        const hundredKDollarMonths = Object.values(monthlyDollars).filter(total => Math.round(total) >= 100_000).length;
+        if (hundredKDollarMonths > 0) {
+            achievements.push({
+                emoji: '🤑📆',
+                label: '100k Dollar Month',
+                description: 'Earned at least $100,000 in estimated training value within a calendar month.',
+                count: hundredKDollarMonths
             });
         }
 

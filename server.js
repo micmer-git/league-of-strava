@@ -1501,23 +1501,84 @@ async function fetchAllActivities(
 }
 
 async function runFullHistoricalSync(userId, accessToken) {
-  let allActivities = [];
-  let page = 1;
-  const perPage = 100;
-  const maxPages = MAX_ACTIVITY_PAGES > 0 ? MAX_ACTIVITY_PAGES : Number.POSITIVE_INFINITY;
-  const uniqueActivityIds = new Set();
+  const perPage = Math.min(Math.max(Number.parseInt(process.env.STRAVA_FULL_SYNC_PER_PAGE, 10) || 200, 1), 200);
+  const targetBatchSize = Math.max(perPage, Number.parseInt(process.env.STRAVA_FULL_SYNC_BATCH_SIZE, 10) || 400);
+  const configuredMaxPages = MAX_ACTIVITY_PAGES > 0 ? MAX_ACTIVITY_PAGES : Number.POSITIVE_INFINITY;
+  const maxPagesThisRun = Number.isFinite(configuredMaxPages)
+    ? Math.min(configuredMaxPages, Math.max(1, Math.ceil(targetBatchSize / perPage)))
+    : Math.max(1, Math.ceil(targetBatchSize / perPage));
 
-  const recordProgress = async ({ stage, lastActivityId = '', notes = '', fetchedCount, uniqueCount } = {}) => {
+  let existingActivities = [];
+
+  try {
+    const existingEntry = await getLatestUserSyncEntry(userId);
+    if (existingEntry) {
+      const payload = getLatestPayload([existingEntry]);
+      const decompressed = decompressPayload(payload);
+      if (Array.isArray(decompressed)) {
+        existingActivities = decompressed;
+      }
+    }
+  } catch (loadError) {
+    console.warn(`User ${userId}: Unable to load existing sync payload before historical sync.`, loadError.message);
+  }
+
+  const activityMap = new Map();
+  let earliestTimestampSeconds = null;
+
+  for (const activity of existingActivities) {
+    if (!activity || activity.id === undefined || activity.id === null) {
+      continue;
+    }
+
+    const activityId = String(activity.id);
+    activityMap.set(activityId, activity);
+
+    const timestamp = getActivityTimestampSeconds(activity);
+    if (Number.isFinite(timestamp)) {
+      earliestTimestampSeconds = earliestTimestampSeconds === null
+        ? timestamp
+        : Math.min(earliestTimestampSeconds, timestamp);
+    }
+  }
+
+  const initialActivityCount = activityMap.size;
+  const activitiesFetchedThisRun = [];
+
+  let page = 1;
+  let totalFetchedThisRun = 0;
+  let hasMoreFromStrava = false;
+  let lastFetchedActivityId = null;
+  let lastFetchedActivityTimestamp = '';
+
+  const beforeParam = Number.isFinite(earliestTimestampSeconds) && earliestTimestampSeconds > 0
+    ? Math.max(0, Math.floor(earliestTimestampSeconds) - 1)
+    : null;
+
+  const recordProgress = async ({
+    stage,
+    lastActivityId = '',
+    lastActivityTimestamp = '',
+    notes = '',
+    fetchedCount,
+    totalActivities,
+  } = {}) => {
     const normalizedStage = stage || `page:${page}`;
-    const resolvedFetchedCount = Number.isFinite(Number(fetchedCount)) ? Number(fetchedCount) : allActivities.length;
-    const resolvedUniqueCount = Number.isFinite(Number(uniqueCount)) ? Number(uniqueCount) : uniqueActivityIds.size;
+    const resolvedFetchedCount = Number.isFinite(Number(fetchedCount))
+      ? Number(fetchedCount)
+      : totalFetchedThisRun;
+    const resolvedTotalActivities = Number.isFinite(Number(totalActivities))
+      ? Number(totalActivities)
+      : activityMap.size;
     try {
       await appendUserSyncProgress({
         userId,
         syncType: 'full-history-sync',
         fetchedCount: resolvedFetchedCount,
-        uniqueActivityIds: resolvedUniqueCount,
+        uniqueActivityIds: activityMap.size,
         lastActivityId: lastActivityId ? String(lastActivityId) : '',
+        lastActivityTimestamp,
+        totalActivities: resolvedTotalActivities,
         notes: notes || normalizedStage,
       });
     } catch (progressError) {
@@ -1526,58 +1587,151 @@ async function runFullHistoricalSync(userId, accessToken) {
   };
 
   try {
-    while (true) {
-      const response = await stravaGet('athlete/activities', accessToken, { page, per_page: perPage });
+    while (page <= maxPagesThisRun && totalFetchedThisRun < targetBatchSize) {
+      const params = { page, per_page: perPage };
+      if (Number.isFinite(beforeParam) && beforeParam > 0) {
+        params.before = beforeParam;
+      }
+
+      const response = await stravaGet('athlete/activities', accessToken, params);
       const activitiesPage = Array.isArray(response.data) ? response.data : [];
 
       if (activitiesPage.length === 0) {
+        hasMoreFromStrava = false;
         break;
       }
 
-      console.log(`User ${userId}: fetched ${activitiesPage.length} activities from page ${page}.`);
-      allActivities = allActivities.concat(activitiesPage);
+      let newActivitiesOnPage = 0;
+
       for (const activity of activitiesPage) {
-        if (activity && activity.id !== undefined && activity.id !== null) {
-          uniqueActivityIds.add(String(activity.id));
+        if (!activity || activity.id === undefined || activity.id === null) {
+          continue;
+        }
+
+        const activityId = String(activity.id);
+        if (activityMap.has(activityId)) {
+          continue;
+        }
+
+        activityMap.set(activityId, activity);
+        activitiesFetchedThisRun.push(activity);
+        newActivitiesOnPage += 1;
+        totalFetchedThisRun += 1;
+        lastFetchedActivityId = activity.id;
+        lastFetchedActivityTimestamp = getActivityIsoTimestamp(activity);
+
+        if (totalFetchedThisRun >= targetBatchSize) {
+          break;
         }
       }
 
+      console.log(`User ${userId}: fetched ${newActivitiesOnPage} new historical activities on page ${page}.`);
+
       await recordProgress({
         stage: `page:${page}`,
-        lastActivityId: activitiesPage[activitiesPage.length - 1]?.id ?? '',
+        lastActivityId: lastFetchedActivityId,
+        lastActivityTimestamp: lastFetchedActivityTimestamp,
       });
 
-      if (activitiesPage.length < perPage) {
+      const pageWasFull = activitiesPage.length >= perPage;
+
+      if (totalFetchedThisRun >= targetBatchSize) {
+        hasMoreFromStrava = pageWasFull;
         break;
       }
 
-      if (page >= maxPages) {
-        console.log(`User ${userId}: Reached configured page limit (${maxPages}).`);
+      if (!pageWasFull) {
+        hasMoreFromStrava = false;
         break;
       }
 
       page += 1;
+
+      if (page > maxPagesThisRun) {
+        hasMoreFromStrava = true;
+        break;
+      }
+
       await sleep(1000);
     }
 
-    console.log(`User ${userId}: Fetched ${allActivities.length} total activities.`);
-    await storeUserDataInSheet(userId, allActivities, 'full-history-sync');
-    await recordProgress({ stage: 'complete', lastActivityId: allActivities[0]?.id ?? '' });
+    if (activitiesFetchedThisRun.length === 0) {
+      console.log(`User ${userId}: Historical backfill is already complete (no new activities found).`);
+      const fallbackOldest = Array.from(activityMap.values()).reduce((oldest, candidate) => {
+        if (!candidate) {
+          return oldest;
+        }
+
+        if (!oldest) {
+          return candidate;
+        }
+
+        const candidateTime = Date.parse(candidate?.start_date || candidate?.start_date_local) || Number.POSITIVE_INFINITY;
+        const oldestTime = Date.parse(oldest?.start_date || oldest?.start_date_local) || Number.POSITIVE_INFINITY;
+        return candidateTime < oldestTime ? candidate : oldest;
+      }, null);
+
+      await recordProgress({
+        stage: 'complete',
+        lastActivityId: fallbackOldest?.id ?? '',
+        lastActivityTimestamp: getActivityIsoTimestamp(fallbackOldest),
+        fetchedCount: 0,
+        totalActivities: activityMap.size,
+        notes: 'no-new-historical-activities',
+      });
+      return;
+    }
+
+    const mergedActivities = Array.from(activityMap.values()).sort((a, b) => {
+      const aTime = Date.parse(a?.start_date || a?.start_date_local) || 0;
+      const bTime = Date.parse(b?.start_date || b?.start_date_local) || 0;
+      return bTime - aTime;
+    });
+
+    const totalActivities = mergedActivities.length;
+    const oldestActivity = mergedActivities[mergedActivities.length - 1] ?? null;
+
+    console.log(`User ${userId}: Stored ${activitiesFetchedThisRun.length} newly backfilled activities (total stored: ${totalActivities}).`);
+    await storeUserDataInSheet(userId, mergedActivities, 'full-history-sync');
+
+    await recordProgress({
+      stage: hasMoreFromStrava ? 'partial' : 'complete',
+      lastActivityId: oldestActivity?.id ?? lastFetchedActivityId,
+      lastActivityTimestamp: getActivityIsoTimestamp(oldestActivity) || lastFetchedActivityTimestamp,
+      fetchedCount: activitiesFetchedThisRun.length,
+      totalActivities,
+      notes: hasMoreFromStrava ? 'historical-backfill-continues' : 'historical-backfill-complete',
+    });
+
+    if (hasMoreFromStrava) {
+      console.log(`User ${userId}: Historical backfill paused after ${activitiesFetchedThisRun.length} new activities (remaining history available).`);
+    }
   } catch (error) {
     console.error(`User ${userId}: FAILED full historical sync.`, error);
     try {
-      const lastTrackedActivity = allActivities.length > 0 ? allActivities[allActivities.length - 1] : null;
+      const lastTrackedActivity = activitiesFetchedThisRun.length > 0
+        ? activitiesFetchedThisRun[activitiesFetchedThisRun.length - 1]
+        : existingActivities[existingActivities.length - 1] || null;
       await recordProgress({
         stage: 'failed',
         lastActivityId: lastTrackedActivity?.id ?? '',
+        lastActivityTimestamp: getActivityIsoTimestamp(lastTrackedActivity),
         notes: error?.message || 'Unknown error',
-        fetchedCount: allActivities.length,
-        uniqueCount: uniqueActivityIds.size,
+        fetchedCount: activitiesFetchedThisRun.length,
+        totalActivities: activityMap.size,
       });
     } catch (progressError) {
       console.warn(`User ${userId}: Unable to record failed sync progress.`, progressError.message);
     }
     throw error;
+  } finally {
+    if (activitiesFetchedThisRun.length > 0) {
+      const oldestFetched = activitiesFetchedThisRun[activitiesFetchedThisRun.length - 1];
+      console.log(
+        `User ${userId}: Historical sync run summary -> requested ${targetBatchSize}, fetched ${activitiesFetchedThisRun.length}, `
+        + `existing before run ${initialActivityCount}, after run ${activityMap.size}, oldest fetched ID ${oldestFetched?.id ?? 'n/a'}.`,
+      );
+    }
   }
 }
 
@@ -1612,12 +1766,23 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
 
   const newActivities = [];
 
-  const recordProgress = async ({ stage, lastActivityId = '', notes = '', fetchedCount, uniqueCount } = {}) => {
+  const recordProgress = async ({
+    stage,
+    lastActivityId = '',
+    lastActivityTimestamp = '',
+    notes = '',
+    fetchedCount,
+    uniqueCount,
+    totalActivities,
+  } = {}) => {
     const normalizedStage = stage || `delta-page:${page}`;
     const resolvedFetchedCount = Number.isFinite(Number(fetchedCount))
       ? Number(fetchedCount)
       : previousActivities.length + newActivities.length;
     const resolvedUniqueCount = Number.isFinite(Number(uniqueCount)) ? Number(uniqueCount) : uniqueActivityIds.size;
+    const resolvedTotalActivities = Number.isFinite(Number(totalActivities))
+      ? Number(totalActivities)
+      : uniqueActivityIds.size;
     try {
       await appendUserSyncProgress({
         userId,
@@ -1625,6 +1790,8 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
         fetchedCount: resolvedFetchedCount,
         uniqueActivityIds: resolvedUniqueCount,
         lastActivityId: lastActivityId ? String(lastActivityId) : '',
+        lastActivityTimestamp,
+        totalActivities: resolvedTotalActivities,
         notes: notes || normalizedStage,
       });
     } catch (progressError) {
@@ -1654,9 +1821,12 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
         }
       }
 
+      const lastActivityOnPage = activitiesPage[activitiesPage.length - 1] || null;
       await recordProgress({
         stage: `delta-page:${page}`,
-        lastActivityId: activitiesPage[activitiesPage.length - 1]?.id ?? '',
+        lastActivityId: lastActivityOnPage?.id ?? '',
+        lastActivityTimestamp: getActivityIsoTimestamp(lastActivityOnPage),
+        uniqueCount: uniqueActivityIds.size,
       });
 
       if (activitiesPage.length < perPage) {
@@ -1679,6 +1849,8 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
         lastActivityId: previousActivities[0]?.id ?? '',
         fetchedCount: previousActivities.length,
         uniqueCount: activityMap.size,
+        totalActivities: activityMap.size,
+        lastActivityTimestamp: getActivityIsoTimestamp(previousActivities[0]),
       });
       return previousActivities;
     }
@@ -1702,6 +1874,8 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
       lastActivityId: mergedActivities[0]?.id ?? '',
       fetchedCount: mergedActivities.length,
       uniqueCount: activityMap.size,
+      totalActivities: mergedActivities.length,
+      lastActivityTimestamp: getActivityIsoTimestamp(mergedActivities[0]),
     });
 
     return mergedActivities;
@@ -1715,6 +1889,8 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
         stage: 'delta-failed',
         lastActivityId: lastTrackedActivity?.id ?? '',
         notes: error?.message || 'Unknown error',
+        lastActivityTimestamp: getActivityIsoTimestamp(lastTrackedActivity),
+        uniqueCount: uniqueActivityIds.size,
       });
     } catch (progressError) {
       console.warn(`User ${userId}: Unable to record failed delta sync progress.`, progressError.message);
@@ -2443,6 +2619,29 @@ function getActivityTimestampSeconds(activity = {}) {
   }
 
   return Math.floor(parsed / 1000);
+}
+
+function getActivityIsoTimestamp(activity = {}) {
+  if (!activity || typeof activity !== 'object') {
+    return '';
+  }
+
+  const timestampCandidate = activity.start_date || activity.start_date_local;
+  if (typeof timestampCandidate === 'string' && timestampCandidate.trim()) {
+    const parsed = Date.parse(timestampCandidate);
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toISOString();
+    }
+
+    return timestampCandidate;
+  }
+
+  const timestampSeconds = getActivityTimestampSeconds(activity);
+  if (Number.isFinite(timestampSeconds)) {
+    return new Date(timestampSeconds * 1000).toISOString();
+  }
+
+  return '';
 }
 
 function extractLatestTimestampFromActivities(activities = []) {

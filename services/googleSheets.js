@@ -104,6 +104,8 @@ const SYNC_PROGRESS_HEADER = [
   'fetchedCount',
   'uniqueActivityIds',
   'lastActivityId',
+  'lastActivityTimestamp',
+  'totalActivities',
   'notes',
 ];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
@@ -376,6 +378,8 @@ async function appendUserSyncProgress({
   fetchedCount = 0,
   uniqueActivityIds = 0,
   lastActivityId = '',
+  lastActivityTimestamp = '',
+  totalActivities = '',
   notes = '',
 }) {
   if (!SPREADSHEET_ID) {
@@ -389,6 +393,32 @@ async function appendUserSyncProgress({
   const resolvedLastActivityId = lastActivityId === null || lastActivityId === undefined
     ? ''
     : String(lastActivityId);
+  const resolvedLastActivityTimestamp = (() => {
+    if (lastActivityTimestamp === null || lastActivityTimestamp === undefined) {
+      return '';
+    }
+
+    if (typeof lastActivityTimestamp === 'number' && Number.isFinite(lastActivityTimestamp)) {
+      const milliseconds = lastActivityTimestamp > 1e12
+        ? lastActivityTimestamp
+        : lastActivityTimestamp * 1000;
+      return new Date(milliseconds).toISOString();
+    }
+
+    if (typeof lastActivityTimestamp === 'string') {
+      const parsed = Date.parse(lastActivityTimestamp);
+      if (Number.isFinite(parsed)) {
+        return new Date(parsed).toISOString();
+      }
+
+      return lastActivityTimestamp;
+    }
+
+    return '';
+  })();
+  const numericTotalActivities = Number.isFinite(Number(totalActivities))
+    ? Number(totalActivities)
+    : '';
   const normalizedNotes = typeof notes === 'string' ? notes : String(notes ?? '');
 
   await sheets.spreadsheets.values.append({
@@ -404,6 +434,8 @@ async function appendUserSyncProgress({
         numericFetchedCount,
         numericUniqueIds,
         resolvedLastActivityId,
+        resolvedLastActivityTimestamp,
+        numericTotalActivities === '' ? '' : numericTotalActivities,
         normalizedNotes,
       ]],
     },
@@ -415,6 +447,8 @@ async function appendUserSyncProgress({
     fetchedCount: numericFetchedCount,
     uniqueActivityIds: numericUniqueIds,
     lastActivityId: resolvedLastActivityId,
+    lastActivityTimestamp: resolvedLastActivityTimestamp,
+    totalActivities: numericTotalActivities === '' ? null : numericTotalActivities,
     notes: normalizedNotes,
   };
 }

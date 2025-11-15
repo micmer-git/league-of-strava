@@ -792,6 +792,22 @@ app.get('/api/strava-data', async (req, res) => {
       }
     }
 
+    const storedActivityCount = Array.isArray(existingSnapshot?.payload?.activities)
+      ? existingSnapshot.payload.activities.length
+      : 0;
+    const cachedActivityCount = Array.isArray(existingCacheEntry?.value?.activities)
+      ? existingCacheEntry.value.activities.length
+      : 0;
+    const isInitialPageRequest = startPage === 1;
+    const needsHistoricalBackfill = isInitialPageRequest
+      && knownActivityKeySet.size === 0
+      && storedActivityCount === 0
+      && cachedActivityCount === 0;
+
+    if (needsHistoricalBackfill) {
+      console.log(`No stored or cached activities for athlete ${userId}; requesting historical backfill.`);
+    }
+
     if (knownActivityKeySet.size > 0 && latestKnownActivityTimestamp === null) {
       // As a fallback, derive the latest known timestamp from the key set if possible.
       const fallbackTimestamp = deriveLatestTimestampFromActivityKeys(knownActivityKeySet);
@@ -800,7 +816,7 @@ app.get('/api/strava-data', async (req, res) => {
       }
     }
 
-    if (!forceRefresh && existingCacheEntry) {
+    if (!forceRefresh && existingCacheEntry && !needsHistoricalBackfill) {
       if (existingCacheEntry.value?.rewardDefinitionDigest === REWARD_DEFINITION_DIGEST) {
         console.log(`Serving cached Strava data for athlete ${userId}`);
         const cachedHasBackup = Boolean(existingCacheEntry.value?.loadingInfo?.hasActivitiesBackup)
@@ -832,9 +848,13 @@ app.get('/api/strava-data', async (req, res) => {
       ? Math.max(0, MAX_ACTIVITY_PAGES - (startPage - 1))
       : Number.POSITIVE_INFINITY;
 
-    const shouldFetchUntilExhausted = forceRefresh;
+    const shouldFetchUntilExhausted = forceRefresh || needsHistoricalBackfill;
 
-    const afterTimestamp = resolveAfterTimestamp(latestKnownActivityTimestamp);
+    const stopWhenKnownReached = !needsHistoricalBackfill && knownActivityKeySet.size > 0;
+
+    const afterTimestamp = needsHistoricalBackfill
+      ? null
+      : resolveAfterTimestamp(latestKnownActivityTimestamp);
 
     let activitiesResult = { activities: [], hasMore: false, fetchedPages: 0, lastPageSize: 0, metadata: createEmptyActivityMetadata() };
 
@@ -850,7 +870,7 @@ app.get('/api/strava-data', async (req, res) => {
         pageCount: pageCountForFetch,
         perPage,
         knownActivityKeys: knownActivityKeySet,
-        stopWhenKnownReached: knownActivityKeySet.size > 0,
+        stopWhenKnownReached,
         fetchUntilExhausted: shouldFetchUntilExhausted,
         maxPages: maxFetchablePages,
         afterTimestamp,
@@ -859,6 +879,10 @@ app.get('/api/strava-data', async (req, res) => {
 
     let { metadata: activityMetadata } = activitiesResult;
     const { activities: allActivities, hasMore: hasMoreFromStrava, fetchedPages, lastPageSize } = activitiesResult;
+
+    if (needsHistoricalBackfill) {
+      activityMetadata = { ...activityMetadata, historicalBackfill: true };
+    }
 
     activityMetadata = normalizeActivityMetadata(activityMetadata);
 
@@ -952,6 +976,7 @@ app.get('/api/strava-data', async (req, res) => {
         duplicatesSkipped: activityMetadata.duplicatesSkipped,
         stopReason: activityMetadata.stopReason,
         reachedKnownActivityBoundary: activityMetadata.reachedKnownActivityBoundary,
+        historicalBackfill: activityMetadata.historicalBackfill,
       },
       activityMetadata,
     };
@@ -988,6 +1013,7 @@ app.get('/api/strava-data', async (req, res) => {
       duplicatesSkipped: updatedMetadata.duplicatesSkipped,
       stopReason: updatedMetadata.stopReason,
       reachedKnownActivityBoundary: updatedMetadata.reachedKnownActivityBoundary,
+      historicalBackfill: updatedMetadata.historicalBackfill,
     };
 
     if (updatedMetadata.lastSuccessfulPage !== undefined) {
@@ -1878,6 +1904,7 @@ function createEmptyActivityMetadata() {
     latestKnownActivityTimestamp: null,
     requestedAfterTimestamp: null,
     latestFetchedActivityTimestamp: null,
+    historicalBackfill: false,
   };
 }
 
@@ -1973,6 +2000,7 @@ function normalizeActivityMetadata(metadata) {
     newActivities,
     duplicatesSkipped,
     reachedKnownActivityBoundary,
+    historicalBackfill: Boolean(metadata.historicalBackfill),
   };
 
   if (latestKnownActivityTimestamp !== null) {
@@ -2046,6 +2074,7 @@ function mergeActivityMetadata(existingMetadata, incomingMetadata) {
     errors,
     rateLimited: Boolean(existing.rateLimited || incoming.rateLimited),
     partial: Boolean(existing.partial || incoming.partial),
+    historicalBackfill: Boolean(existing.historicalBackfill || incoming.historicalBackfill),
   };
 
   const totalNewActivities = (existing.newActivities || 0) + (incoming.newActivities || 0);

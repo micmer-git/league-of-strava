@@ -15,6 +15,7 @@ const {
   listSnapshotUserIds,
   getLatestUserSyncEntry,
   storeUserDataInSheet,
+  appendUserSyncProgress,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 const { PersistentCache } = require('./services/cache');
 const { getLatestPayload, decompressPayload } = require('./services/googleSheetsHelper');
@@ -1438,6 +1439,25 @@ async function runFullHistoricalSync(userId, accessToken) {
   let page = 1;
   const perPage = 100;
   const maxPages = MAX_ACTIVITY_PAGES > 0 ? MAX_ACTIVITY_PAGES : Number.POSITIVE_INFINITY;
+  const uniqueActivityIds = new Set();
+
+  const recordProgress = async ({ stage, lastActivityId = '', notes = '', fetchedCount, uniqueCount } = {}) => {
+    const normalizedStage = stage || `page:${page}`;
+    const resolvedFetchedCount = Number.isFinite(Number(fetchedCount)) ? Number(fetchedCount) : allActivities.length;
+    const resolvedUniqueCount = Number.isFinite(Number(uniqueCount)) ? Number(uniqueCount) : uniqueActivityIds.size;
+    try {
+      await appendUserSyncProgress({
+        userId,
+        syncType: 'full-history-sync',
+        fetchedCount: resolvedFetchedCount,
+        uniqueActivityIds: resolvedUniqueCount,
+        lastActivityId: lastActivityId ? String(lastActivityId) : '',
+        notes: notes || normalizedStage,
+      });
+    } catch (progressError) {
+      console.warn(`User ${userId}: Unable to record sync progress (${normalizedStage}).`, progressError.message);
+    }
+  };
 
   try {
     while (true) {
@@ -1450,6 +1470,16 @@ async function runFullHistoricalSync(userId, accessToken) {
 
       console.log(`User ${userId}: fetched ${activitiesPage.length} activities from page ${page}.`);
       allActivities = allActivities.concat(activitiesPage);
+      for (const activity of activitiesPage) {
+        if (activity && activity.id !== undefined && activity.id !== null) {
+          uniqueActivityIds.add(String(activity.id));
+        }
+      }
+
+      await recordProgress({
+        stage: `page:${page}`,
+        lastActivityId: activitiesPage[activitiesPage.length - 1]?.id ?? '',
+      });
 
       if (activitiesPage.length < perPage) {
         break;
@@ -1466,8 +1496,21 @@ async function runFullHistoricalSync(userId, accessToken) {
 
     console.log(`User ${userId}: Fetched ${allActivities.length} total activities.`);
     await storeUserDataInSheet(userId, allActivities, 'full-history-sync');
+    await recordProgress({ stage: 'complete', lastActivityId: allActivities[0]?.id ?? '' });
   } catch (error) {
     console.error(`User ${userId}: FAILED full historical sync.`, error);
+    try {
+      const lastTrackedActivity = allActivities.length > 0 ? allActivities[allActivities.length - 1] : null;
+      await recordProgress({
+        stage: 'failed',
+        lastActivityId: lastTrackedActivity?.id ?? '',
+        notes: error?.message || 'Unknown error',
+        fetchedCount: allActivities.length,
+        uniqueCount: uniqueActivityIds.size,
+      });
+    } catch (progressError) {
+      console.warn(`User ${userId}: Unable to record failed sync progress.`, progressError.message);
+    }
     throw error;
   }
 }
@@ -1478,10 +1521,12 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
   let page = 1;
   const maxPages = MAX_ACTIVITY_PAGES > 0 ? MAX_ACTIVITY_PAGES : Number.POSITIVE_INFINITY;
   const activityMap = new Map();
+  const uniqueActivityIds = new Set();
 
   for (const activity of previousActivities) {
     if (activity && activity.id !== undefined && activity.id !== null) {
       activityMap.set(String(activity.id), activity);
+      uniqueActivityIds.add(String(activity.id));
     }
   }
 
@@ -1501,6 +1546,26 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
 
   const newActivities = [];
 
+  const recordProgress = async ({ stage, lastActivityId = '', notes = '', fetchedCount, uniqueCount } = {}) => {
+    const normalizedStage = stage || `delta-page:${page}`;
+    const resolvedFetchedCount = Number.isFinite(Number(fetchedCount))
+      ? Number(fetchedCount)
+      : previousActivities.length + newActivities.length;
+    const resolvedUniqueCount = Number.isFinite(Number(uniqueCount)) ? Number(uniqueCount) : uniqueActivityIds.size;
+    try {
+      await appendUserSyncProgress({
+        userId,
+        syncType: 'delta-sync',
+        fetchedCount: resolvedFetchedCount,
+        uniqueActivityIds: resolvedUniqueCount,
+        lastActivityId: lastActivityId ? String(lastActivityId) : '',
+        notes: notes || normalizedStage,
+      });
+    } catch (progressError) {
+      console.warn(`User ${userId}: Unable to record delta sync progress (${normalizedStage}).`, progressError.message);
+    }
+  };
+
   try {
     while (true) {
       const params = { page, per_page: perPage };
@@ -1517,6 +1582,16 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
 
       console.log(`User ${userId}: fetched ${activitiesPage.length} candidate activities for delta sync (page ${page}).`);
       newActivities.push(...activitiesPage);
+      for (const activity of activitiesPage) {
+        if (activity && activity.id !== undefined && activity.id !== null) {
+          uniqueActivityIds.add(String(activity.id));
+        }
+      }
+
+      await recordProgress({
+        stage: `delta-page:${page}`,
+        lastActivityId: activitiesPage[activitiesPage.length - 1]?.id ?? '',
+      });
 
       if (activitiesPage.length < perPage) {
         break;
@@ -1533,6 +1608,12 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
 
     if (newActivities.length === 0) {
       console.log(`User ${userId}: No new activities found.`);
+      await recordProgress({
+        stage: 'delta-noop',
+        lastActivityId: previousActivities[0]?.id ?? '',
+        fetchedCount: previousActivities.length,
+        uniqueCount: activityMap.size,
+      });
       return previousActivities;
     }
 
@@ -1550,10 +1631,28 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
 
     console.log(`User ${userId}: Storing ${mergedActivities.length} total activities after delta sync.`);
     await storeUserDataInSheet(userId, mergedActivities, 'delta-sync');
+    await recordProgress({
+      stage: 'delta-complete',
+      lastActivityId: mergedActivities[0]?.id ?? '',
+      fetchedCount: mergedActivities.length,
+      uniqueCount: activityMap.size,
+    });
 
     return mergedActivities;
   } catch (error) {
     console.error(`User ${userId}: Failed delta sync.`, error);
+    try {
+      const lastTrackedActivity = newActivities.length > 0
+        ? newActivities[newActivities.length - 1]
+        : previousActivities[0];
+      await recordProgress({
+        stage: 'delta-failed',
+        lastActivityId: lastTrackedActivity?.id ?? '',
+        notes: error?.message || 'Unknown error',
+      });
+    } catch (progressError) {
+      console.warn(`User ${userId}: Unable to record failed delta sync progress.`, progressError.message);
+    }
     throw error;
   }
 }

@@ -96,6 +96,16 @@ const LEADERBOARD_HEADER = [
 const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
 const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
 const USER_SYNC_HEADER = ['timestamp', 'source', 'payload'];
+const SYNC_PROGRESS_SHEET_NAME = process.env.SYNC_PROGRESS_SHEET_NAME || 'SyncProgress';
+const SYNC_PROGRESS_HEADER = [
+  'timestamp',
+  'userId',
+  'syncType',
+  'fetchedCount',
+  'uniqueActivityIds',
+  'lastActivityId',
+  'notes',
+];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
 const SNAPSHOT_CHUNK_PREFIX = '__CHUNK__';
@@ -357,6 +367,55 @@ async function appendUserSyncEntry({ userId, payload = [], source = 'sync' }) {
     timestamp,
     sheetName,
     payloadMetadata,
+  };
+}
+
+async function appendUserSyncProgress({
+  userId,
+  syncType = 'sync',
+  fetchedCount = 0,
+  uniqueActivityIds = 0,
+  lastActivityId = '',
+  notes = '',
+}) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = await ensureSheetExists(SYNC_PROGRESS_SHEET_NAME, SYNC_PROGRESS_HEADER);
+  const timestamp = new Date().toISOString();
+  const numericFetchedCount = Number.isFinite(Number(fetchedCount)) ? Number(fetchedCount) : 0;
+  const numericUniqueIds = Number.isFinite(Number(uniqueActivityIds)) ? Number(uniqueActivityIds) : 0;
+  const resolvedLastActivityId = lastActivityId === null || lastActivityId === undefined
+    ? ''
+    : String(lastActivityId);
+  const normalizedNotes = typeof notes === 'string' ? notes : String(notes ?? '');
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    resource: {
+      values: [[
+        timestamp,
+        userId ?? '',
+        syncType ?? 'sync',
+        numericFetchedCount,
+        numericUniqueIds,
+        resolvedLastActivityId,
+        normalizedNotes,
+      ]],
+    },
+  });
+
+  return {
+    timestamp,
+    sheetName,
+    fetchedCount: numericFetchedCount,
+    uniqueActivityIds: numericUniqueIds,
+    lastActivityId: resolvedLastActivityId,
+    notes: normalizedNotes,
   };
 }
 
@@ -1017,6 +1076,7 @@ module.exports = {
   appendUserSyncEntry,
   getLatestUserSyncEntry,
   storeUserDataInSheet,
+  appendUserSyncProgress,
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
   getUserEntries,

@@ -282,14 +282,20 @@
 <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
 <header class="panel-card__header panel-card__header--stack">
 <h3 class="panel-card__title">Wallet Insights</h3>
-<div class="wallet-controls">
-<button aria-pressed="false" class="wallet-control" id="chart-toggle-coins" type="button">Coins &amp; Medals</button>
-<button aria-pressed="false" class="wallet-control" id="chart-toggle-balance" type="button">Balance</button>
-<label class="wallet-control wallet-control--toggle" data-balance-year-toggle-label="">
-<input class="wallet-control__checkbox" id="balance-year-toggle" type="checkbox"/>
-<span>Compare years</span>
-</label>
-</div>
+  <div class="wallet-controls">
+    <button aria-pressed="false" class="wallet-control" id="chart-toggle-coins" type="button">Coins &amp; Medals</button>
+    <button aria-pressed="false" class="wallet-control" id="chart-toggle-balance" type="button">Balance</button>
+    <label class="wallet-control wallet-control--select" for="wallet-timeframe-select">
+      <span class="wallet-control__label">Time frame</span>
+      <select class="wallet-control__select" id="wallet-timeframe-select">
+        <option value="all">All time</option>
+      </select>
+    </label>
+    <label class="wallet-control wallet-control--toggle" data-balance-year-toggle-label="">
+      <input class="wallet-control__checkbox" id="balance-year-toggle" type="checkbox"/>
+      <span>Compare years</span>
+    </label>
+  </div>
 </header>
 <div class="wallet-chart" id="wallet-chart-wrapper">
 <canvas class="w-full h-full" id="wallet-chart"></canvas>

@@ -41,6 +41,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const toHex = (value) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, '0');
     const interpolate = (start, end, factor) => start + (end - start) * factor;
     const clamp01 = (value) => Math.min(1, Math.max(0, value));
+    const isTouchCapable = ('ontouchstart' in window)
+        || (navigator.maxTouchPoints > 0)
+        || (navigator.msMaxTouchPoints > 0);
+    const mobileViewportMediaQuery = typeof window.matchMedia === 'function'
+        ? window.matchMedia('(max-width: 768px)')
+        : null;
+    const isMobileZoomViewport = () => isTouchCapable && Boolean(mobileViewportMediaQuery?.matches);
+    const bindMediaQueryChange = (query, handler) => {
+        if (!query || typeof handler !== 'function') {
+            return;
+        }
+        if (typeof query.addEventListener === 'function') {
+            query.addEventListener('change', handler);
+        } else if (typeof query.addListener === 'function') {
+            query.addListener(handler);
+        }
+    };
     const buildWalletGradientEntry = (factor) => {
         const clampedFactor = clamp01(Number.isFinite(factor) ? factor : 0);
         const r = Math.round(interpolate(WALLET_GRADIENT_START.r, WALLET_GRADIENT_END.r, clampedFactor));
@@ -832,6 +849,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     let coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
+    const applyTouchActionToChart = (canvasElement) => {
+        if (!canvasElement || !canvasElement.style) {
+            return;
+        }
+        if (isMobileZoomViewport()) {
+            canvasElement.style.touchAction = 'pan-y pinch-zoom';
+        } else if (canvasElement.style.touchAction) {
+            canvasElement.style.touchAction = '';
+        }
+    };
+    const updateWalletChartTouchAction = () => {
+        applyTouchActionToChart(walletChartCanvas);
+    };
+    bindMediaQueryChange(mobileViewportMediaQuery, updateWalletChartTouchAction);
+    window.addEventListener('orientationchange', updateWalletChartTouchAction);
+    updateWalletChartTouchAction();
     const bottomNavMediaQuery = window.matchMedia('(max-width: 767px)');
     const updateBottomNavState = () => {
         const isActive = bottomNavMediaQuery.matches && mobileDashboardNavButtons.length > 0;
@@ -904,6 +937,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activityFetchWarning = document.getElementById('activities-fetch-warning');
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartEmptyState = document.getElementById('wallet-chart-empty');
+        updateWalletChartTouchAction();
         chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
         chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
         balanceYearToggle = document.getElementById('balance-year-toggle');
@@ -1263,8 +1297,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         dashboardPanelsContainer.addEventListener('lostpointercapture', cancelSwipeTracking);
     }
 
-    const isTouchCapable = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
-
     if (isTouchCapable && pullToRefreshIndicator) {
         const PULL_READY_THRESHOLD_PX = 72;
         const PULL_REFRESH_THRESHOLD_PX = 120;
@@ -1422,6 +1454,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const coinMixEmptyState = document.getElementById('coin-mix-empty');
     const medalMixCanvas = document.getElementById('medal-mix-chart');
     const medalMixEmptyState = document.getElementById('medal-mix-empty');
+    const updateMixChartTouchActions = () => {
+        applyTouchActionToChart(coinMixCanvas);
+        applyTouchActionToChart(medalMixCanvas);
+    };
+    bindMediaQueryChange(mobileViewportMediaQuery, updateMixChartTouchActions);
+    window.addEventListener('orientationchange', updateMixChartTouchActions);
+    updateMixChartTouchActions();
 
     if (walletChartCanvas) {
         walletChartCanvas.classList.add('hidden');
@@ -1644,6 +1683,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!walletZoomPluginAvailable) {
             return undefined;
         }
+        const mobileZoom = isMobileZoomViewport();
+        const zoomMode = mobileZoom ? 'x' : 'xy';
+        const allowWheelZoom = !mobileZoom;
         return {
             limits: {
                 x: {
@@ -1653,25 +1695,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             pan: {
                 enabled: true,
-                mode: 'xy',
-                modifierKey: 'shift',
+                mode: zoomMode,
+                modifierKey: allowWheelZoom ? 'shift' : undefined,
+                threshold: mobileZoom ? 12 : 0,
+                overScaleMode: zoomMode,
                 onPanComplete: handleWalletZoomComplete,
             },
             zoom: {
                 wheel: {
-                    enabled: true,
-                    modifierKey: 'ctrl',
+                    enabled: allowWheelZoom,
+                    modifierKey: allowWheelZoom ? 'ctrl' : undefined,
                 },
                 pinch: {
                     enabled: true,
+                    mode: zoomMode,
+                    threshold: mobileZoom ? 0.35 : 0,
                 },
-                drag: {
-                    enabled: true,
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                    borderColor: 'rgba(16, 185, 129, 0.35)',
-                    borderWidth: 1,
-                },
-                mode: 'xy',
+                drag: allowWheelZoom
+                    ? {
+                        enabled: true,
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        borderColor: 'rgba(16, 185, 129, 0.35)',
+                        borderWidth: 1,
+                    }
+                    : {
+                        enabled: false,
+                    },
+                mode: zoomMode,
+                overScaleMode: zoomMode,
                 onZoomComplete: handleWalletZoomComplete,
             },
         };
@@ -2853,6 +2904,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         return usdCodeFormatter.format(value);
+    };
+
+    const formatSignedUsdValue = (value, { includeZeroSign = true } = {}) => {
+        if (!Number.isFinite(value)) {
+            return includeZeroSign ? '+$0' : '$0';
+        }
+        const absoluteLabel = usdCodeFormatter.format(Math.abs(value));
+        if (value > 0) {
+            return `+${absoluteLabel}`;
+        }
+        if (value < 0) {
+            return `−${absoluteLabel}`;
+        }
+        return includeZeroSign ? `+${absoluteLabel}` : absoluteLabel;
     };
 
     const calculatePercentChange = (currentValue, previousValue) => {
@@ -4521,6 +4586,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        updateWalletChartTouchAction();
+
         const getRelativeEventPosition = (event) => {
             const rect = walletChartCanvas.getBoundingClientRect();
             const clientX = event.clientX ?? (event.touches && event.touches[0]?.clientX);
@@ -4853,7 +4920,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const formatter = typeof pluginOptions.formatter === 'function'
                 ? pluginOptions.formatter
                 : (value, metaInfo) => {
-                    const label = usdCodeFormatter.format(value);
+                    const label = formatSignedUsdValue(value);
                     if (metaInfo?.label) {
                         return `${metaInfo.label}: ${label}`;
                     }
@@ -5372,7 +5439,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                         return `${datasetLabel}: ${formatMillions(value)}`;
                                     }
                                     if (isQuarterlyDataset) {
-                                        return `Quarterly haul: ${usdCodeFormatter.format(value)}`;
+                                        return `Quarterly haul: ${formatSignedUsdValue(value)}`;
                                     }
                                     return `Cumulative balance: ${formatWalletValueLabel(value)}`;
                                 },
@@ -5386,7 +5453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     }
                                     const lines = [];
                                     if (Number.isFinite(meta.value)) {
-                                        lines.push(`Quarterly haul: ${usdCodeFormatter.format(meta.value)}`);
+                                        lines.push(`Quarterly haul: ${formatSignedUsdValue(meta.value)}`);
                                     }
                                     if (Number.isFinite(meta.cumulative)) {
                                         lines.push(`Cumulative total: ${usdCodeFormatter.format(meta.cumulative)}`);
@@ -5460,7 +5527,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 if (!Number.isFinite(value)) {
                                     return '';
                                 }
-                                const baseLabel = usdCodeFormatter.format(value);
+                                const baseLabel = formatSignedUsdValue(value);
                                 if (metaInfo?.label) {
                                     return `${metaInfo.label}: ${baseLabel}`;
                                 }

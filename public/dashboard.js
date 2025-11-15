@@ -844,6 +844,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const premiumAchievementsElement = document.getElementById('premium-achievements');
     let walletChartCanvas = document.getElementById('wallet-chart');
     let walletChartEmptyState = document.getElementById('wallet-chart-empty');
+    let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
     let chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
     let chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
     let balanceYearToggle = document.getElementById('balance-year-toggle');
@@ -945,6 +946,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartEmptyState = document.getElementById('wallet-chart-empty');
         updateWalletChartTouchAction();
+        walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
+        if (walletTimeframeSelect) {
+            populateWalletTimeframeSelect(latestWalletMetrics);
+        }
         chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
         chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
         balanceYearToggle = document.getElementById('balance-year-toggle');
@@ -1737,6 +1742,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
+    const WALLET_TIMEFRAME_ALL = 'all';
+    const WALLET_TIMEFRAME_LAST_12_MONTHS = 'last-12-months';
+    let walletSelectedTimeframe = WALLET_TIMEFRAME_ALL;
     const walletChartData = {
         coins: { labels: [], coinBreakdown: {}, medalBreakdown: [], timelineLabels: [], coinTimeline: {} },
         balance: {
@@ -2311,6 +2319,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let latestFunStats = null;
     let latestFunStatsContext = { hasActivities: false };
     let latestWalletSummaryPayload = null;
+    let latestWalletMetrics = [];
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
@@ -5605,6 +5614,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     if (Number.isFinite(meta.cumulative)) {
                                         lines.push(`Cumulative total: ${usdCodeFormatter.format(meta.cumulative)}`);
                                     }
+                                    if (Number.isFinite(meta.cumulativeChangeValue)) {
+                                        const changeValue = Math.abs(meta.cumulativeChangeValue);
+                                        const prefix = meta.cumulativeChangeValue >= 0 ? '+' : '−';
+                                        const percentLabel = formatPercentLabel(meta.cumulativeChangePercent);
+                                        const percentSuffix = percentLabel ? ` (${percentLabel})` : '';
+                                        lines.push(`Balance change vs previous balance: ${prefix}${usdCodeFormatter.format(changeValue)}${percentSuffix}`);
+                                    }
                                     if (Number.isFinite(meta.quarterChangeValue) && meta.quarterChangeValue !== 0) {
                                         const changeValue = Math.abs(meta.quarterChangeValue);
                                         const prefix = meta.quarterChangeValue > 0 ? '+' : '−';
@@ -5892,7 +5908,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     };
 
-    const updateWalletChartData = ({ activities = [], lifetimeActivities = [], selectedYear = 'all' } = {}) => {
+    const updateWalletChartData = ({
+        activities = [],
+        lifetimeActivities = [],
+        selectedYear = 'all',
+        walletTimeframe = null,
+    } = {}) => {
         const lifetimeMetrics = getWalletMetricsForActivities(lifetimeActivities);
         const isAllYearsSelected = !selectedYear || selectedYear === 'all';
         const shouldReuseFilteredMetrics = isAllYearsSelected && activities.length === lifetimeActivities.length;
@@ -5902,6 +5923,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const metricsForYearly = shouldReuseFilteredMetrics
             ? metricsForFiltered
             : lifetimeMetrics;
+
+        if (typeof walletTimeframe === 'string' && walletTimeframe) {
+            walletSelectedTimeframe = walletTimeframe;
+        }
+
+        const availableMetrics = Array.isArray(metricsForYearly) ? metricsForYearly : [];
+        latestWalletMetrics = Array.isArray(availableMetrics) ? [...availableMetrics] : [];
+        populateWalletTimeframeSelect(availableMetrics);
+        const metricsForAggregation = filterMetricsForWalletTimeframe(availableMetrics, walletSelectedTimeframe);
+
+        if (walletTimeframeSelect && walletTimeframeSelect.value !== walletSelectedTimeframe) {
+            walletTimeframeSelect.value = walletSelectedTimeframe;
+        }
 
         const yearlyAggregation = new Map();
         const monthlyTotalsByYear = new Map();
@@ -5914,7 +5948,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }, {}),
             medalCounts: new Map()
         });
-        metricsForYearly.forEach(metric => {
+        metricsForAggregation.forEach(metric => {
             const year = metric.date.getFullYear();
             if (!Number.isFinite(year)) {
                 return;
@@ -5989,7 +6023,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return acc;
         }, {});
         const timelineBuckets = new Map();
-        metricsForYearly.forEach(metric => {
+        metricsForAggregation.forEach(metric => {
             const year = metric.date.getFullYear();
             const monthIndex = metric.date.getMonth();
             if (!Number.isFinite(year) || !Number.isInteger(monthIndex)) {
@@ -6091,7 +6125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        const lifetimeQuarterly = buildQuarterlyValueSeries(metricsForYearly);
+        const lifetimeQuarterly = buildQuarterlyValueSeries(metricsForAggregation);
 
         const lifetimeLatest = lifetimeQuarterly.latestEntry;
         const lifetimePrevious = lifetimeQuarterly.previousEntry;
@@ -6162,6 +6196,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const yearChangePercent = Number.isFinite(priorYearValue)
                 ? calculatePercentChange(quarterlyValue, priorYearValue)
                 : null;
+            const previousCumulativeValue = index > 0 && Number.isFinite(quarterlyCumulative[index - 1])
+                ? quarterlyCumulative[index - 1]
+                : null;
+            const cumulativeChangeValue = Number.isFinite(previousCumulativeValue)
+                ? cumulativeValue - previousCumulativeValue
+                : null;
+            const cumulativeChangePercent = Number.isFinite(previousCumulativeValue)
+                ? calculatePercentChange(cumulativeValue, previousCumulativeValue)
+                : null;
 
             const quarterCount = quarterCountsByYear.get(year) || 0;
             let shouldDisplayTickLabel = index === 0;
@@ -6186,6 +6229,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 quarterChangePercent,
                 yearChangeValue,
                 yearChangePercent,
+                previousCumulative: previousCumulativeValue,
+                cumulativeChangeValue,
+                cumulativeChangePercent,
                 shouldDisplayTickLabel,
             };
         });
@@ -9444,6 +9490,90 @@ document.addEventListener('DOMContentLoaded', async () => {
         yearSelect.value = 'all';
     };
 
+    const populateWalletTimeframeSelect = (metrics = []) => {
+        if (!walletTimeframeSelect) {
+            return;
+        }
+
+        const hasMetrics = Array.isArray(metrics) && metrics.length > 0;
+        const uniqueYears = hasMetrics
+            ? Array.from(new Set(metrics
+                .map(metric => (metric?.date instanceof Date ? metric.date.getFullYear() : null))
+                .filter(year => Number.isInteger(year))))
+            : [];
+
+        uniqueYears.sort((a, b) => b - a);
+
+        const optionConfigs = [{ value: WALLET_TIMEFRAME_ALL, label: 'All time' }];
+
+        if (hasMetrics) {
+            optionConfigs.push({ value: WALLET_TIMEFRAME_LAST_12_MONTHS, label: 'Last 12 months' });
+        }
+
+        uniqueYears.forEach(year => {
+            optionConfigs.push({ value: `year-${year}`, label: String(year) });
+        });
+
+        walletTimeframeSelect.innerHTML = '';
+
+        optionConfigs.forEach(({ value, label }) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            walletTimeframeSelect.appendChild(option);
+        });
+
+        const availableValues = optionConfigs.map(option => option.value);
+        if (!availableValues.includes(walletSelectedTimeframe)) {
+            walletSelectedTimeframe = WALLET_TIMEFRAME_ALL;
+        }
+
+        walletTimeframeSelect.value = walletSelectedTimeframe;
+        walletTimeframeSelect.disabled = optionConfigs.length <= 1;
+        walletTimeframeSelect.setAttribute('aria-disabled', walletTimeframeSelect.disabled ? 'true' : 'false');
+    };
+
+    const filterMetricsForWalletTimeframe = (metrics = [], timeframe = WALLET_TIMEFRAME_ALL) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return [];
+        }
+
+        if (!timeframe || timeframe === WALLET_TIMEFRAME_ALL) {
+            return metrics;
+        }
+
+        const normalizedMetrics = metrics.filter(metric => metric?.date instanceof Date && !Number.isNaN(metric.date.getTime()));
+        if (normalizedMetrics.length === 0) {
+            return [];
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_LAST_12_MONTHS) {
+            const sorted = normalizedMetrics.slice().sort((a, b) => a.date - b.date);
+            const latest = sorted[sorted.length - 1];
+            if (!latest) {
+                return sorted;
+            }
+
+            const endDate = new Date(latest.date.getTime());
+            const startDate = new Date(endDate.getTime());
+            startDate.setMonth(startDate.getMonth() - 11);
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+
+            return sorted.filter(metric => metric.date >= startDate && metric.date <= endDate);
+        }
+
+        if (typeof timeframe === 'string' && timeframe.startsWith('year-')) {
+            const [, yearPart] = timeframe.split('-');
+            const year = Number.parseInt(yearPart, 10);
+            if (Number.isFinite(year)) {
+                return normalizedMetrics.filter(metric => metric.date.getFullYear() === year);
+            }
+        }
+
+        return normalizedMetrics;
+    };
+
     const resolveMedalCategory = (medal = {}) => {
         if (medal.category) {
             return medal.category;
@@ -11526,6 +11656,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             activities,
             lifetimeActivities,
             selectedYear,
+            walletTimeframe: walletSelectedTimeframe,
             precomputedLifetimeMetrics: data.totals?.precomputedWalletMetrics
         });
 
@@ -12651,6 +12782,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const bindWalletTimeframeSelect = () => {
+        if (!walletTimeframeSelect || walletTimeframeSelect.dataset.walletTimeframeInitialized === 'true') {
+            return;
+        }
+
+        walletTimeframeSelect.dataset.walletTimeframeInitialized = 'true';
+
+        walletTimeframeSelect.addEventListener('change', () => {
+            walletSelectedTimeframe = walletTimeframeSelect.value || WALLET_TIMEFRAME_ALL;
+
+            const currentActivities = Array.isArray(filteredData.activities)
+                ? filteredData.activities
+                : (Array.isArray(allData.activities) ? allData.activities : []);
+            const lifetimeSource = Array.isArray(allData.activities) ? allData.activities : currentActivities;
+            const selectedYear = yearSelect ? yearSelect.value : 'all';
+
+            updateWalletChartData({
+                activities: currentActivities,
+                lifetimeActivities: lifetimeSource,
+                selectedYear,
+                walletTimeframe: walletSelectedTimeframe,
+                precomputedLifetimeMetrics: allData?.totals?.precomputedWalletMetrics,
+            });
+        });
+    };
+
     const bindPanelShortcutButtons = () => {
         panelShortcutButtons.forEach((button) => {
             if (!button || button.dataset.panelShortcutInitialized === 'true') {
@@ -12873,6 +13030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindPanelShortcutButtons();
     bindCoinShortcutButtons();
     bindBalanceYearToggle();
+    bindWalletTimeframeSelect();
     bindLoadMoreButton();
     bindMedalsLoadMoreButton();
     bindWalletChangeSnapshotTriggers();
@@ -12883,6 +13041,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindCoinShortcutButtons();
         bindPanelShortcutButtons();
         bindBalanceYearToggle();
+        bindWalletTimeframeSelect();
         reapplyAchievementSummaries();
     });
 

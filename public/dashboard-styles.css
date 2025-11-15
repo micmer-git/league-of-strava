@@ -2291,6 +2291,7 @@
             font-weight: 600;
             color: #1f2937;
             transition: all 0.2s ease;
+            cursor: pointer;
         }
 
         .wallet-control[aria-pressed="true"],
@@ -2298,6 +2299,48 @@
             border-color: #2563eb;
             color: #2563eb;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+            outline: none;
+        }
+
+        .wallet-control--select {
+            position: relative;
+            padding-right: 2.5rem;
+        }
+
+        .wallet-control--select::after {
+            content: '▾';
+            position: absolute;
+            right: 1rem;
+            font-size: 0.75rem;
+            color: inherit;
+            pointer-events: none;
+            transform: translateY(1px);
+        }
+
+        .wallet-control--select:focus-within {
+            border-color: #2563eb;
+            color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+
+        .wallet-control__label {
+            white-space: nowrap;
+        }
+
+        .wallet-control__select {
+            appearance: none;
+            background: transparent;
+            border: none;
+            color: inherit;
+            font: inherit;
+            padding: 0;
+            margin: 0;
+            min-width: 7rem;
+            cursor: pointer;
+        }
+
+        .wallet-control__select:focus-visible,
+        .wallet-control__select:focus {
             outline: none;
         }
 
@@ -3631,6 +3674,7 @@
             color: var(--color-text-soft);
             box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
             transition: transform var(--transition-base), box-shadow var(--transition-base), color var(--transition-base);
+            cursor: pointer;
         }
 
         .wallet-control:hover {
@@ -3649,6 +3693,45 @@
 
         .wallet-control--toggle {
             background: rgba(255, 255, 255, 0.55);
+        }
+
+        .wallet-control--select {
+            position: relative;
+            padding-right: 2.6rem;
+        }
+
+        .wallet-control--select::after {
+            content: '▾';
+            position: absolute;
+            right: 1rem;
+            font-size: 0.75rem;
+            color: inherit;
+            pointer-events: none;
+            transform: translateY(1px);
+        }
+
+        .wallet-control--select:focus-within {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 138, 61, 0.45));
+            border-color: rgba(255, 138, 61, 0.4);
+            color: var(--color-text-strong);
+            box-shadow: 0 14px 28px rgba(59, 130, 246, 0.22);
+        }
+
+        .wallet-control__select {
+            appearance: none;
+            background: transparent;
+            border: none;
+            color: inherit;
+            font: inherit;
+            padding: 0;
+            margin: 0;
+            min-width: 7rem;
+            cursor: pointer;
+        }
+
+        .wallet-control__select:focus-visible,
+        .wallet-control__select:focus {
+            outline: none;
         }
 
         .wallet-control__checkbox {

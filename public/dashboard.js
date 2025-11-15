@@ -758,6 +758,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
+    const walletModalElement = document.getElementById('wallet-modal');
+    const walletModalContentElement = document.getElementById('wallet-modal-content');
+    const walletModalSummaryElement = document.getElementById('wallet-modal-summary');
+    const walletModalListElement = document.getElementById('wallet-modal-list');
+    const walletModalSnapshotsElement = document.getElementById('wallet-modal-snapshots');
+    const walletModalCloseButton = document.getElementById('wallet-modal-close');
+    const walletModalDismissElements = Array.from(document.querySelectorAll('[data-wallet-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
         month: document.getElementById('profile-wallet-change-month'),
@@ -2296,6 +2303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     ];
     let rankRewardSnapshots = [];
     let highlightedRankSnapshotElement = null;
+    let highlightedWalletSnapshotElement = null;
     let hasActivitiesState = false;
 
     const MASTER_PRESTIGE_MAX = 1000;
@@ -2316,6 +2324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
     let rankModalPreviouslyFocusedElement = null;
+    let walletModalPreviouslyFocusedElement = null;
     // === Utility Functions ===
 
     const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -3230,7 +3239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return normalized || fallback;
     };
 
-    const createRankSnapshotSlide = (snapshot, index = 0) => {
+    const createRankSnapshotSlide = (snapshot, index = 0, options = {}) => {
         if (!snapshot || typeof snapshot !== 'object') {
             return null;
         }
@@ -3245,6 +3254,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const rangeLabel = snapshot.rangeLabel
             || formatRewardSnapshotRange(snapshot.startDate, snapshot.endDate);
 
+        const idPrefix = typeof options.idPrefix === 'string' && options.idPrefix.trim()
+            ? options.idPrefix.trim()
+            : 'rank-modal';
+
         const slide = document.createElement('section');
         slide.className = 'rank-modal__snapshot';
         const sanitizedKey = sanitizeCarouselIdFragment(
@@ -3258,7 +3271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (snapshotKey) {
             slide.dataset.rankSnapshotKey = snapshotKey;
         }
-        slide.id = `rank-modal-snapshot-${sanitizedKey}`;
+        slide.id = `${idPrefix}-snapshot-${sanitizedKey}`;
         slide.setAttribute('role', 'region');
 
         const header = document.createElement('header');
@@ -3526,15 +3539,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         return slide;
     };
 
-    const renderRankModal = () => {
-        if (!rankModalListElement) {
+    const renderRankRewardModalContent = ({
+        summaryElement,
+        snapshotsElement,
+        listElement,
+        idPrefix = 'rank-modal',
+    } = {}) => {
+        if (!listElement) {
             return;
         }
 
         const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
-        rankModalListElement.innerHTML = '';
+        listElement.innerHTML = '';
 
-        if (rankModalSummaryElement) {
+        if (summaryElement) {
             const totalHours = Number.isFinite(rankProgressState.totalHours)
                 ? rankProgressState.totalHours
                 : 0;
@@ -3575,29 +3593,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `);
             }
 
-            rankModalSummaryElement.innerHTML = summaryFragments
+            summaryElement.innerHTML = summaryFragments
                 .map((fragment) => fragment.trim())
                 .join('');
-            rankModalSummaryElement.hidden = summaryFragments.length === 0;
+            summaryElement.hidden = summaryFragments.length === 0;
         }
 
-        if (rankModalSnapshotsElement) {
-            rankModalSnapshotsElement.innerHTML = '';
+        if (snapshotsElement) {
+            snapshotsElement.innerHTML = '';
 
             const snapshots = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
                 ? rankRewardSnapshots
                 : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
 
             snapshots.forEach((snapshot, snapshotIndex) => {
-                const slide = createRankSnapshotSlide(snapshot, snapshotIndex);
+                const slide = createRankSnapshotSlide(snapshot, snapshotIndex, { idPrefix });
                 if (slide) {
-                    rankModalSnapshotsElement.appendChild(slide);
+                    snapshotsElement.appendChild(slide);
                 }
             });
 
-            rankModalSnapshotsElement.classList.toggle(
+            snapshotsElement.classList.toggle(
                 'rank-modal__snapshots--empty',
-                !rankModalSnapshotsElement.hasChildNodes()
+                !snapshotsElement.hasChildNodes()
             );
         }
 
@@ -3606,7 +3624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
             emptyState.className = 'rank-modal__empty';
             emptyState.setAttribute('role', 'note');
-            rankModalListElement.appendChild(emptyState);
+            listElement.appendChild(emptyState);
             return;
         }
 
@@ -3639,7 +3657,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <span class="rank-modal__hours">≥ ${formatHoursDisplay(rank.minHours)} h</span>
             `;
 
-            rankModalListElement.appendChild(item);
+            listElement.appendChild(item);
+        });
+    };
+
+    const renderRankModal = () => {
+        renderRankRewardModalContent({
+            summaryElement: rankModalSummaryElement,
+            snapshotsElement: rankModalSnapshotsElement,
+            listElement: rankModalListElement,
+            idPrefix: 'rank-modal',
         });
     };
 
@@ -3673,6 +3700,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         return target || null;
     };
 
+    const clearWalletSnapshotHighlight = () => {
+        if (highlightedWalletSnapshotElement) {
+            highlightedWalletSnapshotElement.classList.remove('is-highlighted');
+            highlightedWalletSnapshotElement = null;
+        }
+    };
+
+    const highlightWalletSnapshot = (snapshotKey) => {
+        if (!walletModalSnapshotsElement || !snapshotKey) {
+            clearWalletSnapshotHighlight();
+            return null;
+        }
+
+        const normalizedKey = snapshotKey.toLowerCase();
+        const target = Array.from(walletModalSnapshotsElement.querySelectorAll('[data-rank-snapshot="true"]'))
+            .find((section) => {
+                const key = (section.dataset.rankSnapshotKey || '').toLowerCase();
+                return key === normalizedKey;
+            });
+
+        clearWalletSnapshotHighlight();
+
+        if (target) {
+            target.classList.add('is-highlighted');
+            highlightedWalletSnapshotElement = target;
+        }
+
+        return target || null;
+    };
+
     const closeRankModal = () => {
         if (!rankModalElement || rankModalElement.hidden) {
             return;
@@ -3681,7 +3738,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearRankSnapshotHighlight();
         rankModalElement.hidden = true;
         rankModalElement.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('rank-modal-open');
+        if (!walletModalElement || walletModalElement.hidden) {
+            document.body.classList.remove('rank-modal-open');
+        }
         setRankTriggerExpanded(false);
 
         if (rankModalPreviouslyFocusedElement && typeof rankModalPreviouslyFocusedElement.focus === 'function') {
@@ -3746,6 +3805,94 @@ document.addEventListener('DOMContentLoaded', async () => {
                 focusTarget.focus({ preventScroll: true });
             } catch (error) {
                 console.warn('Unable to focus rank modal control:', error);
+            }
+        } else {
+            ensureScrollTop();
+        }
+    };
+
+    const renderWalletModal = () => {
+        renderRankRewardModalContent({
+            summaryElement: walletModalSummaryElement,
+            snapshotsElement: walletModalSnapshotsElement,
+            listElement: walletModalListElement,
+            idPrefix: 'wallet-modal',
+        });
+    };
+
+    const closeWalletModal = () => {
+        if (!walletModalElement || walletModalElement.hidden) {
+            return;
+        }
+
+        clearWalletSnapshotHighlight();
+        walletModalElement.hidden = true;
+        walletModalElement.setAttribute('aria-hidden', 'true');
+
+        if (!rankModalElement || rankModalElement.hidden) {
+            document.body.classList.remove('rank-modal-open');
+        }
+
+        if (walletModalPreviouslyFocusedElement && typeof walletModalPreviouslyFocusedElement.focus === 'function') {
+            try {
+                walletModalPreviouslyFocusedElement.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to restore focus after closing wallet modal:', error);
+            }
+        }
+
+        walletModalPreviouslyFocusedElement = null;
+    };
+
+    const openWalletModal = ({ snapshotKey = null } = {}) => {
+        if (!walletModalElement) {
+            return;
+        }
+
+        walletModalPreviouslyFocusedElement = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+
+        renderWalletModal();
+
+        let highlightedElement = null;
+        if (snapshotKey) {
+            highlightedElement = highlightWalletSnapshot(snapshotKey);
+        } else {
+            clearWalletSnapshotHighlight();
+        }
+
+        walletModalElement.hidden = false;
+        walletModalElement.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('rank-modal-open');
+
+        const ensureScrollTop = () => {
+            if (walletModalContentElement) {
+                walletModalContentElement.scrollTop = 0;
+            } else if (walletModalElement) {
+                walletModalElement.scrollTop = 0;
+            }
+        };
+
+        if (highlightedElement) {
+            requestAnimationFrame(() => {
+                try {
+                    highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } catch (scrollError) {
+                    console.warn('Unable to scroll highlighted wallet snapshot into view:', scrollError);
+                }
+            });
+        } else {
+            ensureScrollTop();
+        }
+
+        const focusTarget = walletModalCloseButton || highlightedElement;
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            try {
+                focusTarget.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to focus wallet modal control:', error);
+                ensureScrollTop();
             }
         } else {
             ensureScrollTop();
@@ -10614,6 +10761,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (walletModalDismissElements.length > 0) {
+        walletModalDismissElements.forEach((element) => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeWalletModal();
+            });
+        });
+    }
+
+    if (walletModalElement) {
+        walletModalElement.addEventListener('click', (event) => {
+            if (event.target === walletModalElement) {
+                closeWalletModal();
+            }
+        });
+    }
+
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') {
             return;
@@ -10626,6 +10790,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
             hideWeeklySnapshotModal();
+            return;
+        }
+
+        if (walletModalElement && !walletModalElement.hidden) {
+            closeWalletModal();
             return;
         }
 
@@ -12522,7 +12691,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 hideTooltip();
-                openRankModal({ snapshotKey });
+                openWalletModal({ snapshotKey });
             };
 
             element.addEventListener('click', (event) => {

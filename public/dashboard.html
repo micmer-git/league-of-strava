@@ -546,25 +546,47 @@
 </div>
 </div>
 </div>
-<div aria-hidden="true" class="rank-modal" hidden="" id="rank-modal">
-<div class="rank-modal__backdrop" data-rank-modal-dismiss=""></div>
-<div aria-describedby="rank-modal-description" aria-labelledby="rank-modal-title" aria-modal="true" class="rank-modal__dialog" role="dialog">
-<header class="rank-modal__header">
-<div class="rank-modal__title-group">
-<h2 id="rank-modal-title">Rank progression</h2>
-<p id="rank-modal-description">Each crest unlocks after the listed lifetime training hours.</p>
-</div>
-<button class="rank-modal__close" data-rank-modal-dismiss="" id="rank-modal-close" type="button">
-<span aria-hidden="true">✖️</span>
-<span class="sr-only">Close rank information</span>
-</button>
-</header>
+    <div aria-hidden="true" class="rank-modal" hidden="" id="rank-modal">
+      <div class="rank-modal__backdrop" data-rank-modal-dismiss=""></div>
+      <div aria-describedby="rank-modal-description" aria-labelledby="rank-modal-title" aria-modal="true" class="rank-modal__dialog" role="dialog">
+        <header class="rank-modal__header">
+          <div class="rank-modal__title-group">
+            <h2 id="rank-modal-title">Rank progression</h2>
+            <p id="rank-modal-description">Each crest unlocks after the listed lifetime training hours.</p>
+          </div>
+          <button class="rank-modal__close" data-rank-modal-dismiss="" id="rank-modal-close" type="button">
+            <span aria-hidden="true">✖️</span>
+            <span class="sr-only">Close rank information</span>
+          </button>
+        </header>
         <div class="rank-modal__content" id="rank-modal-content">
           <section class="rank-modal__overview" aria-label="Rank overview">
             <div class="rank-modal__summary" hidden id="rank-modal-summary"></div>
             <div class="rank-modal__list" id="rank-modal-list" role="list"></div>
           </section>
           <section class="rank-modal__snapshots" aria-label="Recent reward snapshots" id="rank-modal-snapshots"></section>
+        </div>
+      </div>
+    </div>
+    <div aria-hidden="true" class="rank-modal" hidden="" id="wallet-modal">
+      <div class="rank-modal__backdrop" data-wallet-modal-dismiss=""></div>
+      <div aria-describedby="wallet-modal-description" aria-labelledby="wallet-modal-title" aria-modal="true" class="rank-modal__dialog" role="dialog">
+        <header class="rank-modal__header">
+          <div class="rank-modal__title-group">
+            <h2 id="wallet-modal-title">Achievement Wallet change</h2>
+            <p id="wallet-modal-description">See how your recent training translated into rewards.</p>
+          </div>
+          <button class="rank-modal__close" data-wallet-modal-dismiss="" id="wallet-modal-close" type="button">
+            <span aria-hidden="true">✖️</span>
+            <span class="sr-only">Close wallet change details</span>
+          </button>
+        </header>
+        <div class="rank-modal__content" id="wallet-modal-content">
+          <section class="rank-modal__overview" aria-label="Rank overview">
+            <div class="rank-modal__summary" hidden id="wallet-modal-summary"></div>
+            <div class="rank-modal__list" id="wallet-modal-list" role="list"></div>
+          </section>
+          <section class="rank-modal__snapshots" aria-label="Recent reward snapshots" id="wallet-modal-snapshots"></section>
         </div>
       </div>
     </div>

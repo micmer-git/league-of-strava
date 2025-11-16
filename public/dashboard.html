@@ -152,6 +152,7 @@
   <div class="profile-card__wallet" data-wallet-balance-container="">
     <span class="profile-card__balance-label">Total Wallet</span>
     <span class="profile-card__balance-value" data-skeleton="text" data-wallet-balance-value="" id="profile-wallet-total">$0.0M</span>
+    <span aria-live="polite" class="profile-card__balance-change" data-skeleton="text-subtle" id="profile-wallet-change-week">—</span>
     <span aria-live="polite" class="profile-card__balance-change" data-skeleton="text-subtle" id="profile-wallet-change-month">—</span>
     <span aria-live="polite" class="profile-card__balance-change profile-card__balance-change--secondary" id="profile-wallet-change-year">—</span>
   </div>
@@ -285,6 +286,10 @@
   <div class="wallet-controls">
     <button aria-pressed="false" class="wallet-control" id="chart-toggle-coins" type="button">Coins &amp; Medals</button>
     <button aria-pressed="false" class="wallet-control" id="chart-toggle-balance" type="button">Balance</button>
+    <button class="wallet-control" data-wallet-snapshot-key="weekly" type="button">
+      <span aria-hidden="true">📊</span>
+      <span>Reward snapshots</span>
+    </button>
     <label class="wallet-control wallet-control--select" for="wallet-timeframe-select">
       <span class="wallet-control__label">Time frame</span>
       <select class="wallet-control__select" id="wallet-timeframe-select">

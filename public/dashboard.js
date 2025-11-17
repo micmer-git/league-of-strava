@@ -5510,7 +5510,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartInstance.update('none');
     };
 
-    const updateWalletLayerToggleState = () => {
+    function updateWalletLayerToggleState() {
         if (walletGridToggle) {
             walletGridToggle.checked = walletChartLayerPrefs.grid;
         }
@@ -5524,7 +5524,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletLabelsToggle.disabled = !walletChartPointLabelsAvailable;
             walletLabelsToggle.setAttribute('aria-disabled', walletChartPointLabelsAvailable ? 'false' : 'true');
         }
-    };
+    }
 
     const setWalletAppearancePreference = (value) => {
         const allowed = ['auto', 'light', 'dark'];

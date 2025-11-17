@@ -221,17 +221,21 @@
   </div>
 </div>
 </header>
-<div class="profile-card__progress" id="rank-progress-trigger">
-    <div class="profile-card__progress-bar">
-        <div class="profile-card__progress-fill" id="level-progress-fill" style="width: 0%;"></div>
-        <div class="profile-card__progress-overlay">
-            <span class="profile-card__progress-label" id="ranking-progress-label">0 h total</span>
-            <span class="profile-card__progress-monthly" id="ranking-progress-monthly">+0 h last month</span>
-            <span class="profile-card__progress-next" id="next-rank">0 h to next</span>
+        <div class="profile-card__progress" id="rank-progress-trigger">
+            <div class="profile-card__progress-track">
+                <span class="profile-card__progress-label" id="ranking-progress-label">0 h up to now</span>
+                <div class="profile-card__progress-bar">
+                    <div class="profile-card__progress-fill" id="level-progress-fill" style="width: 0%;"></div>
+                    <div class="profile-card__progress-fill profile-card__progress-fill--recent" id="level-progress-weekly-fill" style="width: 0%; left: 0%;">
+                        <span class="profile-card__progress-weekly-label" id="ranking-progress-weekly">+0 h last 7d</span>
+                    </div>
+                </div>
+            </div>
+            <div class="profile-card__progress-meta">
+                <span class="profile-card__progress-next" id="next-rank">0 h to next</span>
+            </div>
+            <div class="profile-card__progress-detail" id="rank-details"></div>
         </div>
-    </div>
-    <div class="profile-card__progress-detail" id="rank-details"></div>
-</div>
 <div class="profile-card__meta">
 <div class="profile-card__badges" id="premium-achievements"></div>
 </div>

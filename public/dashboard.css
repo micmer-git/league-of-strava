@@ -1166,7 +1166,6 @@ to { opacity: 1; transform: translateY(0); }
 .profile-card__meta,
 .profile-card__level-stack,
 .profile-card__progress,
-.profile-card__progress-overlay,
 .profile-card__progress-detail,
 .profile-card__badges,
 .profile-card__coins,
@@ -1182,14 +1181,6 @@ to { opacity: 1; transform: translateY(0); }
 .profile-card__level-stack,
 .profile-card__progress
 ) > * {
-    min-width: 0;
-}
-
-.profile-card__progress-overlay {
-    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) minmax(0, max-content);
-}
-
-.profile-card__progress-overlay > * {
     min-width: 0;
 }
 
@@ -1927,7 +1918,7 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 .profile-card__progress {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.75rem;
     width: 100%;
     min-width: 0;
 }
@@ -1947,14 +1938,39 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     color: var(--color-text-primary);
 }
 
+.profile-card__progress-track {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.profile-card__progress-meta {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    font-size: 0.85rem;
+    gap: 0.5rem;
+}
+
+.profile-card__progress-label {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
 .profile-card__progress-bar {
     position: relative;
+    flex: 1;
     height: 1.4rem;
     border-radius: 9999px;
     background: rgba(148, 163, 184, 0.25);
     overflow: hidden;
 }
-
 
 .profile-card__progress-fill {
     position: absolute;
@@ -1963,7 +1979,7 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     left: 0;
     height: 100%;
     border-radius: inherit;
-    background: #2563eb;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
     transition: width 0.3s ease, background 0.3s ease;
     z-index: 1;
 }
@@ -1976,66 +1992,37 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     background: linear-gradient(135deg, #94a3b8, #cbd5f5);
 }
 
-
-
-.profile-card__progress-overlay {
-    position: absolute;
-    inset: 0;
+.profile-card__progress-fill--recent {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 0.4rem;
-    padding: 0 0.6rem;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #ffffff;
-    flex-wrap: wrap;
-}
-
-
-.profile-card__progress-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: inherit;
-    flex: 0 0 auto;
-}
-
-
-.profile-card__progress-monthly {
-    display: inline-flex;
-    align-items: center;
     justify-content: center;
+    background: linear-gradient(135deg, #4ade80, #16a34a);
+    z-index: 2;
+    color: #0f172a;
     font-weight: 700;
+    font-size: 0.7rem;
     white-space: nowrap;
-    color: #4ade80;
-    flex: 0 0 auto;
+    padding: 0 0.4rem;
+    opacity: 0;
+    transition: width 0.3s ease, left 0.3s ease, opacity 0.2s ease;
 }
 
-@media (min-width: 640px) {
-    .profile-card__progress-overlay {
-        flex-wrap: nowrap;
-        font-size: 0.78rem;
-    }
-
-    .profile-card__progress-monthly {
-        margin: 0 auto;
-    }
-
-    .profile-card__progress-next {
-        margin-left: auto;
-    }
+.profile-card__progress-fill--recent .profile-card__progress-weekly-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.profile-card__progress-monthly:empty {
-    display: none;
+.profile-card__progress-fill--recent.is-visible {
+    opacity: 1;
+}
+
+.profile-card__progress-weekly-label {
+    color: inherit;
 }
 
 .profile-card__progress-next {
-    color: inherit;
+    color: #0f172a;
     font-weight: 600;
-    flex: 0 0 auto;
-    margin-left: auto;
 }
 
 .profile-card__progress-detail {
@@ -4209,9 +4196,9 @@ body.dashboard-body {
     box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.35);
 }
 
-.profile-card__progress-overlay span {
-    color: var(--color-inverse);
-    text-shadow: 0 2px 6px rgba(17, 24, 39, 0.4);
+.profile-card__progress-fill--recent {
+    background: linear-gradient(135deg, #4ade80, #16a34a);
+    color: #0f172a;
 }
 
 .top-performances-grid {

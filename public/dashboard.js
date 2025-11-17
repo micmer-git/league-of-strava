@@ -721,9 +721,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const athleteAvatarElement = document.getElementById('athlete-avatar');
     const currentRankElement = document.getElementById('current-rank');
     const nextRankElement = document.getElementById('next-rank');
-    const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
+    const rankingProgressWeeklyElement = document.getElementById('ranking-progress-weekly');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
+    const levelProgressWeeklyFillElement = document.getElementById('level-progress-weekly-fill');
     const rankInfoButton = document.getElementById('rank-info-button');
     let globeStatButton = document.getElementById('globe-stat');
     let everestStatButton = document.getElementById('everest-stat');
@@ -2510,6 +2511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         nextRank: null,
         currentMonthHours: 0,
         previousMonthHours: 0,
+        lastWeekHours: 0,
     };
     const RANK_REWARD_PERIODS = [
         { key: 'weekly', label: 'Last 7 days', days: 7 },
@@ -3251,7 +3253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             totalHours,
             currentRank,
             nextRank,
-            currentMonthHours,
+            lastWeekHours,
         } = rankProgressState;
 
         const levelProgressFillElement = document.getElementById('level-progress-fill');
@@ -3263,7 +3265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? nextMinHours - currentMinHours
             : null;
         const hasActivities = hasActivitiesState;
-        const monthValue = Number.isFinite(currentMonthHours) ? Math.max(0, currentMonthHours) : 0;
+        const weekValue = Number.isFinite(lastWeekHours) ? Math.max(0, lastWeekHours) : 0;
 
         let progressPercent = 0;
         if (spanHours) {
@@ -3279,21 +3281,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (rankingProgressLabelElement) {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
-            rankingProgressLabelElement.textContent = `${label} total`;
-            rankingProgressLabelElement.setAttribute('aria-label', `Total training ${label}`);
+            rankingProgressLabelElement.textContent = `${label} up to now`;
+            rankingProgressLabelElement.setAttribute('aria-label', `Total training ${label} up to now`);
         }
 
-        if (rankingProgressMonthlyElement) {
-            const formattedMonthly = formatHoursDisplay(monthValue);
-            const prefix = monthValue > 0 ? '+' : '';
-            const monthlyLabel = `${prefix}${formattedMonthly} h last month`;
-            rankingProgressMonthlyElement.textContent = monthlyLabel;
-            rankingProgressMonthlyElement.setAttribute(
+        if (rankingProgressWeeklyElement) {
+            const formattedWeekly = formatHoursDisplay(weekValue);
+            const prefix = weekValue > 0 ? '+' : '';
+            const weeklyLabel = `${prefix}${formattedWeekly} h last 7d`;
+            rankingProgressWeeklyElement.textContent = weeklyLabel;
+            rankingProgressWeeklyElement.setAttribute(
                 'aria-label',
-                monthValue > 0
-                    ? `${formattedMonthly} hours recorded in the last month`
-                    : 'No hours recorded in the last month'
+                weekValue > 0
+                    ? `${formattedWeekly} hours recorded in the last 7 days`
+                    : 'No hours recorded in the last 7 days'
             );
+        }
+
+        if (levelProgressWeeklyFillElement) {
+            if (spanHours && weekValue > 0 && progressPercent > 0) {
+                const clampedWeekHours = Math.min(weekValue, spanHours);
+                const weeklyPercent = Math.min(progressPercent, Math.max(0, (clampedWeekHours / spanHours) * 100));
+                const weeklyStart = Math.max(0, progressPercent - weeklyPercent);
+                levelProgressWeeklyFillElement.style.width = `${weeklyPercent.toFixed(2)}%`;
+                levelProgressWeeklyFillElement.style.left = `${weeklyStart.toFixed(2)}%`;
+                levelProgressWeeklyFillElement.classList.add('is-visible');
+            } else {
+                levelProgressWeeklyFillElement.style.width = '0%';
+                levelProgressWeeklyFillElement.style.left = '0%';
+                levelProgressWeeklyFillElement.classList.remove('is-visible');
+            }
         }
 
         if (nextRankElement) {
@@ -9547,6 +9564,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { currentMonth, previousMonth };
     };
 
+    const calculateRecentWeeklyHours = (activities = [], referenceDate = new Date()) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return 0;
+        }
+
+        const now = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+            ? new Date(referenceDate)
+            : new Date();
+        const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        let total = 0;
+
+        activities.forEach((activity) => {
+            const startDate = new Date(activity?.start_date || activity?.start_date_local || 0);
+            if (Number.isNaN(startDate.getTime()) || startDate < cutoff) {
+                return;
+            }
+
+            const hours = Number(activity?.moving_time || 0) / 3600;
+            if (Number.isFinite(hours) && hours > 0) {
+                total += hours;
+            }
+        });
+
+        return total;
+    };
+
     let activeRankConfig = null;
 
     const getISOWeekInfo = (inputDate) => {
@@ -12077,6 +12121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoadingWeeklyOverview(activities);
         const totalHours = totals.hours;
         const monthlyHours = calculateRecentMonthlyHours(activities);
+        const lastWeekHours = calculateRecentWeeklyHours(activities);
 
         // Always calculate the fun stats from the lifetime activity history rather than the
         // currently filtered view so the numbers remain consistent across filters.
@@ -12130,6 +12175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             nextRank,
             currentMonthHours: Number.isFinite(monthlyHours?.currentMonth) ? monthlyHours.currentMonth : 0,
             previousMonthHours: Number.isFinite(monthlyHours?.previousMonth) ? monthlyHours.previousMonth : 0,
+            lastWeekHours: Number.isFinite(lastWeekHours) ? lastWeekHours : 0,
         };
         rankRewardSnapshots = buildRankRewardSnapshots(lifetimeActivities);
 

@@ -284,43 +284,109 @@
 <header class="panel-card__header panel-card__header--stack">
 <h3 class="panel-card__title">Wallet Insights</h3>
   <div class="wallet-controls" role="group" aria-label="Wallet chart controls">
-    <button aria-pressed="false" class="wallet-control" id="chart-toggle-coins" type="button">Coins &amp; Medals</button>
-    <button aria-pressed="false" class="wallet-control" id="chart-toggle-balance" type="button">Balance</button>
-    <button class="wallet-control wallet-control--icon" id="wallet-zoom-out" type="button">
-      <span aria-hidden="true">➖</span>
-      <span class="sr-only">Zoom out</span>
-    </button>
-    <button class="wallet-control wallet-control--icon" id="wallet-zoom-in" type="button">
-      <span aria-hidden="true">➕</span>
-      <span class="sr-only">Zoom in</span>
-    </button>
-    <button class="wallet-control wallet-control--icon" id="wallet-zoom-reset" type="button">
-      <span aria-hidden="true">⟳</span>
-      <span class="sr-only">Reset zoom</span>
-    </button>
-    <label class="wallet-control wallet-control--select" for="wallet-timeframe-select">
-      <span class="wallet-control__label">Time frame</span>
-      <select class="wallet-control__select" id="wallet-timeframe-select">
-        <option value="all">All time</option>
-      </select>
-    </label>
-    <label class="wallet-control wallet-control--toggle" data-balance-year-toggle-label="">
-      <input class="wallet-control__checkbox" id="balance-year-toggle" type="checkbox"/>
-      <span>Compare years</span>
-    </label>
+    <div class="wallet-chart__top-bar" role="toolbar" aria-label="Chart display options">
+      <div class="wallet-chart__segment-group" role="group" aria-label="Chart type">
+        <button aria-pressed="true" class="wallet-chart__segment" data-wallet-chart-type="line" type="button">Line</button>
+        <button aria-pressed="false" class="wallet-chart__segment" data-wallet-chart-type="area" type="button">Area</button>
+        <button aria-pressed="false" class="wallet-chart__segment" data-wallet-chart-type="bar" type="button">Bar</button>
+      </div>
+      <div class="wallet-chart__time-chips" role="group" aria-label="Time range">
+        <button aria-pressed="false" class="wallet-chart__chip" data-wallet-range="range-1d" type="button">1D</button>
+        <button aria-pressed="false" class="wallet-chart__chip" data-wallet-range="range-1w" type="button">1W</button>
+        <button aria-pressed="false" class="wallet-chart__chip" data-wallet-range="range-1m" type="button">1M</button>
+        <button aria-pressed="false" class="wallet-chart__chip" data-wallet-range="range-3m" type="button">3M</button>
+        <button aria-pressed="false" class="wallet-chart__chip" data-wallet-range="last-12-months" type="button">1Y</button>
+        <button aria-pressed="true" class="wallet-chart__chip" data-wallet-range="all" type="button">ALL</button>
+      </div>
+      <button aria-controls="wallet-bottom-sheet" aria-expanded="false" class="wallet-chart__settings-button" id="wallet-chart-settings" type="button">
+        <span aria-hidden="true">⚙️</span>
+        <span class="sr-only">Open chart settings</span>
+      </button>
+    </div>
+    <div class="wallet-controls__actions" aria-label="Zoom controls">
+      <button class="wallet-control wallet-control--icon" id="wallet-zoom-out" type="button">
+        <span aria-hidden="true">➖</span>
+        <span class="sr-only">Zoom out</span>
+      </button>
+      <button class="wallet-control wallet-control--icon" id="wallet-zoom-in" type="button">
+        <span aria-hidden="true">➕</span>
+        <span class="sr-only">Zoom in</span>
+      </button>
+      <button class="wallet-control wallet-control--icon" id="wallet-zoom-reset" type="button">
+        <span aria-hidden="true">⟳</span>
+        <span class="sr-only">Reset zoom</span>
+      </button>
+      <label class="wallet-control wallet-control--select wallet-control--sr-only" for="wallet-timeframe-select">
+        <span class="wallet-control__label">Time frame</span>
+        <select class="wallet-control__select" id="wallet-timeframe-select">
+          <option value="all">All time</option>
+        </select>
+      </label>
+      <label class="wallet-control wallet-control--toggle" data-balance-year-toggle-label="">
+        <input class="wallet-control__checkbox" id="balance-year-toggle" type="checkbox"/>
+        <span>Compare years</span>
+      </label>
+    </div>
   </div>
 </header>
-<p class="wallet-chart__hint" id="wallet-chart-hint">Pinch, drag, or use the zoom buttons to explore your wallet history. Double-tap or use the reset button to go back to the full view.</p>
+<p class="wallet-chart__hint" id="wallet-chart-hint">Pinch to zoom, swipe to pan, and long-press anywhere on the graph to see the values. Double-tap or use reset to exit.</p>
 <div class="wallet-chart" id="wallet-chart-wrapper">
+<div aria-hidden="true" class="wallet-chart__skeleton" id="wallet-chart-skeleton">
+  <div class="wallet-chart__skeleton-line"></div>
+  <div class="wallet-chart__skeleton-line wallet-chart__skeleton-line--short"></div>
+</div>
 <canvas class="w-full h-full" id="wallet-chart" role="img" aria-label="Achievement wallet chart" aria-describedby="wallet-chart-hint wallet-chart-overlay" tabindex="0"></canvas>
-<p class="wallet-chart__empty hidden" id="wallet-chart-empty"></p>
+<p class="wallet-chart__empty hidden" id="wallet-chart-empty">Sync a fresh effort to unlock your Wallet insights.</p>
 <div aria-live="polite" class="wallet-chart__overlay" id="wallet-chart-overlay" role="status">
   <p class="wallet-chart__overlay-label" id="wallet-overlay-label">Wallet insight</p>
-  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Pinch, drag, or use the zoom buttons to inspect progress.</p>
+  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Long-press the chart to inspect a point.</p>
   <p class="wallet-chart__overlay-change" id="wallet-overlay-change"></p>
   <p class="wallet-chart__overlay-detail" id="wallet-overlay-detail"></p>
 </div>
 </div>
+<div aria-hidden="true" class="wallet-bottom-sheet__scrim" data-wallet-sheet-dismiss="" id="wallet-bottom-sheet-scrim"></div>
+<section aria-label="Wallet chart appearance" class="wallet-bottom-sheet" id="wallet-bottom-sheet" tabindex="-1">
+  <button class="wallet-bottom-sheet__handle" id="wallet-bottom-sheet-handle" type="button">
+    <span class="wallet-bottom-sheet__grabber" aria-hidden="true"></span>
+    <span class="wallet-bottom-sheet__handle-label">Swipe up for chart controls</span>
+  </button>
+  <div class="wallet-bottom-sheet__content">
+    <div class="wallet-bottom-sheet__section">
+      <h4 class="wallet-bottom-sheet__section-title">Layers</h4>
+      <label class="wallet-bottom-sheet__toggle" for="wallet-toggle-grid">
+        <span>Grid lines</span>
+        <input checked id="wallet-toggle-grid" type="checkbox"/>
+      </label>
+      <label class="wallet-bottom-sheet__toggle" for="wallet-toggle-legend">
+        <span>Legend</span>
+        <input checked id="wallet-toggle-legend" type="checkbox"/>
+      </label>
+      <label class="wallet-bottom-sheet__toggle" for="wallet-toggle-labels">
+        <span>Labels</span>
+        <input checked id="wallet-toggle-labels" type="checkbox"/>
+      </label>
+    </div>
+    <div class="wallet-bottom-sheet__section">
+      <h4 class="wallet-bottom-sheet__section-title">Export</h4>
+      <div class="wallet-bottom-sheet__actions">
+        <button class="wallet-bottom-sheet__action" id="wallet-chart-export" type="button">Export PNG</button>
+        <button class="wallet-bottom-sheet__action" id="wallet-chart-share" type="button">Share</button>
+      </div>
+    </div>
+    <div class="wallet-bottom-sheet__section">
+      <h4 class="wallet-bottom-sheet__section-title">Appearance</h4>
+      <label class="wallet-bottom-sheet__select" for="wallet-appearance-select">
+        <span>Theme</span>
+        <select id="wallet-appearance-select">
+          <option value="auto">Auto</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+    </div>
+    <button class="wallet-bottom-sheet__close" data-wallet-sheet-dismiss="" type="button">Close</button>
+  </div>
+</section>
 </div>
 </section>
 </template>

@@ -1040,30 +1040,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const getWalletZoomButtonList = () => Object.values(walletZoomButtons).filter(Boolean);
     const updateWalletZoomControlState = () => {
-        const isEnabled = walletZoomPluginAvailable && Boolean(walletChartInstance);
-        getWalletZoomButtonList().forEach((button) => {
-            button.disabled = !isEnabled;
-            button.setAttribute('aria-disabled', isEnabled ? 'false' : 'true');
-            button.classList.toggle('is-disabled', !isEnabled);
-        });
+        const hasChart = Boolean(walletChartInstance);
+        if (walletZoomButtons.in) {
+            walletZoomButtons.in.disabled = !hasChart;
+            walletZoomButtons.in.setAttribute('aria-disabled', hasChart ? 'false' : 'true');
+            walletZoomButtons.in.classList.toggle('is-disabled', !hasChart);
+        }
+        if (walletZoomButtons.out) {
+            walletZoomButtons.out.disabled = !hasChart;
+            walletZoomButtons.out.setAttribute('aria-disabled', hasChart ? 'false' : 'true');
+            walletZoomButtons.out.classList.toggle('is-disabled', !hasChart);
+        }
+        const canResetZoom = walletZoomPluginAvailable && hasChart;
+        if (walletZoomButtons.reset) {
+            walletZoomButtons.reset.disabled = !canResetZoom;
+            walletZoomButtons.reset.setAttribute('aria-disabled', canResetZoom ? 'false' : 'true');
+            walletZoomButtons.reset.classList.toggle('is-disabled', !canResetZoom);
+        }
+    };
+    const stepWalletTimeframe = (direction) => {
+        if (!direction) {
+            return;
+        }
+        const normalizedValue = WALLET_TIMEFRAME_SEQUENCE.includes(walletSelectedTimeframe)
+            ? walletSelectedTimeframe
+            : (typeof walletSelectedTimeframe === 'string' && walletSelectedTimeframe.startsWith('year-')
+                ? WALLET_TIMEFRAME_LAST_12_MONTHS
+                : WALLET_TIMEFRAME_ALL);
+        const currentIndex = WALLET_TIMEFRAME_SEQUENCE.indexOf(normalizedValue);
+        if (currentIndex === -1) {
+            return;
+        }
+        const nextIndex = direction === 'in'
+            ? Math.min(WALLET_TIMEFRAME_SEQUENCE.length - 1, currentIndex + 1)
+            : Math.max(0, currentIndex - 1);
+        if (nextIndex !== currentIndex) {
+            requestWalletTimeframeChange(WALLET_TIMEFRAME_SEQUENCE[nextIndex]);
+        }
     };
     const performWalletZoomAction = (action) => {
-        if (!walletZoomPluginAvailable || !walletChartInstance) {
-            return;
-        }
         if (action === 'reset') {
-            resetWalletChartZoom(walletChartInstance);
+            if (walletZoomPluginAvailable && walletChartInstance) {
+                resetWalletChartZoom(walletChartInstance);
+            }
             return;
         }
-        if (typeof walletChartInstance.zoom !== 'function') {
-            return;
+        if (action === 'in' || action === 'out') {
+            stepWalletTimeframe(action);
         }
-        const zoomFactor = action === 'in' ? 1.2 : 0.85;
-        walletChartInstance.zoom({
-            x: { scaleId: 'x', factor: zoomFactor },
-            y: { scaleId: 'y', factor: zoomFactor },
-        });
-        updateWalletChartDynamicRanges(walletChartInstance);
     };
     const bindWalletZoomControls = () => {
         Object.entries(walletZoomButtons).forEach(([action, button]) => {
@@ -1993,6 +2017,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const WALLET_TIMEFRAME_WEEK = 'range-1w';
     const WALLET_TIMEFRAME_MONTH = 'range-1m';
     const WALLET_TIMEFRAME_3_MONTH = 'range-3m';
+    const WALLET_TIMEFRAME_6_MONTH = 'range-6m';
+    const WALLET_TIMEFRAME_2_YEAR = 'range-2y';
+    const WALLET_TIMEFRAME_SEQUENCE = [
+        WALLET_TIMEFRAME_3_MONTH,
+        WALLET_TIMEFRAME_6_MONTH,
+        WALLET_TIMEFRAME_LAST_12_MONTHS,
+        WALLET_TIMEFRAME_2_YEAR,
+        WALLET_TIMEFRAME_ALL,
+    ];
+    const MIN_WALLET_CHART_POINTS = 6;
     let walletSelectedTimeframe = WALLET_TIMEFRAME_ALL;
     let walletChartDisplayMode = 'line';
     let walletChartAppearancePreference = 'auto';
@@ -2006,6 +2040,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             perPeriodValues: [],
             periodMeta: [],
             barBorderColors: [],
+            perPeriodLabel: 'Per-period change',
+            bucketType: 'quarter',
             compareLabels: MONTH_COMPARISON_LABELS,
             compareDatasets: [],
             compareMonthlyDatasets: []
@@ -5261,6 +5297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (overlayRole === 'cumulative' && periodMeta) {
             percentChange = periodMeta.cumulativeChangePercent
+                ?? periodMeta.periodChangePercent
                 ?? periodMeta.yearChangePercent
                 ?? periodMeta.quarterChangePercent
                 ?? null;
@@ -5271,10 +5308,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 changeValue = periodMeta.cumulative - periodMeta.previousCumulative;
             }
         } else if (periodMeta) {
-            percentChange = periodMeta.quarterChangePercent
+            percentChange = periodMeta.periodChangePercent
+                ?? periodMeta.quarterChangePercent
                 ?? periodMeta.yearChangePercent
                 ?? null;
-            changeValue = periodMeta.quarterChangeValue ?? periodMeta.yearChangeValue ?? null;
+            changeValue = periodMeta.periodChangeValue
+                ?? periodMeta.quarterChangeValue
+                ?? periodMeta.yearChangeValue
+                ?? null;
         }
 
         const datasetValues = Array.isArray(dataset?.data) ? dataset.data : [];
@@ -5435,7 +5476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const setWalletChartDisplayMode = (mode) => {
-        if (!mode || walletChartDisplayMode === mode || !['line', 'area', 'bar'].includes(mode)) {
+        if (!mode || walletChartDisplayMode === mode || !['line', 'bar'].includes(mode)) {
             return;
         }
         walletChartDisplayMode = mode;
@@ -5497,8 +5538,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (scales.yMonthly?.grid) {
             scales.yMonthly.grid.display = walletChartLayerPrefs.grid;
         }
-        if (scales.yQuarterly?.grid) {
-            scales.yQuarterly.grid.display = walletChartLayerPrefs.grid;
+        if (scales.yChange?.grid) {
+            scales.yChange.grid.display = walletChartLayerPrefs.grid;
         }
         const plugins = options?.plugins || {};
         if (plugins.legend) {
@@ -6217,9 +6258,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isDarkMode = walletChartAppearancePreference === 'dark'
             || (walletChartAppearancePreference === 'auto' && document.body.classList.contains('dark'));
+        const shouldForceSecondaryBars = walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH
+            || walletSelectedTimeframe === WALLET_TIMEFRAME_LAST_12_MONTHS;
         const showLineSeries = walletChartDisplayMode !== 'bar';
-        const showBarSeries = walletChartDisplayMode === 'bar';
-        const isAreaMode = walletChartDisplayMode === 'area';
+        const showBarSeries = walletChartDisplayMode === 'bar' || shouldForceSecondaryBars;
         const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
         const fontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";
@@ -6231,6 +6273,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const barBorderColors = Array.isArray(dataset.barBorderColors) && dataset.barBorderColors.length === periodMeta.length
             ? dataset.barBorderColors
             : periodMeta.map(() => '#2563eb');
+        const perPeriodLabel = dataset.perPeriodLabel || 'Per-period change';
 
         const buildMonthlyPeriodMeta = (yearLabel, colors) => MONTH_COMPARISON_LABELS.map((monthLabel, monthIndex) => {
             const numericYear = Number(yearLabel);
@@ -6241,18 +6284,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 colors,
             };
         });
-
-        const buildLineGradient = (context) => {
-            const chart = context.chart;
-            const area = chart.chartArea;
-            if (!area) {
-                return isDarkMode ? 'rgba(74, 222, 128, 0.25)' : 'rgba(34, 197, 94, 0.25)';
-            }
-            const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-            gradient.addColorStop(0, isDarkMode ? 'rgba(74, 222, 128, 0.35)' : 'rgba(34, 197, 94, 0.35)');
-            gradient.addColorStop(1, isDarkMode ? 'rgba(15, 118, 110, 0.05)' : 'rgba(16, 185, 129, 0.05)');
-            return gradient;
-        };
 
         const buildBarGradient = (context) => {
             const chart = context.chart;
@@ -6266,14 +6297,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             return gradient;
         };
 
+        const changeAxisId = useComparison ? 'yMonthly' : 'yChange';
+
         const comparisonLineDatasets = useComparison
             ? dataset.compareDatasets.map(entry => ({
                 type: 'line',
                 label: entry.label || 'Balance',
                 data: Array.isArray(entry.data) ? entry.data : [],
                 borderColor: entry.borderColor || '#2563eb',
-                backgroundColor: isAreaMode ? (entry.backgroundColor || 'rgba(37, 99, 235, 0.18)') : 'transparent',
-                fill: isAreaMode ? 'origin' : false,
+                backgroundColor: 'transparent',
+                fill: false,
                 tension: 0.4,
                 pointRadius: 0,
                 pointHoverRadius: 6,
@@ -6299,7 +6332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 hoverBackgroundColor: (context) => buildBarGradient(context),
                 borderRadius: 6,
                 maxBarThickness: 40,
-                yAxisID: 'yMonthly',
+                yAxisID: changeAxisId,
                 order: 2,
                 overlayRole: 'per-period',
                 hidden: !showBarSeries,
@@ -6322,25 +6355,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             : [
                 ...(showBarSeries ? [{
                     type: 'bar',
-                    label: 'Quarterly haul',
+                    label: perPeriodLabel,
                     data: Array.isArray(dataset.perPeriodValues) ? dataset.perPeriodValues : [],
                     borderColor: barBorderColors,
                     backgroundColor: (context) => buildBarGradient(context),
                     hoverBackgroundColor: (context) => buildBarGradient(context),
                     borderRadius: 6,
                     maxBarThickness: 40,
-                    yAxisID: 'yQuarterly',
+                    yAxisID: changeAxisId,
                     order: 2,
                     overlayRole: 'per-period',
                     periodMeta,
+                    hidden: false,
                 }] : []),
                 ...(showLineSeries ? [{
                     type: 'line',
                     label: 'Cumulative balance',
                     data: Array.isArray(dataset.values) ? dataset.values : [],
                     borderColor: isDarkMode ? '#4ade80' : '#16a34a',
-                    backgroundColor: isAreaMode ? (context) => buildLineGradient(context) : 'transparent',
-                    fill: isAreaMode ? 'origin' : false,
+                    backgroundColor: 'transparent',
+                    fill: false,
                     tension: 0.4,
                     pointBackgroundColor: isDarkMode ? '#4ade80' : '#16a34a',
                     pointBorderColor: 'transparent',
@@ -6439,11 +6473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             if (metaInfo?.label) {
                                 return `${metaInfo.label}: ${baseLabel}`;
                             }
-                            if (metaInfo?.year && metaInfo?.month) {
-                                const monthLabel = MONTH_COMPARISON_LABELS[Math.max(0, Math.min(MONTH_COMPARISON_LABELS.length - 1, metaInfo.month - 1))];
-                                return `${monthLabel} ${metaInfo.year}: ${baseLabel}`;
-                            }
-                            return `Total collected: ${baseLabel}`;
+                            return baseLabel;
                         }
                     },
                     zoom: buildWalletZoomOptions(chartLabels.length)
@@ -6463,13 +6493,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     return chartLabels[index] || value;
                                 }
                                 const meta = periodMeta[index];
-                                if (!meta?.year) {
-                                    return value;
+                                if (!meta) {
+                                    return chartLabels[index] || value;
+                                }
+                                if (Object.prototype.hasOwnProperty.call(meta, 'tickLabel')) {
+                                    return meta.tickLabel || '';
                                 }
                                 if (meta.shouldDisplayTickLabel || index === 0) {
-                                    return meta.year;
+                                    return meta.year ?? chartLabels[index] ?? value;
                                 }
-                                return '';
+                                return chartLabels[index] || '';
                             }
                         },
                         grid: {
@@ -6500,7 +6533,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     },
                     ...(useComparison
                         ? {
-                            yMonthly: {
+                            [changeAxisId]: {
                                 position: 'right',
                                 beginAtZero: true,
                                 ticks: {
@@ -6531,7 +6564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                         }
                         : {
-                            yQuarterly: {
+                            [changeAxisId]: {
                                 position: 'right',
                                 beginAtZero: true,
                                 ticks: {
@@ -6597,6 +6630,259 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalValue
             };
         }).filter(Boolean);
+    };
+
+    const getStartOfWeek = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const start = new Date(date.getTime());
+        const day = start.getDay();
+        const diff = (day + 6) % 7;
+        start.setDate(start.getDate() - diff);
+        start.setHours(0, 0, 0, 0);
+        return start;
+    };
+
+    const buildWalletWeekKey = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const buildWalletBucketInfo = (date, bucketType) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const year = date.getFullYear();
+        const monthIndex = date.getMonth();
+        if (!Number.isFinite(year) || !Number.isInteger(monthIndex)) {
+            return null;
+        }
+        if (bucketType === 'week') {
+            const weekStart = getStartOfWeek(date);
+            if (!weekStart) {
+                return null;
+            }
+            const key = buildWalletWeekKey(weekStart);
+            const axisLabel = weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const label = `Week of ${axisLabel}`;
+            const tickLabel = weekStart.getDate() <= 7
+                ? weekStart.toLocaleDateString(undefined, { month: 'short' })
+                : '';
+            return {
+                key,
+                label,
+                axisLabel,
+                tickLabel,
+                year: weekStart.getFullYear(),
+                monthIndex: weekStart.getMonth(),
+                quarter: Math.floor(weekStart.getMonth() / 3) + 1,
+                weekStart,
+            };
+        }
+        if (bucketType === 'month') {
+            const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+            const axisLabel = date.toLocaleDateString(undefined, { month: 'short' });
+            return {
+                key,
+                label: `${axisLabel} ${year}`,
+                axisLabel,
+                tickLabel: axisLabel,
+                year,
+                monthIndex,
+                quarter: Math.floor(monthIndex / 3) + 1,
+                weekStart: new Date(year, monthIndex, 1),
+            };
+        }
+        const quarter = Math.floor(monthIndex / 3) + 1;
+        return {
+            key: `${year}-Q${quarter}`,
+            label: `Q${quarter} ${year}`,
+            axisLabel: `Q${quarter}`,
+            tickLabel: null,
+            year,
+            monthIndex,
+            quarter,
+            weekStart: new Date(year, quarter * 3 - 3, 1),
+        };
+    };
+
+    const getWalletBucketTypeForTimeframe = (timeframe) => {
+        if (timeframe === WALLET_TIMEFRAME_DAY || timeframe === WALLET_TIMEFRAME_WEEK || timeframe === WALLET_TIMEFRAME_3_MONTH) {
+            return 'week';
+        }
+        if (
+            timeframe === WALLET_TIMEFRAME_MONTH
+            || timeframe === WALLET_TIMEFRAME_6_MONTH
+            || timeframe === WALLET_TIMEFRAME_LAST_12_MONTHS
+            || (typeof timeframe === 'string' && timeframe.startsWith('year-'))
+        ) {
+            return 'month';
+        }
+        return 'quarter';
+    };
+
+    const buildWalletChartSeries = (metrics = [], { timeframe = WALLET_TIMEFRAME_ALL, yearColorAssignments = new Map() } = {}) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return {
+                labels: [],
+                cumulativeValues: [],
+                perPeriodValues: [],
+                periodMeta: [],
+                barBorderColors: [],
+                bucketType: 'quarter',
+                changeLabel: 'Period change',
+            };
+        }
+
+        const bucketType = getWalletBucketTypeForTimeframe(timeframe);
+        const bucketTotals = new Map();
+
+        metrics.forEach(metric => {
+            const bucket = buildWalletBucketInfo(metric?.date, bucketType);
+            if (!bucket) {
+                return;
+            }
+            const value = Number(metric.coinValue) + Number(metric.medalValue);
+            const numericValue = Number.isFinite(value) ? value : 0;
+            const existing = bucketTotals.get(bucket.key) || { ...bucket, total: 0 };
+            existing.total += numericValue;
+            bucketTotals.set(bucket.key, existing);
+        });
+
+        if (bucketTotals.size === 0) {
+            return {
+                labels: [],
+                cumulativeValues: [],
+                perPeriodValues: [],
+                periodMeta: [],
+                barBorderColors: [],
+                bucketType,
+                changeLabel: bucketType === 'week' ? 'Weekly change' : bucketType === 'month' ? 'Monthly change' : 'Quarterly change',
+            };
+        }
+
+        const sortedKeys = Array.from(bucketTotals.keys()).sort();
+        const perPeriodValues = [];
+        const cumulativeValues = [];
+        const periodMeta = [];
+        const labels = [];
+        let runningTotal = 0;
+        const defaultColors = { border: '#2563eb', background: 'rgba(37, 99, 235, 0.28)', hover: 'rgba(37, 99, 235, 0.32)' };
+
+        const quarterCountsByYear = new Map();
+        if (bucketType === 'quarter') {
+            sortedKeys.forEach((key) => {
+                const [yearStr] = key.split('-Q');
+                const numericYear = Number(yearStr);
+                if (Number.isFinite(numericYear)) {
+                    quarterCountsByYear.set(numericYear, (quarterCountsByYear.get(numericYear) || 0) + 1);
+                }
+            });
+        }
+
+        const getPriorYearKey = (bucket) => {
+            if (!bucket) {
+                return null;
+            }
+            if (bucketType === 'quarter' && Number.isFinite(bucket.quarter)) {
+                return `${bucket.year - 1}-Q${bucket.quarter}`;
+            }
+            if (bucketType === 'month' && Number.isInteger(bucket.monthIndex)) {
+                return `${bucket.year - 1}-${String(bucket.monthIndex + 1).padStart(2, '0')}`;
+            }
+            if (bucketType === 'week' && bucket.weekStart instanceof Date) {
+                const priorYear = new Date(bucket.weekStart.getTime());
+                priorYear.setFullYear(priorYear.getFullYear() - 1);
+                return buildWalletWeekKey(getStartOfWeek(priorYear));
+            }
+            return null;
+        };
+
+        sortedKeys.forEach((key, index) => {
+            const bucket = bucketTotals.get(key);
+            if (!bucket) {
+                return;
+            }
+            runningTotal += bucket.total;
+            perPeriodValues.push(bucket.total);
+            cumulativeValues.push(runningTotal);
+            labels.push(bucket.axisLabel || bucket.label || key);
+
+            const previousPeriodValue = index > 0 ? perPeriodValues[index - 1] : null;
+            const previousCumulativeValue = index > 0 ? cumulativeValues[index - 1] : null;
+            const colors = yearColorAssignments.get(bucket.year) || defaultColors;
+
+            const meta = {
+                key,
+                label: bucket.label,
+                axisLabel: bucket.axisLabel,
+                year: bucket.year,
+                month: Number.isInteger(bucket.monthIndex) ? bucket.monthIndex + 1 : null,
+                quarter: bucket.quarter,
+                weekStart: bucket.weekStart,
+                colors,
+                value: bucket.total,
+                cumulative: runningTotal,
+                previousCumulative: previousCumulativeValue,
+                cumulativeChangeValue: Number.isFinite(previousCumulativeValue) ? runningTotal - previousCumulativeValue : null,
+                cumulativeChangePercent: Number.isFinite(previousCumulativeValue) ? calculatePercentChange(runningTotal, previousCumulativeValue) : null,
+                quarterChangeValue: Number.isFinite(previousPeriodValue) ? bucket.total - previousPeriodValue : null,
+                quarterChangePercent: Number.isFinite(previousPeriodValue) ? calculatePercentChange(bucket.total, previousPeriodValue) : null,
+                periodChangeValue: Number.isFinite(previousPeriodValue) ? bucket.total - previousPeriodValue : null,
+                periodChangePercent: Number.isFinite(previousPeriodValue) ? calculatePercentChange(bucket.total, previousPeriodValue) : null,
+            };
+
+            const priorYearKey = getPriorYearKey(bucket);
+            if (priorYearKey && bucketTotals.has(priorYearKey)) {
+                const priorEntry = bucketTotals.get(priorYearKey);
+                if (Number.isFinite(priorEntry?.total)) {
+                    meta.yearChangeValue = bucket.total - priorEntry.total;
+                    meta.yearChangePercent = calculatePercentChange(bucket.total, priorEntry.total);
+                }
+            }
+
+            if (bucketType === 'quarter') {
+                const quarterCount = quarterCountsByYear.get(bucket.year) || 0;
+                let shouldDisplayTickLabel = index === 0;
+                if (Number.isFinite(bucket.quarter)) {
+                    if (quarterCount <= 1) {
+                        shouldDisplayTickLabel = true;
+                    } else {
+                        const midpointQuarter = Math.ceil(quarterCount / 2);
+                        shouldDisplayTickLabel = bucket.quarter === midpointQuarter;
+                    }
+                }
+                meta.shouldDisplayTickLabel = shouldDisplayTickLabel;
+                meta.tickLabel = shouldDisplayTickLabel ? String(bucket.year) : '';
+            } else if (Object.prototype.hasOwnProperty.call(bucket, 'tickLabel')) {
+                meta.tickLabel = bucket.tickLabel;
+            }
+
+            periodMeta.push(meta);
+        });
+
+        const barBorderColors = periodMeta.map(entry => entry.colors?.border || '#2563eb');
+        const changeLabel = bucketType === 'week'
+            ? 'Weekly change'
+            : bucketType === 'month'
+                ? 'Monthly change'
+                : 'Quarterly change';
+
+        return {
+            labels,
+            cumulativeValues,
+            perPeriodValues,
+            periodMeta,
+            barBorderColors,
+            bucketType,
+            changeLabel,
+        };
     };
 
     const buildQuarterlyValueSeries = (metrics = []) => {
@@ -6894,108 +7180,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             quarterChangeValue,
             yearChangeValue
         };
-        const quarterlyValues = Array.isArray(lifetimeQuarterly.perPeriodValues)
-            ? lifetimeQuarterly.perPeriodValues
-            : [];
-        const quarterlyCumulative = Array.isArray(lifetimeQuarterly.cumulativeValues)
-            ? lifetimeQuarterly.cumulativeValues
-            : [];
-
-        const quarterIndexLookup = new Map();
-        lifetimeQuarterly.sortedQuarters.forEach((key, index) => {
-            quarterIndexLookup.set(key, index);
+        const chartSeries = buildWalletChartSeries(metricsForAggregation, {
+            timeframe: walletSelectedTimeframe,
+            yearColorAssignments,
         });
-
-        const quarterCountsByYear = new Map();
-        lifetimeQuarterly.sortedQuarters.forEach((key) => {
-            const [yearStr] = key.split('-Q');
-            const year = Number(yearStr);
-            if (!Number.isFinite(year)) {
-                return;
-            }
-            quarterCountsByYear.set(year, (quarterCountsByYear.get(year) || 0) + 1);
-        });
-
-        const periodMeta = lifetimeQuarterly.sortedQuarters.map((key, index) => {
-            const [yearStr, quarterStr] = key.split('-Q');
-            const year = Number(yearStr);
-            const quarterValue = Number(quarterStr);
-            const quarterNumber = Number.isFinite(quarterValue) ? quarterValue : null;
-            const colors = yearColorAssignments.get(year)
-                || { border: '#2563eb', background: 'rgba(37, 99, 235, 0.28)', hover: 'rgba(37, 99, 235, 0.32)' };
-            const quarterlyValue = Number.isFinite(quarterlyValues[index]) ? quarterlyValues[index] : 0;
-            const cumulativeValue = Number.isFinite(quarterlyCumulative[index]) ? quarterlyCumulative[index] : 0;
-            const previousQuarterValue = index > 0 && Number.isFinite(quarterlyValues[index - 1])
-                ? quarterlyValues[index - 1]
-                : null;
-            const quarterChangeValue = Number.isFinite(previousQuarterValue)
-                ? quarterlyValue - previousQuarterValue
-                : null;
-            const quarterChangePercent = Number.isFinite(previousQuarterValue)
-                ? calculatePercentChange(quarterlyValue, previousQuarterValue)
-                : null;
-            const priorYearKey = quarterNumber ? `${year - 1}-Q${quarterNumber}` : `${year - 1}-Q${quarterStr}`;
-            const priorYearIndex = quarterIndexLookup.get(priorYearKey);
-            const priorYearValue = Number.isInteger(priorYearIndex) && Number.isFinite(quarterlyValues[priorYearIndex])
-                ? quarterlyValues[priorYearIndex]
-                : null;
-            const yearChangeValue = Number.isFinite(priorYearValue)
-                ? quarterlyValue - priorYearValue
-                : null;
-            const yearChangePercent = Number.isFinite(priorYearValue)
-                ? calculatePercentChange(quarterlyValue, priorYearValue)
-                : null;
-            const previousCumulativeValue = index > 0 && Number.isFinite(quarterlyCumulative[index - 1])
-                ? quarterlyCumulative[index - 1]
-                : null;
-            const cumulativeChangeValue = Number.isFinite(previousCumulativeValue)
-                ? cumulativeValue - previousCumulativeValue
-                : null;
-            const cumulativeChangePercent = Number.isFinite(previousCumulativeValue)
-                ? calculatePercentChange(cumulativeValue, previousCumulativeValue)
-                : null;
-
-            const quarterCount = quarterCountsByYear.get(year) || 0;
-            let shouldDisplayTickLabel = index === 0;
-            if (Number.isFinite(quarterNumber)) {
-                if (quarterCount <= 1) {
-                    shouldDisplayTickLabel = true;
-                } else {
-                    const midpointQuarter = Math.ceil(quarterCount / 2);
-                    shouldDisplayTickLabel = quarterNumber === midpointQuarter;
-                }
-            }
-
-            return {
-                key,
-                label: quarterNumber ? `Q${quarterNumber} ${year}` : `Quarter ${quarterStr || ''} ${year}`,
-                year,
-                quarter: quarterNumber,
-                colors,
-                value: quarterlyValue,
-                cumulative: cumulativeValue,
-                quarterChangeValue,
-                quarterChangePercent,
-                yearChangeValue,
-                yearChangePercent,
-                previousCumulative: previousCumulativeValue,
-                cumulativeChangeValue,
-                cumulativeChangePercent,
-                shouldDisplayTickLabel,
-            };
-        });
-
-        const barBorderColors = periodMeta.map(meta => meta.colors.border);
 
         walletChartData.balance = {
-            labels: lifetimeQuarterly.sortedQuarters,
-            values: quarterlyCumulative,
-            perPeriodValues: quarterlyValues,
+            labels: chartSeries.labels,
+            values: chartSeries.cumulativeValues,
+            perPeriodValues: chartSeries.perPeriodValues,
             compareLabels: MONTH_COMPARISON_LABELS,
             compareDatasets,
             compareMonthlyDatasets,
-            periodMeta,
-            barBorderColors,
+            periodMeta: chartSeries.periodMeta,
+            barBorderColors: chartSeries.barBorderColors,
+            perPeriodLabel: chartSeries.changeLabel,
+            bucketType: chartSeries.bucketType,
         };
 
         const nextChartKey = hasWalletChartData(activeChartKey)
@@ -10419,7 +10619,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             { value: WALLET_TIMEFRAME_WEEK, label: 'Last 7 days' },
             { value: WALLET_TIMEFRAME_MONTH, label: 'Last 30 days' },
             { value: WALLET_TIMEFRAME_3_MONTH, label: 'Last 90 days' },
+            { value: WALLET_TIMEFRAME_6_MONTH, label: 'Last 6 months' },
             { value: WALLET_TIMEFRAME_LAST_12_MONTHS, label: 'Last 12 months' },
+            { value: WALLET_TIMEFRAME_2_YEAR, label: 'Last 24 months' },
             { value: WALLET_TIMEFRAME_ALL, label: 'All time' },
         ];
 
@@ -10468,36 +10670,84 @@ document.addEventListener('DOMContentLoaded', async () => {
             return [];
         }
 
-        if (!timeframe || timeframe === WALLET_TIMEFRAME_ALL) {
-            return metrics;
-        }
-
-        const normalizedMetrics = metrics.filter(metric => metric?.date instanceof Date && !Number.isNaN(metric.date.getTime()));
+        const normalizedMetrics = metrics
+            .filter(metric => metric?.date instanceof Date && !Number.isNaN(metric.date.getTime()))
+            .sort((a, b) => a.date - b.date);
         if (normalizedMetrics.length === 0) {
             return [];
         }
 
+        const enforceMinimumPoints = (entries) => {
+            if (!Array.isArray(entries) || entries.length === 0) {
+                const start = Math.max(0, normalizedMetrics.length - MIN_WALLET_CHART_POINTS);
+                return normalizedMetrics.slice(start);
+            }
+            if (entries.length >= MIN_WALLET_CHART_POINTS || entries.length >= normalizedMetrics.length) {
+                return entries;
+            }
+            const filteredSet = new Set(entries);
+            const result = entries.slice();
+            let firstIndex = normalizedMetrics.findIndex(metric => filteredSet.has(metric));
+            if (firstIndex === -1) {
+                return normalizedMetrics.slice(Math.max(0, normalizedMetrics.length - MIN_WALLET_CHART_POINTS));
+            }
+            let lastIndex = firstIndex;
+            for (let index = normalizedMetrics.length - 1; index >= 0; index -= 1) {
+                if (filteredSet.has(normalizedMetrics[index])) {
+                    lastIndex = index;
+                    break;
+                }
+            }
+            let prependIndex = firstIndex - 1;
+            while (result.length < MIN_WALLET_CHART_POINTS && prependIndex >= 0) {
+                const candidate = normalizedMetrics[prependIndex];
+                if (!filteredSet.has(candidate)) {
+                    result.unshift(candidate);
+                    filteredSet.add(candidate);
+                }
+                prependIndex -= 1;
+            }
+            let appendIndex = lastIndex + 1;
+            while (result.length < MIN_WALLET_CHART_POINTS && appendIndex < normalizedMetrics.length) {
+                const candidate = normalizedMetrics[appendIndex];
+                if (!filteredSet.has(candidate)) {
+                    result.push(candidate);
+                    filteredSet.add(candidate);
+                }
+                appendIndex += 1;
+            }
+            return result;
+        };
+
+        if (!timeframe || timeframe === WALLET_TIMEFRAME_ALL) {
+            return enforceMinimumPoints(normalizedMetrics);
+        }
+
         if (timeframe === WALLET_TIMEFRAME_DAY) {
-            return filterMetricsByRange(normalizedMetrics, { days: 1 });
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { days: 1 }));
         }
 
         if (timeframe === WALLET_TIMEFRAME_WEEK) {
-            return filterMetricsByRange(normalizedMetrics, { days: 7 });
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { days: 7 }));
         }
 
         if (timeframe === WALLET_TIMEFRAME_MONTH) {
-            return filterMetricsByRange(normalizedMetrics, { months: 1 });
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 1 }));
         }
 
         if (timeframe === WALLET_TIMEFRAME_3_MONTH) {
-            return filterMetricsByRange(normalizedMetrics, { months: 3 });
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 3 }));
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_6_MONTH) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 6 }));
         }
 
         if (timeframe === WALLET_TIMEFRAME_LAST_12_MONTHS) {
-            const sorted = normalizedMetrics.slice().sort((a, b) => a.date - b.date);
+            const sorted = normalizedMetrics;
             const latest = sorted[sorted.length - 1];
             if (!latest) {
-                return sorted;
+                return enforceMinimumPoints(sorted);
             }
 
             const endDate = new Date(latest.date.getTime());
@@ -10506,18 +10756,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             startDate.setDate(1);
             startDate.setHours(0, 0, 0, 0);
 
-            return sorted.filter(metric => metric.date >= startDate && metric.date <= endDate);
+            const filtered = sorted.filter(metric => metric.date >= startDate && metric.date <= endDate);
+            return enforceMinimumPoints(filtered);
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_2_YEAR) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 24 }));
         }
 
         if (typeof timeframe === 'string' && timeframe.startsWith('year-')) {
             const [, yearPart] = timeframe.split('-');
             const year = Number.parseInt(yearPart, 10);
             if (Number.isFinite(year)) {
-                return normalizedMetrics.filter(metric => metric.date.getFullYear() === year);
+                const filtered = normalizedMetrics.filter(metric => metric.date.getFullYear() === year);
+                return enforceMinimumPoints(filtered);
             }
         }
 
-        return normalizedMetrics;
+        return enforceMinimumPoints(normalizedMetrics);
     };
 
     const resolveMedalCategory = (medal = {}) => {

@@ -126,6 +126,24 @@ img {
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px);
   padding-top: var(--app-safe-area-top);
+  max-height: 500px;
+  transition: transform var(--transition-base), opacity var(--transition-base), max-height 0.3s ease, padding 0.3s ease, box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+body.rank-modal-open .site-header {
+  opacity: 0;
+  transform: translateY(-1.5rem);
+  max-height: 0;
+  padding-top: 0;
+  border-bottom-color: transparent;
+  box-shadow: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+body.rank-modal-open .site-header__inner {
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .site-header__inner {

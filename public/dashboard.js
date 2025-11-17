@@ -126,11 +126,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const PROFILE_PERIOD_KEY_BY_SHORT_LABEL = {
+        '7D': 'weekly',
         '3M': 'quarter',
         '1Y': 'yearly',
     };
 
     const PROFILE_PERIOD_MODAL_METADATA = {
+        weekly: {
+            title: 'Last 7 Days Overview',
+            description: 'Your wallet, effort, and rewards across the previous week.',
+        },
         quarter: {
             title: 'Last 3 Months Overview',
             description: 'Your wallet, effort, and rewards across the previous 90 days.',
@@ -808,10 +813,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const profilePeriodModalDismissElements = Array.from(document.querySelectorAll('[data-profile-period-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
+        week: document.getElementById('profile-wallet-change-week'),
         month: document.getElementById('profile-wallet-change-month'),
         year: document.getElementById('profile-wallet-change-year')
     };
     const walletChangeSnapshotKeyMap = {
+        '7d': 'weekly',
         '3m': 'quarter',
         '1y': 'yearly',
     };
@@ -3121,11 +3128,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const ariaPercent = hasPercent ? ` (${formattedPercent})` : '';
             element.setAttribute('aria-label', `${longLabel} change ${ariaValue}${ariaPercent}`);
 
-            const timeframeDescription = longLabel === 'Three-month'
-                ? 'the last three months'
-                : longLabel === 'One-year'
-                    ? 'the last year'
-                    : longLabel.toLowerCase();
+            const timeframeDescription = (() => {
+                switch (longLabel) {
+                    case 'Seven-day':
+                        return 'the last seven days';
+                    case 'Three-month':
+                        return 'the last three months';
+                    case 'One-year':
+                        return 'the last year';
+                    default:
+                        return longLabel.toLowerCase();
+                }
+            })();
             const changeVerb = hasValue ? 'is' : 'shows';
             const valueSummary = hasValue ? formattedValue : 'no recorded dollar change';
             const percentSummary = hasPercent ? ` (${formattedPercent})` : '';
@@ -8497,6 +8511,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        const weeklySnapshot = getRankSnapshotForPeriodKey('weekly');
+        const weeklyChangeValue = Number.isFinite(weeklySnapshot?.totalValue)
+            ? weeklySnapshot.totalValue
+            : null;
+
+        applyWalletChangeToElement(
+            walletBalanceChangeElements.week,
+            weeklyChangeValue,
+            null,
+            { shortLabel: '7D', longLabel: 'Seven-day' }
+        );
+
         applyWalletChangeToElement(
             walletBalanceChangeElements.month,
             walletGrowthStats?.quarterChangeValue ?? null,
@@ -13396,19 +13422,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const bindWalletChangeSnapshotTriggers = () => {
-        const elements = [
-            walletBalanceChangeElements.month,
-            walletBalanceChangeElements.year,
-        ].filter(Boolean);
+        const elements = Array.from(document.querySelectorAll('[data-wallet-snapshot-key]')).filter(Boolean);
 
         elements.forEach((element) => {
             if (element.dataset.walletSnapshotBound === 'true') {
                 return;
             }
 
-            const activateSnapshot = (event) => {
+            const resolveSnapshotKey = () => {
+                const explicitKey = (element.dataset.walletSnapshotKey || '').toLowerCase();
+                if (explicitKey) {
+                    return explicitKey;
+                }
                 const periodKey = (element.dataset.walletChangePeriod || '').toLowerCase();
-                const snapshotKey = walletChangeSnapshotKeyMap[periodKey];
+                return walletChangeSnapshotKeyMap[periodKey] || null;
+            };
+
+            const activateSnapshot = (event) => {
+                const snapshotKey = resolveSnapshotKey();
                 if (!snapshotKey) {
                     return;
                 }

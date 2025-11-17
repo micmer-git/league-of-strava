@@ -654,20 +654,104 @@ button,
   transition: width 0.5s ease;
   box-shadow: 0 0 18px rgba(2, 132, 199, 0.25);
   z-index: 1;
-  pointer-events: none;
+  display: flex;
+  align-items: center;
+  padding-left: 0.75rem;
+  overflow: visible;
 }
 
 .training-progress__fill--recent {
+  position: absolute;
   right: 0;
   left: auto;
   background: linear-gradient(90deg, rgba(34, 197, 94, 0.85) 0%, rgba(16, 185, 129, 0.95) 100%);
   box-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
   z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.75rem;
+  padding-left: 0.35rem;
+}
+
+.training-progress__fill-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0f172a;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+}
+
+.training-progress__fill-label--recent {
+  text-align: right;
 }
 
 .training-progress__recent {
   margin: 0;
   font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.achievements-card {
+  gap: 1.25rem;
+}
+
+.top-achievements {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.top-achievements::-webkit-scrollbar {
+  height: 6px;
+}
+
+.top-achievements::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+
+.achievement-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.45);
+}
+
+.achievement-pill__icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.14);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.achievement-pill__copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.achievement-pill__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.achievement-pill__meta {
+  font-size: 0.8rem;
   color: var(--color-muted);
 }
 

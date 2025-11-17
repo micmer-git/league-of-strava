@@ -154,11 +154,23 @@
               <span class="training-progress__next" id="training-next-rank">Prossimo grado</span>
             </div>
             <div class="training-progress__bar" id="training-progress-container" role="progressbar" aria-live="polite" aria-describedby="training-progress-description">
-              <div class="training-progress__fill" id="training-progress-fill"></div>
-              <div class="training-progress__fill training-progress__fill--recent" id="training-progress-recent" aria-hidden="true"></div>
+              <div class="training-progress__fill" id="training-progress-fill">
+                <span class="training-progress__fill-label" id="training-progress-total-label"></span>
+                <div class="training-progress__fill training-progress__fill--recent" id="training-progress-recent" data-relative-fill="true">
+                  <span class="training-progress__fill-label training-progress__fill-label--recent" id="training-progress-recent-label"></span>
+                </div>
+              </div>
             </div>
-            <p class="training-progress__recent" id="training-progress-description">Ultimo mese: <span id="training-last-month-hours">— h</span></p>
+            <p class="training-progress__recent" id="training-progress-description">Ultimi 7 giorni: <span id="training-last-week-hours">— h</span></p>
           </div>
+        </section>
+
+        <section class="card achievements-card" aria-labelledby="achievements-heading" id="section-achievements" data-section="lifetime">
+          <div class="card-header">
+            <h2 class="card-title" id="achievements-heading">Top Achievements</h2>
+            <p class="card-subtitle">Traguardi leggendari completati negli anni — scorri per esplorarli tutti.</p>
+          </div>
+          <div class="top-achievements" id="top-achievements" role="list" aria-label="Lista dei migliori achievement"></div>
         </section>
 
         <section class="card medals-card" aria-labelledby="medals-heading" id="section-medals" data-section="medals">
@@ -278,7 +290,15 @@
       const trainingVolume = {
         totalHours: 1285,
         lastMonthHours: 52,
+        lastWeekHours: weeklySnapshot.hours,
       };
+
+      const topAchievements = [
+        { icon: '🛡️', title: 'Ironman Finisher', detail: '3 full distance completati dal 2019' },
+        { icon: '🚴‍♀️', title: '1000 km Ride Month', detail: '1.084 km pedalati nel mese più intenso' },
+        { icon: '⛰️', title: 'Everesting', detail: '9.050 m di dislivello in una singola avventura' },
+        { icon: '🌊', title: 'Ultra Swim Expedition', detail: 'Cinque giorni di nuoto open water consecutivi' },
+      ];
 
       const HOURS_PER_LEVEL = 100;
       const baseRankGroups = [
@@ -350,17 +370,26 @@
         };
       };
 
-      const updateProgressVisual = (fillElement, recentElement, ratioWithinLevel, clampedProgress, lastMonthHours) => {
+      const updateProgressVisual = (fillElement, recentElement, ratioWithinLevel, clampedProgress, recentHours) => {
+        const progressPercent = (ratioWithinLevel * 100);
         if (fillElement) {
-          fillElement.style.width = `${(ratioWithinLevel * 100).toFixed(2)}%`;
+          fillElement.style.width = `${progressPercent.toFixed(2)}%`;
         }
 
+        let recentPercent = 0;
         if (recentElement) {
-          const recentContribution = Math.max(0, Math.min(lastMonthHours, HOURS_PER_LEVEL));
+          const recentContribution = Math.max(0, Math.min(recentHours, HOURS_PER_LEVEL));
           const effectiveRecent = Math.min(recentContribution, clampedProgress);
           const recentRatioWithinProgress = clampedProgress === 0 ? 0 : effectiveRecent / clampedProgress;
-          recentElement.style.width = `${(recentRatioWithinProgress * 100).toFixed(2)}%`;
+          const relativeToFill = recentElement.dataset && recentElement.dataset.relativeFill === 'true';
+          const percentValue = relativeToFill
+            ? recentRatioWithinProgress * 100
+            : (ratioWithinLevel === 0 ? 0 : recentRatioWithinProgress * ratioWithinLevel * 100);
+          recentPercent = percentValue;
+          recentElement.style.width = `${percentValue.toFixed(2)}%`;
         }
+
+        return { progressPercent, recentPercent };
       };
 
       const fellowshipClasses = [
@@ -876,7 +905,7 @@
         setText('weekly-elevation', formatMetric(weeklySnapshot.elevationM, { decimals: 0, suffix: ' m' }));
         setText('weekly-calories', formatMetric(weeklySnapshot.calories, { decimals: 0, suffix: ' kcal' }));
 
-        const { totalHours, lastMonthHours } = trainingVolume;
+        const { totalHours, lastMonthHours, lastWeekHours } = trainingVolume;
         const {
           currentRank,
           nextRank,
@@ -886,7 +915,9 @@
 
         setText('training-total-hours', formatMetric(totalHours, { decimals: 0, suffix: ' h totali' }));
         setText('training-next-rank', `Prossimo: ${nextRank.name} (${formatMetric(nextRank.minHours, { decimals: 0, suffix: ' h' })})`);
-        setText('training-last-month-hours', formatMetric(lastMonthHours, { decimals: 0, suffix: ' h' }));
+        setText('training-last-week-hours', formatMetric(lastWeekHours, { decimals: 1, suffix: ' h' }));
+        setText('training-progress-total-label', `${formatMetric(totalHours, { decimals: 0, suffix: ' h' })} finora`);
+        setText('training-progress-recent-label', `+${formatMetric(lastWeekHours, { decimals: 1, suffix: ' h' })} / 7g`);
 
         const trainingContainer = document.getElementById('training-progress-container');
         if (trainingContainer) {
@@ -897,7 +928,7 @@
 
         const trainingFill = document.getElementById('training-progress-fill');
         const trainingRecent = document.getElementById('training-progress-recent');
-        updateProgressVisual(trainingFill, trainingRecent, ratioWithinLevel, clampedProgress, lastMonthHours);
+        updateProgressVisual(trainingFill, trainingRecent, ratioWithinLevel, clampedProgress, lastWeekHours);
 
         const classAssignment = pickFellowshipClass(athleteProfile);
         setText('profile-class-crest', classAssignment.entry.crest);
@@ -972,6 +1003,39 @@
             list.appendChild(item);
           });
         }
+      };
+
+      const renderTopAchievements = (achievements = []) => {
+        const container = document.getElementById('top-achievements');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!achievements.length) {
+          const emptyState = document.createElement('p');
+          emptyState.className = 'achievement-pill__meta';
+          emptyState.textContent = 'Nessun traguardo registrato.';
+          container.appendChild(emptyState);
+          return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        achievements.forEach(({ icon, title, detail }) => {
+          const pill = document.createElement('div');
+          pill.className = 'achievement-pill';
+          pill.setAttribute('role', 'listitem');
+          const resolvedIcon = typeof icon === 'string' && icon.trim() ? icon.trim() : '🏅';
+          const resolvedTitle = title || 'Achievement';
+          const resolvedDetail = detail || '';
+          pill.innerHTML = `
+            <span class="achievement-pill__icon" aria-hidden="true">${resolvedIcon}</span>
+            <div class="achievement-pill__copy">
+              <span class="achievement-pill__title">${resolvedTitle}</span>
+              <span class="achievement-pill__meta">${resolvedDetail}</span>
+            </div>
+          `;
+          fragment.appendChild(pill);
+        });
+        container.appendChild(fragment);
       };
 
       const baseMedalDefinitions = [
@@ -1573,6 +1637,7 @@
       };
 
       const classAssignment = renderProfile();
+      renderTopAchievements(topAchievements);
       renderRank();
       renderMedals(athleteProfile, classAssignment);
       initNavigation();

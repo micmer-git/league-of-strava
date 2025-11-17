@@ -1717,31 +1717,34 @@
             color: #0f172a;
         }
 
-        .profile-card__progress-info {
+        .profile-card__progress-track {
             display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+            align-items: center;
+            gap: 0.75rem;
             width: 100%;
             min-width: 0;
         }
 
         .profile-card__progress-meta {
             display: flex;
-            flex-wrap: wrap;
-            align-items: baseline;
-            gap: 0.45rem;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #0f172a;
         }
 
-        .profile-card__progress-label,
-        .profile-card__progress-monthly,
-        .profile-card__progress-next {
+        .profile-card__progress-label {
             display: inline-flex;
             align-items: center;
-            gap: 0.25rem;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #0f172a;
+            white-space: nowrap;
         }
 
         .profile-card__progress-bar {
             position: relative;
+            flex: 1;
             height: 1.05rem;
             border-radius: 9999px;
             background: rgba(148, 163, 184, 0.25);
@@ -1755,15 +1758,32 @@
             left: 0;
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(135deg, #2563eb, #38bdf8);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
             transition: width 0.3s ease, background 0.3s ease;
             z-index: 1;
         }
 
         .profile-card__progress-fill--recent {
-            background: linear-gradient(135deg, #22c55e, #10b981);
-            box-shadow: inset 0 0 12px rgba(34, 197, 94, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #4ade80, #16a34a);
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            padding: 0 0.35rem;
             z-index: 2;
+            opacity: 0;
+            transition: width 0.3s ease, left 0.3s ease, opacity 0.2s ease;
+        }
+
+        .profile-card__progress-fill--recent.is-visible {
+            opacity: 1;
+        }
+
+        .profile-card__progress-weekly-label {
+            color: inherit;
         }
 
         .profile-card__progress-fill.is-negative {
@@ -1774,54 +1794,11 @@
             background: linear-gradient(135deg, #94a3b8, #cbd5f5);
         }
 
-        .profile-card__progress-overlay {
-            position: absolute;
-            inset: 0;
-            display: grid;
-            grid-template-columns: max-content auto max-content;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0 0.6rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #000;
-        }
-
-        @media (max-width: 640px) {
-            .profile-card__progress-overlay {
-                grid-template-columns: minmax(0, 1fr);
-                justify-items: flex-start;
-                row-gap: 0.25rem;
-                padding: 0 0.45rem;
-                font-size: 0.7rem;
-            }
-
-            .profile-card__progress-monthly,
-            .profile-card__progress-next {
-                justify-self: flex-start;
-            }
-        }
-
         .profile-card__progress-label {
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
-            color: #000;
-        }
-
-        .profile-card__progress-monthly {
-            justify-self: center;
-            font-weight: 700;
-            color: #047857;
-            white-space: nowrap;
-        }
-
-        .profile-card__progress-monthly.is-empty {
-            color: #64748b;
-        }
-
-        .profile-card__progress-monthly:empty {
-            display: none;
+            color: #0f172a;
         }
 
         .profile-card__progress-next {
@@ -3603,14 +3580,9 @@
         }
 
         .profile-card__progress-fill--recent {
-            background: linear-gradient(135deg, #22c55e, #10b981);
+            background: linear-gradient(135deg, #4ade80, #16a34a);
             box-shadow: inset 0 0 12px rgba(34, 197, 94, 0.35);
-            z-index: 2;
-        }
-
-        .profile-card__progress-overlay span {
-            color: var(--color-inverse);
-            text-shadow: 0 2px 6px rgba(17, 24, 39, 0.4);
+            color: #0f172a;
         }
 
         .top-performances-grid {

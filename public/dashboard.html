@@ -283,8 +283,10 @@
 <header class="panel-card__header panel-card__header--stack">
 <h3 class="panel-card__title">Wallet Insights</h3>
   <div class="wallet-controls">
-    <button aria-pressed="false" class="wallet-control" id="chart-toggle-coins" type="button">Coins &amp; Medals</button>
-    <button aria-pressed="false" class="wallet-control" id="chart-toggle-balance" type="button">Balance</button>
+    <button aria-pressed="false" class="wallet-control wallet-control--select wallet-control--button" id="chart-toggle-balance" type="button">
+      <span class="wallet-control__label">Dataset</span>
+      <span class="wallet-control__value">Balance</span>
+    </button>
     <label class="wallet-control wallet-control--select" for="wallet-timeframe-select">
       <span class="wallet-control__label">Time frame</span>
       <select class="wallet-control__select" id="wallet-timeframe-select">
@@ -300,6 +302,12 @@
 <div class="wallet-chart" id="wallet-chart-wrapper">
 <canvas class="w-full h-full" id="wallet-chart"></canvas>
 <p class="wallet-chart__empty hidden" id="wallet-chart-empty"></p>
+<div aria-hidden="true" aria-live="polite" class="wallet-chart__overlay" id="wallet-chart-overlay">
+  <p class="wallet-chart__overlay-label" id="wallet-overlay-label">Wallet insight</p>
+  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Hover or tap a data point to inspect progress.</p>
+  <p class="wallet-chart__overlay-change" id="wallet-overlay-change"></p>
+  <p class="wallet-chart__overlay-detail" id="wallet-overlay-detail"></p>
+</div>
 </div>
 </div>
 </section>

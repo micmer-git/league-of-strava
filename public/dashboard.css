@@ -2317,8 +2317,27 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 
 .wallet-controls {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    align-items: stretch;
     gap: 0.5rem;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+
+.wallet-controls::-webkit-scrollbar {
+    height: 4px;
+}
+
+.wallet-controls::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.wallet-controls::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
 }
 
 .wallet-control {
@@ -2336,6 +2355,11 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     color: #1f2937;
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    flex: 1 1 clamp(5.5rem, 14vw, 10.5rem);
+    min-width: max-content;
+    justify-content: center;
+    white-space: nowrap;
+    text-align: center;
 }
 
 .wallet-control:hover {
@@ -2380,6 +2404,8 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 
 .wallet-control--toggle {
     cursor: pointer;
+    flex: 0 0 auto;
+    justify-content: flex-start;
 }
 
 .wallet-control__checkbox {
@@ -2393,6 +2419,10 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     align-items: flex-start;
     gap: 0.2rem;
     padding-right: 2.75rem;
+    min-width: clamp(9rem, 24vw, 15rem);
+    flex: 1.4 1 clamp(10rem, 28vw, 16rem);
+    justify-content: center;
+    text-align: left;
 }
 
 .wallet-control--select::after {
@@ -2456,6 +2486,23 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 
 .wallet-control--button::after {
     display: none;
+}
+
+.wallet-control--icon {
+    flex: 0 0 auto;
+    min-width: 2.75rem;
+    padding-inline: 0.75rem;
+    justify-content: center;
+}
+
+.wallet-chart__hint {
+    margin: 0.35rem 0 0.75rem;
+    font-size: 0.85rem;
+    color: rgba(71, 85, 105, 0.85);
+}
+
+.dark .wallet-chart__hint {
+    color: rgba(226, 232, 240, 0.8);
 }
 
 .wallet-control--button .wallet-control__value {

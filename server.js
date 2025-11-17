@@ -19,6 +19,7 @@ const {
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 const { PersistentCache } = require('./services/cache');
 const { getLatestPayload, decompressPayload } = require('./services/googleSheetsHelper');
+const { overwriteLeaderboardFile } = require('./services/leaderboardFileStore');
 
 const app = express();
 app.use(cookieParser());
@@ -442,6 +443,12 @@ app.get('/api/leaderboard', async (req, res) => {
 
         return 0;
       });
+
+    try {
+      await overwriteLeaderboardFile(sortedEntries);
+    } catch (fileError) {
+      console.warn('Unable to refresh cached leaderboard file:', fileError.message);
+    }
 
     return res.json({ leaderboard: sortedEntries });
   } catch (error) {

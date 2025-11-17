@@ -4,6 +4,7 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
+const { upsertLeaderboardFileEntry } = require('./leaderboardFileStore');
 
 const SERVICE_ACCOUNT_FILE = process.env.GOOGLE_SERVICE_ACCOUNT_FILE
   ? path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_FILE)
@@ -754,6 +755,28 @@ async function appendLeaderboardEntry({
     acc[emojiKey] = Number.isFinite(numericValue) ? numericValue : 0;
     return acc;
   }, {});
+
+  try {
+    await upsertLeaderboardFileEntry({
+      timestamp,
+      userId,
+      displayName,
+      level,
+      dollars,
+      emoji,
+      coins,
+      totalHaulValue,
+      pizzaCoins,
+      medals,
+      walletBalance,
+      worldTrips,
+      everestSummits,
+      pizzas,
+      coinBreakdown: normalizedCoinBreakdown,
+    });
+  } catch (fileError) {
+    console.warn('Unable to update cached leaderboard file:', fileError.message);
+  }
 
   return {
     timestamp,

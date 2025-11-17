@@ -883,6 +883,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         detail: document.getElementById('wallet-overlay-detail'),
     };
     let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
+    let walletZoomPluginAvailable = false;
+    let walletChartInstance = null;
+    let walletChartClickSelection = null;
+    let walletChartEventsBound = false;
     let chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
     let balanceYearToggle = document.getElementById('balance-year-toggle');
     let balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
@@ -924,7 +928,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const walletOverlayDefaults = {
         label: 'Wallet insight',
-        value: 'Hover or tap a data point to inspect progress.',
+        value: 'Pinch, drag, or use the zoom buttons to inspect progress.',
         change: '',
         detail: '',
         direction: null,
@@ -942,7 +946,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isVisible = Boolean(state?.visible);
         container.classList.toggle('is-visible', isVisible);
-        container.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
 
         if (walletOverlayElements.label) {
             walletOverlayElements.label.textContent = nextState.label;
@@ -962,6 +965,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dashboardPanels = new Map();
     const chartToggleButtons = {
         balance: null
+    };
+    const walletZoomButtons = {
+        in: null,
+        out: null,
+        reset: null,
+    };
+    const getWalletZoomButtonList = () => Object.values(walletZoomButtons).filter(Boolean);
+    const updateWalletZoomControlState = () => {
+        const isEnabled = walletZoomPluginAvailable && Boolean(walletChartInstance);
+        getWalletZoomButtonList().forEach((button) => {
+            button.disabled = !isEnabled;
+            button.setAttribute('aria-disabled', isEnabled ? 'false' : 'true');
+            button.classList.toggle('is-disabled', !isEnabled);
+        });
+    };
+    const performWalletZoomAction = (action) => {
+        if (!walletZoomPluginAvailable || !walletChartInstance) {
+            return;
+        }
+        if (action === 'reset') {
+            resetWalletChartZoom(walletChartInstance);
+            return;
+        }
+        if (typeof walletChartInstance.zoom !== 'function') {
+            return;
+        }
+        const zoomFactor = action === 'in' ? 1.2 : 0.85;
+        walletChartInstance.zoom({
+            x: { scaleId: 'x', factor: zoomFactor },
+            y: { scaleId: 'y', factor: zoomFactor },
+        });
+        updateWalletChartDynamicRanges(walletChartInstance);
+    };
+    const bindWalletZoomControls = () => {
+        Object.entries(walletZoomButtons).forEach(([action, button]) => {
+            if (!button || button.dataset.walletZoomBound === 'true') {
+                return;
+            }
+            button.addEventListener('click', () => {
+                performWalletZoomAction(action);
+            });
+            button.dataset.walletZoomBound = 'true';
+        });
+        updateWalletZoomControlState();
     };
     document.querySelectorAll('[data-dashboard-panel]').forEach(panel => {
         const name = panel?.dataset?.dashboardPanel;
@@ -1024,7 +1071,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletOverlayElements.value = document.getElementById('wallet-overlay-value');
         walletOverlayElements.change = document.getElementById('wallet-overlay-change');
         walletOverlayElements.detail = document.getElementById('wallet-overlay-detail');
+        walletZoomButtons.out = document.getElementById('wallet-zoom-out');
+        walletZoomButtons.in = document.getElementById('wallet-zoom-in');
+        walletZoomButtons.reset = document.getElementById('wallet-zoom-reset');
         applyWalletOverlayState(null);
+        bindWalletZoomControls();
         updateWalletChartTouchAction();
         walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
         if (walletTimeframeSelect) {
@@ -1589,8 +1640,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartCanvas.classList.add('hidden');
     }
 
-    let walletZoomPluginAvailable = false;
-
     if (typeof Chart !== 'undefined') {
         const zoomPlugin = (typeof window !== 'undefined')
             ? (window.ChartZoom || window.chartjsPluginZoom || window['chartjs-plugin-zoom'])
@@ -1624,14 +1673,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
         }
     }
+    updateWalletZoomControlState();
 
     const medalColorAssignments = new Map();
     let medalColorIndex = 0;
 
     let activeChartKey = 'balance';
-    let walletChartInstance = null;
-    let walletChartClickSelection = null;
-    let walletChartEventsBound = false;
 
     const storeWalletChartScaleDefaults = (chart) => {
         if (!chart) {
@@ -5037,6 +5084,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletChartInstance = null;
         }
         applyWalletOverlayState(null);
+        updateWalletZoomControlState();
     };
 
     const getWalletOverlayChangeDetails = ({ dataset, rawValue, index, periodMeta, overlayRole }) => {
@@ -6006,6 +6054,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             color: axisColor,
                             font: tickFont,
                             padding: 6,
+                            align: 'inner',
+                            crossAlign: 'near',
                             callback: (value) => {
                                 if (!Number.isFinite(value)) {
                                     return '$0.0M';
@@ -6026,6 +6076,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     color: axisColor,
                                     font: tickFont,
                                     padding: 6,
+                                    align: 'inner',
+                                    crossAlign: 'near',
                                     callback: (value) => {
                                         if (!Number.isFinite(value)) {
                                             return '$0';
@@ -6054,6 +6106,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     color: axisColor,
                                     font: tickFont,
                                     padding: 6,
+                                    align: 'inner',
+                                    crossAlign: 'near',
                                     callback: (value) => {
                                         if (!Number.isFinite(value)) {
                                             return '$0';
@@ -6079,6 +6133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             plugins: chartPlugins
         });
         storeWalletChartScaleDefaults(walletChartInstance);
+        updateWalletZoomControlState();
 
         ensureWalletChartEvents();
         updateToggleStates(activeChartKey);

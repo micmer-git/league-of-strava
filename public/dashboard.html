@@ -283,12 +283,20 @@
 <div class="panel-card bg-white dark:bg-gray-800 shadow-lg rounded-2xl">
 <header class="panel-card__header panel-card__header--stack">
 <h3 class="panel-card__title">Wallet Insights</h3>
-  <div class="wallet-controls">
+  <div class="wallet-controls" role="group" aria-label="Wallet chart controls">
     <button aria-pressed="false" class="wallet-control" id="chart-toggle-coins" type="button">Coins &amp; Medals</button>
     <button aria-pressed="false" class="wallet-control" id="chart-toggle-balance" type="button">Balance</button>
-    <button class="wallet-control" data-wallet-snapshot-key="weekly" type="button">
-      <span aria-hidden="true">📊</span>
-      <span>Reward snapshots</span>
+    <button class="wallet-control wallet-control--icon" id="wallet-zoom-out" type="button">
+      <span aria-hidden="true">➖</span>
+      <span class="sr-only">Zoom out</span>
+    </button>
+    <button class="wallet-control wallet-control--icon" id="wallet-zoom-in" type="button">
+      <span aria-hidden="true">➕</span>
+      <span class="sr-only">Zoom in</span>
+    </button>
+    <button class="wallet-control wallet-control--icon" id="wallet-zoom-reset" type="button">
+      <span aria-hidden="true">⟳</span>
+      <span class="sr-only">Reset zoom</span>
     </button>
     <label class="wallet-control wallet-control--select" for="wallet-timeframe-select">
       <span class="wallet-control__label">Time frame</span>
@@ -302,12 +310,13 @@
     </label>
   </div>
 </header>
+<p class="wallet-chart__hint" id="wallet-chart-hint">Pinch, drag, or use the zoom buttons to explore your wallet history. Double-tap or use the reset button to go back to the full view.</p>
 <div class="wallet-chart" id="wallet-chart-wrapper">
-<canvas class="w-full h-full" id="wallet-chart"></canvas>
+<canvas class="w-full h-full" id="wallet-chart" role="img" aria-label="Achievement wallet chart" aria-describedby="wallet-chart-hint wallet-chart-overlay" tabindex="0"></canvas>
 <p class="wallet-chart__empty hidden" id="wallet-chart-empty"></p>
-<div aria-hidden="true" aria-live="polite" class="wallet-chart__overlay" id="wallet-chart-overlay">
+<div aria-live="polite" class="wallet-chart__overlay" id="wallet-chart-overlay" role="status">
   <p class="wallet-chart__overlay-label" id="wallet-overlay-label">Wallet insight</p>
-  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Hover or tap a data point to inspect progress.</p>
+  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Pinch, drag, or use the zoom buttons to inspect progress.</p>
   <p class="wallet-chart__overlay-change" id="wallet-overlay-change"></p>
   <p class="wallet-chart__overlay-detail" id="wallet-overlay-detail"></p>
 </div>

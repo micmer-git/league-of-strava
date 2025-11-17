@@ -130,19 +130,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         '3M': 'quarter',
         '1Y': 'yearly',
     };
+    const PROFILE_RANGE_SUMMARY_LABELS = {
+        '7D': 'last 7 days',
+        '3M': 'last 3 months',
+        '1Y': 'last year',
+    };
 
     const PROFILE_PERIOD_MODAL_METADATA = {
         weekly: {
             title: 'Last 7 Days Overview',
-            description: 'Your wallet, effort, and rewards across the previous week.',
+            description: 'Seven-day haul recap.',
         },
         quarter: {
             title: 'Last 3 Months Overview',
-            description: 'Your wallet, effort, and rewards across the previous 90 days.',
+            description: 'Ninety-day haul recap.',
         },
         yearly: {
             title: 'Last Year Overview',
-            description: 'Your wallet, effort, and rewards across the previous 365 days.',
+            description: 'Year-long haul recap.',
         },
     };
 
@@ -3122,6 +3127,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${prefix}${absoluteValue.toFixed(decimals)}%`;
     };
 
+    const appendWalletRangeLabel = (element, baseText, rangeSummary) => {
+        if (!element) {
+            return;
+        }
+
+        element.textContent = '';
+        element.appendChild(document.createTextNode(baseText));
+
+        if (rangeSummary) {
+            const rangeSpan = document.createElement('span');
+            rangeSpan.className = 'profile-card__balance-range';
+            rangeSpan.textContent = `• ${rangeSummary}`;
+            element.appendChild(rangeSpan);
+        }
+    };
+
     const applyWalletChangeToElement = (element, valueChange, percentValue, { shortLabel, longLabel }) => {
         if (!element) {
             return;
@@ -3136,8 +3157,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let tooltipText = '';
 
+        const rangeSummary = PROFILE_RANGE_SUMMARY_LABELS[(shortLabel || '').toUpperCase()] || '';
+
         if (!hasValue && !hasPercent) {
-            element.textContent = `${shortLabel} —`;
+            appendWalletRangeLabel(element, `${shortLabel} —`, rangeSummary);
             element.classList.add('profile-card__balance-change--neutral');
             element.setAttribute('aria-label', `${longLabel} change unavailable`);
             tooltipText = `${longLabel} Achievement Wallet change isn't available yet. Keep logging activities to unlock this trend.`;
@@ -3148,12 +3171,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (hasPercent) {
                 displayText += ` (${formattedPercent})`;
             }
-
-            if (hasValue || hasPercent) {
-                displayText += '.';
-            }
-
-            element.textContent = displayText;
+            appendWalletRangeLabel(element, displayText.trim(), rangeSummary);
 
             if (hasValue) {
                 if (formattedValue.startsWith('-')) {
@@ -3375,6 +3393,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             distanceKm: 0,
             elevationGain: 0,
             calories: 0,
+            globeTrips: 0,
+            everestSummits: 0,
+            pizzaCount: 0,
         };
 
         const sourceActivities = Array.isArray(activities) ? activities : [];
@@ -3433,6 +3454,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 accumulator.distanceKm += Number.isFinite(smallStats.distanceKm) ? smallStats.distanceKm : 0;
                 accumulator.elevationGain += Number.isFinite(smallStats.elevationGain) ? smallStats.elevationGain : 0;
                 accumulator.calories += Number.isFinite(smallStats.calories) ? smallStats.calories : 0;
+                accumulator.globeTrips += Number.isFinite(smallStats.globeTrips) ? smallStats.globeTrips : 0;
+                accumulator.everestSummits += Number.isFinite(smallStats.everestSummits) ? smallStats.everestSummits : 0;
+                accumulator.pizzaCount += Number.isFinite(smallStats.pizzaCount) ? smallStats.pizzaCount : 0;
             }
 
             const activityTimestamp = activityDate.getTime();
@@ -3471,6 +3495,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             distanceKm: accumulator.distanceKm,
             elevationGain: accumulator.elevationGain,
             calories: accumulator.calories,
+            globeTrips: accumulator.globeTrips,
+            everestSummits: accumulator.everestSummits,
+            pizzaCount: accumulator.pizzaCount,
         };
     };
 
@@ -3533,6 +3560,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const rounded = Math.round(numeric);
         return `${rounded.toLocaleString()} kcal`;
+    }
+
+    function formatWorldCollectionStatValue(globeTrips) {
+        const numeric = Number(globeTrips);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '';
+        }
+
+        return `🌍 ${formatStatValue(numeric)} world coins collected`;
+    }
+
+    function formatEverestClimbStatValue(everestSummits) {
+        const numeric = Number(everestSummits);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '';
+        }
+
+        return `🏔️ ${formatStatValue(numeric)} Everest climbs`;
+    }
+
+    function formatPizzaSliceStatValue(pizzaCount) {
+        const numeric = Number(pizzaCount);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '';
+        }
+
+        return `🍕 ${formatStatValue(numeric)} pizzas`;
     }
 
     const createRankSnapshotSlide = (snapshot, index = 0, options = {}) => {
@@ -3624,6 +3678,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const metricsGrid = document.createElement('div');
         metricsGrid.className = 'rank-modal__snapshot-metrics';
 
+        const fallbackGlobeTrips = Number.isFinite(snapshot.globeTrips)
+            ? snapshot.globeTrips
+            : (Number.isFinite(snapshot.distanceKm) ? snapshot.distanceKm / EARTH_CIRCUMFERENCE_KM : 0);
+        const fallbackEverests = Number.isFinite(snapshot.everestSummits)
+            ? snapshot.everestSummits
+            : (Number.isFinite(snapshot.elevationGain) ? snapshot.elevationGain / EVEREST_HEIGHT_M : 0);
+        const fallbackPizzas = Number.isFinite(snapshot.pizzaCount)
+            ? snapshot.pizzaCount
+            : (Number.isFinite(snapshot.calories) ? snapshot.calories / PIZZA_KCAL : 0);
+
         const metrics = [
             {
                 label: 'Activities',
@@ -3638,24 +3702,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             {
                 label: 'Distance covered',
                 value: formatDistanceStatValue(snapshot.distanceKm),
+                secondary: formatWorldCollectionStatValue(fallbackGlobeTrips),
             },
             {
                 label: 'Elevation gain',
                 value: formatElevationStatValue(snapshot.elevationGain),
+                secondary: formatEverestClimbStatValue(fallbackEverests),
             },
             {
                 label: 'Energy burned',
                 value: formatCaloriesStatValue(snapshot.calories),
-            },
-            {
-                label: 'Coins minted',
-                value: formatCount(snapshot.coinsTotal),
-                secondary: safeCoinValue > 0 ? usdCodeFormatter.format(safeCoinValue) : null,
-            },
-            {
-                label: 'Medals unlocked',
-                value: formatCount(snapshot.medalCount),
-                secondary: safeMedalValue > 0 ? usdCodeFormatter.format(safeMedalValue) : null,
+                secondary: formatPizzaSliceStatValue(fallbackPizzas),
             },
         ];
 

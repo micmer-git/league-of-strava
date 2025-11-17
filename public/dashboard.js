@@ -394,6 +394,107 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mobilePanelChangeCallbacks = new Set();
     const DASHBOARD_PANEL_STORAGE_KEY = 'los:dashboard:active-panel';
     let canPersistPanelState = true;
+    const walletLayerReferenceState = {
+        toggles: [],
+        layers: [],
+        cleanupCallbacks: [],
+    };
+    let activeWalletLayerName = null;
+
+    const cleanupWalletLayerListeners = () => {
+        if (!walletLayerReferenceState.cleanupCallbacks.length) {
+            return;
+        }
+
+        walletLayerReferenceState.cleanupCallbacks.forEach((callback) => {
+            try {
+                callback();
+            } catch (error) {
+                console.warn('Unable to clean up wallet layer listener:', error);
+            }
+        });
+        walletLayerReferenceState.cleanupCallbacks = [];
+    };
+
+    const updateWalletLayerToggleState = (targetLayer = null) => {
+        if (walletLayerReferenceState.toggles.length === 0 && walletLayerReferenceState.layers.length === 0) {
+            activeWalletLayerName = null;
+            return;
+        }
+
+        const resolvedLayer = targetLayer
+            || activeWalletLayerName
+            || walletLayerReferenceState.toggles.find((button) => button.classList.contains('is-active') && button.dataset.walletLayerToggle)?.dataset.walletLayerToggle
+            || walletLayerReferenceState.layers.find((layer) => layer.classList.contains('is-active') && layer.dataset.walletLayer)?.dataset.walletLayer
+            || walletLayerReferenceState.toggles[0]?.dataset.walletLayerToggle
+            || walletLayerReferenceState.layers[0]?.dataset.walletLayer
+            || null;
+
+        activeWalletLayerName = resolvedLayer;
+
+        if (!resolvedLayer) {
+            walletLayerReferenceState.toggles.forEach((button) => {
+                button.classList.remove('is-active');
+                button.setAttribute('aria-pressed', 'false');
+                button.removeAttribute('aria-current');
+            });
+            walletLayerReferenceState.layers.forEach((layer) => {
+                layer.classList.add('is-active');
+                layer.removeAttribute('hidden');
+            });
+            return;
+        }
+
+        walletLayerReferenceState.toggles.forEach((button) => {
+            const isActive = button.dataset.walletLayerToggle === resolvedLayer;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            if (isActive) {
+                button.setAttribute('aria-current', 'true');
+            } else {
+                button.removeAttribute('aria-current');
+            }
+        });
+
+        walletLayerReferenceState.layers.forEach((layer) => {
+            const isActive = layer.dataset.walletLayer === resolvedLayer;
+            layer.classList.toggle('is-active', isActive);
+            if (isActive) {
+                layer.removeAttribute('hidden');
+            } else {
+                layer.setAttribute('hidden', 'true');
+            }
+        });
+    };
+
+    const refreshPanelReferences = () => {
+        cleanupWalletLayerListeners();
+        walletLayerReferenceState.toggles = Array.from(document.querySelectorAll('[data-wallet-layer-toggle]'));
+        walletLayerReferenceState.layers = Array.from(document.querySelectorAll('[data-wallet-layer]'));
+
+        walletLayerReferenceState.toggles.forEach((button) => {
+            const handleClick = (event) => {
+                event.preventDefault();
+                if (button.disabled) {
+                    return;
+                }
+
+                const targetLayer = button.dataset.walletLayerToggle;
+                if (!targetLayer) {
+                    return;
+                }
+
+                updateWalletLayerToggleState(targetLayer);
+            };
+
+            button.addEventListener('click', handleClick);
+            walletLayerReferenceState.cleanupCallbacks.push(() => {
+                button.removeEventListener('click', handleClick);
+            });
+        });
+
+        updateWalletLayerToggleState();
+    };
 
     const updateViewportHeightVar = () => {
         const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight;
@@ -542,6 +643,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         notifyPanelChange(panelName);
     }
 
+    refreshPanelReferences();
     setActivePanel(initialPanelName || 'profile');
 
     const moveToRelativePanel = (direction) => {
@@ -6706,6 +6808,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         showLoading: showSpinner,
         hideLoading: fadeOutSpinner,
+        refreshPanelReferences,
     };
 
     window.dashboardMobile = dashboardMobileApi;

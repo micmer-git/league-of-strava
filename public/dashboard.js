@@ -3393,16 +3393,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (levelProgressWeeklyFillElement) {
-            if (spanHours && weekValue > 0 && progressPercent > 0) {
+            if (spanHours && weekValue > 0) {
                 const clampedWeekHours = Math.min(weekValue, spanHours);
-                const weeklyPercent = Math.min(progressPercent, Math.max(0, (clampedWeekHours / spanHours) * 100));
-                const weeklyStart = Math.max(0, progressPercent - weeklyPercent);
+                const weeklyPercent = Math.min(100, Math.max(0, (clampedWeekHours / spanHours) * 100));
                 levelProgressWeeklyFillElement.style.width = `${weeklyPercent.toFixed(2)}%`;
-                levelProgressWeeklyFillElement.style.left = `${weeklyStart.toFixed(2)}%`;
                 levelProgressWeeklyFillElement.classList.add('is-visible');
             } else {
                 levelProgressWeeklyFillElement.style.width = '0%';
-                levelProgressWeeklyFillElement.style.left = '0%';
                 levelProgressWeeklyFillElement.classList.remove('is-visible');
             }
         }

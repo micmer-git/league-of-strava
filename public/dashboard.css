@@ -30,6 +30,9 @@
     --color-accent-strong: #1d4ed8;
     --color-accent-soft: #93c5fd;
     --color-border: #e2e8f0;
+    --color-money: #0f9d58;
+    --color-money-soft: rgba(15, 157, 88, 0.12);
+    --color-money-border: rgba(15, 157, 88, 0.35);
 
     /* Derived component tokens */
     --overlay-backdrop: rgba(241, 244, 255, 0.88);
@@ -77,6 +80,9 @@ body.dark {
     --color-accent-strong: #2563eb;
     --color-accent-soft: #93c5fd;
     --color-border: #334155;
+    --color-money: #34d399;
+    --color-money-soft: rgba(5, 150, 105, 0.25);
+    --color-money-border: rgba(5, 150, 105, 0.45);
     --overlay-backdrop: rgba(15, 23, 42, 0.85);
     --overlay-backdrop-strong: rgba(30, 41, 59, 0.75);
     --surface-border-strong: rgba(51, 65, 85, 0.6);
@@ -4823,5 +4829,46 @@ body.is-filter-modal-open {
 .profile-card__rankline .profile-card__level {
     width: auto;
     font-variant-numeric: tabular-nums;
+}
+
+.profile-card__balance-value {
+    color: var(--color-money);
+}
+
+.profile-card__balance-change {
+    color: var(--color-money);
+    background: var(--color-money-soft);
+    border: 1px solid var(--color-money-border);
+}
+
+body.dark .profile-card__balance-value {
+    color: var(--color-money);
+}
+
+body.dark .profile-card__balance-change {
+    color: var(--color-money);
+    background: var(--color-money-soft);
+    border-color: var(--color-money-border);
+}
+
+.profile-card__balance-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: 0.45rem;
+    font-weight: 600;
+    color: #111827;
+}
+
+body.dark .profile-card__balance-range {
+    color: #f8fafc;
+}
+
+.profile-card__balance-change--negative {
+    border-color: rgba(248, 113, 113, 0.35);
+}
+
+.profile-card__balance-change--neutral {
+    border-color: rgba(148, 163, 184, 0.35);
 }
 

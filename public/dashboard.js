@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletLayerReferenceState.cleanupCallbacks = [];
     };
 
-    const updateWalletLayerToggleState = (targetLayer = null) => {
+    function updateWalletLayerToggleState(targetLayer = null) {
         if (walletLayerReferenceState.toggles.length === 0 && walletLayerReferenceState.layers.length === 0) {
             activeWalletLayerName = null;
             return;
@@ -465,7 +465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 layer.setAttribute('hidden', 'true');
             }
         });
-    };
+    }
 
     const refreshPanelReferences = () => {
         cleanupWalletLayerListeners();

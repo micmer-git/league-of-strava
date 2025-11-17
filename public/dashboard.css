@@ -1193,13 +1193,6 @@ to { opacity: 1; transform: translateY(0); }
     min-width: 0;
 }
 
-.profile-card__header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
-    align-items: start;
-}
-
 .profile-card__avatar {
     width: 4.25rem;
     height: 4.25rem;
@@ -1228,11 +1221,6 @@ to { opacity: 1; transform: translateY(0); }
 }
 
 @media (min-width: 640px) {
-    .profile-card__header {
-        justify-content: space-between;
-        gap: 1.5rem;
-    }
-
     .profile-card__avatar {
         align-self: flex-start;
     }
@@ -1249,6 +1237,14 @@ to { opacity: 1; transform: translateY(0); }
     .profile-card__header {
         justify-content: space-between;
         gap: 1.75rem;
+    }
+}
+
+@media (min-width: 900px) {
+    .profile-card__header {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) minmax(14rem, 0.65fr);
+        align-items: stretch;
     }
 }
 
@@ -1274,6 +1270,51 @@ to { opacity: 1; transform: translateY(0); }
     flex-direction: column;
     gap: 0.65rem;
     width: 100%;
+}
+
+.profile-card__season-stats {
+    --season-card-border: rgba(148, 163, 184, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border-radius: var(--radius-md, 1rem);
+    border: 1px solid var(--season-card-border);
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.08));
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.dark .profile-card__season-stats {
+    --season-card-border: rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.65);
+    box-shadow: 0 18px 35px rgba(2, 6, 23, 0.45);
+}
+
+.profile-card__season-pills .profile-metrics__row {
+    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+}
+
+.profile-card__season-stats .profile-metric-pill {
+    font-size: 0.85rem;
+    padding-inline: 0.75rem;
+}
+
+.profile-card__wallet-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-start;
+}
+
+@media (min-width: 900px) {
+    .profile-card__season-stats {
+        flex: 0 0 min(18rem, 35%);
+        max-width: min(18rem, 35%);
+        align-self: stretch;
+    }
 }
 
 .profile-card__name-row {

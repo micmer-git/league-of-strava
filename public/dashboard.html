@@ -305,6 +305,12 @@
 <div class="wallet-chart" id="wallet-chart-wrapper">
 <canvas class="w-full h-full" id="wallet-chart"></canvas>
 <p class="wallet-chart__empty hidden" id="wallet-chart-empty"></p>
+<div aria-hidden="true" aria-live="polite" class="wallet-chart__overlay" id="wallet-chart-overlay">
+  <p class="wallet-chart__overlay-label" id="wallet-overlay-label">Wallet insight</p>
+  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Hover or tap a data point to inspect progress.</p>
+  <p class="wallet-chart__overlay-change" id="wallet-overlay-change"></p>
+  <p class="wallet-chart__overlay-detail" id="wallet-overlay-detail"></p>
+</div>
 </div>
 </div>
 </section>

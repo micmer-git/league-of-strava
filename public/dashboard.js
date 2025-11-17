@@ -13764,7 +13764,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    const bindWalletChartTypeButtons = () => {
+    function bindWalletChartTypeButtons() {
         walletChartTypeButtons.forEach((button) => {
             if (!button || button.dataset.walletChartTypeInitialized === 'true') {
                 return;
@@ -13775,9 +13775,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 setWalletChartDisplayMode(button.dataset.walletChartType);
             });
         });
-    };
+    }
 
-    const bindWalletTimeRangeButtons = () => {
+    function bindWalletTimeRangeButtons() {
         walletChartRangeButtons.forEach((button) => {
             if (!button || button.dataset.walletTimeRangeInitialized === 'true') {
                 return;
@@ -13788,9 +13788,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 requestWalletTimeframeChange(button.dataset.walletRange);
             });
         });
-    };
+    }
 
-    const bindWalletLayerToggles = () => {
+    function bindWalletLayerToggles() {
         if (walletGridToggle && walletGridToggle.dataset.walletLayerInitialized !== 'true') {
             walletGridToggle.dataset.walletLayerInitialized = 'true';
             walletGridToggle.addEventListener('change', () => {
@@ -13818,9 +13818,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 setWalletAppearancePreference(walletAppearanceSelect.value);
             });
         }
-    };
+    }
 
-    const bindWalletBottomSheet = () => {
+    function bindWalletBottomSheet() {
         if (!walletBottomSheet || walletBottomSheet.dataset.walletSheetInitialized === 'true') {
             return;
         }
@@ -13877,9 +13877,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
             document.addEventListener('keydown', walletBottomSheetEscapeHandler);
         }
-    };
+    }
 
-    const bindWalletExportShare = () => {
+    function bindWalletExportShare() {
         if (walletChartExportButton && walletChartExportButton.dataset.walletExportInitialized !== 'true') {
             walletChartExportButton.dataset.walletExportInitialized = 'true';
             walletChartExportButton.addEventListener('click', () => {
@@ -13928,7 +13928,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 downloadLink.click();
             });
         }
-    };
+    }
 
     const bindChartToggleButtons = () => {
         Object.entries(chartToggleButtons).forEach(([key, button]) => {
@@ -13947,7 +13947,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    const bindWalletTimeframeSelect = () => {
+    function bindWalletTimeframeSelect() {
         if (!walletTimeframeSelect || walletTimeframeSelect.dataset.walletTimeframeInitialized === 'true') {
             return;
         }
@@ -13972,7 +13972,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 precomputedLifetimeMetrics: allData?.totals?.precomputedWalletMetrics,
             });
         });
-    };
+    }
 
     const bindPanelShortcutButtons = () => {
         panelShortcutButtons.forEach((button) => {
@@ -14141,7 +14141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    const bindWalletChangeSnapshotTriggers = () => {
+    function bindWalletChangeSnapshotTriggers() {
         const elements = Array.from(document.querySelectorAll('[data-wallet-snapshot-key]')).filter(Boolean);
 
         elements.forEach((element) => {
@@ -14185,7 +14185,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             element.dataset.walletSnapshotBound = 'true';
         });
-    };
+    }
 
     bindChartToggleButtons();
     bindPanelShortcutButtons();

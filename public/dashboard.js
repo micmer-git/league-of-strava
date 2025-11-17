@@ -474,6 +474,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const DASHBOARD_CACHE_VERSION = 'v2';
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 
+    const MAX_CACHED_ACTIVITIES = 250;
+    const MAX_CACHED_SEGMENTS = 200;
+
     const CACHE_KEYS = {
         DASHBOARD: (userId) => `los:dashboard:${DASHBOARD_CACHE_VERSION}:${userId || 'self'}`,
         LEADERBOARD: `los:leaderboard:${DASHBOARD_CACHE_VERSION}`,
@@ -530,6 +533,91 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         return false;
+    };
+
+    const limitObjectEntries = (source, allowedKeys, maxEntries) => {
+        if (!source || typeof source !== 'object') {
+            return undefined;
+        }
+
+        const shouldFilterByKeys = allowedKeys instanceof Set && allowedKeys.size > 0;
+        const filteredEntries = Object.entries(source).filter(([key]) => {
+            if (!shouldFilterByKeys) {
+                return true;
+            }
+            return allowedKeys.has(String(key));
+        });
+
+        if (filteredEntries.length === 0) {
+            return undefined;
+        }
+
+        const limitedEntries = Number.isFinite(maxEntries) && maxEntries > 0
+            ? filteredEntries.slice(0, maxEntries)
+            : filteredEntries;
+
+        return limitedEntries.reduce((acc, [key, value]) => {
+            acc[key] = value;
+            return acc;
+        }, {});
+    };
+
+    const sanitizeDashboardCachePayload = (payload) => {
+        if (!payload || typeof payload !== 'object') {
+            return null;
+        }
+
+        const sanitized = { ...payload };
+
+        let trimmedActivities;
+        if (Array.isArray(payload.activities)) {
+            trimmedActivities = payload.activities.slice(0, MAX_CACHED_ACTIVITIES);
+            sanitized.activities = trimmedActivities;
+        }
+
+        let trimmedSegments;
+        if (Array.isArray(payload.segments)) {
+            trimmedSegments = payload.segments.slice(0, MAX_CACHED_SEGMENTS);
+            sanitized.segments = trimmedSegments;
+        }
+
+        if (payload.activityMetadata && typeof payload.activityMetadata === 'object') {
+            const activityKeys = new Set();
+            (trimmedActivities || payload.activities || []).forEach((activity) => {
+                if (!activity || typeof activity !== 'object') {
+                    return;
+                }
+                const identifier = activity.id ?? activity.external_id;
+                if (identifier !== undefined && identifier !== null) {
+                    activityKeys.add(String(identifier));
+                }
+            });
+
+            const trimmedMetadata = limitObjectEntries(payload.activityMetadata, activityKeys, MAX_CACHED_ACTIVITIES);
+            if (trimmedMetadata) {
+                sanitized.activityMetadata = trimmedMetadata;
+            } else if ('activityMetadata' in sanitized) {
+                delete sanitized.activityMetadata;
+            }
+        }
+
+        if (payload.segmentMetadata && typeof payload.segmentMetadata === 'object') {
+            const segmentKeys = new Set();
+            (trimmedSegments || payload.segments || []).forEach((segment) => {
+                if (segment && (segment.id !== undefined && segment.id !== null)) {
+                    segmentKeys.add(String(segment.id));
+                }
+            });
+
+            const trimmedMetadata = limitObjectEntries(payload.segmentMetadata, segmentKeys, MAX_CACHED_SEGMENTS);
+            if (trimmedMetadata) {
+                sanitized.segmentMetadata = trimmedMetadata;
+            } else if ('segmentMetadata' in sanitized) {
+                delete sanitized.segmentMetadata;
+            }
+        }
+
+        return sanitized;
     };
 
     const readCacheEntry = (key, ttl) => {
@@ -7867,11 +7955,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const resolvedUserId = isSharedView ? sharedUserId : (payload?.athlete?.id ?? 'self');
             const userId = resolvedUserId || 'self';
+            const sanitizedPayload = sanitizeDashboardCachePayload(payload);
+            if (!sanitizedPayload) {
+                return;
+            }
             const entry = {
                 timestamp: Date.now(),
                 userId,
                 version: DASHBOARD_CACHE_VERSION,
-                data: payload,
+                data: sanitizedPayload,
             };
 
             if (isSharedView) {

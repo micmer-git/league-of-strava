@@ -5422,7 +5422,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateWalletChartActiveElements([], { x: 0, y: 0 });
     };
 
-    const syncWalletChartTypeButtons = () => {
+    function syncWalletChartTypeButtons() {
         walletChartTypeButtons.forEach((button) => {
             if (!button) {
                 return;
@@ -5432,7 +5432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             button.classList.toggle('is-active', isActive);
         });
-    };
+    }
 
     const setWalletChartDisplayMode = (mode) => {
         if (!mode || walletChartDisplayMode === mode || !['line', 'area', 'bar'].includes(mode)) {
@@ -5443,7 +5443,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderWalletChart();
     };
 
-    const syncWalletTimeRangeChips = () => {
+    function syncWalletTimeRangeChips() {
         let matched = false;
         walletChartRangeButtons.forEach((button) => {
             if (!button) {
@@ -5467,7 +5467,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 button.classList.toggle('is-active', isDefault);
             });
         }
-    };
+    }
 
     const requestWalletTimeframeChange = (value) => {
         if (!value) {

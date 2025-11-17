@@ -1219,23 +1219,27 @@ to { opacity: 1; transform: translateY(0); }
 
 .profile-card__header {
     display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+}
+
+.profile-card__hero {
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+    width: 100%;
     flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 1.5rem;
 }
 
 @media (min-width: 640px) {
     .profile-card__header {
-        justify-content: space-between;
         gap: 1.75rem;
     }
-}
 
-@media (min-width: 900px) {
-    .profile-card__header {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr) minmax(14rem, 0.65fr);
-        align-items: stretch;
+    .profile-card__hero {
+        flex-wrap: nowrap;
+        align-items: flex-start;
     }
 }
 
@@ -1247,6 +1251,7 @@ to { opacity: 1; transform: translateY(0); }
     overflow: hidden;
     flex-shrink: 0;
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+    align-self: flex-start;
 }
 
 .profile-card__avatar {
@@ -1273,7 +1278,7 @@ to { opacity: 1; transform: translateY(0); }
     border: 1px solid var(--season-card-border);
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.08));
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-    flex: 1 1 100%;
+    flex: 1 1 260px;
     min-width: 0;
 }
 

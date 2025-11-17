@@ -1977,6 +1977,10 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     overflow: hidden;
 }
 
+.profile-card__progress-bar--labeled {
+    padding: 0 1rem;
+}
+
 .profile-card__progress-fill {
     position: absolute;
     top: 0;
@@ -2010,6 +2014,33 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     padding: 0 0.4rem;
     opacity: 0;
     transition: width 0.3s ease, left 0.3s ease, opacity 0.2s ease;
+}
+
+.profile-card__progress-bar--labeled .profile-card__progress-fill,
+.profile-card__progress-bar--labeled .profile-card__progress-fill--recent {
+    padding: 0;
+}
+
+.profile-card__progress-label--inside,
+.profile-card__progress-next--inside {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    font-weight: 700;
+    z-index: 3;
+    color: #f8fafc;
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.35);
+    pointer-events: none;
+}
+
+.profile-card__progress-label--inside {
+    left: 0.9rem;
+}
+
+.profile-card__progress-next--inside {
+    right: 0.9rem;
+    text-align: right;
 }
 
 .profile-card__progress-fill--recent .profile-card__progress-weekly-label {

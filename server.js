@@ -720,8 +720,12 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
     }
 
     const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
+    const { payload: hydratedPayload } = await ensurePayloadHasHistoricalActivities(
+      normalizedPayload,
+      userId,
+    );
     const cacheTimestamp = Date.now();
-    const hasActivitiesBackup = Array.isArray(normalizedPayload.activities) && normalizedPayload.activities.length > 0;
+    const hasActivitiesBackup = Array.isArray(hydratedPayload.activities) && hydratedPayload.activities.length > 0;
     const loadingInfo = createLoadingInfo({
       userId,
       cacheTimestamp,
@@ -735,7 +739,7 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
     });
 
     const payloadWithMetadata = {
-      ...normalizedPayload,
+      ...hydratedPayload,
       stored: true,
       storedTimestamp: snapshot.timestamp || null,
       userId,

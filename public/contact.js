@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const requestTypeSelect = document.getElementById('contact-request-type');
   const feedbackElement = document.getElementById('contact-feedback');
   const requestGroups = Array.from(document.querySelectorAll('[data-request-group]'));
+  const infoPanels = Array.from(document.querySelectorAll('[data-request-info]'));
   const submitButton = form.querySelector('button[type="submit"]');
 
   const setFeedback = (message, status = '') => {
@@ -27,12 +28,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedType = requestTypeSelect?.value || 'medal';
     requestGroups.forEach(group => {
       const groupType = group.getAttribute('data-request-group');
-      group.hidden = groupType !== selectedType;
-      group.querySelectorAll('input, textarea').forEach(field => {
+      const isActive = groupType === selectedType;
+      group.hidden = !isActive;
+      group.querySelectorAll('input, textarea, select').forEach(field => {
         if (field) {
-          field.toggleAttribute('required', groupType === selectedType && field.dataset.required === 'true');
+          field.toggleAttribute('required', isActive && field.dataset.required === 'true');
         }
       });
+    });
+
+    infoPanels.forEach(panel => {
+      const panelType = panel.getAttribute('data-request-info');
+      panel.hidden = panelType !== selectedType;
     });
   };
 

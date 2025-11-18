@@ -271,6 +271,48 @@ body.rank-modal-open .site-header__inner {
   color: var(--color-text-soft);
 }
 
+.contact-form .optional-label {
+  font-weight: 400;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.contact-form .form-helper {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.contact-request-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.contact-request-info {
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 4px solid var(--color-accent-strong);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1rem;
+}
+
+.contact-request-info h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.contact-request-info ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--color-text-soft);
+  font-size: 0.95rem;
+}
+
+.contact-request-info li + li {
+  margin-top: 0.25rem;
+}
+
 .contact-form input,
 .contact-form select,
 .contact-form textarea {

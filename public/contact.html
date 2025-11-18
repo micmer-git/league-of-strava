@@ -51,8 +51,9 @@
             <input type="email" id="contact-email" name="email" inputmode="email" required>
           </div>
           <div class="form-field">
-            <label for="contact-athlete">Strava athlete ID or profile URL</label>
-            <input type="text" id="contact-athlete" name="athleteIdentifier" placeholder="https://www.strava.com/athletes/123456" required>
+            <label for="contact-athlete">Strava athlete ID or profile URL <span class="optional-label">(optional)</span></label>
+            <input type="text" id="contact-athlete" name="athleteIdentifier" placeholder="https://www.strava.com/athletes/123456">
+            <p class="form-helper">Share this if you would like us to associate the request with your League profile.</p>
           </div>
           <div class="form-field">
             <label for="contact-request-type">Request type</label>
@@ -61,6 +62,32 @@
               <option value="race">Race tracking</option>
               <option value="climb">Climb segment</option>
             </select>
+          </div>
+          <div class="contact-request-details">
+            <article class="contact-request-info" data-request-info="medal">
+              <h3>What we need for medal ideas</h3>
+              <ul>
+                <li>Which type of athlete or effort you want to celebrate.</li>
+                <li>Any thresholds (distance, elevation, pace) we should verify.</li>
+                <li>Optional links or context that will help judge the idea.</li>
+              </ul>
+            </article>
+            <article class="contact-request-info" data-request-info="race" hidden>
+              <h3>What we need for race tracking</h3>
+              <ul>
+                <li>The exact date and starting location of the event.</li>
+                <li>The discipline (run, ride, marathon, etc.).</li>
+                <li>Expected distance and elevation so we can match activities.</li>
+              </ul>
+            </article>
+            <article class="contact-request-info" data-request-info="climb" hidden>
+              <h3>What we need for climb segments</h3>
+              <ul>
+                <li>The Strava segment ID of the climb you would like highlighted.</li>
+                <li>Any local names or details that help us describe the climb.</li>
+                <li>Optional reasons why the climb is meaningful to the League.</li>
+              </ul>
+            </article>
           </div>
           <div class="form-field" data-request-group="medal">
             <label for="medal-description">Describe your medal</label>

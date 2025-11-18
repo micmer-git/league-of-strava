@@ -1935,6 +1935,19 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     line-height: 1;
 }
 
+body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft {
+    background-color: transparent;
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    padding: clamp(0.5rem, 4vw, 1rem) 0;
+}
+
+body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::before,
+body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
+    display: none;
+}
+
 
 .wallet-total-pill__icon {
     display: inline-flex;

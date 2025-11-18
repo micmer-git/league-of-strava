@@ -6672,6 +6672,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }).filter(Boolean);
     };
 
+    const WALLET_DAY_IN_MS = 24 * 60 * 60 * 1000;
+
     const getStartOfWeek = (date) => {
         if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
             return null;
@@ -6725,6 +6727,43 @@ document.addEventListener('DOMContentLoaded', async () => {
                 weekStart,
             };
         }
+        if (bucketType === 'two-week') {
+            const weekStart = getStartOfWeek(date);
+            if (!weekStart) {
+                return null;
+            }
+            const anchorYear = weekStart.getFullYear();
+            const anchorStart = getStartOfWeek(new Date(anchorYear, 0, 1));
+            if (!anchorStart) {
+                return null;
+            }
+            const diffWeeks = Math.floor((weekStart.getTime() - anchorStart.getTime()) / (7 * WALLET_DAY_IN_MS));
+            const biWeekIndex = Number.isFinite(diffWeeks)
+                ? Math.floor(Math.max(0, diffWeeks) / 2)
+                : 0;
+            const rangeStart = new Date(anchorStart.getTime() + biWeekIndex * 2 * 7 * WALLET_DAY_IN_MS);
+            rangeStart.setHours(0, 0, 0, 0);
+            const rangeEnd = new Date(rangeStart.getTime() + 13 * WALLET_DAY_IN_MS);
+            const axisLabel = rangeStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const endLabel = rangeEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const label = `${axisLabel} – ${endLabel}`;
+            const tickLabel = rangeStart.getDate() <= 7
+                ? rangeStart.toLocaleDateString(undefined, { month: 'short' })
+                : '';
+            return {
+                key: `${anchorYear}-BW${String(biWeekIndex + 1).padStart(2, '0')}`,
+                label,
+                axisLabel,
+                tickLabel,
+                year: anchorYear,
+                monthIndex: rangeStart.getMonth(),
+                quarter: Math.floor(rangeStart.getMonth() / 3) + 1,
+                weekStart: rangeStart,
+                rangeStart,
+                rangeEnd,
+                biWeekIndex,
+            };
+        }
         if (bucketType === 'month') {
             const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
             const axisLabel = date.toLocaleDateString(undefined, { month: 'short' });
@@ -6737,6 +6776,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 monthIndex,
                 quarter: Math.floor(monthIndex / 3) + 1,
                 weekStart: new Date(year, monthIndex, 1),
+            };
+        }
+        if (bucketType === 'two-month') {
+            const pairIndex = Math.floor(monthIndex / 2);
+            const startMonthIndex = pairIndex * 2;
+            const startDate = new Date(year, startMonthIndex, 1);
+            const endDate = new Date(year, startMonthIndex + 2, 0);
+            const startLabel = startDate.toLocaleDateString(undefined, { month: 'short' });
+            const endLabel = new Date(year, startMonthIndex + 1, 1).toLocaleDateString(undefined, { month: 'short' });
+            return {
+                key: `${year}-BM${String(pairIndex + 1).padStart(2, '0')}`,
+                label: `${startLabel} – ${endLabel} ${year}`,
+                axisLabel: `${startLabel}–${endLabel}`,
+                tickLabel: startLabel,
+                year,
+                monthIndex: startMonthIndex,
+                quarter: Math.floor(startMonthIndex / 3) + 1,
+                weekStart: startDate,
+                rangeStart: startDate,
+                rangeEnd: endDate,
+                biMonthIndex: pairIndex,
             };
         }
         const quarter = Math.floor(monthIndex / 3) + 1;
@@ -6753,15 +6813,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const getWalletBucketTypeForTimeframe = (timeframe) => {
-        if (timeframe === WALLET_TIMEFRAME_DAY || timeframe === WALLET_TIMEFRAME_WEEK || timeframe === WALLET_TIMEFRAME_3_MONTH) {
+        if (
+            timeframe === WALLET_TIMEFRAME_DAY
+            || timeframe === WALLET_TIMEFRAME_WEEK
+            || timeframe === WALLET_TIMEFRAME_3_MONTH
+        ) {
             return 'week';
         }
-        if (
-            timeframe === WALLET_TIMEFRAME_MONTH
-            || timeframe === WALLET_TIMEFRAME_6_MONTH
-            || timeframe === WALLET_TIMEFRAME_LAST_12_MONTHS
-            || (typeof timeframe === 'string' && timeframe.startsWith('year-'))
-        ) {
+        if (timeframe === WALLET_TIMEFRAME_6_MONTH) {
+            return 'two-week';
+        }
+        if (timeframe === WALLET_TIMEFRAME_MONTH || timeframe === WALLET_TIMEFRAME_LAST_12_MONTHS) {
+            return 'month';
+        }
+        if (timeframe === WALLET_TIMEFRAME_2_YEAR) {
+            return 'two-month';
+        }
+        if (typeof timeframe === 'string' && timeframe.startsWith('year-')) {
             return 'month';
         }
         return 'quarter';
@@ -6803,7 +6871,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 periodMeta: [],
                 barBorderColors: [],
                 bucketType,
-                changeLabel: bucketType === 'week' ? 'Weekly change' : bucketType === 'month' ? 'Monthly change' : 'Quarterly change',
+                changeLabel:
+                    bucketType === 'week'
+                        ? 'Weekly change'
+                        : bucketType === 'two-week'
+                            ? 'Biweekly change'
+                            : bucketType === 'month'
+                                ? 'Monthly change'
+                                : bucketType === 'two-month'
+                                    ? 'Bimonthly change'
+                                    : 'Quarterly change',
             };
         }
 
@@ -6836,10 +6913,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (bucketType === 'month' && Number.isInteger(bucket.monthIndex)) {
                 return `${bucket.year - 1}-${String(bucket.monthIndex + 1).padStart(2, '0')}`;
             }
+            if (bucketType === 'two-month' && Number.isInteger(bucket.biMonthIndex)) {
+                return `${bucket.year - 1}-BM${String(bucket.biMonthIndex + 1).padStart(2, '0')}`;
+            }
             if (bucketType === 'week' && bucket.weekStart instanceof Date) {
                 const priorYear = new Date(bucket.weekStart.getTime());
                 priorYear.setFullYear(priorYear.getFullYear() - 1);
                 return buildWalletWeekKey(getStartOfWeek(priorYear));
+            }
+            if (bucketType === 'two-week' && Number.isInteger(bucket.biWeekIndex)) {
+                return `${bucket.year - 1}-BW${String(bucket.biWeekIndex + 1).padStart(2, '0')}`;
             }
             return null;
         };
@@ -6910,9 +6993,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const barBorderColors = periodMeta.map(entry => entry.colors?.border || '#2563eb');
         const changeLabel = bucketType === 'week'
             ? 'Weekly change'
-            : bucketType === 'month'
-                ? 'Monthly change'
-                : 'Quarterly change';
+            : bucketType === 'two-week'
+                ? 'Biweekly change'
+                : bucketType === 'month'
+                    ? 'Monthly change'
+                    : bucketType === 'two-month'
+                        ? 'Bimonthly change'
+                        : 'Quarterly change';
 
         return {
             labels,

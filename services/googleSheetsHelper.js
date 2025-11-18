@@ -2,6 +2,11 @@
 
 const zlib = require('zlib');
 
+function toFiniteNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
 function getLatestPayload(entries = []) {
   if (!Array.isArray(entries) || entries.length === 0) {
     return null;
@@ -72,7 +77,72 @@ function decompressPayload(payload) {
   return payload;
 }
 
+function calculateTotals(activities = []) {
+  if (!Array.isArray(activities) || activities.length === 0) {
+    return {
+      hours: 0,
+      distance: 0,
+      elevation: 0,
+      calories: 0,
+      activities: 0,
+    };
+  }
+
+  return activities.reduce((totals, activity = {}) => {
+    const movingTimeSeconds = toFiniteNumber(activity.moving_time);
+    if (movingTimeSeconds > 0) {
+      totals.hours += movingTimeSeconds / 3600;
+    }
+
+    const distanceMeters = toFiniteNumber(activity.distance);
+    if (distanceMeters > 0) {
+      totals.distance += distanceMeters;
+    }
+
+    const elevationGain = toFiniteNumber(activity.total_elevation_gain);
+    if (elevationGain > 0) {
+      totals.elevation += elevationGain;
+    }
+
+    const calories = toFiniteNumber(activity.estimated_calories ?? activity.calories);
+    if (calories > 0) {
+      totals.calories += calories;
+    }
+
+    totals.activities += 1;
+    return totals;
+  }, {
+    hours: 0,
+    distance: 0,
+    elevation: 0,
+    calories: 0,
+    activities: 0,
+  });
+}
+
+function recalculateSnapshotTotals(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  const activities = Array.isArray(payload.activities) ? payload.activities : [];
+  const recalculated = calculateTotals(activities);
+  const existingTotals = payload.totals && typeof payload.totals === 'object'
+    ? payload.totals
+    : {};
+
+  return {
+    ...payload,
+    totals: {
+      ...existingTotals,
+      ...recalculated,
+    },
+  };
+}
+
 module.exports = {
   getLatestPayload,
   decompressPayload,
+  calculateTotals,
+  recalculateSnapshotTotals,
 };

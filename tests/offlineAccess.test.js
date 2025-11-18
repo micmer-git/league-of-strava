@@ -53,10 +53,6 @@ test('serves stored snapshots from Google Sheets when Strava is offline', async 
       },
     }),
     isValidSnapshotPayload: () => true,
-    recalculateSnapshotTotals: (payload) => ({
-      ...payload,
-      totals: { activities: payload.activities.length },
-    }),
     userDataCache: fakeCache,
     rewardDefinitionDigest: 'digest-v1',
     createLoadingInfo: (info) => info,
@@ -66,6 +62,7 @@ test('serves stored snapshots from Google Sheets when Strava is offline', async 
 
   assert.equal(result.ok, true);
   assert.equal(result.status, 200);
+  assert.equal(result.body.totals.activities, 1);
   assert.equal(result.body.loadingInfo.sheetOnly, true);
   assert.equal(result.body.loadingInfo.mergedWithLiveData, false);
   assert.equal(result.body.rewardDefinitionDigest, 'digest-v1');

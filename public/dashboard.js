@@ -368,7 +368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityFetchWarning = document.getElementById('activities-fetch-warning');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
     const walletChartCanvas = document.getElementById('wallet-chart');
-    const walletChartEmptyState = document.getElementById('wallet-chart-empty');
+    const walletChartWrapper = document.getElementById('wallet-chart-wrapper');
     const chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
     const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
     const balanceYearToggle = document.getElementById('balance-year-toggle');
@@ -919,6 +919,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let activeChartKey = 'balance';
     let walletChartInstance = null;
+    let walletChartStatusElement = null;
+
+    const setWalletChartStatus = (message) => {
+        if (!walletChartWrapper) {
+            return;
+        }
+
+        if (!message) {
+            if (walletChartStatusElement) {
+                walletChartStatusElement.remove();
+                walletChartStatusElement = null;
+            }
+            walletChartWrapper.removeAttribute('data-wallet-chart-status');
+            return;
+        }
+
+        if (!walletChartStatusElement) {
+            walletChartStatusElement = document.createElement('p');
+            walletChartStatusElement.id = 'wallet-chart-status';
+            walletChartStatusElement.className = 'wallet-chart__status';
+            walletChartStatusElement.setAttribute('role', 'status');
+            walletChartStatusElement.setAttribute('aria-live', 'polite');
+            walletChartWrapper.appendChild(walletChartStatusElement);
+        }
+
+        walletChartWrapper.setAttribute('data-wallet-chart-status', message);
+        walletChartStatusElement.textContent = message;
+    };
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
@@ -2230,15 +2258,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const renderWalletChart = (preferredKey = activeChartKey) => {
         if (!walletChartCanvas) {
+            setWalletChartStatus('Charts unavailable.');
             return;
         }
 
         if (typeof Chart === 'undefined') {
             walletChartCanvas.classList.add('hidden');
-            if (walletChartEmptyState) {
-                walletChartEmptyState.textContent = 'Charts unavailable.';
-                walletChartEmptyState.classList.remove('hidden');
-            }
+            setWalletChartStatus('Charts unavailable.');
             updateToggleStates(null);
             return;
         }
@@ -2250,10 +2276,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!availableKey) {
             destroyWalletChart();
             walletChartCanvas.classList.add('hidden');
-            if (walletChartEmptyState) {
-                walletChartEmptyState.classList.remove('hidden');
-                walletChartEmptyState.textContent = 'No wallet data available for this view.';
-            }
+            setWalletChartStatus('No wallet data available for this view.');
             updateToggleStates(null);
             return;
         }
@@ -2262,9 +2285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dataset = walletChartData[availableKey];
 
         walletChartCanvas.classList.remove('hidden');
-        if (walletChartEmptyState) {
-            walletChartEmptyState.classList.add('hidden');
-        }
+        setWalletChartStatus(null);
 
         destroyWalletChart();
 

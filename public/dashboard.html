@@ -293,10 +293,6 @@
         <button aria-pressed="false" class="wallet-chart__chip" data-wallet-range="range-2y" type="button">2Y</button>
         <button aria-pressed="true" class="wallet-chart__chip" data-wallet-range="all" type="button">ALL</button>
       </div>
-      <button aria-controls="wallet-bottom-sheet" aria-expanded="false" class="wallet-chart__settings-button" id="wallet-chart-settings" type="button">
-        <span aria-hidden="true">⚙️</span>
-        <span class="sr-only">Open chart settings</span>
-      </button>
     </div>
     <div class="wallet-controls__actions" aria-label="Time range controls">
       <button class="wallet-control wallet-control--icon" id="wallet-zoom-out" type="button">
@@ -333,45 +329,6 @@
   <p class="wallet-chart__overlay-detail" id="wallet-overlay-detail"></p>
 </div>
 </div>
-<div aria-hidden="true" class="wallet-bottom-sheet__scrim" data-wallet-sheet-dismiss="" id="wallet-bottom-sheet-scrim"></div>
-<section aria-label="Wallet chart appearance" class="wallet-bottom-sheet" id="wallet-bottom-sheet" tabindex="-1">
-  <div class="wallet-bottom-sheet__content">
-    <div class="wallet-bottom-sheet__section">
-      <h4 class="wallet-bottom-sheet__section-title">Layers</h4>
-      <label class="wallet-bottom-sheet__toggle" for="wallet-toggle-grid">
-        <span>Grid lines</span>
-        <input checked id="wallet-toggle-grid" type="checkbox"/>
-      </label>
-      <label class="wallet-bottom-sheet__toggle" for="wallet-toggle-legend">
-        <span>Legend</span>
-        <input checked id="wallet-toggle-legend" type="checkbox"/>
-      </label>
-      <label class="wallet-bottom-sheet__toggle" for="wallet-toggle-labels">
-        <span>Labels</span>
-        <input checked id="wallet-toggle-labels" type="checkbox"/>
-      </label>
-    </div>
-    <div class="wallet-bottom-sheet__section">
-      <h4 class="wallet-bottom-sheet__section-title">Export</h4>
-      <div class="wallet-bottom-sheet__actions">
-        <button class="wallet-bottom-sheet__action" id="wallet-chart-export" type="button">Export PNG</button>
-        <button class="wallet-bottom-sheet__action" id="wallet-chart-share" type="button">Share</button>
-      </div>
-    </div>
-    <div class="wallet-bottom-sheet__section">
-      <h4 class="wallet-bottom-sheet__section-title">Appearance</h4>
-      <label class="wallet-bottom-sheet__select" for="wallet-appearance-select">
-        <span>Theme</span>
-        <select id="wallet-appearance-select">
-          <option value="auto">Auto</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </label>
-    </div>
-    <button class="wallet-bottom-sheet__close" data-wallet-sheet-dismiss="" type="button">Close</button>
-  </div>
-</section>
 </div>
 </section>
 </template>

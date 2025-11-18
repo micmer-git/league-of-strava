@@ -14340,6 +14340,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 mapsTo(targetPanel, { focusTab: true });
 
+                const targetChart = button.dataset.panelChart;
+                if (targetChart) {
+                    activeChartKey = targetChart;
+                    requestWalletRender();
+                }
+
             });
         });
     };

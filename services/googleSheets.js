@@ -454,6 +454,82 @@ async function appendUserSyncProgress({
   };
 }
 
+async function getUserSyncProgressEntries(userId, { limit = 50 } = {}) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const normalizedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 25, 1), 500);
+  const sheetName = SYNC_PROGRESS_SHEET_NAME;
+  const exists = await sheetExists(sheetName);
+
+  if (!exists) {
+    return [];
+  }
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A2:I100000`,
+  });
+
+  const normalizedUserId = userId ? String(userId) : '';
+  const values = res.data.values || [];
+
+  const rows = values
+    .map((row = []) => {
+      const [
+        timestamp = '',
+        rowUserId = '',
+        syncType = 'sync',
+        fetchedCount = '',
+        uniqueActivityIds = '',
+        lastActivityId = '',
+        lastActivityTimestamp = '',
+        totalActivities = '',
+        notes = '',
+      ] = row;
+
+      const parsedFetched = Number.parseInt(fetchedCount, 10);
+      const parsedUnique = Number.parseInt(uniqueActivityIds, 10);
+      const parsedTotal = totalActivities === '' || totalActivities === undefined
+        ? null
+        : Number.parseInt(totalActivities, 10);
+
+      return {
+        timestamp: timestamp || '',
+        userId: rowUserId || '',
+        syncType: syncType || 'sync',
+        fetchedCount: Number.isFinite(parsedFetched) ? parsedFetched : 0,
+        uniqueActivityIds: Number.isFinite(parsedUnique) ? parsedUnique : 0,
+        lastActivityId: lastActivityId || '',
+        lastActivityTimestamp: lastActivityTimestamp || '',
+        totalActivities: Number.isFinite(parsedTotal) ? parsedTotal : null,
+        notes: notes || '',
+      };
+    })
+    .filter(entry => !normalizedUserId || entry.userId === normalizedUserId)
+    .sort((a, b) => {
+      const parsedA = Date.parse(a.timestamp || '');
+      const parsedB = Date.parse(b.timestamp || '');
+      if (Number.isFinite(parsedB) && Number.isFinite(parsedA)) {
+        return parsedB - parsedA;
+      }
+
+      if (Number.isFinite(parsedB)) {
+        return -1;
+      }
+
+      if (Number.isFinite(parsedA)) {
+        return 1;
+      }
+
+      return 0;
+    })
+    .slice(0, normalizedLimit);
+
+  return rows;
+}
+
 async function getLatestUserSnapshot(userId) {
   if (!SPREADSHEET_ID) {
     throw new Error('SPREADSHEET_ID environment variable is not set.');
@@ -682,6 +758,32 @@ async function getLatestUserSyncEntry(userId) {
   }
 
   return null;
+}
+
+async function getUserActivityHistory(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  const latestEntry = await getLatestUserSyncEntry(userId);
+
+  if (!latestEntry || latestEntry.payload === undefined || latestEntry.payload === null) {
+    return [];
+  }
+
+  if (Array.isArray(latestEntry.payload)) {
+    return latestEntry.payload;
+  }
+
+  if (
+    latestEntry.payload
+    && typeof latestEntry.payload === 'object'
+    && Array.isArray(latestEntry.payload.activities)
+  ) {
+    return latestEntry.payload.activities;
+  }
+
+  return [];
 }
 
 async function storeUserDataInSheet(userId, activities, source = 'sync') {
@@ -1132,8 +1234,10 @@ module.exports = {
   getLatestUserSnapshot,
   appendUserSyncEntry,
   getLatestUserSyncEntry,
+  getUserActivityHistory,
   storeUserDataInSheet,
   appendUserSyncProgress,
+  getUserSyncProgressEntries,
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
   getUserEntries,

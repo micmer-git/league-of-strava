@@ -2425,21 +2425,31 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 
 .wallet-controls__actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 0.5rem;
-    align-items: center;
+    align-items: stretch;
     width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.wallet-controls__actions::-webkit-scrollbar {
+    height: 4px;
+}
+
+.wallet-controls__actions::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
 }
 
 .wallet-chart__top-bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
     align-items: center;
     justify-content: space-between;
 }
 
-.wallet-chart__segment-group,
 .wallet-chart__time-chips {
     display: flex;
     align-items: center;
@@ -2450,12 +2460,10 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     scrollbar-width: thin;
 }
 
-.wallet-chart__segment-group::-webkit-scrollbar,
 .wallet-chart__time-chips::-webkit-scrollbar {
     height: 4px;
 }
 
-.wallet-chart__segment-group::-webkit-scrollbar-thumb,
 .wallet-chart__time-chips::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.35);
     border-radius: 999px;
@@ -2477,7 +2485,7 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     color: #1f2937;
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-    flex: 1 1 clamp(5.5rem, 14vw, 10.5rem);
+    flex: 0 0 auto;
     min-width: max-content;
     justify-content: center;
     white-space: nowrap;
@@ -2606,15 +2614,6 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     outline: none;
 }
 
-.wallet-chart__segment-group {
-    background: rgba(148, 163, 184, 0.18);
-    border-radius: 999px;
-    padding: 0.25rem;
-    min-height: 56px;
-    flex: 0 0 auto;
-}
-
-.wallet-chart__segment,
 .wallet-chart__chip,
 .wallet-chart__settings-button {
     border: none;
@@ -2628,14 +2627,6 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     min-height: 44px;
     cursor: pointer;
     transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.wallet-chart__segment[aria-pressed="true"],
-.wallet-chart__segment:focus-visible {
-    background: linear-gradient(135deg, #38bdf8, #2563eb);
-    color: #f8fafc;
-    box-shadow: 0 10px 18px rgba(37, 99, 235, 0.25);
-    outline: none;
 }
 
 .wallet-chart__time-chips {
@@ -2678,11 +2669,6 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     outline: none;
 }
 
-.dark .wallet-chart__segment-group {
-    background: rgba(71, 85, 105, 0.4);
-}
-
-.dark .wallet-chart__segment,
 .dark .wallet-chart__chip,
 .dark .wallet-chart__settings-button {
     color: rgba(226, 232, 240, 0.8);
@@ -2855,34 +2841,11 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     color: rgba(248, 250, 252, 0.9);
 }
 
-.wallet-chart__empty {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 1rem;
-    font-size: 0.9rem;
-    color: rgba(71, 85, 105, 0.9);
-    flex-direction: column;
-    gap: 0.45rem;
-}
-
-.wallet-chart__empty::before {
-    content: '📊';
-    font-size: 2rem;
-}
-
 .dark .wallet-chart__hint {
     color: rgba(226, 232, 240, 0.85);
 }
 
-.dark .wallet-chart__empty {
-    color: rgba(226, 232, 240, 0.85);
-}
-
-.wallet-bottom-sheet__scrim {
+.dark .wallet-bottom-sheet__scrim {
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, 0.5);
@@ -4737,10 +4700,6 @@ body.dark .top-performance-card:focus-visible,
     background: rgba(15, 23, 42, 0.75);
     border-color: rgba(148, 163, 184, 0.25);
     box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
-}
-
-.wallet-chart__empty {
-    color: var(--color-muted);
 }
 
 /* --- Updated dashboard shell styles inspired by the new UI mock --- */

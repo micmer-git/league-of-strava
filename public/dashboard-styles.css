@@ -2252,8 +2252,19 @@
 
         .wallet-controls {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 0.5rem;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .wallet-controls::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .wallet-controls::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.35);
+            border-radius: 999px;
         }
 
         .wallet-control {
@@ -2335,19 +2346,7 @@
             min-height: 18rem;
         }
 
-        .wallet-chart__empty {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 1rem;
-            font-size: 0.9rem;
-            color: #94a3b8;
-        }
-
-        .filter-form {
+.filter-form {
             display: grid;
             gap: 1.25rem;
         }
@@ -3634,6 +3633,8 @@
 
         .wallet-controls {
             gap: 0.6rem;
+            flex-wrap: nowrap;
+            overflow-x: auto;
         }
 
         .wallet-control {
@@ -3718,11 +3719,7 @@
             padding: 1rem;
         }
 
-        .wallet-chart__empty {
-            color: var(--color-muted);
-        }
-
-        /* --- Updated dashboard shell styles inspired by the new UI mock --- */
+/* --- Updated dashboard shell styles inspired by the new UI mock --- */
 body.dashboard-body {
     background-color: #f1f5f9;
     background-image: none;

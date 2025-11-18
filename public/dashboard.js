@@ -968,7 +968,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activityFetchWarning = document.getElementById('activities-fetch-warning');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
     let walletChartCanvas = document.getElementById('wallet-chart');
-    let walletChartEmptyState = document.getElementById('wallet-chart-empty');
     let walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
     const walletOverlayElements = {
         container: document.getElementById('wallet-chart-overlay'),
@@ -978,12 +977,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         detail: document.getElementById('wallet-overlay-detail'),
     };
     let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
-    let walletChartTypeButtons = Array.from(document.querySelectorAll('[data-wallet-chart-type]'));
     let walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
     let walletChartSettingsButton = document.getElementById('wallet-chart-settings');
     let walletBottomSheet = document.getElementById('wallet-bottom-sheet');
     let walletBottomSheetScrim = document.getElementById('wallet-bottom-sheet-scrim');
-    let walletBottomSheetHandle = document.getElementById('wallet-bottom-sheet-handle');
     let walletBottomSheetDismissButtons = Array.from(document.querySelectorAll('[data-wallet-sheet-dismiss]'));
     let walletBottomSheetEscapeHandler = null;
     let walletGridToggle = document.getElementById('wallet-toggle-grid');
@@ -1124,9 +1121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletZoomButtons = {
         in: null,
         out: null,
-        reset: null,
     };
-    const getWalletZoomButtonList = () => Object.values(walletZoomButtons).filter(Boolean);
     const updateWalletZoomControlState = () => {
         const hasChart = Boolean(walletChartInstance);
         if (walletZoomButtons.in) {
@@ -1138,12 +1133,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletZoomButtons.out.disabled = !hasChart;
             walletZoomButtons.out.setAttribute('aria-disabled', hasChart ? 'false' : 'true');
             walletZoomButtons.out.classList.toggle('is-disabled', !hasChart);
-        }
-        const canResetZoom = walletZoomPluginAvailable && hasChart;
-        if (walletZoomButtons.reset) {
-            walletZoomButtons.reset.disabled = !canResetZoom;
-            walletZoomButtons.reset.setAttribute('aria-disabled', canResetZoom ? 'false' : 'true');
-            walletZoomButtons.reset.classList.toggle('is-disabled', !canResetZoom);
         }
     };
     const stepWalletTimeframe = (direction) => {
@@ -1160,19 +1149,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         const nextIndex = direction === 'in'
-            ? Math.min(WALLET_TIMEFRAME_SEQUENCE.length - 1, currentIndex + 1)
-            : Math.max(0, currentIndex - 1);
+            ? Math.max(0, currentIndex - 1)
+            : Math.min(WALLET_TIMEFRAME_SEQUENCE.length - 1, currentIndex + 1);
         if (nextIndex !== currentIndex) {
             requestWalletTimeframeChange(WALLET_TIMEFRAME_SEQUENCE[nextIndex]);
         }
     };
     const performWalletZoomAction = (action) => {
-        if (action === 'reset') {
-            if (walletZoomPluginAvailable && walletChartInstance) {
-                resetWalletChartZoom(walletChartInstance);
-            }
-            return;
-        }
         if (action === 'in' || action === 'out') {
             stepWalletTimeframe(action);
         }
@@ -1244,7 +1227,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadMoreButton = document.getElementById('load-more-btn');
         activityFetchWarning = document.getElementById('activities-fetch-warning');
         walletChartCanvas = document.getElementById('wallet-chart');
-        walletChartEmptyState = document.getElementById('wallet-chart-empty');
         walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
         setWalletChartSkeletonVisible(isShellLoading());
         walletOverlayElements.container = document.getElementById('wallet-chart-overlay');
@@ -1254,13 +1236,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletOverlayElements.detail = document.getElementById('wallet-overlay-detail');
         walletZoomButtons.out = document.getElementById('wallet-zoom-out');
         walletZoomButtons.in = document.getElementById('wallet-zoom-in');
-        walletZoomButtons.reset = document.getElementById('wallet-zoom-reset');
-        walletChartTypeButtons = Array.from(document.querySelectorAll('[data-wallet-chart-type]'));
         walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
         walletChartSettingsButton = document.getElementById('wallet-chart-settings');
         walletBottomSheet = document.getElementById('wallet-bottom-sheet');
         walletBottomSheetScrim = document.getElementById('wallet-bottom-sheet-scrim');
-        walletBottomSheetHandle = document.getElementById('wallet-bottom-sheet-handle');
         walletBottomSheetDismissButtons = Array.from(document.querySelectorAll('[data-wallet-sheet-dismiss]'));
         walletGridToggle = document.getElementById('wallet-toggle-grid');
         walletLegendToggle = document.getElementById('wallet-toggle-legend');
@@ -1288,10 +1267,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         achievementWallet = document.getElementById('achievement-wallet');
         updateActivitiesMedalInfo();
         renderFunStats();
-        syncWalletChartTypeButtons();
         syncWalletTimeRangeChips();
         updateWalletLayerToggleState();
-        bindWalletChartTypeButtons();
         bindWalletTimeRangeButtons();
         bindWalletBottomSheet();
         bindWalletLayerToggles();
@@ -2116,7 +2093,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     ];
     const MIN_WALLET_CHART_POINTS = 6;
     let walletSelectedTimeframe = WALLET_TIMEFRAME_ALL;
-    let walletChartDisplayMode = 'line';
     let walletChartAppearancePreference = 'auto';
     const walletChartLayerPrefs = { grid: true, legend: true, labels: true };
     let walletChartLegendAvailable = false;
@@ -5548,27 +5524,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateWalletChartActiveElements([], { x: 0, y: 0 });
     };
 
-    function syncWalletChartTypeButtons() {
-        walletChartTypeButtons.forEach((button) => {
-            if (!button) {
-                return;
-            }
-            const mode = button.dataset.walletChartType;
-            const isActive = mode === walletChartDisplayMode;
-            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-            button.classList.toggle('is-active', isActive);
-        });
-    }
-
-    const setWalletChartDisplayMode = (mode) => {
-        if (!mode || walletChartDisplayMode === mode || !['line', 'bar'].includes(mode)) {
-            return;
-        }
-        walletChartDisplayMode = mode;
-        syncWalletChartTypeButtons();
-        renderWalletChart();
-    };
-
     function syncWalletTimeRangeChips() {
         let matched = false;
         walletChartRangeButtons.forEach((button) => {
@@ -6306,10 +6261,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (typeof Chart === 'undefined') {
             walletChartCanvas.classList.add('hidden');
-            if (walletChartEmptyState) {
-                walletChartEmptyState.textContent = 'Charts unavailable.';
-                walletChartEmptyState.classList.remove('hidden');
-            }
             setWalletChartSkeletonVisible(false);
             applyWalletOverlayState(null);
             updateToggleStates(null);
@@ -6319,10 +6270,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!hasWalletChartData('balance')) {
             destroyWalletChart();
             walletChartCanvas.classList.add('hidden');
-            if (walletChartEmptyState) {
-                walletChartEmptyState.classList.remove('hidden');
-                walletChartEmptyState.textContent = 'Wallet insights will appear once new activities are synced.';
-            }
             setWalletChartSkeletonVisible(false);
             applyWalletOverlayState(null);
             updateToggleStates(null);
@@ -6333,9 +6280,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dataset = walletChartData.balance;
 
         walletChartCanvas.classList.remove('hidden');
-        if (walletChartEmptyState) {
-            walletChartEmptyState.classList.add('hidden');
-        }
         setWalletChartSkeletonVisible(false);
 
         destroyWalletChart();
@@ -6343,7 +6287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isDarkMode = walletChartAppearancePreference === 'dark'
             || (walletChartAppearancePreference === 'auto' && document.body.classList.contains('dark'));
-        const showLineSeries = walletChartDisplayMode !== 'bar';
+        const showLineSeries = true;
         const showBarSeries = true;
         const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
@@ -6479,7 +6423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chartPlugins.push(walletBarOverlayPlugin);
         chartPlugins.push(walletCrosshairPlugin);
         const lineValueCount = Array.isArray(dataset.values) ? dataset.values.length : 0;
-        const shouldDecimate = showLineSeries && lineValueCount > 100;
+        const shouldDecimate = lineValueCount > 100;
         const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
         const prefersReducedMotion = Boolean(reduceMotionQuery?.matches);
         const hardwareConcurrency = Number.isFinite(window.navigator?.hardwareConcurrency)
@@ -6489,7 +6433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const animationDuration = prefersReducedMotion || isLowEndDevice ? 0 : 800;
         const chartHasBars = chartDatasets.some(datasetEntry => datasetEntry.type === 'bar' && !datasetEntry.hidden);
         walletChartLegendAvailable = useComparison;
-        walletChartPointLabelsAvailable = !useComparison && showLineSeries;
+        walletChartPointLabelsAvailable = !useComparison;
 
         walletChartInstance = new Chart(walletChartCanvas, {
             type: 'line',
@@ -14114,19 +14058,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function bindWalletChartTypeButtons() {
-        walletChartTypeButtons.forEach((button) => {
-            if (!button || button.dataset.walletChartTypeInitialized === 'true') {
-                return;
-            }
-
-            button.dataset.walletChartTypeInitialized = 'true';
-            button.addEventListener('click', () => {
-                setWalletChartDisplayMode(button.dataset.walletChartType);
-            });
-        });
-    }
-
     function bindWalletTimeRangeButtons() {
         walletChartRangeButtons.forEach((button) => {
             if (!button || button.dataset.walletTimeRangeInitialized === 'true') {
@@ -14180,29 +14111,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletChartSettingsButton.addEventListener('click', () => {
                 toggleWalletBottomSheet();
             });
-        }
-        if (walletBottomSheetHandle) {
-            walletBottomSheetHandle.addEventListener('click', () => {
-                setWalletBottomSheetOpen(true);
-            });
-            let touchStartY = null;
-            walletBottomSheetHandle.addEventListener('touchstart', (event) => {
-                touchStartY = event.touches?.[0]?.clientY ?? null;
-            }, { passive: true });
-            walletBottomSheetHandle.addEventListener('touchmove', (event) => {
-                if (!Number.isFinite(touchStartY)) {
-                    return;
-                }
-                const currentY = event.touches?.[0]?.clientY;
-                if (!Number.isFinite(currentY)) {
-                    return;
-                }
-                if (touchStartY - currentY > 30) {
-                    setWalletBottomSheetOpen(true);
-                } else if (currentY - touchStartY > 30) {
-                    setWalletBottomSheetOpen(false);
-                }
-            }, { passive: true });
         }
         walletBottomSheetDismissButtons.forEach((button) => {
             if (!button || button.dataset.walletSheetDismissInitialized === 'true') {
@@ -14551,7 +14459,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindLoadMoreButton();
     bindMedalsLoadMoreButton();
     bindWalletChangeSnapshotTriggers();
-    bindWalletChartTypeButtons();
     bindWalletTimeRangeButtons();
     bindWalletLayerToggles();
     bindWalletBottomSheet();
@@ -14564,7 +14471,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindPanelShortcutButtons();
         bindBalanceYearToggle();
         bindWalletTimeframeSelect();
-        bindWalletChartTypeButtons();
         bindWalletTimeRangeButtons();
         bindWalletLayerToggles();
         bindWalletBottomSheet();

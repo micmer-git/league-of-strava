@@ -474,7 +474,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const DASHBOARD_CACHE_VERSION = 'v2';
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 
-    const MAX_CACHED_ACTIVITIES = 250;
+    // Previously we limited cached activities to 250 entries to reduce the amount of
+    // data stored locally. This caused dashboards loaded for specific user IDs to
+    // miss a large portion of their historical data (and the accompanying
+    // metadata/snapshots) once the limit was reached. Remove the cap so we always
+    // preserve the full backend dataset.
+    const MAX_CACHED_ACTIVITIES = Infinity;
     const MAX_CACHED_SEGMENTS = 200;
 
     const CACHE_KEYS = {

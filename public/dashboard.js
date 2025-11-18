@@ -956,6 +956,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityDistanceMaxInput = document.getElementById('activity-distance-max');
     const activityElevationMinInput = document.getElementById('activity-elevation-min');
     const activityElevationMaxInput = document.getElementById('activity-elevation-max');
+    const requestFilterContainer = document.getElementById('activities-request-filters');
+    const raceFilterWrapper = document.getElementById('activities-race-filter');
+    const raceFilterSelect = document.getElementById('race-filter-select');
+    const climbFilterWrapper = document.getElementById('activities-climb-filter');
+    const climbFilterSelect = document.getElementById('climb-filter-select');
+    const climbAttemptsDetail = document.getElementById('climb-attempts-detail');
+    const climbAttemptsSummary = document.getElementById('climb-attempts-summary');
+    const climbAttemptsList = document.getElementById('climb-attempts-list');
     const rankProgressTriggerElement = document.getElementById('rank-progress-trigger');
     const activityFilterForm = document.getElementById('activities-filter-form');
     const activitiesFilterModal = document.getElementById('activities-filter-modal');
@@ -2689,9 +2697,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         maxDistance: null,
         minElevation: null,
         maxElevation: null,
+        raceRequestId: null,
+        climbSegmentId: null,
     };
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
     let activityFilterUniverseCount = 0;
+    let raceRequestMap = new Map();
+    let climbRequestMap = new Map();
+    let climbAttemptsBySegment = new Map();
 
     let tooltipHideTimeout = null;
     let activeInsight = null;
@@ -9681,6 +9694,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             maxInput: activityElevationMaxInput
         });
 
+        if (filters.raceRequestId && raceRequestMap.has(filters.raceRequestId)) {
+            const raceEntry = raceRequestMap.get(filters.raceRequestId);
+            descriptors.push({
+                label: `Race · ${raceEntry.label}`,
+                onRemove: () => {
+                    currentActivityFilters.raceRequestId = null;
+                    if (raceFilterSelect) {
+                        raceFilterSelect.value = '';
+                    }
+                    return true;
+                }
+            });
+        }
+
+        if (filters.climbSegmentId && climbRequestMap.has(filters.climbSegmentId)) {
+            const climbEntry = climbRequestMap.get(filters.climbSegmentId);
+            descriptors.push({
+                label: `Climb · ${climbEntry.label}`,
+                onRemove: () => {
+                    currentActivityFilters.climbSegmentId = null;
+                    if (climbFilterSelect) {
+                        climbFilterSelect.value = '';
+                        renderClimbAttemptsDetail(null);
+                    }
+                    return true;
+                }
+            });
+        }
+
         return descriptors;
     };
 
@@ -10029,6 +10071,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 input.value = '';
             }
         });
+        if (raceFilterSelect) {
+            raceFilterSelect.value = '';
+        }
+        if (climbFilterSelect) {
+            climbFilterSelect.value = '';
+            renderClimbAttemptsDetail(null);
+        }
         currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
         clearQuickFilterSelection();
     };
@@ -10061,6 +10110,232 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (activityDistanceMaxInput) activityDistanceMaxInput.value = '40';
             if (activityElevationMaxInput) activityElevationMaxInput.value = '600';
         }
+    };
+
+    const buildRaceRequestEntry = (request = {}) => {
+        const requestId = (request.requestUid || request.timestamp || `race-${Math.random().toString(36).slice(2)}`).toString();
+        const raceDate = request.raceDate ? new Date(request.raceDate) : null;
+        const formattedDate = raceDate && !Number.isNaN(raceDate.getTime())
+            ? raceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : null;
+        const labelParts = [
+            (request.raceType || '').replace(/_/g, ' ').trim(),
+            formattedDate,
+            request.raceStartLocation,
+        ].filter(Boolean);
+        return {
+            id: requestId,
+            label: labelParts.join(' · ') || 'Race focus',
+            raceDate,
+            minDistance: Number.isFinite(request.raceDistanceMinKm) ? request.raceDistanceMinKm : null,
+            maxDistance: Number.isFinite(request.raceDistanceMaxKm) ? request.raceDistanceMaxKm : null,
+            minElevation: Number.isFinite(request.raceElevationMinM) ? request.raceElevationMinM : null,
+            maxElevation: Number.isFinite(request.raceElevationMaxM) ? request.raceElevationMaxM : null,
+            activityType: typeof request.metadata?.raceActivityType === 'string'
+                ? request.metadata.raceActivityType.toLowerCase()
+                : null,
+        };
+    };
+
+    const buildClimbRequestEntry = (request = {}) => {
+        const segmentId = (request.climbSegmentId || '').toString();
+        if (!segmentId) {
+            return null;
+        }
+        const label = request.climbSegmentName || `Segment ${segmentId}`;
+        return {
+            id: segmentId,
+            label,
+        };
+    };
+
+    const normalizeCompletionEntry = (entry) => {
+        if (!entry) {
+            return null;
+        }
+
+        if (typeof entry === 'string') {
+            return { startDate: entry, activityId: null };
+        }
+
+        if (typeof entry === 'object') {
+            const startDate = entry.startDate || entry.start_date || entry.timestamp || null;
+            const activityId = entry.activityId || entry.activity_id || null;
+            return {
+                startDate,
+                activityId: activityId ? activityId.toString() : null,
+            };
+        }
+
+        return null;
+    };
+
+    const buildClimbAttemptsLookup = (segments = []) => {
+        const lookup = new Map();
+        segments.forEach(segment => {
+            if (!segment || segment.id === undefined) {
+                return;
+            }
+            const segmentId = segment.id.toString();
+            const completions = Array.isArray(segment.completions)
+                ? segment.completions.map(normalizeCompletionEntry).filter(Boolean)
+                : [];
+            lookup.set(segmentId, completions);
+        });
+        return lookup;
+    };
+
+    const activityMatchesRaceRequest = (activity = {}, raceEntry = null) => {
+        if (!raceEntry) {
+            return true;
+        }
+
+        if (raceEntry.activityType) {
+            const activityType = (activity.type || '').toLowerCase();
+            if (activityType !== raceEntry.activityType) {
+                return false;
+            }
+        }
+
+        const distanceKm = Number(activity.distance || 0) / 1000;
+        if (raceEntry.minDistance !== null && distanceKm < raceEntry.minDistance) {
+            return false;
+        }
+        if (raceEntry.maxDistance !== null && distanceKm > raceEntry.maxDistance) {
+            return false;
+        }
+
+        const elevationGain = Number(activity.total_elevation_gain || 0);
+        if (raceEntry.minElevation !== null && elevationGain < raceEntry.minElevation) {
+            return false;
+        }
+        if (raceEntry.maxElevation !== null && elevationGain > raceEntry.maxElevation) {
+            return false;
+        }
+
+        if (raceEntry.raceDate instanceof Date && !Number.isNaN(raceEntry.raceDate.getTime())) {
+            const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
+            if (Number.isNaN(activityDate.getTime())) {
+                return false;
+            }
+            const diffHours = Math.abs(activityDate.getTime() - raceEntry.raceDate.getTime()) / (1000 * 60 * 60);
+            if (diffHours > 36) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const activityMatchesClimbFilter = (activity = {}, segmentId = null) => {
+        if (!segmentId) {
+            return true;
+        }
+        const attempts = climbAttemptsBySegment.get(segmentId);
+        if (!attempts || attempts.length === 0) {
+            return false;
+        }
+        const activityId = activity.id ? activity.id.toString() : null;
+        if (activityId) {
+            return attempts.some(attempt => attempt.activityId === activityId);
+        }
+        const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
+        if (Number.isNaN(activityDate.getTime())) {
+            return false;
+        }
+        return attempts.some(attempt => {
+            if (!attempt.startDate) {
+                return false;
+            }
+            const attemptDate = new Date(attempt.startDate);
+            if (Number.isNaN(attemptDate.getTime())) {
+                return false;
+            }
+            const diffHours = Math.abs(attemptDate.getTime() - activityDate.getTime()) / (1000 * 60 * 60);
+            return diffHours <= 3;
+        });
+    };
+
+    const renderClimbAttemptsDetail = (segmentId = null) => {
+        if (!climbAttemptsDetail || !climbAttemptsSummary || !climbAttemptsList) {
+            return;
+        }
+
+        const attempts = segmentId ? (climbAttemptsBySegment.get(segmentId) || []) : [];
+        if (!segmentId || attempts.length === 0) {
+            climbAttemptsDetail.hidden = true;
+            climbAttemptsList.innerHTML = '';
+            climbAttemptsSummary.textContent = '';
+            return;
+        }
+
+        climbAttemptsSummary.textContent = `${attempts.length} recorded attempt${attempts.length === 1 ? '' : 's'}`;
+        const latestAttempts = attempts.slice(-5).reverse();
+        climbAttemptsList.innerHTML = latestAttempts
+            .map(attempt => {
+                const date = attempt.startDate ? new Date(attempt.startDate) : null;
+                const label = date && !Number.isNaN(date.getTime())
+                    ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Attempt';
+                return `<li class="activities-panel__attempt">${escapeHtml(label)}</li>`;
+            })
+            .join('');
+        climbAttemptsDetail.hidden = false;
+    };
+
+    const updateRequestFilterUI = (requests = [], segments = []) => {
+        const contactRequests = Array.isArray(requests) ? requests : [];
+        const approvedRaces = contactRequests.filter(request => request && request.requestType === 'race' && request.approved);
+        const approvedClimbs = contactRequests.filter(request => request && request.requestType === 'climb' && request.approved);
+
+        raceRequestMap = new Map();
+        approvedRaces.forEach(request => {
+            const raceEntry = buildRaceRequestEntry(request);
+            raceRequestMap.set(raceEntry.id, raceEntry);
+        });
+
+        climbRequestMap = new Map();
+        approvedClimbs.forEach(request => {
+            const climbEntry = buildClimbRequestEntry(request);
+            if (climbEntry) {
+                climbRequestMap.set(climbEntry.id, climbEntry);
+            }
+        });
+
+        climbAttemptsBySegment = buildClimbAttemptsLookup(segments);
+
+        if (raceFilterWrapper && raceFilterSelect) {
+            const hasRaces = raceRequestMap.size > 0;
+            raceFilterWrapper.hidden = !hasRaces;
+            raceFilterSelect.innerHTML = '<option value="">All races</option>'
+                + Array.from(raceRequestMap.values())
+                    .map(race => `<option value="${race.id}">${escapeHtml(race.label)}</option>`)
+                    .join('');
+            if (!hasRaces) {
+                currentActivityFilters.raceRequestId = null;
+                raceFilterSelect.value = '';
+            }
+        }
+
+        if (climbFilterWrapper && climbFilterSelect) {
+            const hasClimbs = climbRequestMap.size > 0;
+            climbFilterWrapper.hidden = !hasClimbs;
+            climbFilterSelect.innerHTML = '<option value="">All climbs</option>'
+                + Array.from(climbRequestMap.values())
+                    .map(climb => `<option value="${climb.id}">${escapeHtml(climb.label)}</option>`)
+                    .join('');
+            if (!hasClimbs) {
+                currentActivityFilters.climbSegmentId = null;
+                climbFilterSelect.value = '';
+            }
+        }
+
+        if (requestFilterContainer) {
+            const shouldShowContainer = (raceRequestMap.size > 0) || (climbRequestMap.size > 0);
+            requestFilterContainer.hidden = !shouldShowContainer;
+        }
+
+        renderClimbAttemptsDetail(currentActivityFilters.climbSegmentId);
     };
 
     const activityMatchesFilters = (activity = {}, filters = DEFAULT_ACTIVITY_FILTERS) => {
@@ -10108,6 +10383,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (filters.maxElevation !== null && elevationGain > filters.maxElevation) {
             return false;
+        }
+
+        if (filters.raceRequestId) {
+            const raceEntry = raceRequestMap.get(filters.raceRequestId);
+            if (!activityMatchesRaceRequest(activity, raceEntry)) {
+                return false;
+            }
+        }
+
+        if (filters.climbSegmentId) {
+            if (!activityMatchesClimbFilter(activity, filters.climbSegmentId)) {
+                return false;
+            }
         }
 
         return true;
@@ -12806,6 +13094,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const segments = Array.isArray(data.segments) ? data.segments : [];
         const segmentMetadata = normalizeSegmentMetadata(data.segmentMetadata);
         data.segmentMetadata = segmentMetadata;
+        const contactRequests = Array.isArray(data.contactRequests) ? data.contactRequests : [];
+        data.contactRequests = contactRequests;
+        updateRequestFilterUI(contactRequests, segments);
         const hasActivities = activities.length > 0;
         hasActivitiesState = hasActivities;
         const totals = calculateTotals(activities);
@@ -13957,6 +14248,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             requestActivitiesRender({ preserveVisibleCount: false });
             closeActivitiesFilterModal();
+        });
+    }
+
+    if (raceFilterSelect) {
+        raceFilterSelect.addEventListener('change', () => {
+            const selectedRace = raceFilterSelect.value || null;
+            currentActivityFilters.raceRequestId = selectedRace;
+            if (selectedRace && climbFilterSelect) {
+                currentActivityFilters.climbSegmentId = null;
+                climbFilterSelect.value = '';
+                renderClimbAttemptsDetail(null);
+            }
+            requestActivitiesRender({ preserveVisibleCount: false });
+        });
+    }
+
+    if (climbFilterSelect) {
+        climbFilterSelect.addEventListener('change', () => {
+            const selectedClimb = climbFilterSelect.value || null;
+            currentActivityFilters.climbSegmentId = selectedClimb;
+            if (selectedClimb && raceFilterSelect) {
+                currentActivityFilters.raceRequestId = null;
+                raceFilterSelect.value = '';
+            }
+            renderClimbAttemptsDetail(selectedClimb);
+            requestActivitiesRender({ preserveVisibleCount: false });
         });
     }
 

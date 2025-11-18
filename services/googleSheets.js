@@ -109,6 +109,35 @@ const SYNC_PROGRESS_HEADER = [
   'totalActivities',
   'notes',
 ];
+const CONTACT_REQUESTS_SHEET_NAME = process.env.CONTACT_REQUESTS_SHEET_NAME || 'ContactRequests';
+const CONTACT_REQUESTS_HEADER = [
+  'timestamp',
+  'requestUid',
+  'name',
+  'email',
+  'stravaProfile',
+  'athleteId',
+  'requestType',
+  'medalDescription',
+  'raceDate',
+  'raceStartLocation',
+  'raceType',
+  'raceDistanceKm',
+  'raceDistanceMinKm',
+  'raceDistanceMaxKm',
+  'raceElevationGain',
+  'raceElevationMinM',
+  'raceElevationMaxM',
+  'climbSegmentId',
+  'climbSegmentName',
+  'climbSegmentDistance',
+  'climbSegmentElevationGain',
+  'climbSegmentAverageGrade',
+  'notes',
+  'approved',
+  'implemented',
+  'metadata',
+];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
 const SNAPSHOT_CHUNK_PREFIX = '__CHUNK__';
@@ -1253,6 +1282,159 @@ async function getUserEntries(userId) {
     });
 }
 
+function normalizeBooleanCell(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function tryParseJson(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
+async function ensureContactRequestSheet() {
+  return ensureSheetExists(CONTACT_REQUESTS_SHEET_NAME, CONTACT_REQUESTS_HEADER);
+}
+
+function buildContactRequestRow(entry = {}) {
+  return [
+    entry.timestamp || new Date().toISOString(),
+    entry.requestUid || `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    entry.name || '',
+    entry.email || '',
+    entry.stravaProfile || '',
+    entry.athleteId || '',
+    entry.requestType || '',
+    entry.medalDescription || '',
+    entry.raceDate || '',
+    entry.raceStartLocation || '',
+    entry.raceType || '',
+    Number.isFinite(entry.raceDistanceKm) ? entry.raceDistanceKm : '',
+    Number.isFinite(entry.raceDistanceMinKm) ? entry.raceDistanceMinKm : '',
+    Number.isFinite(entry.raceDistanceMaxKm) ? entry.raceDistanceMaxKm : '',
+    Number.isFinite(entry.raceElevationGain) ? entry.raceElevationGain : '',
+    Number.isFinite(entry.raceElevationMinM) ? entry.raceElevationMinM : '',
+    Number.isFinite(entry.raceElevationMaxM) ? entry.raceElevationMaxM : '',
+    entry.climbSegmentId || '',
+    entry.climbSegmentName || '',
+    Number.isFinite(entry.climbSegmentDistance) ? entry.climbSegmentDistance : '',
+    Number.isFinite(entry.climbSegmentElevationGain) ? entry.climbSegmentElevationGain : '',
+    Number.isFinite(entry.climbSegmentAverageGrade) ? entry.climbSegmentAverageGrade : '',
+    entry.notes || '',
+    entry.approved ? 'TRUE' : 'FALSE',
+    entry.implemented ? 'TRUE' : 'FALSE',
+    entry.metadata ? JSON.stringify(entry.metadata) : '',
+  ];
+}
+
+async function appendContactRequest(entry = {}) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  await ensureContactRequestSheet();
+  const row = buildContactRequestRow(entry);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${CONTACT_REQUESTS_SHEET_NAME}!A1`,
+    valueInputOption: 'RAW',
+    resource: {
+      values: [row],
+    },
+  });
+
+  return {
+    timestamp: row[0],
+    requestUid: row[1],
+  };
+}
+
+function normalizeContactRequest(row = []) {
+  const getValue = (index) => (index < row.length ? row[index] : '');
+  const metadata = tryParseJson(getValue(25));
+
+  return {
+    timestamp: getValue(0),
+    requestUid: getValue(1),
+    name: getValue(2),
+    email: getValue(3),
+    stravaProfile: getValue(4),
+    athleteId: getValue(5),
+    requestType: getValue(6),
+    medalDescription: getValue(7),
+    raceDate: getValue(8),
+    raceStartLocation: getValue(9),
+    raceType: getValue(10),
+    raceDistanceKm: Number(getValue(11)) || null,
+    raceDistanceMinKm: Number(getValue(12)) || null,
+    raceDistanceMaxKm: Number(getValue(13)) || null,
+    raceElevationGain: Number(getValue(14)) || null,
+    raceElevationMinM: Number(getValue(15)) || null,
+    raceElevationMaxM: Number(getValue(16)) || null,
+    climbSegmentId: getValue(17),
+    climbSegmentName: getValue(18),
+    climbSegmentDistance: Number(getValue(19)) || null,
+    climbSegmentElevationGain: Number(getValue(20)) || null,
+    climbSegmentAverageGrade: Number(getValue(21)) || null,
+    notes: getValue(22),
+    approved: normalizeBooleanCell(getValue(23)),
+    implemented: normalizeBooleanCell(getValue(24)),
+    metadata: metadata || null,
+  };
+}
+
+async function getContactRequestsForUser(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetAvailable = await sheetExists(CONTACT_REQUESTS_SHEET_NAME);
+  if (!sheetAvailable) {
+    return [];
+  }
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${CONTACT_REQUESTS_SHEET_NAME}!A2:Z`,
+  });
+
+  const rows = Array.isArray(response.data.values) ? response.data.values : [];
+  const normalizedUserId = String(userId);
+
+  return rows
+    .map(normalizeContactRequest)
+    .filter(entry => entry.athleteId && entry.athleteId === normalizedUserId);
+}
+
 module.exports = {
   appendUserData,
   getUserData,
@@ -1268,4 +1450,6 @@ module.exports = {
   getLeaderboardLatestEntries,
   getUserEntries,
   listSnapshotUserIds,
+  appendContactRequest,
+  getContactRequestsForUser,
 };

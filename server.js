@@ -1044,9 +1044,6 @@ app.post('/api/contact/requests', async (req, res) => {
   const stravaProfile = sanitizeTextInput(payload.stravaProfile || payload.profileUrl || '', { maxLength: 500 });
   const athleteIdentifierInput = payload.athleteId || payload.stravaAthleteId || stravaProfile;
   const athleteId = extractAthleteIdFromInput(athleteIdentifierInput);
-  if (!athleteId) {
-    return res.status(400).json({ error: 'A Strava athlete ID or profile URL is required.' });
-  }
 
   const requestType = normalizeRequestType(payload.requestType);
   if (!requestType) {
@@ -1058,7 +1055,7 @@ app.post('/api/contact/requests', async (req, res) => {
     name,
     email: emailRaw.toLowerCase(),
     stravaProfile,
-    athleteId,
+    athleteId: athleteId || null,
     requestType,
     notes,
     approved: false,

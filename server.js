@@ -8,11 +8,9 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 const {
   appendLeaderboardEntry,
-  getLeaderboardLatestEntries,
   getUserEntries,
   appendUserSnapshot,
   getLatestUserSnapshot,
-  listSnapshotUserIds,
   getLatestUserSyncEntry,
   storeUserDataInSheet,
   appendUserSyncProgress,
@@ -22,9 +20,9 @@ const {
   getContactRequestsForUser,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 const { PersistentCache } = require('./services/cache');
-const { overwriteLeaderboardFile } = require('./services/leaderboardFileStore');
 const { buildSheetFirstSnapshotResponse } = require('./services/sheetSnapshotService');
 const { signAthleteIdentifier, verifySignedAthleteIdentifier } = require('./services/signedAthlete');
+const leaderboardCache = require('./services/leaderboardCache');
 
 const app = express();
 app.use(cookieParser());
@@ -123,6 +121,22 @@ const RACE_DISTANCE_TOLERANCE = 0.05;
 const RACE_ELEVATION_TOLERANCE = 0.05;
 
 const REWARD_DEFINITION_DIGEST = process.env.REWARD_DEFINITION_DIGEST || '2024-05-20-best-class-medals-v1';
+
+async function persistLeaderboardEntry(entry) {
+  if (!entry || typeof entry !== 'object' || !entry.userId) {
+    return null;
+  }
+
+  const storedEntry = await appendLeaderboardEntry(entry);
+  try {
+    await leaderboardCache.upsert(storedEntry);
+  } catch (cacheError) {
+    console.warn('Unable to refresh leaderboard cache:', cacheError.message);
+    leaderboardCache.invalidate();
+  }
+
+  return storedEntry;
+}
 
 function createLoadingInfo({
   userId,
@@ -748,7 +762,7 @@ app.post('/api/user-data', async (req, res) => {
   }
 
   try {
-    const entry = await appendLeaderboardEntry({
+    const entry = await persistLeaderboardEntry({
       userId,
       displayName,
       level,
@@ -782,114 +796,8 @@ app.get('/api/user-data/:userId', async (req, res) => {
 // API endpoint to fetch the latest leaderboard entries
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const leaderboard = await getLeaderboardLatestEntries();
-    const leaderboardByUser = new Map();
-
-    leaderboard.forEach((entry) => {
-      if (entry && typeof entry === 'object') {
-        const userId = entry.userId ? String(entry.userId).trim() : '';
-        if (userId) {
-          leaderboardByUser.set(userId, entry);
-        }
-      }
-    });
-
-    const existingUserIds = new Set(leaderboardByUser.keys());
-    let snapshotUserIds = [];
-
-    try {
-      snapshotUserIds = await listSnapshotUserIds();
-    } catch (snapshotListError) {
-      console.warn('Unable to check for additional leaderboard users:', snapshotListError.message);
-    }
-
-    const userIdsToHydrate = Array.from(new Set([
-      ...existingUserIds,
-      ...snapshotUserIds
-        .map(userId => (userId ? String(userId).trim() : ''))
-        .filter(Boolean),
-    ]));
-
-    const hydrationResults = await Promise.all(
-      userIdsToHydrate.map(async (userId) => ({
-        userId,
-        summary: await buildLeaderboardSummaryFromSnapshot(userId),
-      })),
-    );
-
-    const newlyComputedEntries = [];
-
-    hydrationResults.forEach(({ userId, summary }) => {
-      if (summary) {
-        leaderboardByUser.set(userId, summary);
-        if (!existingUserIds.has(userId)) {
-          newlyComputedEntries.push(summary);
-        }
-      }
-    });
-
-    if (newlyComputedEntries.length > 0) {
-      const persistenceResults = await Promise.allSettled(
-        newlyComputedEntries.map(entry => appendLeaderboardEntry(entry)),
-      );
-      persistenceResults.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          const failedEntry = newlyComputedEntries[index];
-          const failedUserId = failedEntry?.userId ?? 'unknown athlete';
-          const reason = result.reason?.message || result.reason || 'Unknown error';
-          console.warn(`Failed to persist computed leaderboard entry for ${failedUserId}: ${reason}`);
-        }
-      });
-    }
-
-    const combinedEntries = Array.from(leaderboardByUser.values());
-
-    const sortedEntries = combinedEntries
-      .filter(entry => entry && typeof entry === 'object')
-      .map(entry => ({
-        ...entry,
-        level: Number(entry.level) || 0,
-        totalHaulValue: Number(entry.totalHaulValue) || 0,
-        coins: Number(entry.coins) || 0,
-        walletBalance: Number(entry.walletBalance) || Number(entry.totalHaulValue) || 0,
-      }))
-      .sort((a, b) => {
-        const levelDiff = (b.level || 0) - (a.level || 0);
-        if (levelDiff !== 0) {
-          return levelDiff;
-        }
-
-        const walletDiff = (b.walletBalance || 0) - (a.walletBalance || 0);
-        if (walletDiff !== 0) {
-          return walletDiff;
-        }
-
-        const haulDiff = (b.totalHaulValue || 0) - (a.totalHaulValue || 0);
-        if (haulDiff !== 0) {
-          return haulDiff;
-        }
-
-        const coinDiff = (b.coins || 0) - (a.coins || 0);
-        if (coinDiff !== 0) {
-          return coinDiff;
-        }
-
-        const parsedB = Date.parse(b.timestamp || '');
-        const parsedA = Date.parse(a.timestamp || '');
-        if (Number.isFinite(parsedB) && Number.isFinite(parsedA)) {
-          return parsedB - parsedA;
-        }
-
-        return 0;
-      });
-
-    try {
-      await overwriteLeaderboardFile(sortedEntries);
-    } catch (fileError) {
-      console.warn('Unable to refresh cached leaderboard file:', fileError.message);
-    }
-
-    return res.json({ leaderboard: sortedEntries });
+    const entries = await leaderboardCache.getEntries();
+    return res.json({ leaderboard: entries });
   } catch (error) {
     console.error('Error retrieving leaderboard data:', error.message);
     return res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
@@ -1889,7 +1797,7 @@ app.get('/api/strava-data', async (req, res) => {
       }
       if (leaderboardEntry.userId) {
         console.log(`Updating leaderboard entry for athlete ${userId}.`);
-        await appendLeaderboardEntry(leaderboardEntry);
+        await persistLeaderboardEntry(leaderboardEntry);
       } else {
         console.warn(`Skipping leaderboard update because athlete ID is missing from payload.`);
       }
@@ -2838,7 +2746,7 @@ async function persistSnapshotFromActivities({
       leaderboardEntry.userId = normalizedUserId;
     }
     if (leaderboardEntry.userId) {
-      await appendLeaderboardEntry(leaderboardEntry);
+      await persistLeaderboardEntry(leaderboardEntry);
     }
   } catch (leaderboardError) {
     console.error(`Failed to update leaderboard entry for athlete ${normalizedUserId}:`, leaderboardError.message);
@@ -4256,41 +4164,6 @@ function buildLeaderboardSummary(payload = {}) {
     walletBalance,
     coinBreakdown: coinTotals,
   };
-}
-
-async function buildLeaderboardSummaryFromSnapshot(userId) {
-  const normalizedUserId = userId ? String(userId).trim() : '';
-  if (!normalizedUserId) {
-    return null;
-  }
-
-  try {
-    const snapshot = await getLatestUserSnapshot(normalizedUserId);
-    if (!snapshot?.payload || !isValidSnapshotPayload(snapshot.payload)) {
-      return null;
-    }
-
-    const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
-    const summary = buildLeaderboardSummary(normalizedPayload) || {};
-
-    if (!summary.userId) {
-      summary.userId = normalizedUserId;
-    }
-
-    if (!summary.displayName || !summary.displayName.trim()) {
-      const athlete = normalizedPayload?.athlete || {};
-      const nameParts = [athlete.firstname, athlete.lastname]
-        .map(part => (part && String(part).trim()) || '')
-        .filter(Boolean);
-      summary.displayName = nameParts.join(' ') || athlete.username || normalizedUserId;
-    }
-
-    summary.timestamp = snapshot.timestamp || new Date().toISOString();
-    return summary;
-  } catch (error) {
-    console.warn(`Unable to build leaderboard summary for ${normalizedUserId}:`, error.message);
-    return null;
-  }
 }
 
 app.listen(PORT, () => {

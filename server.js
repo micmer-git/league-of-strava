@@ -212,6 +212,10 @@ function decodeStateParam(state) {
   }
 }
 
+const DASHBOARD_PATH = '/dashboard';
+const DASHBOARD_SYNC_PARAM = 'sync';
+const DASHBOARD_SYNC_VALUE = 'refresh';
+
 function sanitizeRedirectPath(value, fallback = '/dashboard') {
   if (typeof value !== 'string' || value.trim().length === 0) {
     return fallback;
@@ -231,6 +235,30 @@ function sanitizeRedirectPath(value, fallback = '/dashboard') {
   } catch (error) {
     console.warn('Invalid redirect path provided, falling back to dashboard:', error.message);
     return fallback;
+  }
+}
+
+function ensureDashboardRedirectHasSync(path) {
+  if (typeof path !== 'string' || path.trim().length === 0) {
+    return `${DASHBOARD_PATH}?${DASHBOARD_SYNC_PARAM}=${DASHBOARD_SYNC_VALUE}`;
+  }
+
+  try {
+    const url = new URL(path, 'http://localhost');
+    if (url.pathname !== DASHBOARD_PATH) {
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+
+    if (!url.searchParams.has(DASHBOARD_SYNC_PARAM)) {
+      url.searchParams.set(DASHBOARD_SYNC_PARAM, DASHBOARD_SYNC_VALUE);
+    }
+
+    const normalizedSearch = url.search || '';
+    const normalizedHash = url.hash || '';
+    return `${url.pathname}${normalizedSearch}${normalizedHash}`;
+  } catch (error) {
+    console.warn('Unable to normalize dashboard redirect path:', error.message);
+    return `${DASHBOARD_PATH}?${DASHBOARD_SYNC_PARAM}=${DASHBOARD_SYNC_VALUE}`;
   }
 }
 
@@ -369,7 +397,8 @@ app.get('/', (req, res) => {
 // Step 1: Redirect user to Strava's authorization URL
 app.get('/auth/strava', (req, res) => {
   console.log('Redirecting to Strava for authentication');
-  const requestedRedirect = sanitizeRedirectPath(req.query.redirect, '/dashboard');
+  let requestedRedirect = sanitizeRedirectPath(req.query.redirect, '/dashboard');
+  requestedRedirect = ensureDashboardRedirectHasSync(requestedRedirect);
   const statePayload = encodeStateParam({ redirect: requestedRedirect });
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID,
@@ -392,7 +421,8 @@ app.get('/auth/strava', (req, res) => {
 app.get('/auth/strava/callback', async (req, res) => {
   const code = req.query.code;
   const state = decodeStateParam(req.query.state);
-  const requestedRedirect = sanitizeRedirectPath(state?.redirect, '/dashboard');
+  let requestedRedirect = sanitizeRedirectPath(state?.redirect, '/dashboard');
+  requestedRedirect = ensureDashboardRedirectHasSync(requestedRedirect);
   console.log(`Received Strava callback with code: ${code}`);
 
   if (!code) {
@@ -431,6 +461,19 @@ app.get('/auth/strava/callback', async (req, res) => {
 
 // Serve the dashboard page
 app.get('/dashboard', (req, res) => {
+  const sharedUserId = typeof req.query.userId === 'string' ? req.query.userId.trim() : '';
+  const hasStravaSession = Boolean(req.cookies?.strava_token);
+
+  if (!hasStravaSession && !sharedUserId) {
+    const originalPath = typeof req.originalUrl === 'string' && req.originalUrl.startsWith('/dashboard')
+      ? req.originalUrl
+      : DASHBOARD_PATH;
+    const redirectTarget = ensureDashboardRedirectHasSync(originalPath);
+    const params = new URLSearchParams({ redirect: redirectTarget });
+    console.log('No Strava session detected, redirecting to authentication.');
+    return res.redirect(`/auth/strava?${params.toString()}`);
+  }
+
   console.log('Serving dashboard page');
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });

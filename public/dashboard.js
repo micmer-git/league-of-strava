@@ -12562,7 +12562,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // === Fetch and Process Data ===
-    const fetchData = async ({ isLoadMore = false, forceRefresh = false } = {}) => {
+    const fetchData = async ({ isLoadMore = false, forceRefresh = false, skipStoredSnapshot = false } = {}) => {
         if (isFetchingActivities) {
             return;
         }
@@ -12577,7 +12577,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!isLoadMore) {
             nextActivitiesPageStart = 1;
-            await loadStoredSnapshotIfAvailable();
+            if (!skipStoredSnapshot) {
+                await loadStoredSnapshotIfAvailable();
+            }
         }
 
         let manualSyncResult = null;
@@ -14606,27 +14608,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } else {
         const hydrated = hydrateFromClientCache();
+        let storedSnapshotLoaded = false;
+
+        if (!hydrated) {
+            storedSnapshotLoaded = await loadStoredSnapshotIfAvailable();
+        }
+
         if (shouldForceAuthSync) {
             removeSyncQueryParam();
-            if (!hydrated) {
-                await loadStoredSnapshotIfAvailable();
-            }
-            showSpinner();
-            await fetchData({ forceRefresh: true });
-        } else if (!hydrated) {
-            const storedLoaded = await loadStoredSnapshotIfAvailable();
-            if (!storedLoaded) {
-                updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
-                updateInitialLoadingState('snapshot', 'complete', 'Tap refresh to sync the latest data');
-                updateInitialLoadingState('finalize', 'active', 'Standing by for your refresh');
-                if (errorMessage) {
-                    errorMessage.classList.remove('hidden');
-                    errorMessage.textContent = 'Ready when you are — tap refresh to sync your Strava data.';
-                }
-                hasCompletedInitialRender = true;
-                completeInitialLoading('Tap refresh to sync your latest Strava insights.');
-                fadeOutSpinner();
-            }
         }
+
+        showSpinner();
+        await fetchData({
+            forceRefresh: shouldForceAuthSync,
+            skipStoredSnapshot: storedSnapshotLoaded,
+        });
     }
 });

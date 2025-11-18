@@ -146,6 +146,206 @@ body.rank-modal-open .site-header__inner {
   padding-bottom: 0;
 }
 
+.activities-panel__requests {
+  display: grid;
+  gap: 1rem;
+  padding: 0 1.25rem 1rem;
+  border-top: 1px solid rgba(20, 28, 48, 0.08);
+}
+
+@media (min-width: 768px) {
+  .activities-panel__requests {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    align-items: flex-start;
+  }
+}
+
+.activities-panel__request {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.activities-panel__request-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text-soft);
+  text-transform: uppercase;
+}
+
+.activities-panel__request select {
+  border-radius: 999px;
+  border: 1px solid rgba(20, 28, 48, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem 0.85rem;
+  font-weight: 500;
+  box-shadow: inset 1px 1px 2px rgba(17, 24, 39, 0.05);
+}
+
+.activities-panel__request-note {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.activities-panel__attempts {
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(20, 28, 48, 0.08);
+  padding: 0.65rem 0.75rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.activities-panel__attempts-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0;
+  margin: 0.35rem 0 0;
+}
+
+.activities-panel__attempts-list li {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 0.25rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-soft);
+  border: 1px solid rgba(20, 28, 48, 0.08);
+}
+
+.contact-body {
+  background: linear-gradient(165deg, #fdf7f2 0%, #eef2ff 60%, #f7f9ff 100%);
+  min-height: 100vh;
+}
+
+.contact-main {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: clamp(1rem, 5vw, 2.5rem);
+  display: grid;
+  gap: 1.5rem;
+}
+
+.contact-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 960px) {
+  .contact-grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.contact-card,
+.contact-info-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.contact-card h2,
+.contact-info-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.contact-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.contact-form label {
+  font-weight: 600;
+  color: var(--color-text-soft);
+}
+
+.contact-form input,
+.contact-form select,
+.contact-form textarea {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(20, 28, 48, 0.15);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0.65rem 0.8rem;
+  font-size: 1rem;
+  box-shadow: inset 1px 1px 2px rgba(17, 24, 39, 0.05);
+}
+
+.contact-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.contact-form button[type="submit"] {
+  border: none;
+  border-radius: 999px;
+  padding: 0.85rem 1.5rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent-strong), #ffb347);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform var(--transition-base);
+}
+
+.contact-form button[type="submit"]:hover {
+  transform: translateY(-1px);
+}
+
+.contact-form button[type="submit"][data-loading="true"] {
+  opacity: 0.65;
+  cursor: progress;
+}
+
+.contact-feedback {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.contact-feedback[data-status="error"] {
+  color: var(--color-danger);
+}
+
+.contact-feedback[data-status="success"] {
+  color: var(--color-success);
+}
+
+.contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.contact-actions .donation-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  color: var(--color-accent-strong);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(20, 28, 48, 0.08);
+}
+
+.contact-note {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
 .site-header__inner {
   width: min(1180px, 100%);
   margin: 0 auto;

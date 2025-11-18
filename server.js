@@ -18,6 +18,8 @@ const {
   appendUserSyncProgress,
   getUserActivityHistory,
   getUserSyncProgressEntries,
+  appendContactRequest,
+  getContactRequestsForUser,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 const { PersistentCache } = require('./services/cache');
 const { overwriteLeaderboardFile } = require('./services/leaderboardFileStore');
@@ -103,6 +105,23 @@ const TRACKED_SEGMENTS = [
   // Add more segments as needed
 ];
 
+const CONTACT_SEGMENT_ACCESS_TOKEN = process.env.STRAVA_CONTACT_SEGMENT_TOKEN
+  || process.env.STRAVA_CONTACT_ACCESS_TOKEN
+  || null;
+
+const CONTACT_REQUEST_TYPES = ['medal', 'race', 'climb'];
+const RACE_TYPE_MAP = {
+  run: 'run',
+  ride: 'ride',
+  marathon: 'run',
+  'half-marathon': 'run',
+  half: 'run',
+  '10k': 'run',
+  granfondo: 'ride',
+};
+const RACE_DISTANCE_TOLERANCE = 0.05;
+const RACE_ELEVATION_TOLERANCE = 0.05;
+
 const REWARD_DEFINITION_DIGEST = process.env.REWARD_DEFINITION_DIGEST || '2024-05-20-best-class-medals-v1';
 
 function createLoadingInfo({
@@ -167,6 +186,213 @@ function parseBooleanLike(value) {
   }
 
   return false;
+}
+
+function sanitizeTextInput(value, { maxLength = 500, preserveNewLines = false } = {}) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const normalized = preserveNewLines
+    ? value.replace(/\r\n?/g, '\n')
+    : value.replace(/\s+/g, ' ');
+
+  return normalized.trim().slice(0, maxLength);
+}
+
+function isValidEmail(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function extractAthleteIdFromInput(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const directNumber = Number(trimmed);
+  if (Number.isFinite(directNumber)) {
+    return String(Math.trunc(directNumber));
+  }
+
+  const match = trimmed.match(/(\d{4,})/);
+  return match ? match[1] : '';
+}
+
+function normalizeRequestType(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return CONTACT_REQUEST_TYPES.includes(normalized) ? normalized : '';
+}
+
+function normalizeRaceType(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (RACE_TYPE_MAP[normalized]) {
+    return normalized;
+  }
+
+  return '';
+}
+
+function parseDateInput(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString();
+}
+
+function parseFloatOrNull(value) {
+  const parsed = typeof value === 'string' ? value.replace(',', '.') : value;
+  const numberValue = Number(parsed);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function buildRaceRange(value, tolerance) {
+  if (!Number.isFinite(value)) {
+    return { min: null, max: null };
+  }
+
+  const min = value * (1 - tolerance);
+  const max = value * (1 + tolerance);
+  return {
+    min: Number(min.toFixed(2)),
+    max: Number(max.toFixed(2)),
+  };
+}
+
+async function safeGetContactRequests(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  try {
+    return await getContactRequestsForUser(userId);
+  } catch (error) {
+    console.error(`Unable to load contact requests for athlete ${userId}:`, error.message || error);
+    return [];
+  }
+}
+
+async function attachContactRequestsToPayload(payload, userId, { prefetchedRequests = null } = {}) {
+  if (!payload) {
+    return payload;
+  }
+
+  if (!userId) {
+    payload.contactRequests = payload.contactRequests || [];
+    return payload;
+  }
+
+  if (Array.isArray(prefetchedRequests)) {
+    payload.contactRequests = prefetchedRequests;
+    return payload;
+  }
+
+  const requests = await safeGetContactRequests(userId);
+  payload.contactRequests = requests;
+  return payload;
+}
+
+function buildContactSegmentList(contactRequests = []) {
+  if (!Array.isArray(contactRequests)) {
+    return [];
+  }
+
+  const segmentMap = new Map();
+
+  contactRequests
+    .filter(request => request && request.requestType === 'climb' && request.approved)
+    .forEach(request => {
+      const segmentId = Number.parseInt(request.climbSegmentId, 10);
+      if (!Number.isFinite(segmentId)) {
+        return;
+      }
+
+      if (segmentMap.has(segmentId)) {
+        return;
+      }
+
+      segmentMap.set(segmentId, {
+        id: segmentId,
+        name: request.climbSegmentName || `Segment ${segmentId}`,
+      });
+    });
+
+  return Array.from(segmentMap.values());
+}
+
+function mergeTrackedSegmentsWithRequests(staticSegments = [], dynamicSegments = []) {
+  const segmentMap = new Map();
+
+  [...staticSegments, ...dynamicSegments].forEach(segment => {
+    if (!segment || typeof segment !== 'object') {
+      return;
+    }
+
+    const segmentId = Number.parseInt(segment.id, 10);
+    if (!Number.isFinite(segmentId)) {
+      return;
+    }
+
+    if (!segmentMap.has(segmentId)) {
+      segmentMap.set(segmentId, {
+        id: segmentId,
+        name: segment.name || `Segment ${segmentId}`,
+      });
+    }
+  });
+
+  return Array.from(segmentMap.values());
+}
+
+async function fetchContactSegmentDetails(segmentId) {
+  if (!CONTACT_SEGMENT_ACCESS_TOKEN) {
+    throw new Error('STRAVA_CONTACT_SEGMENT_TOKEN is not configured for climb requests.');
+  }
+
+  if (!Number.isFinite(segmentId)) {
+    throw new Error('A valid Strava segment ID is required.');
+  }
+
+  const response = await stravaGet(`segments/${segmentId}`, CONTACT_SEGMENT_ACCESS_TOKEN);
+  const data = response?.data || {};
+
+  return {
+    id: data.id || segmentId,
+    name: data.name || `Segment ${segmentId}`,
+    distance: Number(data.distance) || null,
+    elevationGain: Number(data.total_elevation_gain) || null,
+    averageGrade: Number(data.average_grade) || null,
+    climbCategory: data.climb_category ?? null,
+    city: data.city || '',
+    state: data.state || '',
+    country: data.country || '',
+  };
 }
 
 function setSignedAthleteCookie(res, token) {
@@ -495,6 +721,12 @@ app.get('/dashboard', (req, res) => {
 app.get('/leaderboard', (req, res) => {
   console.log('Serving leaderboard page');
   res.sendFile(path.join(__dirname, 'public', 'leaderboard.html'));
+});
+
+// Serve the contact page (and legacy donate links)
+app.get(['/contact', '/contact.html', '/donate', '/donate.html'], (req, res) => {
+  console.log(`Serving contact page for path ${req.path}`);
+  res.sendFile(path.join(__dirname, 'public', 'contact.html'));
 });
 
 // API endpoint to store user progression/leaderboard data
@@ -889,6 +1121,165 @@ app.post('/api/strava/sync', async (req, res) => {
   }
 });
 
+app.post('/api/contact/requests', async (req, res) => {
+  const payload = req.body || {};
+  const name = sanitizeTextInput(payload.name, { maxLength: 120 });
+  if (!name) {
+    return res.status(400).json({ error: 'Please include your name.' });
+  }
+
+  const emailRaw = typeof payload.email === 'string' ? payload.email.trim() : '';
+  if (!isValidEmail(emailRaw)) {
+    return res.status(400).json({ error: 'Please provide a valid email address.' });
+  }
+
+  const stravaProfile = sanitizeTextInput(payload.stravaProfile || payload.profileUrl || '', { maxLength: 500 });
+  const athleteIdentifierInput = payload.athleteId || payload.stravaAthleteId || stravaProfile;
+  const athleteId = extractAthleteIdFromInput(athleteIdentifierInput);
+  if (!athleteId) {
+    return res.status(400).json({ error: 'A Strava athlete ID or profile URL is required.' });
+  }
+
+  const requestType = normalizeRequestType(payload.requestType);
+  if (!requestType) {
+    return res.status(400).json({ error: 'Select a valid request type.' });
+  }
+
+  const notes = sanitizeTextInput(payload.notes || '', { maxLength: 600, preserveNewLines: true });
+  const entry = {
+    name,
+    email: emailRaw.toLowerCase(),
+    stravaProfile,
+    athleteId,
+    requestType,
+    notes,
+    approved: false,
+    implemented: false,
+    metadata: {
+      source: 'contact-form',
+      userAgent: req.get('user-agent') || null,
+    },
+  };
+
+  try {
+    if (requestType === 'medal') {
+      const medalDescription = sanitizeTextInput(payload.medalDescription || payload.description || '', { maxLength: 1000, preserveNewLines: true });
+      if (!medalDescription) {
+        return res.status(400).json({ error: 'Describe the medal you would like to see.' });
+      }
+      entry.medalDescription = medalDescription;
+    } else if (requestType === 'race') {
+      const raceDate = parseDateInput(payload.raceDate || payload.eventDate);
+      if (!raceDate) {
+        return res.status(400).json({ error: 'Provide a race date.' });
+      }
+
+      const raceStartLocation = sanitizeTextInput(payload.raceStartLocation || payload.locationStart || '', { maxLength: 200 });
+      if (!raceStartLocation) {
+        return res.status(400).json({ error: 'Include the starting location.' });
+      }
+
+      const raceTypeInput = normalizeRaceType(payload.raceType || payload.eventType || '');
+      if (!raceTypeInput) {
+        return res.status(400).json({ error: 'Choose a supported race type.' });
+      }
+
+      const raceDistanceKm = parseFloatOrNull(payload.raceDistanceKm || payload.distanceKm);
+      if (!Number.isFinite(raceDistanceKm) || raceDistanceKm <= 0) {
+        return res.status(400).json({ error: 'Enter a valid race distance in kilometers.' });
+      }
+
+      const raceElevationGain = parseFloatOrNull(payload.raceElevationGain || payload.elevationGain);
+      if (raceElevationGain === null || raceElevationGain < 0) {
+        return res.status(400).json({ error: 'Enter the expected elevation gain in meters.' });
+      }
+
+      entry.raceDate = raceDate;
+      entry.raceStartLocation = raceStartLocation;
+      entry.raceType = raceTypeInput;
+      entry.raceDistanceKm = Number(raceDistanceKm.toFixed(2));
+      entry.raceElevationGain = Number(raceElevationGain.toFixed(0));
+
+      const distanceRange = buildRaceRange(entry.raceDistanceKm, RACE_DISTANCE_TOLERANCE);
+      entry.raceDistanceMinKm = distanceRange.min;
+      entry.raceDistanceMaxKm = distanceRange.max;
+
+      const elevationRange = buildRaceRange(entry.raceElevationGain, RACE_ELEVATION_TOLERANCE);
+      entry.raceElevationMinM = elevationRange.min !== null ? Number(elevationRange.min.toFixed(0)) : null;
+      entry.raceElevationMaxM = elevationRange.max !== null ? Number(elevationRange.max.toFixed(0)) : null;
+
+      entry.metadata = {
+        ...entry.metadata,
+        raceActivityType: RACE_TYPE_MAP[raceTypeInput],
+        tolerancePercent: {
+          distance: RACE_DISTANCE_TOLERANCE * 100,
+          elevation: RACE_ELEVATION_TOLERANCE * 100,
+        },
+      };
+    } else if (requestType === 'climb') {
+      const rawSegmentId = extractAthleteIdFromInput(payload.segmentId || payload.stravaSegmentId || '');
+      const segmentId = Number.parseInt(rawSegmentId, 10);
+      if (!Number.isFinite(segmentId)) {
+        return res.status(400).json({ error: 'Provide a valid Strava segment ID.' });
+      }
+
+      let segmentDetails;
+      try {
+        segmentDetails = await fetchContactSegmentDetails(segmentId);
+      } catch (segmentError) {
+        console.error('Failed to fetch Strava segment for contact request:', segmentError.message || segmentError);
+        return res.status(503).json({ error: 'Unable to verify the Strava segment right now. Please try again later.' });
+      }
+
+      entry.climbSegmentId = String(segmentDetails.id || segmentId);
+      entry.climbSegmentName = segmentDetails.name || `Segment ${segmentId}`;
+      entry.climbSegmentDistance = segmentDetails.distance;
+      entry.climbSegmentElevationGain = segmentDetails.elevationGain;
+      entry.climbSegmentAverageGrade = segmentDetails.averageGrade;
+      entry.metadata = {
+        ...entry.metadata,
+        climbSegment: segmentDetails,
+      };
+    }
+  } catch (validationError) {
+    return res.status(400).json({ error: validationError.message || 'Invalid request payload.' });
+  }
+
+  try {
+    const record = await appendContactRequest(entry);
+    const responsePayload = {
+      requestUid: record.requestUid,
+      timestamp: record.timestamp,
+      name: entry.name,
+      requestType: entry.requestType,
+      athleteId: entry.athleteId,
+      approved: false,
+      implemented: false,
+    };
+
+    if (entry.requestType === 'medal') {
+      responsePayload.medalDescription = entry.medalDescription;
+    } else if (entry.requestType === 'race') {
+      responsePayload.raceDate = entry.raceDate;
+      responsePayload.raceType = entry.raceType;
+      responsePayload.raceStartLocation = entry.raceStartLocation;
+      responsePayload.raceDistanceKm = entry.raceDistanceKm;
+      responsePayload.raceElevationGain = entry.raceElevationGain;
+    } else if (entry.requestType === 'climb') {
+      responsePayload.climbSegmentId = entry.climbSegmentId;
+      responsePayload.climbSegmentName = entry.climbSegmentName;
+    }
+
+    return res.status(201).json({
+      message: 'Request submitted successfully. We will review it shortly.',
+      request: responsePayload,
+    });
+  } catch (storageError) {
+    console.error('Failed to store contact request:', storageError.message || storageError);
+    return res.status(503).json({ error: 'Unable to store your request right now. Please try again later.' });
+  }
+});
+
 app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   userDataCache.pruneExpired();
@@ -920,6 +1311,11 @@ app.get('/api/strava-data', async (req, res) => {
       if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
         console.log(`Serving stored snapshot for athlete ${requestedUserIdParam} without contacting Strava.`);
         const storedPayload = recalculateSnapshotTotals(existingSnapshot.payload);
+
+        const storedContactRequests = await safeGetContactRequests(requestedUserIdParam);
+        await attachContactRequestsToPayload(storedPayload, requestedUserIdParam, {
+          prefetchedRequests: storedContactRequests,
+        });
 
         try {
           const historyResult = await loadStoredActivitiesForUser(requestedUserIdParam);
@@ -956,6 +1352,10 @@ app.get('/api/strava-data', async (req, res) => {
           stored: true,
           storedTimestamp: existingSnapshot.timestamp || null,
         };
+
+        await attachContactRequestsToPayload(normalizedPayload, requestedUserIdParam, {
+          prefetchedRequests: storedPayload.contactRequests,
+        });
 
         const cacheKeyForStored = buildUserDataCacheKey({
           userId: requestedUserIdParam,
@@ -994,6 +1394,7 @@ app.get('/api/strava-data', async (req, res) => {
   let userId;
   let cacheKey = null;
   let latestKnownActivityTimestamp = null;
+  let contactRequests = [];
 
   // Identify the user uniquely. Here, we'll use the athlete's ID from Strava.
   try {
@@ -1011,6 +1412,8 @@ app.get('/api/strava-data', async (req, res) => {
       || `Athlete ${userId}`;
 
     console.log(`Identified athlete ${userId} (${resolvedAthleteName})`);
+
+    contactRequests = await safeGetContactRequests(userId);
 
     cacheKey = buildUserDataCacheKey({
       userId,
@@ -1104,6 +1507,8 @@ app.get('/api/strava-data', async (req, res) => {
           userDataCache.set(cacheKey, normalizedPayload);
         }
 
+        await attachContactRequestsToPayload(normalizedPayload, userId, { prefetchedRequests: contactRequests });
+
         return res.json({
           ...normalizedPayload,
           cached: true,
@@ -1140,6 +1545,8 @@ app.get('/api/strava-data', async (req, res) => {
             hasActivitiesBackup: cachedHasBackup,
             stale: true,
           });
+          await attachContactRequestsToPayload(hydratedCachedPayload, userId, { prefetchedRequests: contactRequests });
+
           return res.json({
             ...hydratedCachedPayload,
             rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
@@ -1181,6 +1588,8 @@ app.get('/api/strava-data', async (req, res) => {
           hasActivitiesBackup: cachedHasBackup,
           stale: true,
         });
+        await attachContactRequestsToPayload(hydratedCachedPayload, userId, { prefetchedRequests: contactRequests });
+
         return res.json({
           ...hydratedCachedPayload,
           rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
@@ -1265,6 +1674,7 @@ app.get('/api/strava-data', async (req, res) => {
           sheetOnly: Boolean(cachedPayload?.loadingInfo?.sheetOnly),
           mergedWithLiveData: Boolean(cachedPayload?.loadingInfo?.mergedWithLiveData),
         });
+        await attachContactRequestsToPayload(cachedPayload, userId, { prefetchedRequests: contactRequests });
         return res.json({
           ...cachedPayload,
           rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
@@ -1359,9 +1769,11 @@ app.get('/api/strava-data', async (req, res) => {
     const totals = calculateTotals(allActivities);
 
     // Fetch segment completions as before
-    console.log(`Fetching details for ${TRACKED_SEGMENTS.length} segments`);
+    const requestSegments = buildContactSegmentList(contactRequests);
+    const segmentsToFetch = mergeTrackedSegmentsWithRequests(TRACKED_SEGMENTS, requestSegments);
+    console.log(`Fetching details for ${segmentsToFetch.length} segments`);
     const segmentFetchResult = await fetchSegmentDetails({
-      segmentsList: TRACKED_SEGMENTS,
+      segmentsList: segmentsToFetch,
       accessToken,
       userId,
       forceRefresh,
@@ -1415,6 +1827,7 @@ app.get('/api/strava-data', async (req, res) => {
       },
       activityMetadata,
     };
+    responsePayload.contactRequests = contactRequests;
 
     let mergedWithStoredSnapshot = false;
 
@@ -3057,11 +3470,17 @@ async function fetchSegmentEfforts(segmentId, accessToken) {
 
       const efforts = Array.isArray(response.data) ? response.data : [];
       efforts.forEach(effort => {
-        if (effort?.start_date) {
-          completionDates.push(effort.start_date);
-        } else if (effort?.start_date_local) {
-          completionDates.push(effort.start_date_local);
-        }
+        const startDate = effort?.start_date || effort?.start_date_local || null;
+        const rawActivityId = effort?.activity?.id ?? effort?.activity_id ?? null;
+        const elapsedTime = Number(effort?.elapsed_time);
+        const distance = Number(effort?.distance);
+
+        completionDates.push({
+          startDate,
+          activityId: rawActivityId ? String(rawActivityId) : null,
+          elapsedTime: Number.isFinite(elapsedTime) ? elapsedTime : null,
+          distance: Number.isFinite(distance) ? distance : null,
+        });
       });
 
       console.log(`Segment ${segmentId}: fetched ${efforts.length} efforts on page ${page}`);

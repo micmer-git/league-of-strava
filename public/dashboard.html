@@ -1934,8 +1934,15 @@
 
         .wallet-controls {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 0.5rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+            scrollbar-width: none;
+        }
+
+        .wallet-controls::-webkit-scrollbar {
+            display: none;
         }
 
         .wallet-control {
@@ -1950,6 +1957,8 @@
             font-weight: 600;
             color: #1f2937;
             transition: all 0.2s ease;
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
 
         .wallet-control[aria-pressed="true"],
@@ -1974,7 +1983,7 @@
             min-height: 18rem;
         }
 
-        .wallet-chart__empty {
+        .wallet-chart__status {
             position: absolute;
             inset: 0;
             display: flex;
@@ -2968,6 +2977,14 @@
 
         .wallet-controls {
             gap: 0.6rem;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+            scrollbar-width: none;
+        }
+
+        .wallet-controls::-webkit-scrollbar {
+            display: none;
         }
 
         .wallet-control {
@@ -2980,6 +2997,8 @@
             color: var(--color-text-soft);
             box-shadow: -6px -6px 12px rgba(255, 255, 255, 0.6), 6px 6px 12px rgba(17, 24, 39, 0.08);
             transition: transform var(--transition-base), box-shadow var(--transition-base), color var(--transition-base);
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
 
         .wallet-control:hover {
@@ -3012,8 +3031,16 @@
             padding: 1rem;
         }
 
-        .wallet-chart__empty {
+        .wallet-chart__status {
             color: var(--color-muted);
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.9rem;
         }
 
         /* --- Updated dashboard shell styles inspired by the new UI mock --- */
@@ -3716,7 +3743,6 @@
                         </header>
                         <div id="wallet-chart-wrapper" class="wallet-chart">
                             <canvas id="wallet-chart" class="w-full h-full"></canvas>
-                            <p id="wallet-chart-empty" class="wallet-chart__empty hidden">No wallet data available for this view.</p>
                         </div>
                     </div>
                 </section>

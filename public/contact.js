@@ -89,8 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) {
         throw new Error(data?.error || 'Unable to submit your request right now.');
       }
-      const requestId = data?.request?.requestUid;
-      setFeedback(requestId ? `${data.message} (ID: ${requestId})` : (data.message || 'Request submitted.'), 'success');
+      setFeedback(data?.message || 'Request submitted.', 'success');
       form.reset();
       toggleRequestGroups();
     } catch (error) {

@@ -35,14 +35,7 @@
   <main class="contact-main">
     <section class="contact-card contact-intro">
       <h1>Contact the League</h1>
-      <p>Need a custom medal, want us to track a race, or have a climb segment you would like highlighted? Use the form below to send a structured request directly to the Council.</p>
-      <div class="contact-actions">
-        <a class="donation-link" href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">
-          <span aria-hidden="true">💝</span>
-          Support us with a donation
-        </a>
-        <span class="contact-note">Donations keep the dashboards and sync infrastructure online.</span>
-      </div>
+      <p>Use this form to send the Council a structured request about medals, races, or highlighted climbs.</p>
     </section>
 
     <section class="contact-grid">
@@ -73,7 +66,7 @@
             <label for="medal-description">Describe your medal</label>
             <textarea id="medal-description" name="medalDescription" placeholder="Explain the effort you would like to reward." data-required="true"></textarea>
           </div>
-          <div class="form-group" data-request-group="race">
+          <div class="form-group" data-request-group="race" hidden>
             <div class="form-field">
               <label for="race-date">Race date</label>
               <input type="date" id="race-date" name="raceDate" data-required="true">
@@ -102,7 +95,7 @@
               <input type="number" id="race-elevation" name="raceElevation" min="0" step="10" placeholder="1000" data-required="true">
             </div>
           </div>
-          <div class="form-field" data-request-group="climb">
+          <div class="form-field" data-request-group="climb" hidden>
             <label for="climb-segment">Strava segment ID</label>
             <input type="text" id="climb-segment" name="segmentId" placeholder="14418673" data-required="true">
             <p class="contact-feedback" data-status="info">We will verify the segment details with Strava before storing it.</p>
@@ -115,15 +108,15 @@
           <p class="contact-feedback" id="contact-feedback" role="status"></p>
         </form>
       </article>
-      <aside class="contact-info-card">
-        <h2>What happens next?</h2>
-        <ul>
-          <li>Requests are stored in our secure Google Workspace sheet with a pending status.</li>
-          <li>Once the Council approves a request, it becomes available as a race/climb filter inside your dashboard.</li>
-          <li>Approved climb segments are automatically fetched so you can visualise attempts.</li>
-        </ul>
-        <p>Need to follow up? Reply to the confirmation email or mention the request ID that appears after submission.</p>
-      </aside>
+    </section>
+    <section class="contact-card contact-support">
+      <div class="contact-actions">
+        <a class="donation-link" href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">
+          <span aria-hidden="true">💝</span>
+          Support us with a donation
+        </a>
+        <span class="contact-note">Donations keep the dashboards and sync infrastructure online.</span>
+      </div>
     </section>
   </main>
 

@@ -1208,6 +1208,7 @@ body.rank-modal-open .site-header__inner {
   max-width: var(--leaderboard-rank-column-width);
   text-align: center;
   z-index: 3;
+  background-color: #ffffff;
 }
 
 .leaderboard-table th:nth-child(2),
@@ -1219,6 +1220,7 @@ body.rank-modal-open .site-header__inner {
   max-width: var(--leaderboard-name-column-width);
   overflow: visible;
   z-index: 2;
+  background-color: #ffffff;
 }
 
 .leaderboard-table th:nth-child(2) {
@@ -1249,6 +1251,13 @@ body.rank-modal-open .site-header__inner {
   box-shadow: 10px 0 16px -12px rgba(15, 23, 42, 0.5);
 }
 
+.dark .leaderboard-table th:first-child,
+.dark .leaderboard-table td:first-child,
+.dark .leaderboard-table th:nth-child(2),
+.dark .leaderboard-table td:nth-child(2) {
+  background-color: rgba(15, 23, 42, 0.95);
+}
+
 .leaderboard-table td:nth-child(2),
 .leaderboard-table th:nth-child(2) {
   box-shadow: 12px 0 20px -14px rgba(15, 23, 42, 0.18);
@@ -1263,6 +1272,63 @@ body.rank-modal-open .site-header__inner {
   color: inherit;
   text-decoration: none;
   font-weight: 600;
+}
+
+.leaderboard-sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  color: inherit;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.leaderboard-sort-button::after {
+  content: '';
+  font-size: 0.75rem;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(1px);
+}
+
+.leaderboard-sort-button.is-active::after {
+  opacity: 0.9;
+  content: '↓';
+}
+
+.leaderboard-sort-button.is-active[data-direction="asc"]::after {
+  content: '↑';
+}
+
+.leaderboard-sort-button:hover,
+.leaderboard-sort-button:focus-visible {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.leaderboard-sort-button:focus-visible {
+  outline: 2px solid rgba(15, 23, 42, 0.4);
+  outline-offset: 2px;
+}
+
+.leaderboard-sort-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.dark .leaderboard-sort-button:hover,
+.dark .leaderboard-sort-button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .leaderboard-sort-button:focus-visible {
+  outline-color: rgba(248, 250, 252, 0.7);
 }
 
 .leaderboard-cards {

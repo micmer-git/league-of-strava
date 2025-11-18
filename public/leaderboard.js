@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const tableBody = document.getElementById('leaderboard-body');
   const cardsContainer = document.getElementById('leaderboard-cards');
   const tableElement = document.querySelector('.leaderboard-table');
+  const leaderboardSortButtons = Array.from(document.querySelectorAll('[data-sort-key]'));
   const tableColumnCount = tableElement ? tableElement.querySelectorAll('thead th').length : 1;
   const NAME_COLUMN_PROPERTY = '--leaderboard-name-column-width';
   let nameMeasurementElement = null;
@@ -15,6 +16,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
   const MEDAL_DOLLAR_VALUE = 2000;
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const DEFAULT_SORT_KEY = 'overall';
+  const DEFAULT_SORT_DIRECTION = 'desc';
+  const leaderboardState = {
+    rawEntries: [],
+    sortedEntries: [],
+    sortKey: DEFAULT_SORT_KEY,
+    sortDirection: DEFAULT_SORT_DIRECTION,
+  };
+  const sortComparators = new Map([
+    [DEFAULT_SORT_KEY, defaultComparator],
+    ['worldTrips', createStatComparator(entry => getNumericStat(entry, 'worldTrips', '🌍'))],
+    ['everestSummits', createStatComparator(entry => getNumericStat(entry, 'everestSummits', '🏔️'))],
+    ['pizzas', createStatComparator(entry => getNumericStat(entry, 'pizzas', '🍕'))],
+    ['updated', compareByTimestamp],
+  ]);
+
+  COIN_EMOJIS.forEach((emoji) => {
+    sortComparators.set(`coin:${emoji}`, createCoinComparator(emoji));
+  });
 
   const renderMessageRow = (message) => {
     if (!tableBody) {
@@ -137,119 +157,197 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       const entries = Array.isArray(data.leaderboard) ? [...data.leaderboard] : [];
 
-      entries.sort((a, b) => {
-        const levelDiff = (Number(b.level) || 0) - (Number(a.level) || 0);
-        if (levelDiff !== 0) {
-          return levelDiff;
-        }
-
-        const walletDiff = (Number(b.walletBalance) || 0) - (Number(a.walletBalance) || 0);
-        if (walletDiff !== 0) {
-          return walletDiff;
-        }
-
-        const haulDiff = (Number(b.totalHaulValue) || 0) - (Number(a.totalHaulValue) || 0);
-        if (haulDiff !== 0) {
-          return haulDiff;
-        }
-
-        const coinDiff = (Number(b.coins) || 0) - (Number(a.coins) || 0);
-        if (coinDiff !== 0) {
-          return coinDiff;
-        }
-
-        const parsedB = Date.parse(b.timestamp || '');
-        const parsedA = Date.parse(a.timestamp || '');
-        if (Number.isFinite(parsedB) && Number.isFinite(parsedA)) {
-          return parsedB - parsedA;
-        }
-
-        return 0;
-      });
-
-      if (entries.length === 0) {
+      if (!entries.length) {
+        leaderboardState.rawEntries = [];
+        leaderboardState.sortedEntries = [];
         renderMessageRow('No leaderboard entries yet. Submit user data to get started!');
         renderLeaderboardCards([]);
+        updateSortIndicators();
         return;
       }
 
-      tableBody.innerHTML = '';
-      const cardViewModels = [];
-
-      entries.forEach((entry, index) => {
-        const row = document.createElement('tr');
-        const hasUserLink = typeof entry.userId === 'string' && entry.userId.trim().length > 0;
-        const dashboardUrl = hasUserLink ? `/dashboard?userId=${encodeURIComponent(entry.userId)}` : null;
-        const safeDisplayName = escapeHtml(entry.displayName || entry.userId || 'Unknown');
-        const nameCellContent = hasUserLink
-          ? `<a class="leaderboard-athlete-link" href="${dashboardUrl}">${safeDisplayName}</a>`
-          : safeDisplayName;
-        const levelValue = Number(entry.level ?? 0);
-        const levelLabel = Number.isFinite(levelValue) ? formatDecimal(levelValue) : '0';
-        const levelEmojiRaw = resolveLevelEmoji(entry, getRankEmoji(index + 1));
-        const levelEmoji = escapeHtml(levelEmojiRaw);
-        const safeLevelLabel = escapeHtml(levelLabel);
-        const levelCellParts = [`<span class="sr-only">Level </span>${safeLevelLabel}`];
-        if (levelEmoji) {
-          levelCellParts.push(` <span aria-hidden="true">${levelEmoji}</span>`);
-        }
-        const levelCellMarkup = levelCellParts.join('');
-        const coinTotals = getCoinTotals(entry);
-        const medalCount = getMedalCount(entry);
-        const walletValue = resolveWalletBalance(entry, coinTotals, medalCount);
-        const walletBalance = formatWalletBalance(walletValue);
-        const worldTrips = formatDecimal(entry.worldTrips ?? entry['🌍']);
-        const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);
-        const pizzaCount = formatDecimal(entry.pizzas ?? entry['🍕']);
-        const coinLabels = {};
-        COIN_EMOJIS.forEach((emoji) => {
-          coinLabels[emoji] = formatDecimal(coinTotals[emoji]);
-        });
-        const relativeUpdated = formatRelativeTime(entry.timestamp);
-
-        row.innerHTML = `
-          <td class="rank-cell">${index + 1}</td>
-          <td class="name-cell">${nameCellContent}</td>
-          <td class="level-cell">${levelCellMarkup}</td>
-          <td class="wallet-cell">${walletBalance}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(worldTrips)}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(everestSummits)}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(pizzaCount)}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💲'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💰'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['🧈'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💎'])}</td>
-          <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['👑'])}</td>
-          <td>${relativeUpdated}</td>
-        `;
-        tableBody.appendChild(row);
-
-        cardViewModels.push({
-          rank: index + 1,
-          safeDisplayName,
-          hasUserLink,
-          dashboardUrl,
-          levelLabel,
-          levelEmoji,
-          walletBalance,
-          worldTrips,
-          everestSummits,
-          pizzaCount,
-          coinLabels,
-          relativeUpdated,
-        });
-      });
-
-      updateNameColumnWidth();
-      renderLeaderboardCards(cardViewModels);
+      leaderboardState.rawEntries = entries;
+      sortEntries(DEFAULT_SORT_KEY, DEFAULT_SORT_DIRECTION);
+      renderLeaderboard(leaderboardState.sortedEntries);
+      updateSortIndicators();
     } catch (error) {
       console.error('Failed to load leaderboard', error);
       const message = error?.message
         ? `Failed to load the leaderboard: ${error.message}.`
         : 'Failed to load the leaderboard. Please try again later.';
+      leaderboardState.rawEntries = [];
+      leaderboardState.sortedEntries = [];
       renderMessageRow(message);
       renderLeaderboardCards([]);
+      updateSortIndicators();
     }
+  }
+
+  function renderLeaderboard(entries) {
+    if (!tableBody) {
+      return;
+    }
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      renderMessageRow('No leaderboard entries yet. Submit user data to get started!');
+      renderLeaderboardCards([]);
+      return;
+    }
+
+    tableBody.innerHTML = '';
+    const cardViewModels = [];
+
+    entries.forEach((entry, index) => {
+      const row = document.createElement('tr');
+      const hasUserLink = typeof entry.userId === 'string' && entry.userId.trim().length > 0;
+      const dashboardUrl = hasUserLink ? `/dashboard?userId=${encodeURIComponent(entry.userId)}` : null;
+      const safeDisplayName = escapeHtml(entry.displayName || entry.userId || 'Unknown');
+      const nameCellContent = hasUserLink
+        ? `<a class="leaderboard-athlete-link" href="${dashboardUrl}">${safeDisplayName}</a>`
+        : safeDisplayName;
+      const levelValue = Number(entry.level ?? 0);
+      const levelLabel = Number.isFinite(levelValue) ? formatDecimal(levelValue) : '0';
+      const levelEmojiRaw = resolveLevelEmoji(entry, getRankEmoji(index + 1));
+      const levelEmoji = escapeHtml(levelEmojiRaw);
+      const safeLevelLabel = escapeHtml(levelLabel);
+      const levelCellParts = [`<span class="sr-only">Level </span>${safeLevelLabel}`];
+      if (levelEmoji) {
+        levelCellParts.push(` <span aria-hidden="true">${levelEmoji}</span>`);
+      }
+      const levelCellMarkup = levelCellParts.join('');
+      const coinTotals = getCoinTotals(entry);
+      const medalCount = getMedalCount(entry);
+      const walletValue = resolveWalletBalance(entry, coinTotals, medalCount);
+      const walletBalance = formatWalletBalance(walletValue);
+      const worldTrips = formatDecimal(entry.worldTrips ?? entry['🌍']);
+      const everestSummits = formatDecimal(entry.everestSummits ?? entry['🏔️']);
+      const pizzaCount = formatDecimal(entry.pizzas ?? entry['🍕']);
+      const coinLabels = {};
+      COIN_EMOJIS.forEach((emoji) => {
+        coinLabels[emoji] = formatDecimal(coinTotals[emoji]);
+      });
+      const relativeUpdated = formatRelativeTime(entry.timestamp);
+
+      row.innerHTML = `
+        <td class="rank-cell">${index + 1}</td>
+        <td class="name-cell">${nameCellContent}</td>
+        <td class="level-cell">${levelCellMarkup}</td>
+        <td class="wallet-cell">${walletBalance}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(worldTrips)}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(everestSummits)}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(pizzaCount)}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💲'])}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💰'])}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['🧈'])}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['💎'])}</td>
+        <td class="stat-cell stat-cell--wallet">${formatStatPill(coinLabels['👑'])}</td>
+        <td>${relativeUpdated}</td>
+      `;
+      tableBody.appendChild(row);
+
+      cardViewModels.push({
+        rank: index + 1,
+        safeDisplayName,
+        hasUserLink,
+        dashboardUrl,
+        levelLabel,
+        levelEmoji,
+        walletBalance,
+        worldTrips,
+        everestSummits,
+        pizzaCount,
+        coinLabels,
+        relativeUpdated,
+      });
+    });
+
+    updateNameColumnWidth();
+    renderLeaderboardCards(cardViewModels);
+  }
+
+  function sortEntries(sortKey = leaderboardState.sortKey, direction = leaderboardState.sortDirection) {
+    if (!leaderboardState.rawEntries.length) {
+      leaderboardState.sortedEntries = [];
+      leaderboardState.sortKey = sortKey;
+      leaderboardState.sortDirection = direction;
+      return [];
+    }
+
+    const comparator = getSortComparator(sortKey);
+    const multiplier = direction === 'asc' ? -1 : 1;
+    const sorted = leaderboardState.rawEntries.slice().sort((a, b) => comparator(a, b) * multiplier);
+    leaderboardState.sortedEntries = sorted;
+    leaderboardState.sortKey = sortKey;
+    leaderboardState.sortDirection = direction;
+    return sorted;
+  }
+
+  function getSortComparator(sortKey) {
+    return sortComparators.get(sortKey) || sortComparators.get(DEFAULT_SORT_KEY);
+  }
+
+  function updateSortIndicators() {
+    leaderboardSortButtons.forEach((button) => {
+      if (!button) {
+        return;
+      }
+
+      const { sortKey } = button.dataset;
+      const hasData = leaderboardState.rawEntries.length > 0;
+      const isActive = hasData && sortKey === leaderboardState.sortKey;
+      button.classList.toggle('is-active', isActive);
+      if (isActive) {
+        button.dataset.direction = leaderboardState.sortDirection;
+        button.setAttribute('aria-pressed', 'true');
+      } else {
+        delete button.dataset.direction;
+        button.setAttribute('aria-pressed', 'false');
+      }
+
+      button.disabled = !hasData;
+    });
+  }
+
+  function getNumericStat(entry, propertyName, emojiKey) {
+    const candidates = [];
+    if (propertyName) {
+      candidates.push(entry?.[propertyName]);
+    }
+    if (emojiKey) {
+      candidates.push(entry?.[emojiKey]);
+    }
+
+    for (const candidate of candidates) {
+      const numericValue = Number(candidate);
+      if (Number.isFinite(numericValue)) {
+        return numericValue;
+      }
+    }
+
+    return 0;
+  }
+
+  function createStatComparator(resolver) {
+    return (a, b) => {
+      const valueA = resolver(a);
+      const valueB = resolver(b);
+      if (valueB !== valueA) {
+        return valueB - valueA;
+      }
+      return defaultComparator(a, b);
+    };
+  }
+
+  function createCoinComparator(emoji) {
+    return (a, b) => {
+      const totalsA = getCoinTotals(a);
+      const totalsB = getCoinTotals(b);
+      const diff = (totalsB[emoji] || 0) - (totalsA[emoji] || 0);
+      if (diff !== 0) {
+        return diff;
+      }
+      return defaultComparator(a, b);
+    };
   }
 
   function resetNameColumnWidth() {
@@ -499,6 +597,57 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number.isFinite(fallback) && fallback > 0 ? fallback : 0;
   }
 
+  function defaultComparator(a, b) {
+    const levelDiff = (Number(b.level) || 0) - (Number(a.level) || 0);
+    if (levelDiff !== 0) {
+      return levelDiff;
+    }
+
+    const coinTotalsA = getCoinTotals(a);
+    const coinTotalsB = getCoinTotals(b);
+    const medalsA = getMedalCount(a);
+    const medalsB = getMedalCount(b);
+    const walletA = resolveWalletBalance(a, coinTotalsA, medalsA);
+    const walletB = resolveWalletBalance(b, coinTotalsB, medalsB);
+    const walletDiff = walletB - walletA;
+    if (walletDiff !== 0) {
+      return walletDiff;
+    }
+
+    const haulDiff = (Number(b.totalHaulValue) || 0) - (Number(a.totalHaulValue) || 0);
+    if (haulDiff !== 0) {
+      return haulDiff;
+    }
+
+    const coinDiff = (Number(b.coins) || 0) - (Number(a.coins) || 0);
+    if (coinDiff !== 0) {
+      return coinDiff;
+    }
+
+    const parsedB = parseTimestamp(b.timestamp || b.updatedAt || b.updated_at);
+    const parsedA = parseTimestamp(a.timestamp || a.updatedAt || a.updated_at);
+    if (parsedB !== parsedA) {
+      return parsedB - parsedA;
+    }
+
+    return 0;
+  }
+
+  function compareByTimestamp(a, b) {
+    const parsedB = parseTimestamp(b.timestamp || b.updatedAt || b.updated_at);
+    const parsedA = parseTimestamp(a.timestamp || a.updatedAt || a.updated_at);
+    if (parsedB !== parsedA) {
+      return parsedB - parsedA;
+    }
+
+    return defaultComparator(a, b);
+  }
+
+  function parseTimestamp(value) {
+    const parsed = Date.parse(value || '');
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, '&amp;')
@@ -542,6 +691,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return date.toLocaleDateString();
   }
+
+  leaderboardSortButtons.forEach((button) => {
+    if (!button) {
+      return;
+    }
+
+    button.addEventListener('click', () => {
+      const sortKey = button.dataset.sortKey;
+      if (!sortKey || !leaderboardState.rawEntries.length) {
+        return;
+      }
+
+      const isCurrentSort = leaderboardState.sortKey === sortKey;
+      const nextDirection = isCurrentSort && leaderboardState.sortDirection === 'desc' ? 'asc' : 'desc';
+      sortEntries(sortKey, nextDirection);
+      renderLeaderboard(leaderboardState.sortedEntries);
+      updateSortIndicators();
+    });
+  });
+
+  updateSortIndicators();
 
   let resizeRafId = null;
   window.addEventListener('resize', () => {

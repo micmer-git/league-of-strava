@@ -20,6 +20,8 @@ const {
 const { PersistentCache } = require('./services/cache');
 const { getLatestPayload, decompressPayload } = require('./services/googleSheetsHelper');
 const { overwriteLeaderboardFile } = require('./services/leaderboardFileStore');
+const { buildSheetFirstSnapshotResponse } = require('./services/sheetSnapshotService');
+const { signAthleteIdentifier, verifySignedAthleteIdentifier } = require('./services/signedAthlete');
 
 const app = express();
 app.use(cookieParser());
@@ -32,8 +34,10 @@ const stravaApi = axios.create({
   baseURL: 'https://www.strava.com/api/v3',
 });
 
-const CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_CACHE_TTL_MS, 10) || 5 * 60 * 1000; // 5 minutes default
+const CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_CACHE_TTL_MS, 10) || 3 * 60 * 60 * 1000; // 3 hours default
 const MAX_ACTIVITY_PAGES = Number.parseInt(process.env.STRAVA_MAX_ACTIVITY_PAGES, 10) || 0; // 0 = unlimited
+const SIGNED_ATHLETE_COOKIE_MAX_AGE_MS = Number.parseInt(process.env.SIGNED_ATHLETE_COOKIE_MAX_AGE_MS, 10)
+  || 30 * 24 * 60 * 60 * 1000;
 
 const PIZZA_KCAL = 800;
 const MEDAL_DOLLAR_VALUE = 2000;
@@ -98,6 +102,8 @@ function createLoadingInfo({
   servedFrom = 'live',
   hasActivitiesBackup = false,
   stale = false,
+  sheetOnly = false,
+  mergedWithLiveData = false,
 }) {
   return {
     userId: userId ? String(userId) : null,
@@ -108,6 +114,8 @@ function createLoadingInfo({
     servedFrom,
     hasActivitiesBackup: Boolean(hasActivitiesBackup),
     stale: Boolean(stale),
+    sheetOnly: Boolean(sheetOnly),
+    mergedWithLiveData: Boolean(mergedWithLiveData),
   };
 }
 
@@ -135,6 +143,29 @@ function parseBooleanLike(value) {
   }
 
   return false;
+}
+
+function setSignedAthleteCookie(res, token) {
+  if (!token || !res?.cookie) {
+    return;
+  }
+
+  res.cookie('signed_athlete', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: SIGNED_ATHLETE_COOKIE_MAX_AGE_MS,
+    path: '/',
+  });
+}
+
+function resolveSignedAthleteFromRequest(req) {
+  const signedToken = req?.query?.signedAthlete || req?.cookies?.signed_athlete;
+  if (!signedToken) {
+    return null;
+  }
+
+  return verifySignedAthleteIdentifier(signedToken);
 }
 
 function encodeStateParam(payload) {
@@ -465,6 +496,10 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
         hasActivitiesBackup: Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
           || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0),
         stale: false,
+        sheetOnly: cachedEntry.value?.loadingInfo?.sheetOnly !== undefined
+          ? Boolean(cachedEntry.value.loadingInfo.sheetOnly)
+          : true,
+        mergedWithLiveData: Boolean(cachedEntry.value?.loadingInfo?.mergedWithLiveData),
       });
       return res.json({
         ...cachedEntry.value,
@@ -497,6 +532,8 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
       servedFrom: 'snapshot',
       hasActivitiesBackup,
       stale: false,
+      sheetOnly: true,
+      mergedWithLiveData: false,
     });
 
     const payloadWithMetadata = {
@@ -531,6 +568,10 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
         hasActivitiesBackup: Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
           || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0),
         stale: true,
+        sheetOnly: cachedEntry.value?.loadingInfo?.sheetOnly !== undefined
+          ? Boolean(cachedEntry.value.loadingInfo.sheetOnly)
+          : true,
+        mergedWithLiveData: Boolean(cachedEntry.value?.loadingInfo?.mergedWithLiveData),
       });
       return res.status(200).json({
         ...cachedEntry.value,
@@ -630,11 +671,46 @@ app.get('/api/strava-data', async (req, res) => {
   userDataCache.pruneExpired();
   segmentCache.pruneExpired();
   const accessToken = req.cookies.strava_token;
-  const forceRefresh = req.query.refresh === 'true';
-  const loadStored = req.query.loadStored === 'true';
+  const forceRefresh = parseBooleanLike(req.query.refresh);
+  const loadStored = parseBooleanLike(req.query.loadStored);
+  const liveSyncRequested = parseBooleanLike(req.query.liveSync);
+  const wantsLiveSync = Boolean(forceRefresh || liveSyncRequested);
+  const wantsSheetOnly = loadStored || !wantsLiveSync;
   const startPage = Math.max(Number.parseInt(req.query.startPage, 10) || 1, 1);
   const requestedPageCount = Math.max(Number.parseInt(req.query.pageCount, 10) || 3, 1);
   const perPage = Math.min(Math.max(Number.parseInt(req.query.perPage, 10) || 200, 1), 200);
+  const signedAthlete = resolveSignedAthleteFromRequest(req);
+  let cacheKey = signedAthlete?.userId ? String(signedAthlete.userId) : null;
+
+  if (wantsSheetOnly) {
+    if (!cacheKey) {
+      return res.status(401).json({
+        error: 'Offline access requires a signed athlete identifier. Request a live sync to refresh your cookie.',
+        stored: false,
+        cached: false,
+      });
+    }
+
+    const sheetResponse = await buildSheetFirstSnapshotResponse({
+      userId: cacheKey,
+      getLatestUserSnapshot,
+      isValidSnapshotPayload,
+      recalculateSnapshotTotals,
+      userDataCache,
+      rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+      createLoadingInfo,
+      logger: console,
+    });
+
+    if (sheetResponse.ok) {
+      if (signedAthlete?.token) {
+        setSignedAthleteCookie(res, signedAthlete.token);
+      }
+      return res.status(sheetResponse.status).json(sheetResponse.body);
+    }
+
+    return res.status(sheetResponse.status).json(sheetResponse.error || { error: 'Failed to load stored snapshot.' });
+  }
 
   if (!accessToken) {
     console.warn('No access token found in cookies');
@@ -642,7 +718,6 @@ app.get('/api/strava-data', async (req, res) => {
   }
 
   let userId;
-  let cacheKey;
   let latestKnownActivityTimestamp = null;
 
   // Identify the user uniquely. Here, we'll use the athlete's ID from Strava.
@@ -662,10 +737,17 @@ app.get('/api/strava-data', async (req, res) => {
 
     console.log(`Identified athlete ${userId} (${resolvedAthleteName})`);
 
-    cacheKey = `${userId}:${startPage}:${requestedPageCount}:${perPage}`;
+    cacheKey = String(userId);
+    if (!signedAthlete?.token || signedAthlete.userId !== userId) {
+      const signedToken = signAthleteIdentifier(userId);
+      if (signedToken) {
+        setSignedAthleteCookie(res, signedToken);
+      }
+    } else {
+      setSignedAthleteCookie(res, signedAthlete.token);
+    }
 
     let existingSnapshot = null;
-    let existingSnapshotError = null;
     let knownActivityKeySet = new Set();
 
     const registerKnownActivitiesFromPayload = (payload) => {
@@ -694,119 +776,7 @@ app.get('/api/strava-data', async (req, res) => {
         knownActivityKeySet = new Set();
       }
     } catch (snapshotError) {
-      existingSnapshotError = snapshotError;
       console.warn(`Unable to load existing snapshot for athlete ${userId}:`, snapshotError.message);
-    }
-
-    if (loadStored) {
-      console.log(`loadStored flag received for athlete ${userId}; attempting to return stored snapshot.`);
-
-      if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
-        console.log(`Stored snapshot located for athlete ${userId} from ${existingSnapshot.timestamp}.`);
-        const storedPayload = recalculateSnapshotTotals(existingSnapshot.payload);
-        const cacheTimestamp = Date.now();
-        const hasBackupActivities = Array.isArray(storedPayload.activities) && storedPayload.activities.length > 0;
-        const loadingInfo = createLoadingInfo({
-          userId,
-          cacheTimestamp,
-          cacheAgeMs: 0,
-          storedTimestamp: existingSnapshot.timestamp || null,
-          servedFrom: 'snapshot',
-          hasActivitiesBackup: hasBackupActivities,
-          stale: false,
-        });
-
-        const normalizedPayload = {
-          ...storedPayload,
-          rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
-          loadingInfo,
-        };
-
-        userDataCache.set(cacheKey, normalizedPayload);
-
-        return res.json({
-          ...normalizedPayload,
-          cached: true,
-          stale: false,
-          stored: true,
-          storedTimestamp: existingSnapshot.timestamp,
-          cacheTimestamp,
-          cacheAgeMs: 0,
-        });
-      }
-
-      const cachedEntry = userDataCache.getEntry(cacheKey);
-
-      if (existingSnapshotError) {
-        console.error(`Failed to load stored snapshot for athlete ${userId}:`, existingSnapshotError.message);
-
-        if (cachedEntry) {
-          console.log(`Serving cached dashboard payload for athlete ${userId} after snapshot retrieval failure.`);
-          const cachedHasBackup = Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
-            || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0);
-          const fallbackLoadingInfo = createLoadingInfo({
-            userId,
-            cacheTimestamp: cachedEntry.timestamp,
-            cacheAgeMs: cachedEntry.ageMs,
-            storedTimestamp: cachedEntry.value?.loadingInfo?.storedSnapshotTimestamp || null,
-            servedFrom: 'cache',
-            hasActivitiesBackup: cachedHasBackup,
-            stale: true,
-          });
-          return res.json({
-            ...cachedEntry.value,
-            rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
-            loadingInfo: fallbackLoadingInfo,
-            cached: true,
-            stale: true,
-            stored: false,
-            storedTimestamp: null,
-            cacheTimestamp: cachedEntry.timestamp,
-            cacheAgeMs: cachedEntry.ageMs,
-            message: 'Showing your most recent cached dashboard while stored snapshots are temporarily unavailable.',
-          });
-        }
-
-        return res.status(503).json({
-          error: 'Stored snapshot temporarily unavailable.',
-          stored: false,
-          cached: false,
-        });
-      }
-
-      if (cachedEntry) {
-        console.log(`No stored snapshot found for athlete ${userId}; falling back to cached dashboard payload.`);
-        const cachedHasBackup = Boolean(cachedEntry.value?.loadingInfo?.hasActivitiesBackup)
-          || Boolean(Array.isArray(cachedEntry.value?.activities) && cachedEntry.value.activities.length > 0);
-        const fallbackLoadingInfo = createLoadingInfo({
-          userId,
-          cacheTimestamp: cachedEntry.timestamp,
-          cacheAgeMs: cachedEntry.ageMs,
-          storedTimestamp: existingSnapshot?.timestamp || cachedEntry.value?.loadingInfo?.storedSnapshotTimestamp || null,
-          servedFrom: 'cache',
-          hasActivitiesBackup: cachedHasBackup,
-          stale: true,
-        });
-        return res.json({
-          ...cachedEntry.value,
-          rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
-          loadingInfo: fallbackLoadingInfo,
-          cached: true,
-          stale: true,
-          stored: false,
-          storedTimestamp: null,
-          cacheTimestamp: cachedEntry.timestamp,
-          cacheAgeMs: cachedEntry.ageMs,
-          message: 'Using your cached dashboard while we prepare a saved snapshot. Live data will refresh shortly.',
-        });
-      }
-
-      console.log(`No stored snapshot found for athlete ${userId}; responding with not-found status.`);
-      return res.status(404).json({
-        error: 'No stored snapshot available yet.',
-        stored: false,
-        cached: false,
-      });
     }
 
     const existingCacheEntry = userDataCache.getEntry(cacheKey);
@@ -861,6 +831,8 @@ app.get('/api/strava-data', async (req, res) => {
           servedFrom: 'cache',
           hasActivitiesBackup: cachedHasBackup,
           stale: false,
+          sheetOnly: Boolean(existingCacheEntry.value?.loadingInfo?.sheetOnly),
+          mergedWithLiveData: Boolean(existingCacheEntry.value?.loadingInfo?.mergedWithLiveData),
         });
         return res.json({
           ...existingCacheEntry.value,
@@ -1092,6 +1064,8 @@ app.get('/api/strava-data', async (req, res) => {
       servedFrom: forceRefresh ? 'force-refresh' : (mergedWithStoredSnapshot ? 'snapshot+live' : 'live'),
       hasActivitiesBackup,
       stale: false,
+      sheetOnly: false,
+      mergedWithLiveData: Boolean(mergedWithStoredSnapshot),
     });
 
     responsePayload.rewardDefinitionDigest = REWARD_DEFINITION_DIGEST;
@@ -1155,6 +1129,8 @@ app.get('/api/strava-data', async (req, res) => {
           servedFrom: 'cache',
           hasActivitiesBackup: cachedHasBackup,
           stale: true,
+          sheetOnly: Boolean(cachedEntry.value?.loadingInfo?.sheetOnly),
+          mergedWithLiveData: Boolean(cachedEntry.value?.loadingInfo?.mergedWithLiveData),
         });
         return res.status(200).json({
           ...cachedEntry.value,
@@ -1223,6 +1199,8 @@ app.get('/api/strava-data', async (req, res) => {
             servedFrom: 'snapshot',
             hasActivitiesBackup: hasStoredActivities,
             stale: true,
+            sheetOnly: true,
+            mergedWithLiveData: false,
           });
 
           const enrichedStoredPayload = {

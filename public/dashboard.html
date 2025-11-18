@@ -207,13 +207,20 @@
       <span class="sr-only">Share highlight</span>
     </button>
   </div>
-  <div class="profile-card__wallet" data-wallet-balance-container="">
+  <button
+    type="button"
+    class="profile-card__wallet"
+    data-wallet-balance-container=""
+    data-panel-target="wallet"
+    data-panel-chart="balance"
+    aria-label="Open wallet performance graph"
+  >
     <span class="profile-card__balance-label">Total Wallet</span>
     <span class="profile-card__balance-value" data-skeleton="text" data-wallet-balance-value="" id="profile-wallet-total">$0.0M</span>
     <span aria-live="polite" class="profile-card__balance-change" data-skeleton="text-subtle" id="profile-wallet-change-week">—</span>
     <span aria-live="polite" class="profile-card__balance-change" data-skeleton="text-subtle" id="profile-wallet-change-month">—</span>
     <span aria-live="polite" class="profile-card__balance-change profile-card__balance-change--secondary" id="profile-wallet-change-year">—</span>
-  </div>
+  </button>
   <div class="profile-card__rankline">
     <span class="profile-card__rank" data-skeleton="pill" id="current-rank"></span>
     <div class="profile-card__level-group">

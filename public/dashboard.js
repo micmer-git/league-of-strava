@@ -990,9 +990,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletOverlayElements = {
         container: document.getElementById('wallet-chart-overlay'),
         label: document.getElementById('wallet-overlay-label'),
-        value: document.getElementById('wallet-overlay-value'),
+        value: document.getElementById('wallet-overlay-value-amount'),
+        percent: document.getElementById('wallet-overlay-percent'),
         change: document.getElementById('wallet-overlay-change'),
-        detail: document.getElementById('wallet-overlay-detail'),
     };
     let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
     let walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
@@ -1066,10 +1066,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const walletOverlayDefaults = {
         label: 'Wallet insight',
-        value: 'Long-press the chart to inspect a point.',
+        value: 'Click a point to inspect it.',
+        percent: '',
         change: '',
-        detail: '',
-        direction: null,
+        percentDirection: null,
+        changeDirection: null,
     };
 
     const setWalletChartSkeletonVisible = (visible = false) => {
@@ -1123,13 +1124,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (walletOverlayElements.value) {
             walletOverlayElements.value.textContent = nextState.value;
         }
+        if (walletOverlayElements.percent) {
+            walletOverlayElements.percent.textContent = nextState.percent;
+            walletOverlayElements.percent.classList.toggle('wallet-chart__overlay-change--positive', nextState.percentDirection === 'positive');
+            walletOverlayElements.percent.classList.toggle('wallet-chart__overlay-change--negative', nextState.percentDirection === 'negative');
+        }
         if (walletOverlayElements.change) {
             walletOverlayElements.change.textContent = nextState.change;
-            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--positive', nextState.direction === 'positive');
-            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--negative', nextState.direction === 'negative');
-        }
-        if (walletOverlayElements.detail) {
-            walletOverlayElements.detail.textContent = nextState.detail;
+            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--positive', nextState.changeDirection === 'positive');
+            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--negative', nextState.changeDirection === 'negative');
         }
     };
     const dashboardPanels = new Map();
@@ -1249,9 +1252,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         setWalletChartSkeletonVisible(isShellLoading());
         walletOverlayElements.container = document.getElementById('wallet-chart-overlay');
         walletOverlayElements.label = document.getElementById('wallet-overlay-label');
-        walletOverlayElements.value = document.getElementById('wallet-overlay-value');
+        walletOverlayElements.value = document.getElementById('wallet-overlay-value-amount');
+        walletOverlayElements.percent = document.getElementById('wallet-overlay-percent');
         walletOverlayElements.change = document.getElementById('wallet-overlay-change');
-        walletOverlayElements.detail = document.getElementById('wallet-overlay-detail');
         walletZoomButtons.out = document.getElementById('wallet-zoom-out');
         walletZoomButtons.in = document.getElementById('wallet-zoom-in');
         walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
@@ -3312,6 +3315,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             return `−${absoluteLabel}`;
         }
         return includeZeroSign ? `+${absoluteLabel}` : absoluteLabel;
+    };
+
+    const formatSignedUsdCompact = (value, { includeZeroSign = true } = {}) => {
+        if (!Number.isFinite(value)) {
+            return includeZeroSign ? '+$0' : '$0';
+        }
+        const absolute = Math.abs(value);
+        let baseLabel;
+        if (absolute >= 1_000_000) {
+            baseLabel = `$${(absolute / 1_000_000).toFixed(1)}M`;
+        } else if (absolute >= 1_000) {
+            const thousands = absolute / 1_000;
+            const decimals = thousands >= 100 ? 0 : 1;
+            baseLabel = `$${thousands.toFixed(decimals)}k`;
+        } else {
+            baseLabel = usdCodeFormatter.format(absolute);
+        }
+        if (value > 0) {
+            return `+${baseLabel}`;
+        }
+        if (value < 0) {
+            return `−${baseLabel}`;
+        }
+        return includeZeroSign ? `+${baseLabel}` : baseLabel;
     };
 
     const calculatePercentChange = (currentValue, previousValue) => {
@@ -5514,32 +5541,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const percentLabel = formatPercentLabel(percentChange);
-        const contextLabel = baseOverlayRole === 'cumulative' ? 'vs previous balance' : 'vs previous period';
-        let changeText = percentLabel ? `${percentLabel} ${contextLabel}` : '';
-        if (!changeText && Number.isFinite(changeValue)) {
-            changeText = changeValue === 0
-                ? `No change ${contextLabel}`
-                : `${changeValue > 0 ? '+' : '−'}${usdCodeFormatter.format(Math.abs(changeValue))} ${contextLabel}`;
-        }
-        if (!changeText) {
-            changeText = 'No previous comparison';
-        }
-
-        const detailText = Number.isFinite(changeValue) && changeValue !== 0
-            ? `${changeValue > 0 ? '+' : '−'}${usdCodeFormatter.format(Math.abs(changeValue))} change`
-            : '';
+        const percentDirection = percentLabel
+            ? percentChange > 0
+                ? 'positive'
+                : percentChange < 0
+                    ? 'negative'
+                    : null
+            : null;
         const balanceText = Number.isFinite(cumulativeSnapshot.value)
-            ? `${formatWalletValueLabel(cumulativeSnapshot.value)} balance`
+            ? formatWalletValueLabel(cumulativeSnapshot.value)
             : formattedValue;
-        const perPeriodText = Number.isFinite(perPeriodSnapshot.value)
-            ? `${formatSignedUsdValue(perPeriodSnapshot.value)} this period`
+        const deltaValue = Number.isFinite(perPeriodSnapshot.value)
+            ? perPeriodSnapshot.value
+            : Number.isFinite(changeValue)
+                ? changeValue
+                : null;
+        const changeText = Number.isFinite(deltaValue)
+            ? formatSignedUsdCompact(deltaValue, { includeZeroSign: true })
             : '';
-        const combinedChangeText = [perPeriodText, changeText].filter(Boolean).join(' • ');
-        const direction = percentChange > 0
-            ? 'positive'
-            : percentChange < 0
-                ? 'negative'
-                : (changeValue > 0 ? 'positive' : changeValue < 0 ? 'negative' : null);
+        const changeDirection = Number.isFinite(deltaValue)
+            ? deltaValue > 0
+                ? 'positive'
+                : deltaValue < 0
+                    ? 'negative'
+                    : null
+            : null;
 
         const pointKey = `${target.datasetIndex}-${target.index}`;
         if (walletOverlayLastPointKey !== pointKey) {
@@ -5557,9 +5583,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             visible: true,
             label,
             value: balanceText,
-            change: combinedChangeText || changeText,
-            detail: detailText,
-            direction,
+            percent: percentLabel || '',
+            percentDirection,
+            change: changeText,
+            changeDirection,
             position: pointerPosition,
         });
     };
@@ -5588,6 +5615,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const targetElements = overlayTarget ? [overlayTarget] : elements;
+        if (walletChartClickSelection && eventPosition && Number.isFinite(eventPosition.x) && Number.isFinite(eventPosition.y)) {
+            walletChartClickSelection.position = { x: eventPosition.x, y: eventPosition.y };
+        }
         if (targetElements && targetElements.length > 0) {
             updateWalletInteractionOverlay(targetElements, eventPosition);
         } else {
@@ -5878,23 +5908,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            walletChartClickSelection = { datasetIndex: primary.datasetIndex, index: primary.index };
             const position = getRelativeEventPosition(event);
+            walletChartClickSelection = { datasetIndex: primary.datasetIndex, index: primary.index, position };
             updateWalletChartActiveElements(elements, position, primary);
-        });
-
-        walletChartCanvas.addEventListener('pointermove', (event) => {
-            if (event.pointerType === 'touch' && !walletTouchLongPressActive) {
-                return;
-            }
-            highlightFromEvent(event, { allowEmpty: true, throttle: true });
-        });
-
-        walletChartCanvas.addEventListener('pointerdown', (event) => {
-            if (event.pointerType === 'touch') {
-                return;
-            }
-            highlightFromEvent(event);
         });
 
         walletChartCanvas.addEventListener('touchstart', (event) => {
@@ -5964,25 +5980,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartCanvas.addEventListener('touchend', handleTouchEnd, { passive: true });
         walletChartCanvas.addEventListener('touchcancel', endTouchInteraction, { passive: true });
 
-        walletChartCanvas.addEventListener('mousemove', () => {
-            if (walletChartClickSelection) {
-                walletChartClickSelection = null;
-            }
-        });
-
-        walletChartCanvas.addEventListener('mouseleave', () => {
-            clearTouchLongPress();
-            clearWalletChartActiveElements();
-        });
-
         walletChartCanvas.addEventListener('pointerleave', () => {
             clearTouchLongPress();
             if (walletChartInstance && walletChartClickSelection) {
-                const { datasetIndex, index } = walletChartClickSelection;
+                const { datasetIndex, index, position } = walletChartClickSelection;
                 if (Number.isInteger(datasetIndex) && Number.isInteger(index)) {
                     updateWalletChartActiveElements([
                         { datasetIndex, index },
-                    ], { x: 0, y: 0 }, { datasetIndex, index });
+                    ], position || { x: 0, y: 0 }, { datasetIndex, index });
                     return;
                 }
             }
@@ -6382,7 +6387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta : [];
         const barBorderColors = Array.isArray(dataset.barBorderColors) && dataset.barBorderColors.length === periodMeta.length
             ? dataset.barBorderColors
-            : periodMeta.map(() => '#2563eb');
+            : periodMeta.map(() => '#16a34a');
         const perPeriodLabel = dataset.perPeriodLabel || 'Per-period change';
 
         const buildMonthlyPeriodMeta = (yearLabel, colors) => MONTH_COMPARISON_LABELS.map((monthLabel, monthIndex) => {
@@ -6399,11 +6404,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const chart = context.chart;
             const area = chart.chartArea;
             if (!area) {
-                return isDarkMode ? 'rgba(96, 165, 250, 0.5)' : 'rgba(59, 130, 246, 0.8)';
+                return isDarkMode ? 'rgba(74, 222, 128, 0.6)' : 'rgba(34, 197, 94, 0.85)';
             }
             const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-            gradient.addColorStop(0, isDarkMode ? 'rgba(147, 197, 253, 0.7)' : 'rgba(59, 130, 246, 0.85)');
-            gradient.addColorStop(1, isDarkMode ? 'rgba(37, 99, 235, 0.3)' : 'rgba(59, 130, 246, 0.2)');
+            gradient.addColorStop(0, isDarkMode ? 'rgba(74, 222, 128, 0.9)' : 'rgba(34, 197, 94, 0.95)');
+            gradient.addColorStop(1, isDarkMode ? 'rgba(22, 163, 74, 0.35)' : 'rgba(187, 247, 208, 0.35)');
             return gradient;
         };
 
@@ -6414,7 +6419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 type: 'line',
                 label: entry.label || 'Balance',
                 data: Array.isArray(entry.data) ? entry.data : [],
-                borderColor: entry.borderColor || '#2563eb',
+                borderColor: entry.borderColor || '#16a34a',
                 backgroundColor: 'transparent',
                 fill: false,
                 tension: 0.4,
@@ -6426,8 +6431,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 hidden: !showLineSeries,
                 borderWidth: 2.5,
                 periodMeta: buildMonthlyPeriodMeta(entry.label || '', {
-                    border: entry.borderColor || '#2563eb',
-                    background: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
+                    border: entry.borderColor || '#16a34a',
+                    background: entry.backgroundColor || 'rgba(34, 197, 94, 0.18)',
                 }),
             }))
             : [];
@@ -6438,7 +6443,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 label: entry.label || entry.baseLabel || 'Year',
                 data: Array.isArray(entry.data) ? entry.data : [],
                 backgroundColor: (context) => buildBarGradient(context),
-                borderColor: entry.borderColor || '#2563eb',
+                borderColor: entry.borderColor || '#16a34a',
                 hoverBackgroundColor: (context) => buildBarGradient(context),
                 borderRadius: 6,
                 maxBarThickness: 40,
@@ -6448,8 +6453,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 hidden: !showBarSeries,
                 comparisonYear: entry.baseLabel || entry.label || '',
                 periodMeta: buildMonthlyPeriodMeta(entry.baseLabel || entry.label || '', {
-                    border: entry.borderColor || '#2563eb',
-                    background: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
+                    border: entry.borderColor || '#16a34a',
+                    background: entry.backgroundColor || 'rgba(34, 197, 94, 0.18)',
                 }),
             }))
             : [];
@@ -6974,7 +6979,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const periodMeta = [];
         const labels = [];
         let runningTotal = 0;
-        const defaultColors = { border: '#2563eb', background: 'rgba(37, 99, 235, 0.28)', hover: 'rgba(37, 99, 235, 0.32)' };
+        const defaultColors = { border: '#16a34a', background: 'rgba(34, 197, 94, 0.28)', hover: 'rgba(34, 197, 94, 0.32)' };
 
         const quarterCountsByYear = new Map();
         if (bucketType === 'quarter') {
@@ -7074,7 +7079,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             periodMeta.push(meta);
         });
 
-        const barBorderColors = periodMeta.map(entry => entry.colors?.border || '#2563eb');
+        const barBorderColors = periodMeta.map(entry => entry.colors?.border || '#16a34a');
         const changeLabel = bucketType === 'week'
             ? 'Weekly change'
             : bucketType === 'two-week'

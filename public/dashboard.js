@@ -5452,33 +5452,68 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const getDatasetSnapshot = (role) => {
+            if (!walletChartInstance?.data?.datasets?.length) {
+                return { dataset: null, value: null, meta: null };
+            }
+            const candidates = walletChartInstance.data.datasets
+                .map((entry, index) => ({ entry, index }))
+                .filter(({ entry }) => entry.overlayRole === role);
+            if (candidates.length === 0) {
+                return { dataset: null, value: null, meta: null };
+            }
+            const preferred = candidates.find(candidate => candidate.index === target.datasetIndex)
+                || candidates[0];
+            const entry = preferred.entry;
+            const valueArray = Array.isArray(entry.data) ? entry.data : [];
+            const raw = valueArray[target.index];
+            const value = Number.isFinite(raw) ? raw : null;
+            const meta = Array.isArray(entry.periodMeta) ? entry.periodMeta[target.index] : null;
+            return { dataset: entry, value, meta };
+        };
+
+        const cumulativeSnapshot = getDatasetSnapshot('cumulative');
+        const perPeriodSnapshot = getDatasetSnapshot('per-period');
         const values = Array.isArray(dataset.data) ? dataset.data : [];
         const rawValue = values[target.index];
-        if (!Number.isFinite(rawValue)) {
+        const hasAnyValue = Number.isFinite(rawValue)
+            || Number.isFinite(cumulativeSnapshot.value)
+            || Number.isFinite(perPeriodSnapshot.value);
+        if (!hasAnyValue) {
             applyWalletOverlayState(null);
             return;
         }
 
-        const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta[target.index] : null;
+        const periodMeta = cumulativeSnapshot.meta
+            || (Array.isArray(dataset.periodMeta) ? dataset.periodMeta[target.index] : null);
         const label = periodMeta?.label
             || walletChartInstance.data?.labels?.[target.index]
             || dataset.label
             || 'Wallet insight';
         const overlayRole = dataset.overlayRole || dataset.yAxisID || 'per-period';
-        const formattedValue = overlayRole === 'cumulative'
-            ? formatWalletValueLabel(rawValue)
-            : usdCodeFormatter.format(rawValue);
+        const baseDataset = cumulativeSnapshot.dataset || dataset;
+        const baseOverlayRole = baseDataset?.overlayRole || overlayRole;
+        const baseValue = Number.isFinite(cumulativeSnapshot.value)
+            ? cumulativeSnapshot.value
+            : Number.isFinite(rawValue)
+                ? rawValue
+                : null;
+        const formattedValue = Number.isFinite(baseValue)
+            ? (baseOverlayRole === 'cumulative'
+                ? formatWalletValueLabel(baseValue)
+                : usdCodeFormatter.format(baseValue))
+            : 'Wallet insight';
 
         const { percentChange, changeValue } = getWalletOverlayChangeDetails({
-            dataset,
-            rawValue,
+            dataset: baseDataset || dataset,
+            rawValue: Number.isFinite(baseValue) ? baseValue : rawValue,
             index: target.index,
             periodMeta,
-            overlayRole,
+            overlayRole: baseOverlayRole,
         });
 
         const percentLabel = formatPercentLabel(percentChange);
-        const contextLabel = overlayRole === 'cumulative' ? 'vs previous balance' : 'vs previous period';
+        const contextLabel = baseOverlayRole === 'cumulative' ? 'vs previous balance' : 'vs previous period';
         let changeText = percentLabel ? `${percentLabel} ${contextLabel}` : '';
         if (!changeText && Number.isFinite(changeValue)) {
             changeText = changeValue === 0
@@ -5492,6 +5527,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const detailText = Number.isFinite(changeValue) && changeValue !== 0
             ? `${changeValue > 0 ? '+' : '−'}${usdCodeFormatter.format(Math.abs(changeValue))} change`
             : '';
+        const balanceText = Number.isFinite(cumulativeSnapshot.value)
+            ? `${formatWalletValueLabel(cumulativeSnapshot.value)} balance`
+            : formattedValue;
+        const perPeriodText = Number.isFinite(perPeriodSnapshot.value)
+            ? `${formatSignedUsdValue(perPeriodSnapshot.value)} this period`
+            : '';
+        const combinedChangeText = [perPeriodText, changeText].filter(Boolean).join(' • ');
         const direction = percentChange > 0
             ? 'positive'
             : percentChange < 0
@@ -5513,8 +5555,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyWalletOverlayState({
             visible: true,
             label,
-            value: formattedValue,
-            change: changeText,
+            value: balanceText,
+            change: combinedChangeText || changeText,
             detail: detailText,
             direction,
             position: pointerPosition,
@@ -6444,10 +6486,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     fill: false,
                     tension: 0.4,
                     pointBackgroundColor: isDarkMode ? '#4ade80' : '#16a34a',
-                    pointBorderColor: 'transparent',
+                    pointBorderColor: isDarkMode ? '#4ade80' : '#16a34a',
                     pointBorderWidth: 0,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
+                    pointRadius: 3,
+                    pointHoverRadius: 7,
                     yAxisID: 'y',
                     order: 1,
                     borderWidth: 2.5,
@@ -6580,6 +6622,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     },
                     y: {
                         beginAtZero: true,
+                        position: 'right',
                         ticks: {
                             color: axisColor,
                             font: tickFont,
@@ -6596,14 +6639,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                         grid: {
                             color: gridColor,
                             display: walletChartLayerPrefs.grid,
+                        },
+                        border: {
+                            display: false,
                         }
                     },
                     ...(useComparison
                         ? {
                             [changeAxisId]: {
-                                position: 'right',
+                                position: 'left',
                                 beginAtZero: true,
+                                display: false,
                                 ticks: {
+                                    display: false,
                                     color: axisColor,
                                     font: tickFont,
                                     padding: 6,
@@ -6626,15 +6674,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 grid: {
                                     color: gridColor,
                                     drawOnChartArea: false,
-                                    display: walletChartLayerPrefs.grid,
+                                    display: false,
+                                },
+                                border: {
+                                    display: false,
                                 }
                             }
                         }
                         : {
                             [changeAxisId]: {
-                                position: 'right',
+                                position: 'left',
                                 beginAtZero: true,
+                                display: false,
                                 ticks: {
+                                    display: false,
                                     color: axisColor,
                                     font: tickFont,
                                     padding: 6,
@@ -6657,7 +6710,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 grid: {
                                     color: gridColor,
                                     drawOnChartArea: false,
-                                    display: walletChartLayerPrefs.grid,
+                                    display: false,
+                                },
+                                border: {
+                                    display: false,
                                 }
                             }
                         })

@@ -820,6 +820,9 @@ app.post('/api/strava/sync', async (req, res) => {
   try {
     const athleteResponse = await stravaGet('athlete', accessToken);
     const userId = athleteResponse?.data?.id ? String(athleteResponse.data.id) : null;
+    const athleteProfile = (athleteResponse?.data && typeof athleteResponse.data === 'object')
+      ? athleteResponse.data
+      : null;
 
     if (!userId) {
       return res.status(400).json({ error: 'Unable to resolve Strava athlete.' });
@@ -840,7 +843,7 @@ app.post('/api/strava/sync', async (req, res) => {
       } else {
         console.log(`User ${userId}: Kicking off FULL historical sync.`);
       }
-      runFullHistoricalSync(userId, accessToken).catch((error) => {
+      runFullHistoricalSync(userId, accessToken, { athlete: athleteProfile }).catch((error) => {
         console.error(`User ${userId}: FAILED full historical sync.`, error);
       });
       return res.json({
@@ -856,7 +859,7 @@ app.post('/api/strava/sync', async (req, res) => {
       existingActivities = Array.isArray(historyResult.activities) ? historyResult.activities : [];
     } catch (payloadError) {
       console.warn(`User ${userId}: Unable to load stored activity history. Triggering full sync.`, payloadError);
-      runFullHistoricalSync(userId, accessToken).catch((error) => {
+      runFullHistoricalSync(userId, accessToken, { athlete: athleteProfile }).catch((error) => {
         console.error(`User ${userId}: FAILED full historical sync after history load error.`, error);
       });
       return res.json({
@@ -866,6 +869,18 @@ app.post('/api/strava/sync', async (req, res) => {
     }
 
     const updatedData = await runDeltaSync(userId, accessToken, existingActivities);
+
+    try {
+      await persistSnapshotFromActivities({
+        userId,
+        activities: updatedData,
+        athlete: athleteProfile,
+        source: 'delta-sync',
+      });
+    } catch (persistError) {
+      console.warn(`User ${userId}: Unable to persist snapshot after delta sync.`, persistError.message);
+    }
+
     return res.json({ status: 'delta_sync_complete', data: updatedData });
   } catch (error) {
     console.error('Error initiating Strava sync:', error.message || error);
@@ -1917,7 +1932,8 @@ async function fetchAllActivities(
   };
 }
 
-async function runFullHistoricalSync(userId, accessToken) {
+async function runFullHistoricalSync(userId, accessToken, options = {}) {
+  const athleteProfile = options && typeof options === 'object' ? options.athlete : null;
   const perPage = Math.min(Math.max(Number.parseInt(process.env.STRAVA_FULL_SYNC_PER_PAGE, 10) || 200, 1), 200);
   const targetBatchSize = Math.max(perPage, Number.parseInt(process.env.STRAVA_FULL_SYNC_BATCH_SIZE, 10) || 400);
   const configuredMaxPages = MAX_ACTIVITY_PAGES > 0 ? MAX_ACTIVITY_PAGES : Number.POSITIVE_INFINITY;
@@ -2090,6 +2106,16 @@ async function runFullHistoricalSync(userId, accessToken) {
         totalActivities: activityMap.size,
         notes: 'no-new-historical-activities',
       });
+      try {
+        await persistSnapshotFromActivities({
+          userId,
+          activities: Array.from(activityMap.values()),
+          athlete: athleteProfile,
+          source: 'full-history-sync',
+        });
+      } catch (persistError) {
+        console.warn(`User ${userId}: Unable to refresh snapshot after historical sync (no new data).`, persistError.message);
+      }
       return;
     }
 
@@ -2114,6 +2140,17 @@ async function runFullHistoricalSync(userId, accessToken) {
       totalActivities,
       notes: hasMoreFromStrava ? 'historical-backfill-continues' : 'historical-backfill-complete',
     });
+
+    try {
+      await persistSnapshotFromActivities({
+        userId,
+        activities: mergedActivities,
+        athlete: athleteProfile,
+        source: 'full-history-sync',
+      });
+    } catch (persistError) {
+      console.warn(`User ${userId}: Unable to persist snapshot after historical sync.`, persistError.message);
+    }
 
     if (hasMoreFromStrava) {
       console.log(`User ${userId}: Historical backfill paused after ${activitiesFetchedThisRun.length} new activities (remaining history available).`);
@@ -2310,6 +2347,121 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
     }
     throw error;
   }
+}
+
+async function persistSnapshotFromActivities({
+  userId,
+  activities = [],
+  athlete = null,
+  source = 'sync-recompute',
+} = {}) {
+  const normalizedUserId = userId ? String(userId).trim() : '';
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  if (!Array.isArray(activities)) {
+    console.warn(`Unable to persist snapshot for athlete ${normalizedUserId}: activities payload is not an array.`);
+    return null;
+  }
+
+  const sanitizedActivities = activities
+    .filter(activity => activity && typeof activity === 'object')
+    .slice()
+    .sort((a, b) => {
+      const aTime = Date.parse(a?.start_date || a?.start_date_local) || 0;
+      const bTime = Date.parse(b?.start_date || b?.start_date_local) || 0;
+      return bTime - aTime;
+    });
+
+  const normalizedAthlete = athlete && typeof athlete === 'object' ? { ...athlete } : {};
+  if (!('id' in normalizedAthlete) || normalizedAthlete.id === undefined || normalizedAthlete.id === null) {
+    const numericId = Number(normalizedUserId);
+    normalizedAthlete.id = Number.isFinite(numericId) ? numericId : normalizedUserId;
+  }
+
+  const totals = calculateTotals(sanitizedActivities);
+  const activityMetadata = {
+    ...createEmptyActivityMetadata(),
+    newActivities: sanitizedActivities.length,
+  };
+  const latestTimestamp = extractLatestTimestampFromActivities(sanitizedActivities);
+  if (Number.isFinite(latestTimestamp) && latestTimestamp > 0) {
+    activityMetadata.latestFetchedActivityTimestamp = latestTimestamp;
+  }
+
+  const snapshotPayload = {
+    athlete: normalizedAthlete,
+    activities: sanitizedActivities,
+    segments: [],
+    segmentMetadata: createEmptySegmentMetadata(),
+    activityMetadata,
+    totals,
+    pageInfo: {
+      startPage: 1,
+      requestedPageCount: 1,
+      fetchedPages: 1,
+      perPage: sanitizedActivities.length,
+      lastPageSize: sanitizedActivities.length,
+      hasMore: false,
+      nextPageStart: null,
+    },
+  };
+
+  let snapshotResult = null;
+  try {
+    snapshotResult = await appendUserSnapshot({
+      userId: normalizedUserId,
+      payload: snapshotPayload,
+      source,
+    });
+  } catch (error) {
+    console.error(`Failed to append snapshot for athlete ${normalizedUserId}:`, error.message);
+  }
+
+  try {
+    const leaderboardEntry = buildLeaderboardSummary(snapshotPayload);
+    if (!leaderboardEntry.userId && normalizedUserId) {
+      leaderboardEntry.userId = normalizedUserId;
+    }
+    if (leaderboardEntry.userId) {
+      await appendLeaderboardEntry(leaderboardEntry);
+    }
+  } catch (leaderboardError) {
+    console.error(`Failed to update leaderboard entry for athlete ${normalizedUserId}:`, leaderboardError.message);
+  }
+
+  const cacheTimestamp = Date.now();
+  const storedTimestamp = snapshotResult?.timestamp || null;
+  const loadingInfo = createLoadingInfo({
+    userId: normalizedUserId,
+    cacheTimestamp,
+    cacheAgeMs: 0,
+    storedTimestamp,
+    servedFrom: 'snapshot',
+    hasActivitiesBackup: sanitizedActivities.length > 0,
+    sheetOnly: true,
+    mergedWithLiveData: false,
+  });
+
+  const cachePayload = {
+    ...snapshotPayload,
+    rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+    loadingInfo,
+    cached: false,
+    stale: false,
+    stored: Boolean(storedTimestamp),
+    storedTimestamp,
+    cacheTimestamp,
+    cacheAgeMs: 0,
+  };
+
+  const cacheKey = buildUserDataCacheKey({ userId: normalizedUserId });
+  if (cacheKey) {
+    userDataCache.set(cacheKey, cachePayload);
+  }
+
+  return cachePayload;
 }
 
 /**

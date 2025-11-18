@@ -119,7 +119,15 @@ async function upsertLeaderboardFileEntry(entry) {
   await writeLeaderboardFile(updated);
 }
 
+async function readLeaderboardFileEntries() {
+  const entries = await readLeaderboardFile();
+  return entries
+    .map(normalizeLeaderboardEntry)
+    .filter(Boolean);
+}
+
 module.exports = {
   overwriteLeaderboardFile,
   upsertLeaderboardFileEntry,
+  readLeaderboardFileEntries,
 };

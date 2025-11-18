@@ -295,23 +295,11 @@
       </div>
     </div>
     <div class="wallet-controls__actions" aria-label="Time range controls">
-      <button class="wallet-control wallet-control--icon" id="wallet-zoom-out" type="button">
-        <span aria-hidden="true">➖</span>
-        <span class="sr-only">Show more history</span>
-      </button>
-      <button class="wallet-control wallet-control--icon" id="wallet-zoom-in" type="button">
-        <span aria-hidden="true">➕</span>
-        <span class="sr-only">Show a shorter history</span>
-      </button>
       <label class="wallet-control wallet-control--select wallet-control--sr-only" for="wallet-timeframe-select">
         <span class="wallet-control__label">Time frame</span>
         <select class="wallet-control__select" id="wallet-timeframe-select">
           <option value="all">All time</option>
         </select>
-      </label>
-      <label class="wallet-control wallet-control--toggle" data-balance-year-toggle-label="">
-        <input class="wallet-control__checkbox" id="balance-year-toggle" type="checkbox"/>
-        <span>Compare years</span>
       </label>
     </div>
   </div>
@@ -324,9 +312,11 @@
 <canvas class="w-full h-full" id="wallet-chart" role="img" aria-label="Achievement wallet chart" aria-describedby="wallet-chart-overlay" tabindex="0"></canvas>
 <div aria-live="polite" class="wallet-chart__overlay" id="wallet-chart-overlay" role="status">
   <p class="wallet-chart__overlay-label" id="wallet-overlay-label">Wallet insight</p>
-  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Long-press the chart to inspect a point.</p>
+  <p class="wallet-chart__overlay-value" id="wallet-overlay-value">
+    <span id="wallet-overlay-value-amount">Click a point to inspect it.</span>
+    <span class="wallet-chart__overlay-percent" id="wallet-overlay-percent"></span>
+  </p>
   <p class="wallet-chart__overlay-change" id="wallet-overlay-change"></p>
-  <p class="wallet-chart__overlay-detail" id="wallet-overlay-detail"></p>
 </div>
 </div>
 </div>

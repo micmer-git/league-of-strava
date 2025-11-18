@@ -2715,6 +2715,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let raceRequestMap = new Map();
     let climbRequestMap = new Map();
     let climbAttemptsBySegment = new Map();
+    let climbSegmentMetadata = new Map();
 
     let tooltipHideTimeout = null;
     let activeInsight = null;
@@ -10331,9 +10332,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (typeof entry === 'object') {
             const startDate = entry.startDate || entry.start_date || entry.timestamp || null;
             const activityId = entry.activityId || entry.activity_id || null;
+            const elapsedTime = Number(entry.elapsedTime ?? entry.elapsed_time);
+            const distance = Number(entry.distance);
             return {
                 startDate,
                 activityId: activityId ? activityId.toString() : null,
+                elapsedTime: Number.isFinite(elapsedTime) ? elapsedTime : null,
+                distance: Number.isFinite(distance) ? distance : null,
             };
         }
 
@@ -10353,6 +10358,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             lookup.set(segmentId, completions);
         });
         return lookup;
+    };
+
+    const buildClimbSegmentMetadata = (segments = []) => {
+        const metadataMap = new Map();
+        segments.forEach(segment => {
+            if (!segment || segment.id === undefined) {
+                return;
+            }
+            const segmentId = segment.id.toString();
+            const distance = Number(segment.distance);
+            const elevationGain = Number(segment.elevationGain ?? segment.total_elevation_gain);
+            const averageGrade = Number(segment.averageGrade ?? segment.average_grade);
+            const maximumGrade = Number(segment.maximumGrade ?? segment.maximum_grade);
+            const climbCategory = Number(segment.climbCategory ?? segment.climb_category);
+
+            metadataMap.set(segmentId, {
+                id: segmentId,
+                name: segment.name || `Segment ${segmentId}`,
+                distance: Number.isFinite(distance) ? distance : null,
+                elevationGain: Number.isFinite(elevationGain) ? elevationGain : null,
+                averageGrade: Number.isFinite(averageGrade) ? averageGrade : null,
+                maximumGrade: Number.isFinite(maximumGrade) ? maximumGrade : null,
+                climbCategory: Number.isFinite(climbCategory) ? climbCategory : null,
+                city: segment.city || null,
+                state: segment.state || null,
+                country: segment.country || null,
+            });
+        });
+
+        return metadataMap;
+    };
+
+    const formatClimbMetricParts = (segmentMetadata = null) => {
+        if (!segmentMetadata) {
+            return [];
+        }
+
+        const parts = [];
+        if (Number.isFinite(segmentMetadata.distance) && segmentMetadata.distance > 0) {
+            const distanceKm = segmentMetadata.distance / 1000;
+            const formattedDistance = distanceKm >= 10
+                ? distanceKm.toFixed(1)
+                : distanceKm.toFixed(2);
+            parts.push(`${formattedDistance} km`);
+        }
+        if (Number.isFinite(segmentMetadata.elevationGain) && segmentMetadata.elevationGain > 0) {
+            parts.push(`+${Math.round(segmentMetadata.elevationGain)} m`);
+        }
+        if (Number.isFinite(segmentMetadata.averageGrade)) {
+            parts.push(`${segmentMetadata.averageGrade.toFixed(1)}% avg`);
+        }
+        return parts;
     };
 
     const activityMatchesRaceRequest = (activity = {}, raceEntry = null) => {
@@ -10431,23 +10488,51 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const attempts = segmentId ? (climbAttemptsBySegment.get(segmentId) || []) : [];
-        if (!segmentId || attempts.length === 0) {
+        const normalizedSegmentId = segmentId ? segmentId.toString() : null;
+        const attempts = normalizedSegmentId ? (climbAttemptsBySegment.get(normalizedSegmentId) || []) : [];
+        if (!normalizedSegmentId || attempts.length === 0) {
             climbAttemptsDetail.hidden = true;
             climbAttemptsList.innerHTML = '';
             climbAttemptsSummary.textContent = '';
             return;
         }
 
-        climbAttemptsSummary.textContent = `${attempts.length} recorded attempt${attempts.length === 1 ? '' : 's'}`;
+        const climbEntry = climbRequestMap.get(normalizedSegmentId);
+        const metadata = climbSegmentMetadata.get(normalizedSegmentId);
+        const label = climbEntry?.label || metadata?.name || `Segment ${normalizedSegmentId}`;
+        const attemptsLabel = `${attempts.length} recorded attempt${attempts.length === 1 ? '' : 's'}`;
+        const summaryParts = [attemptsLabel];
+        if (label) {
+            summaryParts.unshift(label);
+        }
+        const metricParts = formatClimbMetricParts(metadata);
+        if (metricParts.length > 0) {
+            summaryParts.push(metricParts.join(' • '));
+        }
+        climbAttemptsSummary.textContent = summaryParts.join(' — ');
+
         const latestAttempts = attempts.slice(-5).reverse();
         climbAttemptsList.innerHTML = latestAttempts
             .map(attempt => {
                 const date = attempt.startDate ? new Date(attempt.startDate) : null;
-                const label = date && !Number.isNaN(date.getTime())
+                const labelText = date && !Number.isNaN(date.getTime())
                     ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
                     : 'Attempt';
-                return `<li class="activities-panel__attempt">${escapeHtml(label)}</li>`;
+                const detailsParts = [];
+                if (Number.isFinite(attempt.elapsedTime) && attempt.elapsedTime > 0) {
+                    detailsParts.push(formatDurationShort(attempt.elapsedTime));
+                }
+                if (Number.isFinite(attempt.distance) && attempt.distance > 0) {
+                    const attemptDistanceKm = attempt.distance / 1000;
+                    const formattedDistance = attemptDistanceKm >= 10
+                        ? attemptDistanceKm.toFixed(1)
+                        : attemptDistanceKm.toFixed(2);
+                    detailsParts.push(`${formattedDistance} km`);
+                }
+                const detailText = detailsParts.length > 0
+                    ? `<span class="activities-panel__attempt-detail">${escapeHtml(detailsParts.join(' • '))}</span>`
+                    : '';
+                return `<li class="activities-panel__attempt">${escapeHtml(labelText)}${detailText}</li>`;
             })
             .join('');
         climbAttemptsDetail.hidden = false;
@@ -10467,8 +10552,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         climbRequestMap = new Map();
         approvedClimbs.forEach(request => {
             const climbEntry = buildClimbRequestEntry(request);
-            if (climbEntry) {
-                climbRequestMap.set(climbEntry.id, climbEntry);
+            if (climbEntry && climbEntry.id) {
+                climbRequestMap.set(climbEntry.id.toString(), climbEntry);
+            }
+        });
+
+        climbSegmentMetadata = buildClimbSegmentMetadata(segments);
+        const segmentOptions = new Map();
+        segments.forEach(segment => {
+            if (!segment || segment.id === undefined) {
+                return;
+            }
+            const segmentId = segment.id.toString();
+            const segmentLabel = segment.name || `Segment ${segmentId}`;
+            if (segmentLabel) {
+                segmentOptions.set(segmentId, {
+                    id: segmentId,
+                    label: segmentLabel,
+                });
+            }
+
+            if (climbRequestMap.has(segmentId)) {
+                const existingEntry = climbRequestMap.get(segmentId);
+                if (segmentLabel && (!existingEntry.label || existingEntry.label === existingEntry.id)) {
+                    climbRequestMap.set(segmentId, { ...existingEntry, label: segmentLabel });
+                }
+            }
+        });
+
+        segmentOptions.forEach((segmentEntry, segmentId) => {
+            if (!climbRequestMap.has(segmentId)) {
+                climbRequestMap.set(segmentId, segmentEntry);
             }
         });
 
@@ -10490,11 +10604,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (climbFilterWrapper && climbFilterSelect) {
             const hasClimbs = climbRequestMap.size > 0;
             climbFilterWrapper.hidden = !hasClimbs;
+            const climbOptions = Array.from(climbRequestMap.values())
+                .sort((a, b) => {
+                    const aLabel = a.label || '';
+                    const bLabel = b.label || '';
+                    return aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' });
+                });
             climbFilterSelect.innerHTML = '<option value="">All climbs</option>'
-                + Array.from(climbRequestMap.values())
+                + climbOptions
                     .map(climb => `<option value="${climb.id}">${escapeHtml(climb.label)}</option>`)
                     .join('');
             if (!hasClimbs) {
+                currentActivityFilters.climbSegmentId = null;
+                climbFilterSelect.value = '';
+            } else if (currentActivityFilters.climbSegmentId && climbRequestMap.has(currentActivityFilters.climbSegmentId)) {
+                climbFilterSelect.value = currentActivityFilters.climbSegmentId;
+            } else {
                 currentActivityFilters.climbSegmentId = null;
                 climbFilterSelect.value = '';
             }

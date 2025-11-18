@@ -50,7 +50,7 @@ UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'csv'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['INITIALIZATION_DONE'] = False
+APP_BACKUP_ENV_KEY = 'ARCHIVAL_CSV_FOLDER'
 
 
 # General constants
@@ -60,20 +60,28 @@ CALORIE_ADJUSTMENT_FACTOR = 0.65
 
 # Import models after initializing db to avoid circular imports
 from models import User, Activity
-@app.before_request
-def initialize_app():
-    if not app.config['INITIALIZATION_DONE']:
-        with app.app_context():
-            process_backup_csv_files()
-        app.config['INITIALIZATION_DONE'] = True
 
 
-def process_backup_csv_files():
-    backup_folder = os.path.join(app.static_folder, 'backup')
+def process_backup_csv_files(source_folder: str | None = None):
+    """Process archived CSVs and persist them to the SQL database."""
+    backup_folder = source_folder or os.getenv(APP_BACKUP_ENV_KEY)
+    if not backup_folder:
+        backup_folder = os.path.join(app.static_folder, 'backup')
+
+    backup_folder = os.path.abspath(backup_folder)
+    if not os.path.isdir(backup_folder):
+        logging.warning(
+            "Backup folder %s does not exist. Skipping archival import.",
+            backup_folder,
+        )
+        return []
+
     csv_files = glob.glob(os.path.join(backup_folder, '*.csv'))
     print(f"CSV files found: {csv_files}")
 
     encodings_to_try = ['utf-8', 'iso-8859-1', 'cp1252', 'latin-1']
+
+    results = []
 
     for csv_file in csv_files:
         print(f"Processing file: {csv_file}")
@@ -170,19 +178,36 @@ def process_backup_csv_files():
                     db.session.commit()
                     logging.info(f"Processed user data for {username}")
                     print(f"Successfully processed {csv_file}")
+                    results.append({
+                        'filename': base_filename,
+                        'status': 'processed',
+                        'encoding': encoding,
+                    })
                     break  # Break the encoding loop if successful
 
                 except Exception as e:
                     db.session.rollback()  # Rollback the session on error
                     logging.exception(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
                     print(f"Error processing {csv_file} with encoding {encoding}: {str(e)}")
+                    results.append({
+                        'filename': base_filename,
+                        'status': 'error',
+                        'encoding': encoding,
+                        'error': str(e),
+                    })
 
         except Exception as outer_e:
             logging.exception(f"Failed to process {csv_file}: {str(outer_e)}")
             print(f"Failed to process {csv_file}: {str(outer_e)}")
+            results.append({
+                'filename': base_filename,
+                'status': 'error',
+                'error': str(outer_e),
+            })
 
     logging.info("Finished processing backup CSV files")
     print("Finished processing backup CSV files")
+    return results
 
 
 # Set up detailed logging

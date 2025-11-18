@@ -2709,6 +2709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         maxElevation: null,
         raceRequestId: null,
         climbSegmentId: null,
+        coinEmoji: null,
     };
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
     let activityFilterUniverseCount = 0;
@@ -9725,6 +9726,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             [filters.minElevation, filters.maxElevation] = [filters.maxElevation, filters.minElevation];
         }
 
+        if (currentActivityFilters?.coinEmoji && COIN_EMOJIS.includes(currentActivityFilters.coinEmoji)) {
+            filters.coinEmoji = currentActivityFilters.coinEmoji;
+        } else {
+            filters.coinEmoji = null;
+        }
+
         return filters;
     };
 
@@ -9866,6 +9873,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             minInput: activityElevationMinInput,
             maxInput: activityElevationMaxInput
         });
+
+        if (filters.coinEmoji && COIN_EMOJIS.includes(filters.coinEmoji)) {
+            descriptors.push({
+                label: `Coin · Minted ${filters.coinEmoji}`,
+                onRemove: () => {
+                    currentActivityFilters.coinEmoji = null;
+                    return true;
+                }
+            });
+        }
 
         if (filters.raceRequestId && raceRequestMap.has(filters.raceRequestId)) {
             const raceEntry = raceRequestMap.get(filters.raceRequestId);
@@ -10792,6 +10809,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (filters.climbSegmentId) {
             if (!activityMatchesClimbFilter(activity, filters.climbSegmentId)) {
+                return false;
+            }
+        }
+
+        if (filters.coinEmoji && COIN_EMOJIS.includes(filters.coinEmoji)) {
+            const rewardedCoins = getActivityCoinRewards(activity);
+            if (!rewardedCoins.includes(filters.coinEmoji)) {
                 return false;
             }
         }
@@ -14981,9 +15005,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             button.dataset.coinShortcutInitialized = 'true';
             button.addEventListener('click', () => {
-                activeChartKey = 'balance';
-                mapsTo('wallet', { focusTab: true });
-                requestWalletRender();
+                const coinType = (button.dataset.coinType || '').trim();
+                if (coinType && COIN_EMOJIS.includes(coinType)) {
+                    currentActivityFilters.coinEmoji = coinType;
+                } else {
+                    currentActivityFilters.coinEmoji = null;
+                }
+
+                if (filterApplyTimeout) {
+                    clearTimeout(filterApplyTimeout);
+                    filterApplyTimeout = null;
+                }
+
+                requestActivitiesRender({ preserveVisibleCount: false });
+                mapsTo('activities', { focusTab: true });
             });
         });
     };

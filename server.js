@@ -19,6 +19,7 @@ const {
   appendContactRequest,
   getContactRequestsForUser,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
+const { getFallbackContactRequests } = require('./services/contactRequestFallback');
 const { PersistentCache } = require('./services/cache');
 const { buildSheetFirstSnapshotResponse } = require('./services/sheetSnapshotService');
 const { signAthleteIdentifier, verifySignedAthleteIdentifier } = require('./services/signedAthlete');
@@ -313,6 +314,15 @@ async function safeGetContactRequests(userId) {
     return await getContactRequestsForUser(userId);
   } catch (error) {
     console.error(`Unable to load contact requests for athlete ${userId}:`, error.message || error);
+    try {
+      const fallbackRequests = getFallbackContactRequests(userId);
+      if (fallbackRequests.length > 0) {
+        console.info(`Using fallback contact requests for athlete ${userId}.`);
+        return fallbackRequests;
+      }
+    } catch (fallbackError) {
+      console.error(`Unable to load fallback contact requests for athlete ${userId}:`, fallbackError.message || fallbackError);
+    }
     return [];
   }
 }

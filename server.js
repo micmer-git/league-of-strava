@@ -16,9 +16,10 @@ const {
   getLatestUserSyncEntry,
   storeUserDataInSheet,
   appendUserSyncProgress,
+  getUserActivityHistory,
+  getUserSyncProgressEntries,
 } = require('./services/googleSheets'); // Import the Google Sheets functions
 const { PersistentCache } = require('./services/cache');
-const { getLatestPayload, decompressPayload } = require('./services/googleSheetsHelper');
 const { overwriteLeaderboardFile } = require('./services/leaderboardFileStore');
 
 const app = express();
@@ -77,6 +78,16 @@ const segmentCache = new PersistentCache({
   namespace: 'strava:segment-efforts',
   ttlMs: SEGMENT_CACHE_TTL_MS,
   maxEntries: 400,
+  storageDir: CACHE_STORAGE_DIR,
+});
+
+const ACTIVITY_HISTORY_CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_ACTIVITY_HISTORY_CACHE_TTL_MS, 10)
+  || 6 * 60 * 60 * 1000; // 6 hours default
+
+const activityHistoryCache = new PersistentCache({
+  namespace: 'strava:activity-history',
+  ttlMs: ACTIVITY_HISTORY_CACHE_TTL_MS,
+  maxEntries: 200,
   storageDir: CACHE_STORAGE_DIR,
 });
 
@@ -190,6 +201,98 @@ function sanitizeRedirectPath(value, fallback = '/dashboard') {
     console.warn('Invalid redirect path provided, falling back to dashboard:', error.message);
     return fallback;
   }
+}
+
+function getActivityHistoryCacheKey(userId) {
+  if (!userId) {
+    return null;
+  }
+
+  const normalizedUserId = String(userId).trim();
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  return `activities:${normalizedUserId}`;
+}
+
+function getCachedActivityHistory(userId) {
+  const cacheKey = getActivityHistoryCacheKey(userId);
+  if (!cacheKey) {
+    return null;
+  }
+
+  const entry = activityHistoryCache.getEntry(cacheKey);
+  if (!entry?.value || !Array.isArray(entry.value.activities)) {
+    return null;
+  }
+
+  return {
+    activities: entry.value.activities,
+    cacheTimestamp: entry.timestamp,
+    cacheAgeMs: entry.ageMs,
+    storedAt: entry.value.storedAt || null,
+    source: entry.value.source || 'cache',
+  };
+}
+
+function cacheActivityHistory(userId, activities, source = 'unknown') {
+  const cacheKey = getActivityHistoryCacheKey(userId);
+  if (!cacheKey || !Array.isArray(activities)) {
+    return null;
+  }
+
+  const normalizedSource = typeof source === 'string' && source.trim().length > 0
+    ? source.trim()
+    : 'unknown';
+
+  activityHistoryCache.set(cacheKey, {
+    userId: String(userId),
+    activities,
+    count: activities.length,
+    storedAt: new Date().toISOString(),
+    source: normalizedSource,
+  });
+
+  return {
+    activities,
+    source: normalizedSource,
+  };
+}
+
+async function loadStoredActivitiesForUser(userId, { preferCache = true } = {}) {
+  const normalizedUserId = userId ? String(userId) : '';
+  if (!normalizedUserId) {
+    return { activities: [], source: 'unknown', cached: false };
+  }
+
+  activityHistoryCache.pruneExpired();
+
+  if (preferCache) {
+    const cachedEntry = getCachedActivityHistory(normalizedUserId);
+    if (cachedEntry) {
+      return {
+        activities: cachedEntry.activities,
+        source: cachedEntry.source || 'cache',
+        cached: true,
+        cacheTimestamp: cachedEntry.cacheTimestamp,
+        cacheAgeMs: cachedEntry.cacheAgeMs,
+      };
+    }
+  }
+
+  const storedActivities = await getUserActivityHistory(normalizedUserId);
+  const normalizedActivities = Array.isArray(storedActivities) ? storedActivities : [];
+
+  if (normalizedActivities.length > 0) {
+    cacheActivityHistory(normalizedUserId, normalizedActivities, 'sheets');
+  }
+
+  return {
+    activities: normalizedActivities,
+    source: 'sheets',
+    cached: false,
+  };
 }
 
 // Routes
@@ -600,15 +703,12 @@ app.post('/api/strava/sync', async (req, res) => {
     let existingActivities = [];
 
     try {
-      const latestPayload = getLatestPayload([existingSyncEntry]);
-      const decompressed = decompressPayload(latestPayload);
-      if (Array.isArray(decompressed)) {
-        existingActivities = decompressed;
-      }
+      const historyResult = await loadStoredActivitiesForUser(userId);
+      existingActivities = Array.isArray(historyResult.activities) ? historyResult.activities : [];
     } catch (payloadError) {
-      console.warn(`User ${userId}: Unable to decode stored sync payload. Triggering full sync.`, payloadError);
+      console.warn(`User ${userId}: Unable to load stored activity history. Triggering full sync.`, payloadError);
       runFullHistoricalSync(userId, accessToken).catch((error) => {
-        console.error(`User ${userId}: FAILED full historical sync after payload decode error.`, error);
+        console.error(`User ${userId}: FAILED full historical sync after history load error.`, error);
       });
       return res.json({
         status: 'full_sync_started',
@@ -629,16 +729,89 @@ app.get('/api/strava-data', async (req, res) => {
   console.log('Received request for all Strava data');
   userDataCache.pruneExpired();
   segmentCache.pruneExpired();
+  activityHistoryCache.pruneExpired();
   const accessToken = req.cookies.strava_token;
   const forceRefresh = req.query.refresh === 'true';
   const loadStored = req.query.loadStored === 'true';
   const startPage = Math.max(Number.parseInt(req.query.startPage, 10) || 1, 1);
   const requestedPageCount = Math.max(Number.parseInt(req.query.pageCount, 10) || 3, 1);
   const perPage = Math.min(Math.max(Number.parseInt(req.query.perPage, 10) || 200, 1), 200);
+  const requestedUserIdParam = typeof req.query.userId === 'string' ? req.query.userId.trim() : '';
 
   if (!accessToken) {
     console.warn('No access token found in cookies');
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (loadStored && requestedUserIdParam) {
+    try {
+      const existingSnapshot = await getLatestUserSnapshot(requestedUserIdParam);
+
+      if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
+        console.log(`Serving stored snapshot for athlete ${requestedUserIdParam} without contacting Strava.`);
+        const storedPayload = recalculateSnapshotTotals(existingSnapshot.payload);
+
+        try {
+          const historyResult = await loadStoredActivitiesForUser(requestedUserIdParam);
+          if (Array.isArray(historyResult.activities) && historyResult.activities.length > 0) {
+            storedPayload.activities = historyResult.activities;
+            storedPayload.activityHistorySource = historyResult.source;
+            storedPayload.activityHistoryCached = historyResult.cached;
+          } else if (!Array.isArray(storedPayload.activities)) {
+            storedPayload.activities = [];
+          }
+        } catch (historyError) {
+          console.warn(`Unable to hydrate stored snapshot activities for athlete ${requestedUserIdParam}:`, historyError.message);
+          if (!Array.isArray(storedPayload.activities)) {
+            storedPayload.activities = [];
+          }
+        }
+
+        const cacheTimestamp = Date.now();
+        const hasBackupActivities = Array.isArray(storedPayload.activities) && storedPayload.activities.length > 0;
+        const loadingInfo = createLoadingInfo({
+          userId: requestedUserIdParam,
+          cacheTimestamp,
+          cacheAgeMs: 0,
+          storedTimestamp: existingSnapshot.timestamp || null,
+          servedFrom: 'snapshot',
+          hasActivitiesBackup: hasBackupActivities,
+          stale: false,
+        });
+
+        const normalizedPayload = {
+          ...storedPayload,
+          rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+          loadingInfo,
+          stored: true,
+          storedTimestamp: existingSnapshot.timestamp || null,
+        };
+
+        const cacheKeyForStored = `${requestedUserIdParam}:${startPage}:${requestedPageCount}:${perPage}`;
+        userDataCache.set(cacheKeyForStored, normalizedPayload);
+
+        return res.json({
+          ...normalizedPayload,
+          cached: true,
+          stale: false,
+          cacheTimestamp,
+          cacheAgeMs: 0,
+        });
+      }
+
+      return res.status(404).json({
+        error: 'No stored snapshot available yet.',
+        stored: false,
+        cached: false,
+      });
+    } catch (snapshotError) {
+      console.error(`Error retrieving stored snapshot for user ${requestedUserIdParam}:`, snapshotError.message);
+      return res.status(503).json({
+        error: 'Stored snapshot temporarily unavailable.',
+        stored: false,
+        cached: false,
+      });
+    }
   }
 
   let userId;
@@ -704,14 +877,31 @@ app.get('/api/strava-data', async (req, res) => {
       if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
         console.log(`Stored snapshot located for athlete ${userId} from ${existingSnapshot.timestamp}.`);
         const storedPayload = recalculateSnapshotTotals(existingSnapshot.payload);
+        let storedActivitiesResult = null;
+
+        try {
+          storedActivitiesResult = await loadStoredActivitiesForUser(userId);
+        } catch (historyError) {
+          console.warn(`Unable to hydrate stored snapshot activities for athlete ${userId}:`, historyError.message);
+        }
+
+        if (storedActivitiesResult && Array.isArray(storedActivitiesResult.activities) && storedActivitiesResult.activities.length > 0) {
+          storedPayload.activities = storedActivitiesResult.activities;
+          storedPayload.activityHistorySource = storedActivitiesResult.source;
+          storedPayload.activityHistoryCached = storedActivitiesResult.cached;
+        } else if (!Array.isArray(storedPayload.activities)) {
+          storedPayload.activities = [];
+        }
+
         const cacheTimestamp = Date.now();
         const hasBackupActivities = Array.isArray(storedPayload.activities) && storedPayload.activities.length > 0;
+        const servedFrom = storedActivitiesResult?.source === 'cache' ? 'snapshot+cache' : 'snapshot';
         const loadingInfo = createLoadingInfo({
           userId,
           cacheTimestamp,
           cacheAgeMs: 0,
           storedTimestamp: existingSnapshot.timestamp || null,
-          servedFrom: 'snapshot',
+          servedFrom,
           hasActivitiesBackup: hasBackupActivities,
           stale: false,
         });
@@ -1257,6 +1447,28 @@ app.get('/api/strava-data', async (req, res) => {
   }
 });
 
+app.get('/api/sync-progress/:userId', async (req, res) => {
+  const accessToken = req.cookies.strava_token;
+  const { userId } = req.params;
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 25, 1), 500);
+
+  if (!accessToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const entries = await getUserSyncProgressEntries(userId, { limit });
+    return res.json({ userId, entries });
+  } catch (error) {
+    console.error(`Failed to load sync progress for user ${userId}:`, error.message || error);
+    return res.status(500).json({ error: 'Failed to retrieve sync progress' });
+  }
+});
+
 
 // Helper functions
 
@@ -1503,16 +1715,10 @@ async function runFullHistoricalSync(userId, accessToken) {
   let existingActivities = [];
 
   try {
-    const existingEntry = await getLatestUserSyncEntry(userId);
-    if (existingEntry) {
-      const payload = getLatestPayload([existingEntry]);
-      const decompressed = decompressPayload(payload);
-      if (Array.isArray(decompressed)) {
-        existingActivities = decompressed;
-      }
-    }
+    const historyResult = await loadStoredActivitiesForUser(userId);
+    existingActivities = Array.isArray(historyResult.activities) ? historyResult.activities : [];
   } catch (loadError) {
-    console.warn(`User ${userId}: Unable to load existing sync payload before historical sync.`, loadError.message);
+    console.warn(`User ${userId}: Unable to load stored activity history before historical sync.`, loadError.message);
   }
 
   const activityMap = new Map();
@@ -1685,6 +1891,7 @@ async function runFullHistoricalSync(userId, accessToken) {
 
     console.log(`User ${userId}: Stored ${activitiesFetchedThisRun.length} newly backfilled activities (total stored: ${totalActivities}).`);
     await storeUserDataInSheet(userId, mergedActivities, 'full-history-sync');
+    cacheActivityHistory(userId, mergedActivities, 'full-history-sync');
 
     await recordProgress({
       stage: hasMoreFromStrava ? 'partial' : 'complete',
@@ -1861,6 +2068,7 @@ async function runDeltaSync(userId, accessToken, existingActivities = []) {
 
     console.log(`User ${userId}: Storing ${mergedActivities.length} total activities after delta sync.`);
     await storeUserDataInSheet(userId, mergedActivities, 'delta-sync');
+    cacheActivityHistory(userId, mergedActivities, 'delta-sync');
     await recordProgress({
       stage: 'delta-complete',
       lastActivityId: mergedActivities[0]?.id ?? '',

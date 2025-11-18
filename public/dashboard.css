@@ -65,6 +65,7 @@
     --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
     --app-safe-area-left: env(safe-area-inset-left, 0px);
     --pull-indicator-offset: 0px;
+    --bottom-nav-height: clamp(3.75rem, 7vh, 4.75rem);
 }
 
 body.dark {
@@ -5161,3 +5162,56 @@ body.dark .profile-card__balance-range {
     border-color: rgba(148, 163, 184, 0.35);
 }
 
+
+/* Full-bleed mobile panels when the bottom navigation is visible */
+body.is-bottom-nav-active .dashboard-shell {
+    width: 100%;
+    margin: 0;
+    padding-left: max(var(--app-safe-area-left), 0px);
+    padding-right: max(var(--app-safe-area-right), 0px);
+}
+
+body.is-bottom-nav-active .dashboard-panel {
+    width: 100%;
+    margin-inline: 0;
+}
+
+body.is-bottom-nav-active .dashboard-panel .panel-card {
+    border-radius: 0 !important;
+    padding-left: max(var(--app-safe-area-left), 0px);
+    padding-right: max(var(--app-safe-area-right), 0px);
+    padding-top: clamp(1rem, 4vw, 1.5rem);
+    padding-bottom: clamp(1rem, 4vw, 1.5rem);
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+}
+
+body.is-bottom-nav-active [data-dashboard-panel="wallet"] {
+    min-height: calc(
+        var(--app-viewport-height)
+        - var(--app-safe-area-top)
+        - var(--app-safe-area-bottom)
+        - var(--bottom-nav-height)
+    );
+    display: flex;
+}
+
+body.is-bottom-nav-active [data-dashboard-panel="wallet"] > .panel-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+body.is-bottom-nav-active [data-dashboard-panel="wallet"] .panel-card__header {
+    flex: 0 0 auto;
+}
+
+body.is-bottom-nav-active [data-dashboard-panel="wallet"] .wallet-chart {
+    flex: 1;
+    min-height: 0;
+}
+
+body.is-bottom-nav-active [data-dashboard-panel="wallet"] .wallet-chart canvas {
+    height: 100% !important;
+}

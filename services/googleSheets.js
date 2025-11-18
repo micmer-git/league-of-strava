@@ -4,7 +4,7 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
-const { upsertLeaderboardFileEntry } = require('./leaderboardFileStore');
+const { upsertLeaderboardFileEntry, readLeaderboardFileEntries } = require('./leaderboardFileStore');
 
 const SERVICE_ACCOUNT_FILE = process.env.GOOGLE_SERVICE_ACCOUNT_FILE
   ? path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_FILE)
@@ -814,73 +814,14 @@ async function appendLeaderboardEntry({
   pizzas = 0,
   coinBreakdown = {},
 }) {
-  if (!SPREADSHEET_ID) {
-    throw new Error('SPREADSHEET_ID environment variable is not set.');
-  }
-
-  const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
   const timestamp = new Date().toISOString();
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A1`,
-    valueInputOption: 'RAW',
-    insertDataOption: 'INSERT_ROWS',
-    resource: {
-      values: [
-        [
-          timestamp,
-          userId ?? '',
-          displayName ?? '',
-          level !== undefined && level !== null ? Number(level) : '',
-          emoji ?? '',
-          totalHaulValue !== undefined && totalHaulValue !== null ? Number(totalHaulValue) : '',
-          walletBalance !== undefined && walletBalance !== null ? Number(walletBalance) : '',
-          dollars !== undefined && dollars !== null ? Number(dollars) : '',
-          coins !== undefined && coins !== null ? Number(coins) : '',
-          pizzaCoins !== undefined && pizzaCoins !== null ? Number(pizzaCoins) : '',
-          medals !== undefined && medals !== null ? Number(medals) : '',
-          worldTrips !== undefined && worldTrips !== null ? Number(worldTrips) : '',
-          everestSummits !== undefined && everestSummits !== null ? Number(everestSummits) : '',
-          pizzas !== undefined && pizzas !== null ? Number(pizzas) : '',
-          ...COIN_EMOJIS.map(emojiKey => {
-            const value = coinBreakdown?.[emojiKey];
-            return value !== undefined && value !== null ? Number(value) : 0;
-          }),
-        ],
-      ],
-    },
-  });
-
   const normalizedCoinBreakdown = COIN_EMOJIS.reduce((acc, emojiKey) => {
     const numericValue = Number(coinBreakdown?.[emojiKey]);
     acc[emojiKey] = Number.isFinite(numericValue) ? numericValue : 0;
     return acc;
   }, {});
 
-  try {
-    await upsertLeaderboardFileEntry({
-      timestamp,
-      userId,
-      displayName,
-      level,
-      dollars,
-      emoji,
-      coins,
-      totalHaulValue,
-      pizzaCoins,
-      medals,
-      walletBalance,
-      worldTrips,
-      everestSummits,
-      pizzas,
-      coinBreakdown: normalizedCoinBreakdown,
-    });
-  } catch (fileError) {
-    console.warn('Unable to update cached leaderboard file:', fileError.message);
-  }
-
-  return {
+  const normalizedEntry = {
     timestamp,
     userId,
     displayName,
@@ -897,34 +838,119 @@ async function appendLeaderboardEntry({
     pizzas: Number(pizzas) || 0,
     coinBreakdown: normalizedCoinBreakdown,
   };
+
+  if (!SPREADSHEET_ID) {
+    console.warn('SPREADSHEET_ID environment variable is not set. Caching leaderboard entry locally.');
+  } else {
+    try {
+      const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        resource: {
+          values: [
+            [
+              timestamp,
+              userId ?? '',
+              displayName ?? '',
+              Number(level) || 0,
+              emoji ?? '',
+              Number(totalHaulValue) || 0,
+              Number(walletBalance) || 0,
+              Number(dollars) || 0,
+              Number(coins) || 0,
+              Number(pizzaCoins) || 0,
+              Number(medals) || 0,
+              Number(worldTrips) || 0,
+              Number(everestSummits) || 0,
+              Number(pizzas) || 0,
+              ...COIN_EMOJIS.map(emojiKey => normalizedCoinBreakdown[emojiKey] || 0),
+            ],
+          ],
+        },
+      });
+    } catch (sheetError) {
+      console.warn('Unable to store leaderboard entry in Google Sheets:', sheetError.message);
+    }
+  }
+
+  try {
+    await upsertLeaderboardFileEntry({
+      ...normalizedEntry,
+      coinBreakdown: normalizedCoinBreakdown,
+    });
+  } catch (fileError) {
+    console.warn('Unable to update cached leaderboard file:', fileError.message);
+  }
+
+  return normalizedEntry;
+}
+
+function mapCachedLeaderboardEntryToRow(entry = {}) {
+  const baseRow = {
+    timestamp: entry.timestamp || '',
+    userId: entry.userId || '',
+    displayName: entry.displayName || '',
+    level: entry.level ?? 0,
+    emoji: entry.emoji || '',
+    totalHaulValue: entry.totalHaulValue ?? 0,
+    walletBalance: entry.walletBalance ?? 0,
+    dollars: entry.dollars ?? 0,
+    coins: entry.coins ?? 0,
+    pizzaCoins: entry.pizzaCoins ?? 0,
+    medals: entry.medals ?? 0,
+    '🌍': entry.worldTrips ?? 0,
+    '🏔️': entry.everestSummits ?? 0,
+    '🍕': entry.pizzas ?? 0,
+  };
+
+  COIN_EMOJIS.forEach((emojiKey) => {
+    const numericValue = Number(entry.coinBreakdown?.[emojiKey]);
+    baseRow[emojiKey] = Number.isFinite(numericValue) ? numericValue : 0;
+  });
+
+  return baseRow;
+}
+
+async function readCachedLeaderboardRows() {
+  const cachedEntries = await readLeaderboardFileEntries();
+  return cachedEntries.map(mapCachedLeaderboardEntryToRow);
 }
 
 async function getLeaderboardRows() {
   if (!SPREADSHEET_ID) {
-    throw new Error('SPREADSHEET_ID environment variable is not set.');
+    console.warn('SPREADSHEET_ID environment variable is not set. Using cached leaderboard entries.');
+    return readCachedLeaderboardRows();
   }
 
-  const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A1:Z1000`,
-  });
-
-  const values = res.data.values || [];
-  if (values.length === 0) {
-    return [];
-  }
-
-  const [header, ...rows] = values;
-  const headerMap = header.map(h => h.trim());
-
-  return rows.map(row => {
-    const record = {};
-    headerMap.forEach((key, index) => {
-      record[key] = row[index] ?? '';
+  try {
+    const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A1:Z1000`,
     });
-    return record;
-  });
+
+    const values = res.data.values || [];
+    if (values.length === 0) {
+      return [];
+    }
+
+    const [header, ...rows] = values;
+    const headerMap = header.map(h => h.trim());
+
+    return rows.map(row => {
+      const record = {};
+      headerMap.forEach((key, index) => {
+        record[key] = row[index] ?? '';
+      });
+      return record;
+    });
+  } catch (sheetError) {
+    console.warn('Unable to load leaderboard rows from Google Sheets. Falling back to cached entries:', sheetError.message);
+    return readCachedLeaderboardRows();
+  }
 }
 
 async function getLeaderboardLatestEntries() {

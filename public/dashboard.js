@@ -9732,6 +9732,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             filters.coinEmoji = null;
         }
 
+        if (raceFilterSelect) {
+            const selectedRace = (raceFilterSelect.value || '').trim();
+            filters.raceRequestId = selectedRace || null;
+        } else if (currentActivityFilters?.raceRequestId) {
+            filters.raceRequestId = currentActivityFilters.raceRequestId;
+        }
+
+        if (climbFilterSelect) {
+            const selectedClimb = (climbFilterSelect.value || '').trim();
+            filters.climbSegmentId = selectedClimb || null;
+        } else if (currentActivityFilters?.climbSegmentId) {
+            filters.climbSegmentId = currentActivityFilters.climbSegmentId;
+        }
+
         return filters;
     };
 

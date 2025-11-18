@@ -2704,9 +2704,9 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
     position: relative;
     min-height: 18rem;
     height: min(40vh, 420px);
-    width: calc(100% - 2rem);
-    margin-inline: auto;
-    padding: 1rem 0;
+    width: 100%;
+    margin-inline: 0;
+    padding: 0;
 }
 
 .wallet-chart canvas {

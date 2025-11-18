@@ -130,6 +130,19 @@ function createLoadingInfo({
   };
 }
 
+function buildUserDataCacheKey({ userId, startPage = 1, pageCount = 1, perPage = 200 } = {}) {
+  const normalizedUserId = userId ? String(userId).trim() : '';
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  const normalizedStartPage = Math.max(1, Number.parseInt(startPage, 10) || 1);
+  const normalizedPageCount = Math.max(1, Number.parseInt(pageCount, 10) || 1);
+  const normalizedPerPage = Math.min(Math.max(Number.parseInt(perPage, 10) || 200, 1), 200);
+
+  return `${normalizedUserId}:start=${normalizedStartPage}:pages=${normalizedPageCount}:size=${normalizedPerPage}`;
+}
+
 // Helper function to pause execution (to respect rate limits)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -925,8 +938,15 @@ app.get('/api/strava-data', async (req, res) => {
           storedTimestamp: existingSnapshot.timestamp || null,
         };
 
-        const cacheKeyForStored = `${requestedUserIdParam}:${startPage}:${requestedPageCount}:${perPage}`;
-        userDataCache.set(cacheKeyForStored, normalizedPayload);
+        const cacheKeyForStored = buildUserDataCacheKey({
+          userId: requestedUserIdParam,
+          startPage,
+          pageCount: requestedPageCount,
+          perPage,
+        });
+        if (cacheKeyForStored) {
+          userDataCache.set(cacheKeyForStored, normalizedPayload);
+        }
 
         return res.json({
           ...normalizedPayload,
@@ -953,6 +973,7 @@ app.get('/api/strava-data', async (req, res) => {
   }
 
   let userId;
+  let cacheKey = null;
   let latestKnownActivityTimestamp = null;
 
   // Identify the user uniquely. Here, we'll use the athlete's ID from Strava.
@@ -972,7 +993,12 @@ app.get('/api/strava-data', async (req, res) => {
 
     console.log(`Identified athlete ${userId} (${resolvedAthleteName})`);
 
-    cacheKey = String(userId);
+    cacheKey = buildUserDataCacheKey({
+      userId,
+      startPage,
+      pageCount: requestedPageCount,
+      perPage,
+    });
     if (!signedAthlete?.token || signedAthlete.userId !== userId) {
       const signedToken = signAthleteIdentifier(userId);
       if (signedToken) {
@@ -1055,7 +1081,9 @@ app.get('/api/strava-data', async (req, res) => {
           loadingInfo,
         };
 
-        userDataCache.set(cacheKey, normalizedPayload);
+        if (cacheKey) {
+          userDataCache.set(cacheKey, normalizedPayload);
+        }
 
         return res.json({
           ...normalizedPayload,
@@ -1068,7 +1096,7 @@ app.get('/api/strava-data', async (req, res) => {
         });
       }
 
-      const cachedEntry = userDataCache.getEntry(cacheKey);
+      const cachedEntry = cacheKey ? userDataCache.getEntry(cacheKey) : null;
 
       if (existingSnapshotError) {
         console.error(`Failed to load stored snapshot for athlete ${userId}:`, existingSnapshotError.message);
@@ -1078,7 +1106,7 @@ app.get('/api/strava-data', async (req, res) => {
             cachedEntry.value,
             userId,
           );
-          if (hydrated) {
+          if (hydrated && cacheKey) {
             userDataCache.set(cacheKey, hydratedCachedPayload);
           }
           console.log(`Serving cached dashboard payload for athlete ${userId} after snapshot retrieval failure.`);
@@ -1119,7 +1147,7 @@ app.get('/api/strava-data', async (req, res) => {
           cachedEntry.value,
           userId,
         );
-        if (hydrated) {
+        if (hydrated && cacheKey) {
           userDataCache.set(cacheKey, hydratedCachedPayload);
         }
         console.log(`No stored snapshot found for athlete ${userId}; falling back to cached dashboard payload.`);
@@ -1156,7 +1184,7 @@ app.get('/api/strava-data', async (req, res) => {
       });
     }
 
-    const existingCacheEntry = userDataCache.getEntry(cacheKey);
+    const existingCacheEntry = cacheKey ? userDataCache.getEntry(cacheKey) : null;
 
     if (knownActivityKeySet.size === 0 && existingCacheEntry?.value) {
       try {
@@ -1202,7 +1230,7 @@ app.get('/api/strava-data', async (req, res) => {
           existingCacheEntry.value,
           userId,
         );
-        if (hydrated) {
+        if (hydrated && cacheKey) {
           userDataCache.set(cacheKey, cachedPayload);
         }
         const cachedHasBackup = Boolean(cachedPayload?.loadingInfo?.hasActivitiesBackup)
@@ -1455,7 +1483,9 @@ app.get('/api/strava-data', async (req, res) => {
     responsePayload.rewardDefinitionDigest = REWARD_DEFINITION_DIGEST;
     responsePayload.loadingInfo = loadingInfo;
 
-    userDataCache.set(cacheKey, responsePayload);
+    if (cacheKey) {
+      userDataCache.set(cacheKey, responsePayload);
+    }
 
     res.json({
       ...responsePayload,
@@ -1477,7 +1507,7 @@ app.get('/api/strava-data', async (req, res) => {
           cachedEntry.value,
           userId,
         );
-        if (hydrated) {
+        if (hydrated && cacheKey) {
           userDataCache.set(cacheKey, hydratedCachedPayload);
         }
         const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);

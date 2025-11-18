@@ -108,6 +108,26 @@ document.addEventListener('DOMContentLoaded', () => {
     return '🎖️';
   };
 
+  const resolveLevelEmoji = (entry, fallbackEmoji = '') => {
+    const candidateEmojis = [
+      entry?.emoji,
+      entry?.rankEmoji,
+      entry?.rank?.emoji,
+      fallbackEmoji,
+    ];
+
+    for (const candidate of candidateEmojis) {
+      if (typeof candidate === 'string') {
+        const trimmed = candidate.trim();
+        if (trimmed) {
+          return trimmed;
+        }
+      }
+    }
+
+    return '';
+  };
+
   async function loadLeaderboard() {
     renderMessageRow('Loading leaderboard…');
     try {
@@ -166,7 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
           : safeDisplayName;
         const levelValue = Number(entry.level ?? 0);
         const levelLabel = Number.isFinite(levelValue) ? formatDecimal(levelValue) : '0';
-        const levelEmoji = escapeHtml(getRankEmoji(index + 1));
+        const levelEmojiRaw = resolveLevelEmoji(entry, getRankEmoji(index + 1));
+        const levelEmoji = escapeHtml(levelEmojiRaw);
         const safeLevelLabel = escapeHtml(levelLabel);
         const levelCellParts = [`<span class="sr-only">Level </span>${safeLevelLabel}`];
         if (levelEmoji) {

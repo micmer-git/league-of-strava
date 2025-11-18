@@ -6343,10 +6343,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const isDarkMode = walletChartAppearancePreference === 'dark'
             || (walletChartAppearancePreference === 'auto' && document.body.classList.contains('dark'));
-        const shouldForceSecondaryBars = walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH
-            || walletSelectedTimeframe === WALLET_TIMEFRAME_LAST_12_MONTHS;
         const showLineSeries = walletChartDisplayMode !== 'bar';
-        const showBarSeries = walletChartDisplayMode === 'bar' || shouldForceSecondaryBars;
+        const showBarSeries = true;
         const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
         const fontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";

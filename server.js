@@ -97,7 +97,11 @@ const activityHistoryCache = new PersistentCache({
 
 // *** Updated: Define Multiple Segment Tracking Variables ***
 const TRACKED_SEGMENTS = [
-  { id: 14418673, name: 'Selvino' }, // Replace with your segment IDs and names
+  {
+    id: 14418673,
+    name: 'Selvino',
+    location: 'Nembro, Lombardy',
+  },
   { id: 618935, name: 'Passo Giau' },
   { id: 34534915, name: 'Orezzo' },
   // Add more segments as needed
@@ -2837,15 +2841,34 @@ async function fetchSegmentDetails({ segmentsList = [], accessToken, userId, for
       const statsCount = segmentData.athlete_segment_stats?.effort_count || 0;
       const count = effortCount || statsCount;
 
+      const normalizedSegmentName = segmentName || segmentData.name || `Segment ${segmentId}`;
+      const distance = Number(segmentData.distance);
+      const totalElevation = Number(segmentData.total_elevation_gain ?? segmentData.elevation_gain);
+      const averageGrade = Number(segmentData.average_grade);
+      const maximumGrade = Number(segmentData.maximum_grade);
+      const climbCategory = Number(segmentData.climb_category);
+      const elevationHigh = Number(segmentData.elevation_high);
+      const elevationLow = Number(segmentData.elevation_low);
+
       const normalizedSegment = {
         id: segmentId,
-        name: segmentName,
+        name: normalizedSegmentName,
         count,
         totalCount: statsCount,
         completions: completionDates,
         cached: false,
         cacheTimestamp: Date.now(),
         cacheAgeMs: 0,
+        distance: Number.isFinite(distance) ? distance : null,
+        elevationGain: Number.isFinite(totalElevation) ? totalElevation : null,
+        averageGrade: Number.isFinite(averageGrade) ? averageGrade : null,
+        maximumGrade: Number.isFinite(maximumGrade) ? maximumGrade : null,
+        climbCategory: Number.isFinite(climbCategory) ? climbCategory : null,
+        elevationHigh: Number.isFinite(elevationHigh) ? elevationHigh : null,
+        elevationLow: Number.isFinite(elevationLow) ? elevationLow : null,
+        city: segmentData.city || null,
+        state: segmentData.state || null,
+        country: segmentData.country || null,
       };
 
       if (userId && segmentId) {

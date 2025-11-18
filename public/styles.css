@@ -216,6 +216,13 @@ body.rank-modal-open .site-header__inner {
   border: 1px solid rgba(20, 28, 48, 0.08);
 }
 
+.activities-panel__attempt-detail {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
 .contact-body {
   background: linear-gradient(165deg, #fdf7f2 0%, #eef2ff 60%, #f7f9ff 100%);
   min-height: 100vh;

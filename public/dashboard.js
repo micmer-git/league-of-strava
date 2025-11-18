@@ -2716,6 +2716,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let climbRequestMap = new Map();
     let climbAttemptsBySegment = new Map();
     let climbSegmentMetadata = new Map();
+    let climbSegmentActivityMatches = new Map();
+    let activityClimbMatches = new Map();
 
     let tooltipHideTimeout = null;
     let activeInsight = null;
@@ -10390,6 +10392,89 @@ document.addEventListener('DOMContentLoaded', async () => {
         return metadataMap;
     };
 
+    const buildClimbSegmentActivityMatches = (attemptsLookup = new Map(), activities = []) => {
+        const segmentToActivities = new Map();
+        const activityToSegments = new Map();
+
+        if (!(attemptsLookup instanceof Map) || attemptsLookup.size === 0 || !Array.isArray(activities) || activities.length === 0) {
+            return { segmentToActivities, activityToSegments };
+        }
+
+        const normalizedActivities = activities
+            .map(activity => {
+                if (!activity || typeof activity !== 'object') {
+                    return null;
+                }
+                if (activity.id === undefined || activity.id === null) {
+                    return null;
+                }
+                const activityId = activity.id.toString();
+                const timestamp = Date.parse(activity.start_date || activity.start_date_local || 0);
+                if (!Number.isFinite(timestamp) || timestamp <= 0) {
+                    return { id: activityId, timestamp: null };
+                }
+                return { id: activityId, timestamp };
+            })
+            .filter(Boolean);
+
+        if (normalizedActivities.length === 0) {
+            return { segmentToActivities, activityToSegments };
+        }
+
+        const activityIdSet = new Set(normalizedActivities.map(entry => entry.id));
+        const activitiesWithTimestamp = normalizedActivities.filter(entry => Number.isFinite(entry.timestamp));
+        const MAX_ATTEMPT_TIME_DIFF_MS = 3 * 60 * 60 * 1000;
+
+        const linkSegmentAndActivity = (segmentId, activityId) => {
+            if (!segmentToActivities.has(segmentId)) {
+                segmentToActivities.set(segmentId, new Set());
+            }
+            segmentToActivities.get(segmentId).add(activityId);
+
+            if (!activityToSegments.has(activityId)) {
+                activityToSegments.set(activityId, new Set());
+            }
+            activityToSegments.get(activityId).add(segmentId);
+        };
+
+        attemptsLookup.forEach((attempts = [], rawSegmentId) => {
+            if (!attempts || attempts.length === 0) {
+                return;
+            }
+
+            const segmentId = rawSegmentId != null ? rawSegmentId.toString() : null;
+            if (!segmentId) {
+                return;
+            }
+
+            attempts.forEach(attempt => {
+                if (!attempt) {
+                    return;
+                }
+
+                const resolvedActivityIds = new Set();
+
+                if (attempt.activityId && activityIdSet.has(attempt.activityId)) {
+                    resolvedActivityIds.add(attempt.activityId);
+                } else if (attempt.startDate) {
+                    const attemptTimestamp = Date.parse(attempt.startDate);
+                    if (Number.isFinite(attemptTimestamp)) {
+                        activitiesWithTimestamp.forEach(activityEntry => {
+                            const diff = Math.abs(activityEntry.timestamp - attemptTimestamp);
+                            if (diff <= MAX_ATTEMPT_TIME_DIFF_MS) {
+                                resolvedActivityIds.add(activityEntry.id);
+                            }
+                        });
+                    }
+                }
+
+                resolvedActivityIds.forEach(activityId => linkSegmentAndActivity(segmentId, activityId));
+            });
+        });
+
+        return { segmentToActivities, activityToSegments };
+    };
+
     const formatClimbMetricParts = (segmentMetadata = null) => {
         if (!segmentMetadata) {
             return [];
@@ -10458,18 +10543,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!segmentId) {
             return true;
         }
-        const attempts = climbAttemptsBySegment.get(segmentId);
+
+        const normalizedSegmentId = segmentId.toString();
+        const attempts = climbAttemptsBySegment.get(normalizedSegmentId);
         if (!attempts || attempts.length === 0) {
             return false;
         }
-        const activityId = activity.id ? activity.id.toString() : null;
+
+        const activityId = activity?.id != null ? activity.id.toString() : null;
         if (activityId) {
+            const matchedSegments = activityClimbMatches.get(activityId);
+            if (matchedSegments instanceof Set && matchedSegments.has(normalizedSegmentId)) {
+                return true;
+            }
+
+            const matchedActivities = climbSegmentActivityMatches.get(normalizedSegmentId);
+            if (matchedActivities instanceof Set && matchedActivities.has(activityId)) {
+                return true;
+            }
+
             return attempts.some(attempt => attempt.activityId === activityId);
         }
+
         const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
         if (Number.isNaN(activityDate.getTime())) {
             return false;
         }
+
         return attempts.some(attempt => {
             if (!attempt.startDate) {
                 return false;
@@ -10538,7 +10638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         climbAttemptsDetail.hidden = false;
     };
 
-    const updateRequestFilterUI = (requests = [], segments = []) => {
+    const updateRequestFilterUI = (requests = [], segments = [], activities = []) => {
         const contactRequests = Array.isArray(requests) ? requests : [];
         const approvedRaces = contactRequests.filter(request => request && request.requestType === 'race' && request.approved);
         const approvedClimbs = contactRequests.filter(request => request && request.requestType === 'climb' && request.approved);
@@ -10587,6 +10687,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         climbAttemptsBySegment = buildClimbAttemptsLookup(segments);
+        const { segmentToActivities, activityToSegments } = buildClimbSegmentActivityMatches(climbAttemptsBySegment, activities);
+        climbSegmentActivityMatches = segmentToActivities;
+        activityClimbMatches = activityToSegments;
 
         if (raceFilterWrapper && raceFilterSelect) {
             const hasRaces = raceRequestMap.size > 0;
@@ -13391,7 +13494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         data.segmentMetadata = segmentMetadata;
         const contactRequests = Array.isArray(data.contactRequests) ? data.contactRequests : [];
         data.contactRequests = contactRequests;
-        updateRequestFilterUI(contactRequests, segments);
+        updateRequestFilterUI(contactRequests, segments, activities);
         const hasActivities = activities.length > 0;
         hasActivitiesState = hasActivities;
         const totals = calculateTotals(activities);

@@ -100,6 +100,7 @@ const TRACKED_SEGMENTS = [
   { id: 14418673, name: 'Selvino' }, // Replace with your segment IDs and names
   { id: 618935, name: 'Passo Giau' },
   { id: 34534915, name: 'Orezzo' },
+  { id: 662618, name: 'Muro di Sormano' },
   // Add more segments as needed
 ];
 

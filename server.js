@@ -340,70 +340,55 @@ app.get('/api/leaderboard', async (req, res) => {
       }
     });
 
-    let additionalEntries = [];
+    const existingUserIds = new Set(leaderboardByUser.keys());
+    let snapshotUserIds = [];
 
     try {
-      const snapshotUserIds = await listSnapshotUserIds();
-      const missingUserIds = snapshotUserIds.filter(userId => userId && !leaderboardByUser.has(String(userId)));
-
-      if (missingUserIds.length > 0) {
-        const pendingEntries = [];
-
-        for (const rawUserId of missingUserIds) {
-          const userId = String(rawUserId).trim();
-          if (!userId) {
-            continue;
-          }
-
-          try {
-            const snapshot = await getLatestUserSnapshot(userId);
-            if (!snapshot?.payload || !isValidSnapshotPayload(snapshot.payload)) {
-              continue;
-            }
-
-            const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
-            const summary = buildLeaderboardSummary(normalizedPayload);
-
-            if (!summary.userId) {
-              summary.userId = userId;
-            }
-
-            if (!summary.displayName || !summary.displayName.trim()) {
-              const athlete = normalizedPayload?.athlete || {};
-              const nameParts = [athlete.firstname, athlete.lastname]
-                .map(part => (part && String(part).trim()) || '')
-                .filter(Boolean);
-              summary.displayName = nameParts.join(' ') || athlete.username || userId;
-            }
-
-            summary.timestamp = snapshot.timestamp || new Date().toISOString();
-            pendingEntries.push(summary);
-            leaderboardByUser.set(userId, summary);
-          } catch (snapshotError) {
-            console.warn(`Unable to build leaderboard summary for ${userId}:`, snapshotError.message);
-          }
-        }
-
-        if (pendingEntries.length > 0) {
-          additionalEntries = pendingEntries;
-          const persistenceResults = await Promise.allSettled(
-            pendingEntries.map(entry => appendLeaderboardEntry(entry)),
-          );
-          persistenceResults.forEach((result, index) => {
-            if (result.status === 'rejected') {
-              const failedEntry = pendingEntries[index];
-              const failedUserId = failedEntry?.userId ?? 'unknown athlete';
-              const reason = result.reason?.message || result.reason || 'Unknown error';
-              console.warn(`Failed to persist computed leaderboard entry for ${failedUserId}: ${reason}`);
-            }
-          });
-        }
-      }
+      snapshotUserIds = await listSnapshotUserIds();
     } catch (snapshotListError) {
       console.warn('Unable to check for additional leaderboard users:', snapshotListError.message);
     }
 
-    const combinedEntries = [...leaderboard, ...additionalEntries];
+    const userIdsToHydrate = Array.from(new Set([
+      ...existingUserIds,
+      ...snapshotUserIds
+        .map(userId => (userId ? String(userId).trim() : ''))
+        .filter(Boolean),
+    ]));
+
+    const hydrationResults = await Promise.all(
+      userIdsToHydrate.map(async (userId) => ({
+        userId,
+        summary: await buildLeaderboardSummaryFromSnapshot(userId),
+      })),
+    );
+
+    const newlyComputedEntries = [];
+
+    hydrationResults.forEach(({ userId, summary }) => {
+      if (summary) {
+        leaderboardByUser.set(userId, summary);
+        if (!existingUserIds.has(userId)) {
+          newlyComputedEntries.push(summary);
+        }
+      }
+    });
+
+    if (newlyComputedEntries.length > 0) {
+      const persistenceResults = await Promise.allSettled(
+        newlyComputedEntries.map(entry => appendLeaderboardEntry(entry)),
+      );
+      persistenceResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const failedEntry = newlyComputedEntries[index];
+          const failedUserId = failedEntry?.userId ?? 'unknown athlete';
+          const reason = result.reason?.message || result.reason || 'Unknown error';
+          console.warn(`Failed to persist computed leaderboard entry for ${failedUserId}: ${reason}`);
+        }
+      });
+    }
+
+    const combinedEntries = Array.from(leaderboardByUser.values());
 
     const sortedEntries = combinedEntries
       .filter(entry => entry && typeof entry === 'object')
@@ -3279,6 +3264,41 @@ function buildLeaderboardSummary(payload = {}) {
     walletBalance,
     coinBreakdown: coinTotals,
   };
+}
+
+async function buildLeaderboardSummaryFromSnapshot(userId) {
+  const normalizedUserId = userId ? String(userId).trim() : '';
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  try {
+    const snapshot = await getLatestUserSnapshot(normalizedUserId);
+    if (!snapshot?.payload || !isValidSnapshotPayload(snapshot.payload)) {
+      return null;
+    }
+
+    const normalizedPayload = recalculateSnapshotTotals(snapshot.payload);
+    const summary = buildLeaderboardSummary(normalizedPayload) || {};
+
+    if (!summary.userId) {
+      summary.userId = normalizedUserId;
+    }
+
+    if (!summary.displayName || !summary.displayName.trim()) {
+      const athlete = normalizedPayload?.athlete || {};
+      const nameParts = [athlete.firstname, athlete.lastname]
+        .map(part => (part && String(part).trim()) || '')
+        .filter(Boolean);
+      summary.displayName = nameParts.join(' ') || athlete.username || normalizedUserId;
+    }
+
+    summary.timestamp = snapshot.timestamp || new Date().toISOString();
+    return summary;
+  } catch (error) {
+    console.warn(`Unable to build leaderboard summary for ${normalizedUserId}:`, error.message);
+    return null;
+  }
 }
 
 app.listen(PORT, () => {

@@ -130,10 +130,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         '3M': 'quarter',
         '1Y': 'yearly',
     };
+    const PROFILE_PERIOD_SHORT_LABELS_BY_KEY = {
+        weekly: '7D',
+        quarter: '3M',
+        yearly: '1Y',
+    };
     const PROFILE_RANGE_SUMMARY_LABELS = {
-        '7D': 'last 7 days',
-        '3M': 'last 3 months',
-        '1Y': 'last year',
+        '7D': '7D',
+        '3M': '3M',
+        '1Y': '1Y',
     };
 
     const PROFILE_PERIOD_MODAL_METADATA = {
@@ -3371,16 +3376,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let tooltipText = '';
 
-        const rangeSummary = PROFILE_RANGE_SUMMARY_LABELS[(shortLabel || '').toUpperCase()] || '';
+        const trimmedShortLabel = (shortLabel || '').trim();
+        const rangeSummary = trimmedShortLabel
+            || PROFILE_RANGE_SUMMARY_LABELS[(shortLabel || '').toUpperCase()]
+            || '';
 
         if (!hasValue && !hasPercent) {
-            appendWalletRangeLabel(element, `${shortLabel} —`, rangeSummary);
+            appendWalletRangeLabel(element, '—', rangeSummary);
             element.classList.add('profile-card__balance-change--neutral');
             element.setAttribute('aria-label', `${longLabel} change unavailable`);
             tooltipText = `${longLabel} Achievement Wallet change isn't available yet. Keep logging activities to unlock this trend.`;
         } else {
             const valuePart = hasValue ? formattedValue : '—';
-            let displayText = `${shortLabel} ${valuePart}`;
+            let displayText = valuePart;
 
             if (hasPercent) {
                 displayText += ` (${formattedPercent})`;
@@ -3794,7 +3802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return '';
         }
 
-        return `🌍 ${formatStatValue(numeric)} world coins collected`;
+        return `🌍 ${formatStatValue(numeric)}`;
     }
 
     function formatEverestClimbStatValue(everestSummits) {
@@ -3803,7 +3811,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return '';
         }
 
-        return `🏔️ ${formatStatValue(numeric)} Everest climbs`;
+        return `🏔️ ${formatStatValue(numeric)}`;
     }
 
     function formatPizzaSliceStatValue(pizzaCount) {
@@ -3812,7 +3820,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return '';
         }
 
-        return `🍕 ${formatStatValue(numeric)} pizzas`;
+        return `🍕 ${formatStatValue(numeric)}`;
     }
 
     const createRankSnapshotSlide = (snapshot, index = 0, options = {}) => {
@@ -3929,16 +3937,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 label: 'Distance covered',
                 value: formatDistanceStatValue(snapshot.distanceKm),
                 secondary: formatWorldCollectionStatValue(fallbackGlobeTrips),
+                inlineSecondary: true,
             },
             {
                 label: 'Elevation gain',
                 value: formatElevationStatValue(snapshot.elevationGain),
                 secondary: formatEverestClimbStatValue(fallbackEverests),
+                inlineSecondary: true,
             },
             {
                 label: 'Energy burned',
                 value: formatCaloriesStatValue(snapshot.calories),
                 secondary: formatPizzaSliceStatValue(fallbackPizzas),
+                inlineSecondary: true,
             },
         ];
 
@@ -3952,11 +3963,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const statValue = document.createElement('span');
             statValue.className = 'rank-modal__snapshot-stat-value';
-            statValue.textContent = metric.value;
+            const primaryValue = (metric.value ?? '—').toString();
+            const inlineParts = [];
+            if (primaryValue.trim()) {
+                inlineParts.push(primaryValue);
+            }
+            if (metric.inlineSecondary && metric.secondary) {
+                inlineParts.push(metric.secondary);
+            }
+            statValue.textContent = inlineParts.join(' ').trim() || '—';
 
             stat.append(statLabel, statValue);
 
-            if (metric.secondary) {
+            if (metric.secondary && !metric.inlineSecondary) {
                 const statSecondary = document.createElement('span');
                 statSecondary.className = 'rank-modal__snapshot-stat-secondary';
                 statSecondary.textContent = metric.secondary;
@@ -4514,16 +4533,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const metadata = PROFILE_PERIOD_MODAL_METADATA[periodKey] || {};
         const titleText = metadata.title
             || (label ? `${label} overview` : 'Wallet change overview');
+        const shortLabel = PROFILE_PERIOD_SHORT_LABELS_BY_KEY[periodKey] || '';
 
         if (profilePeriodModalTitleElement) {
-            profilePeriodModalTitleElement.textContent = titleText;
+            const combinedTitle = shortLabel
+                ? `${titleText} • ${shortLabel}`
+                : titleText;
+            profilePeriodModalTitleElement.textContent = combinedTitle;
         }
 
         if (profilePeriodModalDescriptionElement) {
-            const baseDescription = metadata.description
-                || (summary ? summary.replace(/\.$/, '') : 'Wallet change snapshot.');
-            const rangeDetail = snapshot?.rangeLabel ? ` • ${snapshot.rangeLabel}` : '';
-            profilePeriodModalDescriptionElement.textContent = `${baseDescription}${rangeDetail}`;
+            const rangeDescription = snapshot?.rangeLabel || '';
+            profilePeriodModalDescriptionElement.textContent = rangeDescription;
+            profilePeriodModalDescriptionElement.hidden = !rangeDescription;
         }
 
         if (!snapshot) {

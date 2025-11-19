@@ -4887,10 +4887,52 @@ body.dashboard-body {
     outline: none;
 }
 
+.activity-card__details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: flex-start;
+}
+
+.activity-card__details-text {
+    display: block;
+}
+
+.activity-card__country-flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    line-height: 1;
+    border-radius: 9999px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    padding: 0.1rem 0.35rem;
+    background: rgba(248, 250, 252, 0.85);
+}
+
+@media (min-width: 640px) {
+    .activity-card__details {
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        text-align: right;
+        gap: 0.5rem;
+    }
+    .activity-card__details-text {
+        text-align: right;
+    }
+}
+
 body.dark .activity-card,
 .dark .activity-card {
     background: rgba(15, 23, 42, 0.72);
     border-color: rgba(148, 163, 184, 0.25);
+}
+
+body.dark .activity-card__country-flag,
+.dark .activity-card__country-flag {
+    background: rgba(30, 41, 59, 0.65);
+    border-color: rgba(148, 163, 184, 0.3);
 }
 
 body.dark .activity-card__title-link,

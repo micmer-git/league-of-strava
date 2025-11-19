@@ -161,6 +161,10 @@
           <span aria-hidden="true" class="text-lg leading-none">👍</span>
           <span class="font-semibold" id="likes-total">0</span>
         </button>
+        <button class="tooltip-target profile-metric-pill bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200" id="country-stat" type="button">
+          <span aria-hidden="true" class="text-lg leading-none">🗺️</span>
+          <span class="font-semibold" id="country-total">0</span>
+        </button>
       </div>
     </div>
     <div class="profile-card__coins stats-card__pills" id="coin-summary">
@@ -497,24 +501,37 @@
 </div>
 </div>
 <div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-elevation" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Elevation (m)</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-elevation">
-<div class="filter-field filter-field--range">
-<div class="filter-range">
-<label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
-<input id="activity-elevation-min" min="0" placeholder="Min" step="10" type="number"/>
-<label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
-<input id="activity-elevation-max" min="0" placeholder="Max" step="10" type="number"/>
+  <button aria-controls="filter-content-elevation" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+    <span>Elevation (m)</span>
+    <span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+  </button>
+  <div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-elevation">
+    <div class="filter-field filter-field--range">
+      <div class="filter-range">
+        <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
+        <input id="activity-elevation-min" min="0" placeholder="Min" step="10" type="number"/>
+        <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
+        <input id="activity-elevation-max" min="0" placeholder="Max" step="10" type="number"/>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
-</div>
+<div class="filter-collapsible" data-filter-collapsible="">
+  <button aria-controls="filter-content-country" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+    <span>Country</span>
+    <span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+  </button>
+  <div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-country">
+    <div class="filter-field">
+      <span class="sr-only">Country filter</span>
+      <div class="filter-chip-list" id="country-filter-list" role="group" aria-label="Country filter"></div>
+      <p class="filter-chip-list__empty" id="country-filter-empty">Country metadata will appear once activities are synced.</p>
+    </div>
+  </div>
 </div>
 </div>
 <div class="filter-form__actions">
-<button class="filter-button filter-button--ghost" id="reset-activity-filters" type="button">
+  <button class="filter-button filter-button--ghost" id="reset-activity-filters" type="button">
 <span aria-hidden="true">↺</span>
                             Reset
                         </button>

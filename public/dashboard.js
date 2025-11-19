@@ -882,6 +882,79 @@ document.addEventListener('DOMContentLoaded', async () => {
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
     let countryMapChart = null;
     let countryMapFeaturesPromise = null;
+    let countryMapRendererPromise = null;
+    const COUNTRY_MAP_RENDERER_SCRIPTS = [
+        'https://cdn.jsdelivr.net/npm/chart.js',
+        'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1',
+        'https://cdn.jsdelivr.net/npm/chartjs-chart-geo@4.4.5/build/index.umd.min.js',
+    ];
+
+    const waitForCountryMapRenderers = (timeoutMs = 4000) => new Promise((resolve) => {
+        const start = Date.now();
+        const isReady = () => typeof window.Chart !== 'undefined'
+            && typeof window.ChartGeo !== 'undefined'
+            && typeof window.ChartGeo.topojson !== 'undefined';
+        if (isReady()) {
+            resolve(true);
+            return;
+        }
+        const tick = () => {
+            if (isReady()) {
+                resolve(true);
+                return;
+            }
+            if (Date.now() - start >= timeoutMs) {
+                resolve(false);
+                return;
+            }
+            if (typeof window.requestAnimationFrame === 'function') {
+                window.requestAnimationFrame(tick);
+            } else {
+                window.setTimeout(tick, 60);
+            }
+        };
+        tick();
+    });
+
+    const injectCountryMapScript = (src) => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.dataset.countryMapLoader = 'true';
+        script.addEventListener('load', () => resolve());
+        script.addEventListener('error', () => reject(new Error(`Failed to load map renderer script: ${src}`)));
+        document.head.appendChild(script);
+    });
+
+    const ensureCountryMapRenderers = async () => {
+        if (typeof window.Chart !== 'undefined'
+            && typeof window.ChartGeo !== 'undefined'
+            && typeof window.ChartGeo.topojson !== 'undefined') {
+            return true;
+        }
+        if (!countryMapRendererPromise) {
+            countryMapRendererPromise = (async () => {
+                const readyAfterWait = await waitForCountryMapRenderers(750);
+                if (readyAfterWait) {
+                    return true;
+                }
+                for (const src of COUNTRY_MAP_RENDERER_SCRIPTS) {
+                    try {
+                        await injectCountryMapScript(src);
+                    } catch (error) {
+                        console.error(error);
+                        throw error;
+                    }
+                }
+                return waitForCountryMapRenderers();
+            })().catch((error) => {
+                console.error('Unable to bootstrap map renderer scripts', error);
+                countryMapRendererPromise = null;
+                return false;
+            });
+        }
+        return countryMapRendererPromise;
+    };
     let pendingWalletRender = false;
     const manualSyncButton = document.getElementById('fetch-strava-button');
     const setManualSyncButtonState = (isLoading) => {
@@ -10446,13 +10519,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             countryMapEmptyElement.hidden = true;
         }
 
-        if (typeof window.Chart === 'undefined' || typeof window.ChartGeo === 'undefined') {
-            setCountryMapStatus('Map renderer is still loading. Please try again in a moment.');
+        toggleCountryMapLoading(true);
+        setCountryMapStatus('Loading map renderer…');
+        const renderersReady = await ensureCountryMapRenderers();
+        if (!renderersReady) {
+            toggleCountryMapLoading(false);
+            setCountryMapStatus('Unable to load the map renderer right now. Please try again later.');
             return;
         }
 
         setCountryMapStatus('');
-        toggleCountryMapLoading(true);
         const features = await loadCountryMapFeatures();
         toggleCountryMapLoading(false);
 

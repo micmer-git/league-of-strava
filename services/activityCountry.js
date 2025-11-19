@@ -249,47 +249,6 @@ const lookupCountryCode = (value) => {
   return '';
 };
 
-const flagCodeFromEmoji = (emoji) => {
-  if (typeof emoji !== 'string' || emoji.length === 0) {
-    return '';
-  }
-  const codePoints = Array.from(emoji);
-  if (codePoints.length !== 2) {
-    return '';
-  }
-  const base = 0x1F1E6;
-  const letters = codePoints.map((char) => {
-    const codePoint = char.codePointAt(0);
-    if (!codePoint) {
-      return '';
-    }
-    const offset = codePoint - base;
-    if (offset < 0 || offset > 25) {
-      return '';
-    }
-    return String.fromCharCode(65 + offset);
-  }).join('');
-  const normalized = normalizeCountryCode(letters);
-  return normalized && COUNTRY_CODE_SET.has(normalized) ? normalized : '';
-};
-
-const extractFlagCodesFromText = (text) => {
-  if (typeof text !== 'string' || text.length === 0) {
-    return [];
-  }
-  const matches = [];
-  const graphemes = Array.from(text);
-  for (let i = 0; i < graphemes.length - 1; i += 1) {
-    const candidate = graphemes[i] + graphemes[i + 1];
-    const code = flagCodeFromEmoji(candidate);
-    if (code) {
-      matches.push(code);
-      i += 1;
-    }
-  }
-  return matches;
-};
-
 const resolveCountryFromText = (text, { bias = 0.8 } = {}) => {
   const code = lookupCountryCode(text);
   if (!code) {
@@ -302,15 +261,15 @@ const resolveCountryFromText = (text, { bias = 0.8 } = {}) => {
   };
 };
 
-const resolveCountryFromLatLng = (lat, lon) => {
+const resolveCountryFromLatLng = (lat, lon, { confidence = 0.72, source = 'coordinates' } = {}) => {
   const codes = findCountriesForCoordinates(lat, lon);
   if (codes.length === 0) {
     return null;
   }
   return {
     code: codes[0],
-    source: 'coordinates',
-    confidence: 0.72,
+    source,
+    confidence,
   };
 };
 
@@ -369,24 +328,26 @@ const resolveCountryForActivity = (activity = {}) => {
     }
   });
 
-  const flagHints = extractFlagCodesFromText(`${activity.name || ''} ${activity.description || ''}`);
-  flagHints.forEach(code => registerCandidate(candidates, { code, confidence: 0.9, source: 'flag' }));
-
   const latLngPairs = [];
   if (Array.isArray(activity.start_latlng) && activity.start_latlng.length === 2) {
     const [lat, lon] = activity.start_latlng;
-    latLngPairs.push({ lat: Number(lat), lon: Number(lon) });
+    latLngPairs.push({ lat: Number(lat), lon: Number(lon), confidence: 0.96, source: 'start_latlng' });
   }
   if (Number.isFinite(Number(activity.start_latitude)) && Number.isFinite(Number(activity.start_longitude))) {
-    latLngPairs.push({ lat: Number(activity.start_latitude), lon: Number(activity.start_longitude) });
+    latLngPairs.push({
+      lat: Number(activity.start_latitude),
+      lon: Number(activity.start_longitude),
+      confidence: 0.92,
+      source: 'start_latitude_longitude',
+    });
   }
   if (Array.isArray(activity.end_latlng) && activity.end_latlng.length === 2) {
     const [lat, lon] = activity.end_latlng;
-    latLngPairs.push({ lat: Number(lat), lon: Number(lon) });
+    latLngPairs.push({ lat: Number(lat), lon: Number(lon), confidence: 0.65, source: 'end_latlng' });
   }
 
-  latLngPairs.forEach(({ lat, lon }) => {
-    const resolved = resolveCountryFromLatLng(lat, lon);
+  latLngPairs.forEach(({ lat, lon, confidence, source }) => {
+    const resolved = resolveCountryFromLatLng(lat, lon, { confidence, source });
     if (resolved) {
       registerCandidate(candidates, resolved);
     }

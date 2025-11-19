@@ -11504,7 +11504,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const details = document.createElement('div');
-            details.className = 'text-sm text-gray-600 dark:text-gray-300 sm:text-right sm:leading-5';
+            details.className = 'activity-card__details text-sm text-gray-600 dark:text-gray-300 sm:leading-5';
             const activityDate = new Date(activity.start_date);
             const formattedDate = Number.isNaN(activityDate.getTime()) ? '' : activityDate.toLocaleDateString();
             const distanceKmValue = activity.distance ? activity.distance / 1000 : 0;
@@ -11521,7 +11521,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 movingTime,
                 elevationGain
             ].filter(Boolean).join(' • ');
-            details.textContent = metrics;
+            const metricsText = document.createElement('span');
+            metricsText.className = 'activity-card__details-text';
+            metricsText.textContent = metrics;
+            details.appendChild(metricsText);
+
+            const activityCountryCode = getActivityCountryCode(activity);
+            if (activityCountryCode) {
+                registerActivityCountryMetadata(activity);
+                const countryName = getCountryDisplayName(activityCountryCode);
+                const flagEmoji = countryMetadataByCode.get(activityCountryCode)?.flag
+                    || countryCodeToFlagEmoji(activityCountryCode);
+                if (flagEmoji) {
+                    const flagElement = document.createElement('span');
+                    flagElement.className = 'activity-card__country-flag tooltip-target';
+                    flagElement.textContent = flagEmoji;
+                    const labelText = countryName
+                        ? `${countryName} (${activityCountryCode})`
+                        : `Country ${activityCountryCode}`;
+                    flagElement.setAttribute('aria-label', `Activity location: ${labelText}`);
+                    attachTooltip(flagElement, labelText);
+                    details.appendChild(flagElement);
+                }
+            }
 
             const headerRow = document.createElement('div');
             headerRow.className = 'flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between';

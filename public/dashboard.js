@@ -3388,7 +3388,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (rangeSummary) {
             const rangeSpan = document.createElement('span');
             rangeSpan.className = 'profile-card__balance-range';
-            rangeSpan.textContent = `• ${rangeSummary}`;
+            rangeSpan.textContent = `•${rangeSummary}`;
             element.appendChild(rangeSpan);
         }
     };

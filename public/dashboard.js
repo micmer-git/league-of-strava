@@ -2513,6 +2513,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return result;
         });
 
+        const progressMedals = buildProgressMedalEntries(activityList);
+        progressMedals.forEach((progressMedal) => {
+            allMedals.push(progressMedal);
+            if (toNonNegativeInteger(progressMedal?.count) > 0) {
+                medalsEarned.push(progressMedal);
+            }
+        });
+
         const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + toNonNegativeInteger(medal?.count), 0);
         const medalSummary = {
             count: totalMedalCount,
@@ -3561,6 +3569,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             return hours.toFixed(1);
         }
         return hours.toFixed(2);
+    };
+
+    const formatKilometersDisplay = (kilometers) => {
+        const numeric = Number(kilometers);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '0';
+        }
+        if (numeric >= 1000) {
+            return Math.round(numeric).toLocaleString();
+        }
+        if (numeric >= 100) {
+            return Math.round(numeric).toLocaleString();
+        }
+        if (numeric >= 10) {
+            return numeric.toFixed(1);
+        }
+        return numeric.toFixed(2);
     };
 
     const updateRankProgressBar = () => {
@@ -4929,6 +4954,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         return output || rawName;
     };
 
+    const formatMedalProgressText = (progressStatus) => {
+        if (!progressStatus || typeof progressStatus !== 'object') {
+            return '';
+        }
+        const detail = typeof progressStatus.detail === 'string'
+            ? progressStatus.detail.trim()
+            : '';
+        if (detail) {
+            return detail;
+        }
+        const label = typeof progressStatus.label === 'string' ? progressStatus.label.trim() : '';
+        const percentLabel = typeof progressStatus.percentLabel === 'string'
+            ? progressStatus.percentLabel.trim()
+            : '';
+        const hasPercent = Number.isFinite(progressStatus.percentComplete)
+            ? `${Math.round(progressStatus.percentComplete)}%`
+            : percentLabel;
+        if (label && hasPercent) {
+            return `${label} (${hasPercent})`;
+        }
+        return label || hasPercent || '';
+    };
+
     function updateActivitiesMedalInfo() {
         if (!activitiesMedalInfo) {
             return;
@@ -4999,6 +5047,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             if (rarityDescription && rarityDescription !== descriptionText) {
                 infoParts.push(rarityDescription);
+            }
+            const progressSummary = formatMedalProgressText(activeMedalMeta?.progressStatus);
+            if (progressSummary) {
+                infoParts.push(`Progress ${progressSummary}`);
             }
             if (infoParts.length === 0) {
                 infoParts.push(normalizedCount > 0 ? `${countValue} earned` : 'Not earned yet');
@@ -5085,7 +5137,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             rarityKey: rarityPayload.rarityKey,
             rarityLabel,
             rarityDescription,
-            count: toNonNegativeInteger(inventoryMedal?.count ?? datasetCount)
+            count: toNonNegativeInteger(inventoryMedal?.count ?? datasetCount),
+            progressStatus: inventoryMedal?.progressStatus || null,
         };
     };
 
@@ -5150,7 +5203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const orderedRarities = rarityOrder.sort((a, b) => {
             const indexA = getMedalRarityMeta(a).index;
             const indexB = getMedalRarityMeta(b).index;
-            return indexA - indexB;
+            return indexB - indexA;
         });
 
         const createDescriptionSnippet = (description, limit = 120) => {
@@ -5254,6 +5307,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     descriptionSpan.textContent = descriptionSnippet;
                     textWrapper.appendChild(descriptionSpan);
                 }
+                const progressSummary = formatMedalProgressText(medal.progressStatus);
+                if (progressSummary) {
+                    const progressSpan = document.createElement('span');
+                    progressSpan.className = 'medals-list__description';
+                    progressSpan.textContent = `Progress ${progressSummary}`;
+                    textWrapper.appendChild(progressSpan);
+                }
 
                 medalButton.append(countWrapper, textWrapper);
 
@@ -5261,14 +5321,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const earnedDescriptor = medalCount > 0
                     ? `${countLabel} earned`
                     : 'Not earned yet';
-                const ariaDescription = descriptionText
-                    ? `${medal.name}: ${descriptionText} — ${earnedDescriptor}`
-                    : `${medal.name} — ${earnedDescriptor}`;
+                const tooltipParts = [medal.name];
+                if (descriptionText) {
+                    tooltipParts.push(descriptionText);
+                }
+                tooltipParts.push(earnedDescriptor);
+                if (progressSummary) {
+                    tooltipParts.push(`Progress ${progressSummary}`);
+                }
+                const ariaDescription = tooltipParts.join(' — ');
                 medalButton.setAttribute('aria-label', ariaDescription);
-                const medalTooltip = descriptionText
-                    ? `${medal.name} — ${descriptionText} — ${earnedDescriptor}`
-                    : `${medal.name} — ${earnedDescriptor}`;
-                attachTooltip(medalButton, medalTooltip);
+                attachTooltip(medalButton, ariaDescription);
                 medalButton.dataset.medalName = medal.name;
                 medalButton.dataset.medalEmoji = medal.emoji || '';
                 const rarityLabel = medal.rarityLabel || displayLabel;
@@ -11875,6 +11938,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             rarityKey: rarityPayload.rarityKey,
             rarityLabel: medal.rarityLabel || rarityPayload.rarityLabel,
             rarityDescription: medal.rarityDescription || rarityPayload.rarityDescription,
+            progressStatus: medal.progressStatus || null,
         };
         medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
 
@@ -12668,6 +12732,144 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         return entries;
     }
+
+    const RIDE_DISTANCE_PROGRESS_THRESHOLDS = [5000, 10000, 15000];
+
+    const PROGRESS_MEDAL_DEFINITIONS = [
+        {
+            name: '2000-Hour Devotee',
+            emoji: '⏳',
+            description: 'Log 2,000 lifetime training hours.',
+            rarityKey: 'obsidian',
+            category: 'Lifetime Progress',
+            targetValue: 2000,
+            unitLabel: 'h',
+            unitDescription: 'hours',
+            formatter: formatHoursDisplay,
+            valueResolver: (totals) => totals.totalHours,
+        },
+        ...RIDE_DISTANCE_PROGRESS_THRESHOLDS.map((threshold) => ({
+            name: `Ride ${threshold.toLocaleString()} km`,
+            emoji: '🚴‍♂️',
+            description: `Accumulate ${threshold.toLocaleString()} km of lifetime riding.`,
+            rarityKey: 'obsidian',
+            category: 'Lifetime Progress',
+            targetValue: threshold,
+            unitLabel: 'km',
+            unitDescription: 'kilometers',
+            formatter: formatKilometersDisplay,
+            valueResolver: (totals) => totals.rideDistanceKm,
+        })),
+    ];
+
+    const createMedalProgressStatus = ({
+        currentValue = 0,
+        targetValue = 0,
+        unitLabel = '',
+        unitDescription = '',
+        formatter,
+    } = {}) => {
+        const safeCurrent = Math.max(0, Number(currentValue) || 0);
+        const safeTarget = Math.max(0, Number(targetValue) || 0);
+        const formatValue = typeof formatter === 'function'
+            ? formatter
+            : (value) => {
+                const numeric = Number(value) || 0;
+                if (!Number.isFinite(numeric)) {
+                    return '0';
+                }
+                if (numeric >= 1000) {
+                    return Math.round(numeric).toLocaleString();
+                }
+                if (numeric >= 10) {
+                    return numeric.toFixed(1);
+                }
+                return numeric.toFixed(2);
+            };
+        const formattedCurrent = formatValue(safeCurrent);
+        const formattedTarget = safeTarget > 0 ? formatValue(safeTarget) : '';
+        const unitSuffix = unitLabel ? ` ${unitLabel}` : '';
+        const label = safeTarget > 0
+            ? `${formattedCurrent}${unitSuffix} / ${formattedTarget}${unitSuffix}`
+            : `${formattedCurrent}${unitSuffix}`;
+        const percentComplete = safeTarget > 0 ? Math.min(100, (safeCurrent / safeTarget) * 100) : 0;
+        const percentLabel = safeTarget > 0 ? `${Math.round(percentComplete)}%` : '';
+        const detail = percentLabel ? `${label} (${percentLabel})` : label;
+        const isComplete = safeTarget > 0 && safeCurrent >= safeTarget;
+        return {
+            currentValue: safeCurrent,
+            targetValue: safeTarget,
+            percentComplete,
+            percentLabel,
+            label,
+            detail,
+            unitLabel,
+            unitDescription: unitDescription || unitLabel || '',
+            statusLabel: isComplete ? 'Complete' : 'In progress',
+            isComplete,
+        };
+    };
+
+    const buildProgressMedalEntries = (activityList = []) => {
+        if (!Array.isArray(activityList) || activityList.length === 0) {
+            return PROGRESS_MEDAL_DEFINITIONS.map((definition) => ({
+                name: definition.name,
+                emoji: definition.emoji || '🏅',
+                description: definition.description || '',
+                count: 0,
+                isDayBased: false,
+                category: definition.category || 'Lifetime Progress',
+                legacyCategory: definition.category || 'Lifetime Progress',
+                ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
+                progressStatus: createMedalProgressStatus({
+                    targetValue: definition.targetValue,
+                    unitLabel: definition.unitLabel,
+                    unitDescription: definition.unitDescription,
+                    formatter: definition.formatter,
+                }),
+            }));
+        }
+
+        const totals = activityList.reduce((acc, activity) => {
+            const movingTimeSeconds = Number(activity?.moving_time) || 0;
+            acc.totalHours += movingTimeSeconds > 0 ? movingTimeSeconds / 3600 : 0;
+            const distanceMeters = Number(activity?.distance) || 0;
+            const normalizedType = ((activity?.sport_type || activity?.type || '')).toUpperCase();
+            if (normalizedType.includes('RIDE')) {
+                acc.rideDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
+            }
+            return acc;
+        }, { totalHours: 0, rideDistanceMeters: 0 });
+
+        const contextTotals = {
+            totalHours: totals.totalHours,
+            rideDistanceKm: totals.rideDistanceMeters / METERS_IN_KILOMETER,
+        };
+
+        return PROGRESS_MEDAL_DEFINITIONS.map((definition) => {
+            const currentValue = typeof definition.valueResolver === 'function'
+                ? Number(definition.valueResolver(contextTotals)) || 0
+                : 0;
+            const progressStatus = createMedalProgressStatus({
+                currentValue,
+                targetValue: definition.targetValue,
+                unitLabel: definition.unitLabel,
+                unitDescription: definition.unitDescription,
+                formatter: definition.formatter,
+            });
+            return {
+                name: definition.name,
+                emoji: definition.emoji || '🏅',
+                description: definition.description || '',
+                count: progressStatus.isComplete ? 1 : 0,
+                isDayBased: false,
+                category: definition.category || 'Lifetime Progress',
+                legacyCategory: definition.category || 'Lifetime Progress',
+                ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
+                progressStatus,
+            };
+        });
+    };
 
     // === Medals Configuration ===
     const medalsConfig = [

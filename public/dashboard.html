@@ -164,8 +164,25 @@
   <div class="profile-card__avatar-shell" data-skeleton="avatar">
     <img alt="Athlete Avatar" class="profile-card__avatar" id="athlete-avatar" loading="lazy" src=""/>
   </div>
-  <div class="profile-card__season-stats" data-skeleton="panel">
-    <div class="profile-metrics stats-card__pills profile-card__season-pills">
+  <div class="profile-card__identity">
+    <div class="profile-card__name-row">
+      <h2 class="profile-card__name" data-skeleton="text" id="athlete-name"></h2>
+      <button aria-label="Share highlight" class="profile-card__rank-action profile-card__share-action" id="share-dashboard" type="button">
+        <span aria-hidden="true">📤</span>
+        <span class="sr-only">Share highlight</span>
+      </button>
+    </div>
+    <div class="profile-card__rankline">
+      <span class="profile-card__rank" data-skeleton="pill" id="current-rank"></span>
+      <div class="profile-card__level-group">
+        <span class="profile-card__level" data-skeleton="pill" id="level-progress"></span>
+        <button class="profile-card__rank-action profile-card__info-action" id="rank-info-button" type="button" aria-label="Learn more about rank progression">ℹ️</button>
+      </div>
+    </div>
+  </div>
+</div>
+  <div class="profile-card__season-stats profile-card__stat-rows" data-skeleton="panel">
+    <div class="profile-metrics stats-card__pills profile-card__season-pills profile-card__stat-row">
       <div class="profile-metrics__row">
         <button class="tooltip-target profile-metric-pill bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200" id="globe-stat" type="button">
           <span aria-hidden="true" class="text-lg leading-none">🌍</span>
@@ -189,7 +206,7 @@
         </button>
       </div>
     </div>
-    <div class="profile-card__coins stats-card__pills" id="coin-summary">
+    <div class="profile-card__coins stats-card__pills profile-card__stat-row" id="coin-summary">
       <div class="profile-metrics__row">
         <button class="tooltip-target profile-metric-pill bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200" data-coin-type="💲" type="button">
           <span class="font-semibold" id="coin-dollar">0</span>
@@ -213,7 +230,7 @@
         </button>
       </div>
     </div>
-    <div class="stats-card__totals profile-card__wallet-totals">
+    <div class="stats-card__totals profile-card__wallet-totals profile-card__stat-row">
       <button aria-label="Open achievements panel" class="wallet-total-pill profile-metric-pill bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200" data-panel-target="achievements" type="button">
         <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
         <span class="wallet-total-pill__value" id="wallet-summary-coins-count">0</span>
@@ -224,27 +241,11 @@
       </button>
     </div>
   </div>
-</div>
-  <div class="profile-card__identity">
-    <div class="profile-card__name-row">
-      <h2 class="profile-card__name" data-skeleton="text" id="athlete-name"></h2>
-      <button aria-label="Share highlight" class="profile-card__rank-action profile-card__share-action" id="share-dashboard" type="button">
-        <span aria-hidden="true">📤</span>
-        <span class="sr-only">Share highlight</span>
-      </button>
-    </div>
-    <div class="profile-card__rankline">
-      <span class="profile-card__rank" data-skeleton="pill" id="current-rank"></span>
-      <div class="profile-card__level-group">
-        <span class="profile-card__level" data-skeleton="pill" id="level-progress"></span>
-        <button class="profile-card__rank-action profile-card__info-action" id="rank-info-button" type="button" aria-label="Learn more about rank progression">ℹ️</button>
-      </div>
-    </div>
-    <button
-      type="button"
-      class="profile-card__wallet"
-      data-wallet-balance-container=""
-      data-panel-target="wallet"
+  <button
+    type="button"
+    class="profile-card__wallet"
+    data-wallet-balance-container=""
+    data-panel-target="wallet"
     data-panel-chart="balance"
     aria-label="Open wallet performance graph"
   >
@@ -254,7 +255,6 @@
     <span aria-live="polite" class="profile-card__balance-change" data-skeleton="text-subtle" id="profile-wallet-change-month">—</span>
     <span aria-live="polite" class="profile-card__balance-change profile-card__balance-change--secondary" id="profile-wallet-change-year">—</span>
   </button>
-</div>
 </header>
         <div class="profile-card__progress" id="rank-progress-trigger">
             <div class="profile-card__progress-bar profile-card__progress-bar--labeled">

@@ -162,49 +162,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Verdant',
             tier: 'Common',
             emoji: '🟢',
-            description: 'Season openers, holiday check-ins and rhythm-setting routines.',
+            description: '',
         },
         {
             key: 'cerulean',
             name: 'Cerulean',
             tier: 'Uncommon',
             emoji: '🔵',
-            description: 'Signature calendar efforts and the first sparks of consistency.',
+            description: '',
         },
         {
             key: 'amethyst',
             name: 'Amethyst',
             tier: 'Rare',
             emoji: '🟣',
-            description: 'Technique-forward doubles and sharpened efforts that demand intention.',
+            description: '',
         },
         {
             key: 'auric',
             name: 'Auric',
             tier: 'Epic',
             emoji: '🟡',
-            description: 'Loaded training weeks, demanding gradients and multi-discipline showcases.',
+            description: '',
         },
         {
             key: 'ember',
             name: 'Ember',
             tier: 'Legendary',
             emoji: '🟠',
-            description: 'Relentless blocks of output, metabolic pushes and back-to-back endurance.',
+            description: '',
         },
         {
             key: 'crimson',
             name: 'Crimson',
             tier: 'Mythic',
             emoji: '🔴',
-            description: 'Ultra distances, towering elevation and consecutive sufferfests.',
+            description: '',
         },
         {
             key: 'obsidian',
             name: 'Obsidian',
             tier: 'Ascendant',
             emoji: '⚫️',
-            description: 'Season-defining grit reserved for once-a-year mastery.',
+            description: '',
         },
     ];
 
@@ -2519,8 +2519,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             value: totalMedalCount * MEDAL_DOLLAR_VALUE,
         };
 
+        const getRaritySortValue = (medal) => (Number.isFinite(medal?.rarityIndex) ? medal.rarityIndex : -1);
         const sortedMedals = allMedals.slice().sort((a, b) => {
-            const rarityComparison = (a.rarityIndex ?? Number.MAX_SAFE_INTEGER) - (b.rarityIndex ?? Number.MAX_SAFE_INTEGER);
+            const rarityComparison = getRaritySortValue(b) - getRaritySortValue(a);
             if (rarityComparison !== 0) {
                 return rarityComparison;
             }
@@ -5224,6 +5225,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     medalButton.classList.add('medals-list__button--unearned');
                 }
 
+                const countWrapper = document.createElement('span');
+                countWrapper.className = 'medals-list__count-stack';
+
                 const countSpan = document.createElement('span');
                 countSpan.className = 'medals-list__count';
                 const countLabel = medalCount.toLocaleString();
@@ -5233,6 +5237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const emojiSpan = document.createElement('span');
                 emojiSpan.className = 'medals-list__emoji';
                 emojiSpan.textContent = medal.emoji || '🏅';
+                countWrapper.append(countSpan, emojiSpan);
 
                 const textWrapper = document.createElement('span');
                 textWrapper.className = 'medals-list__text';
@@ -5250,7 +5255,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     textWrapper.appendChild(descriptionSpan);
                 }
 
-                medalButton.append(countSpan, emojiSpan, textWrapper);
+                medalButton.append(countWrapper, textWrapper);
 
                 const descriptionText = (medal.description || '').trim();
                 const earnedDescriptor = medalCount > 0

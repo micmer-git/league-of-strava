@@ -3433,22 +3433,37 @@ body.dark .medals-category__description {
     border-color: rgba(148, 163, 184, 0.45);
     color: var(--color-text-secondary);
 }
+.medals-list__button--unearned .medals-list__emoji {
+    filter: grayscale(1);
+    opacity: 0.7;
+}
+.medals-list__count-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    min-width: 2.6rem;
+    text-align: center;
+    flex-shrink: 0;
+}
 
 .medals-list__count {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: #1d4ed8;
-    min-width: 2.2rem;
-    text-align: right;
     line-height: 1;
-    flex-shrink: 0;
+    display: block;
+    width: 100%;
+    text-align: center;
 }
 
 .medals-list__emoji {
     font-size: clamp(0.95rem, 2.1vw, 1.15rem);
     line-height: 1;
-    flex-shrink: 0;
-    margin-top: 0.15rem;
+    display: block;
+    margin-top: 0;
+    width: 100%;
+    text-align: center;
 }
 
 .medals-list__text {

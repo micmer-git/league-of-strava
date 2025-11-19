@@ -828,10 +828,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     let everestStatButton = document.getElementById('everest-stat');
     let pizzaStatButton = document.getElementById('pizza-stat');
     let likesStatButton = document.getElementById('likes-stat');
+    let countryStatButton = document.getElementById('country-stat');
     let globeTotalElement = document.getElementById('globe-total');
     let everestTotalElement = document.getElementById('everest-total');
     let pizzaTotalElement = document.getElementById('pizza-total');
     let likesTotalElement = document.getElementById('likes-total');
+    let countryTotalElement = document.getElementById('country-total');
     let renderFunStats = () => {};
     const profileWalletTotalElement = document.getElementById('profile-wallet-total');
     const shareButton = document.getElementById('share-dashboard');
@@ -982,6 +984,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
     const filterCollapsibleElements = Array.from(document.querySelectorAll('[data-filter-collapsible]'));
+    const countryFilterList = document.getElementById('country-filter-list');
+    const countryFilterEmptyState = document.getElementById('country-filter-empty');
     let loadMoreButton = document.getElementById('load-more-btn');
     let activityFetchWarning = document.getElementById('activities-fetch-warning');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
@@ -1205,10 +1209,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         everestStatButton = document.getElementById('everest-stat');
         pizzaStatButton = document.getElementById('pizza-stat');
         likesStatButton = document.getElementById('likes-stat');
+        countryStatButton = document.getElementById('country-stat');
         globeTotalElement = document.getElementById('globe-total');
         everestTotalElement = document.getElementById('everest-total');
         pizzaTotalElement = document.getElementById('pizza-total');
         likesTotalElement = document.getElementById('likes-total');
+        countryTotalElement = document.getElementById('country-total');
         walletSummaryElements.coinsCount = document.getElementById('wallet-summary-coins-count');
         walletSummaryElements.coinsValue = document.getElementById('wallet-summary-coins-value');
         walletSummaryElements.medalCount = document.getElementById('wallet-summary-medal-count');
@@ -2472,6 +2478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ACTIVITIES_BATCH_PAGES = 3;
     const LOAD_MORE_MAX_CYCLES = 8;
     const LOAD_MORE_THROTTLE_MS = 1200;
+    const MAX_COUNTRY_FILTER_CHIPS = 32;
 
     let visibleActivitiesCount = 0;
     let sortedActivities = [];
@@ -2512,6 +2519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         raceRequestId: null,
         climbSegmentId: null,
         coinEmoji: null,
+        countries: [],
     };
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
     let activityFilterUniverseCount = 0;
@@ -2521,6 +2529,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let climbSegmentMetadata = new Map();
     let climbSegmentActivityMatches = new Map();
     let activityClimbMatches = new Map();
+    const countryFilterSelection = new Set();
+    let lastCountryFilterStats = [];
+    const countryMetadataByCode = new Map();
 
     let tooltipHideTimeout = null;
     let activeInsight = null;
@@ -2569,6 +2580,165 @@ document.addEventListener('DOMContentLoaded', async () => {
     // === Utility Functions ===
 
     const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const normalizeCountryCode = (value) => {
+        if (typeof value !== 'string') {
+            return '';
+        }
+        const normalized = value.trim().toUpperCase();
+        return /^[A-Z]{2}$/.test(normalized) ? normalized : '';
+    };
+
+    const countryCodeToFlagEmoji = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return '';
+        }
+        const base = 0x1F1E6;
+        return normalized
+            .split('')
+            .map(letter => String.fromCodePoint(base + (letter.charCodeAt(0) - 65)))
+            .join('');
+    };
+
+    const registerCountryMetadataEntry = (code, name = '') => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return;
+        }
+        const label = typeof name === 'string' && name.trim().length > 0
+            ? name.trim()
+            : normalized;
+        const existing = countryMetadataByCode.get(normalized) || {};
+        const nextName = existing.name && existing.name.length >= label.length
+            ? existing.name
+            : label;
+        countryMetadataByCode.set(normalized, {
+            code: normalized,
+            name: nextName,
+            flag: countryCodeToFlagEmoji(normalized),
+        });
+    };
+
+    const getCountryDisplayName = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return '';
+        }
+        return countryMetadataByCode.get(normalized)?.name || normalized;
+    };
+
+    const getCountryFilterLabel = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return '';
+        }
+        const flag = countryMetadataByCode.get(normalized)?.flag || countryCodeToFlagEmoji(normalized);
+        const name = getCountryDisplayName(normalized);
+        return flag ? `${flag} ${name}` : name;
+    };
+
+    const getActivityCountryCode = (activity = {}) => {
+        if (!activity || typeof activity !== 'object') {
+            return '';
+        }
+        const explicitCode = normalizeCountryCode(activity.country_code || activity.countryCode);
+        if (explicitCode) {
+            return explicitCode;
+        }
+        const locationCode = normalizeCountryCode(activity.location_country);
+        if (locationCode) {
+            return locationCode;
+        }
+        return '';
+    };
+
+    const registerActivityCountryMetadata = (activity = {}) => {
+        const code = getActivityCountryCode(activity);
+        if (!code) {
+            return;
+        }
+        const name = activity.country_name
+            || activity.countryName
+            || activity.location_country
+            || '';
+        registerCountryMetadataEntry(code, name);
+    };
+
+    const buildCountryStatsFromSummary = (summary = {}) => {
+        if (!summary || typeof summary !== 'object') {
+            return [];
+        }
+        return Object.values(summary)
+            .map((entry) => {
+                const code = normalizeCountryCode(entry?.code || entry?.countryCode || entry?.id);
+                if (!code) {
+                    return null;
+                }
+                const count = Number.isFinite(entry?.count) ? entry.count : 0;
+                registerCountryMetadataEntry(code, entry?.name || entry?.label || '');
+                return {
+                    code,
+                    count,
+                    name: getCountryDisplayName(code),
+                    flag: countryCodeToFlagEmoji(code),
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => {
+                if (b.count !== a.count) {
+                    return b.count - a.count;
+                }
+                return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+            });
+    };
+
+    const buildCountryStatsFromActivities = (activities = []) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return [];
+        }
+        const countsByCode = new Map();
+        activities.forEach((activity) => {
+            const code = getActivityCountryCode(activity);
+            if (!code) {
+                return;
+            }
+            registerActivityCountryMetadata(activity);
+            const entry = countsByCode.get(code) || { code, count: 0 };
+            entry.count += 1;
+            countsByCode.set(code, entry);
+        });
+        return Array.from(countsByCode.values())
+            .map((entry) => ({
+                code: entry.code,
+                count: entry.count,
+                name: getCountryDisplayName(entry.code),
+                flag: countryCodeToFlagEmoji(entry.code),
+            }))
+            .sort((a, b) => {
+                if (b.count !== a.count) {
+                    return b.count - a.count;
+                }
+                return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+            });
+    };
+
+    const convertCountryStatsToSummary = (stats = []) => {
+        if (!Array.isArray(stats) || stats.length === 0) {
+            return {};
+        }
+        return stats.reduce((acc, entry) => {
+            if (!entry?.code) {
+                return acc;
+            }
+            acc[entry.code] = {
+                code: entry.code,
+                name: entry.name || getCountryDisplayName(entry.code),
+                count: Number.isFinite(entry.count) ? entry.count : 0,
+            };
+            return acc;
+        }, {});
+    };
 
     const isValidStravaPayload = (data) => {
         if (!data || typeof data !== 'object') {
@@ -7279,7 +7449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
     };
 
-    function computeLifetimeFunStats({ activities = [], totals = {} } = {}) {
+    function computeLifetimeFunStats({ activities = [], totals = {}, countrySummary = null } = {}) {
         const aggregated = Array.isArray(activities)
             ? activities.reduce((acc, activity) => {
                 const stats = computeActivitySmallStats(activity);
@@ -7319,6 +7489,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const globeTrips = aggregated.distanceKm / EARTH_CIRCUMFERENCE_KM;
         const everestSummits = aggregated.elevationGain / EVEREST_HEIGHT_M;
         const pizzas = aggregated.calories / PIZZA_KCAL;
+        const summaryCountryStats = buildCountryStatsFromSummary(countrySummary);
+        const derivedCountryStats = summaryCountryStats.length > 0
+            ? summaryCountryStats
+            : buildCountryStatsFromActivities(activities);
+        const countryCount = derivedCountryStats.length;
+        const topCountries = derivedCountryStats.slice(0, 3);
 
         return {
             distanceKm: aggregated.distanceKm,
@@ -7328,6 +7504,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             everestSummits: Number.isFinite(everestSummits) && everestSummits > 0 ? everestSummits : 0,
             pizzas: Number.isFinite(pizzas) && pizzas > 0 ? pizzas : 0,
             likes: aggregated.likes,
+            countryCount,
+            topCountries,
         };
     }
 
@@ -9403,6 +9581,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pizzaTotalElement) {
             pizzaTotalElement.textContent = formatStatValue(stats.pizzas);
         }
+        if (countryTotalElement) {
+            countryTotalElement.textContent = formatCount(Number.isFinite(stats.countryCount) ? stats.countryCount : 0);
+        }
 
         if (globeStatButton) {
             const message = hasActivities
@@ -9421,6 +9602,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? `Energy burned ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzas)}.`
                 : 'No heart rate data to estimate calories for this period.';
             attachTooltip(pizzaStatButton, message);
+        }
+        if (countryStatButton) {
+            const countryCount = Number.isFinite(stats.countryCount) ? stats.countryCount : 0;
+            const topCountries = Array.isArray(stats.topCountries) ? stats.topCountries : [];
+            const highlights = topCountries.slice(0, 3)
+                .map((entry) => {
+                    const name = entry?.name || getCountryDisplayName(entry?.code);
+                    const flag = entry?.flag || countryCodeToFlagEmoji(entry?.code);
+                    const countText = Number.isFinite(entry?.count) && entry.count > 0
+                        ? ` (${formatCount(entry.count)})`
+                        : '';
+                    return `${flag ? `${flag} ` : ''}${name}${countText}`;
+                })
+                .join(' · ');
+            const message = countryCount > 0
+                ? `${formatCount(countryCount)} countries explored.${highlights ? ` Top stops: ${highlights}.` : ''}`
+                : 'Country metadata will appear once activities are synced.';
+            countryStatButton.setAttribute('aria-label', message);
+            attachTooltip(countryStatButton, message);
         }
         if (likesTotalElement) {
             likesTotalElement.textContent = formatCount(stats.likes);
@@ -9550,7 +9750,105 @@ document.addEventListener('DOMContentLoaded', async () => {
             filters.climbSegmentId = currentActivityFilters.climbSegmentId;
         }
 
+        filters.countries = Array.from(countryFilterSelection);
+
         return filters;
+    };
+
+    const renderCountryFilterChips = (stats = []) => {
+        lastCountryFilterStats = Array.isArray(stats) ? stats.slice() : [];
+        if (!countryFilterList) {
+            return;
+        }
+
+        const selection = new Set(countryFilterSelection);
+        const visibleEntries = [];
+        const seenCodes = new Set();
+
+        lastCountryFilterStats.forEach((entry) => {
+            if (!entry?.code || visibleEntries.length >= MAX_COUNTRY_FILTER_CHIPS) {
+                return;
+            }
+            visibleEntries.push(entry);
+            seenCodes.add(entry.code);
+        });
+
+        selection.forEach((code) => {
+            const normalized = normalizeCountryCode(code);
+            if (!normalized || seenCodes.has(normalized)) {
+                return;
+            }
+            const matchingEntry = lastCountryFilterStats.find(entry => entry.code === normalized);
+            visibleEntries.push(matchingEntry || {
+                code: normalized,
+                count: 0,
+                name: getCountryDisplayName(normalized),
+                flag: countryCodeToFlagEmoji(normalized),
+            });
+            seenCodes.add(normalized);
+        });
+
+        countryFilterList.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        visibleEntries.forEach((entry) => {
+            const isSelected = selection.has(entry.code);
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'filter-chip filter-chip--country';
+            chip.dataset.countryCode = entry.code;
+            chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            chip.setAttribute('aria-label', `Filter by ${entry.name || entry.code}`);
+            if (isSelected) {
+                chip.classList.add('is-active');
+            }
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'filter-chip__label';
+            labelSpan.textContent = entry.flag ? `${entry.flag} ${entry.name}` : entry.name;
+            chip.appendChild(labelSpan);
+
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'filter-chip__meta';
+            const countText = Number.isFinite(entry.count) && entry.count > 0
+                ? `${formatCount(entry.count)} ${entry.count === 1 ? 'activity' : 'activities'}`
+                : 'No matches';
+            metaSpan.textContent = countText;
+            chip.appendChild(metaSpan);
+
+            fragment.appendChild(chip);
+        });
+
+        countryFilterList.appendChild(fragment);
+        if (countryFilterEmptyState) {
+            const hasEntries = visibleEntries.length > 0;
+            countryFilterEmptyState.classList.toggle('hidden', hasEntries || selection.size > 0);
+            countryFilterEmptyState.setAttribute('aria-hidden', hasEntries ? 'true' : 'false');
+        }
+    };
+
+    const clearCountryFilterSelection = () => {
+        if (countryFilterSelection.size === 0) {
+            return false;
+        }
+        countryFilterSelection.clear();
+        currentActivityFilters.countries = [];
+        renderCountryFilterChips(lastCountryFilterStats);
+        return true;
+    };
+
+    const toggleCountryFilterSelection = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return false;
+        }
+        if (countryFilterSelection.has(normalized)) {
+            countryFilterSelection.delete(normalized);
+        } else {
+            countryFilterSelection.add(normalized);
+        }
+        currentActivityFilters.countries = Array.from(countryFilterSelection);
+        renderCountryFilterChips(lastCountryFilterStats);
+        return true;
     };
 
     const updateActivityFilterOptions = (activities = []) => {
@@ -9561,6 +9859,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (typeValue) {
                 availableTypes.add(typeValue);
             }
+            registerActivityCountryMetadata(activity);
         });
 
         if (activityTypeFilter) {
@@ -9595,6 +9894,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activityTypeFilter.value = 'all';
             }
         }
+
+        renderCountryFilterChips(buildCountryStatsFromActivities(activities));
 
     };
 
@@ -9729,6 +10030,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return true;
                 }
             });
+        }
+
+        if (Array.isArray(filters.countries) && filters.countries.length > 0) {
+            const formattedCountries = filters.countries
+                .map(code => getCountryFilterLabel(code))
+                .filter(Boolean);
+            if (formattedCountries.length > 0) {
+                const maxPreview = 2;
+                const preview = formattedCountries.slice(0, maxPreview).join(', ');
+                const remaining = formattedCountries.length - maxPreview;
+                const labelText = remaining > 0
+                    ? `${preview} +${remaining}`
+                    : preview;
+                descriptors.push({
+                    label: `Country · ${labelText}`,
+                    onRemove: () => clearCountryFilterSelection(),
+                });
+            }
         }
 
         return descriptors;
@@ -10086,6 +10405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             climbFilterSelect.value = '';
             renderClimbAttemptsDetail(null);
         }
+        clearCountryFilterSelection();
         currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
         clearQuickFilterSelection();
     };
@@ -10634,6 +10954,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (filters.coinEmoji && COIN_EMOJIS.includes(filters.coinEmoji)) {
             const rewardedCoins = getActivityCoinRewards(activity);
             if (!rewardedCoins.includes(filters.coinEmoji)) {
+                return false;
+            }
+        }
+
+        if (Array.isArray(filters.countries) && filters.countries.length > 0) {
+            const activityCountry = getActivityCountryCode(activity);
+            if (!activityCountry) {
+                return false;
+            }
+            const normalizedFilters = filters.countries
+                .map(code => normalizeCountryCode(code))
+                .filter(Boolean);
+            if (normalizedFilters.length > 0 && !normalizedFilters.includes(activityCountry)) {
                 return false;
             }
         }
@@ -12918,6 +13251,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const mergedSegmentMetadata = mergeSegmentMetadata(existingSegmentMetadata, incomingSegmentMetadata);
         const mergedActivityMetadata = mergeActivityMetadata(existingActivityMetadata, incomingActivityMetadata);
+        const mergedCountryStats = buildCountryStatsFromActivities(mergedActivities);
+        const mergedCountrySummary = convertCountryStatsToSummary(mergedCountryStats);
 
         const mergedAthlete = {
             ...(allData.athlete || {}),
@@ -12935,6 +13270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             segmentMetadata: mergedSegmentMetadata,
             activityMetadata: mergedActivityMetadata,
             pageInfo: mergedPageInfo,
+            activityCountrySummary: mergedCountrySummary,
         };
 
         allData.cached = data.cached;
@@ -13354,9 +13690,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const lifetimeTotals = (data?.totals && typeof data.totals === 'object')
             ? data.totals
             : (allData?.totals || {});
+        const lifetimeCountrySummary = allData?.activityCountrySummary
+            || data?.activityCountrySummary
+            || null;
         const aggregatedSmallStats = computeLifetimeFunStats({
             activities: lifetimeActivitiesForStats,
             totals: lifetimeTotals,
+            countrySummary: lifetimeCountrySummary,
         });
         latestFunStats = aggregatedSmallStats;
         latestFunStatsContext = { hasActivities };
@@ -14414,6 +14754,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
     });
+
+    if (countryFilterList) {
+        countryFilterList.addEventListener('click', (event) => {
+            const chip = event.target.closest('[data-country-code]');
+            if (!chip) {
+                return;
+            }
+            event.preventDefault();
+            const code = chip.dataset.countryCode;
+            const changed = toggleCountryFilterSelection(code);
+            if (changed) {
+                requestActivitiesRender({ preserveVisibleCount: false });
+            }
+        });
+    }
 
     const bindActivitiesFilterOpenButton = () => {
         if (!activitiesFilterOpenButton || activitiesFilterOpenButton.dataset.initialized === 'true') {

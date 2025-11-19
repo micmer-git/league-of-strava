@@ -3058,6 +3058,33 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
 }
 
+.filter-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.filter-chip--country {
+    justify-content: space-between;
+    min-width: 120px;
+}
+
+.filter-chip__label {
+    font-weight: 600;
+}
+
+.filter-chip__meta {
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+.filter-chip-list__empty {
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
 .filter-field {
     display: flex;
     flex-direction: column;

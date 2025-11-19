@@ -24,6 +24,11 @@ const { PersistentCache } = require('./services/cache');
 const { buildSheetFirstSnapshotResponse } = require('./services/sheetSnapshotService');
 const { signAthleteIdentifier, verifySignedAthleteIdentifier } = require('./services/signedAthlete');
 const leaderboardCache = require('./services/leaderboardCache');
+const {
+  annotateActivityWithCountry,
+  annotateActivitiesWithCountry,
+  ensurePayloadCountryMetadata,
+} = require('./services/activityCountry');
 
 const app = express();
 app.use(cookieParser());
@@ -569,6 +574,8 @@ function cacheActivityHistory(userId, activities, source = 'unknown') {
     return null;
   }
 
+  annotateActivitiesWithCountry(activities);
+
   const normalizedSource = typeof source === 'string' && source.trim().length > 0
     ? source.trim()
     : 'unknown';
@@ -610,6 +617,7 @@ async function loadStoredActivitiesForUser(userId, { preferCache = true } = {}) 
 
   const storedActivities = await getUserActivityHistory(normalizedUserId);
   const normalizedActivities = Array.isArray(storedActivities) ? storedActivities : [];
+  annotateActivitiesWithCountry(normalizedActivities);
 
   if (normalizedActivities.length > 0) {
     cacheActivityHistory(normalizedUserId, normalizedActivities, 'sheets');
@@ -854,6 +862,7 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
           : true,
         mergedWithLiveData: Boolean(hydratedCachedPayload?.loadingInfo?.mergedWithLiveData),
       });
+      ensurePayloadCountryMetadata(hydratedCachedPayload);
       return res.json({
         ...hydratedCachedPayload,
         rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
@@ -879,6 +888,7 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
       normalizedPayload,
       userId,
     );
+    ensurePayloadCountryMetadata(hydratedPayload);
     const cacheTimestamp = Date.now();
     const hasActivitiesBackup = Array.isArray(hydratedPayload.activities) && hydratedPayload.activities.length > 0;
     const loadingInfo = createLoadingInfo({
@@ -904,6 +914,7 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
 
     sharedSnapshotCache.set(cacheKey, payloadWithMetadata);
 
+    ensurePayloadCountryMetadata(payloadWithMetadata);
     return res.json({
       ...payloadWithMetadata,
       cached: false,
@@ -923,6 +934,7 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
       if (hydrated) {
         sharedSnapshotCache.set(cacheKey, hydratedCachedPayload);
       }
+      ensurePayloadCountryMetadata(hydratedCachedPayload);
       const loadingInfo = createLoadingInfo({
         userId,
         cacheTimestamp: cachedEntry.timestamp,
@@ -1277,6 +1289,8 @@ app.get('/api/strava-data', async (req, res) => {
           prefetchedRequests: storedPayload.contactRequests,
         });
 
+        ensurePayloadCountryMetadata(normalizedPayload);
+
         const cacheKeyForStored = buildUserDataCacheKey({
           userId: requestedUserIdParam,
           startPage,
@@ -1423,6 +1437,8 @@ app.get('/api/strava-data', async (req, res) => {
           loadingInfo,
         };
 
+        ensurePayloadCountryMetadata(normalizedPayload);
+
         if (cacheKey) {
           userDataCache.set(cacheKey, normalizedPayload);
         }
@@ -1496,6 +1512,7 @@ app.get('/api/strava-data', async (req, res) => {
         if (hydrated && cacheKey) {
           userDataCache.set(cacheKey, hydratedCachedPayload);
         }
+        ensurePayloadCountryMetadata(hydratedCachedPayload);
         console.log(`No stored snapshot found for athlete ${userId}; falling back to cached dashboard payload.`);
         const cachedHasBackup = Boolean(hydratedCachedPayload?.loadingInfo?.hasActivitiesBackup)
           || Boolean(Array.isArray(hydratedCachedPayload?.activities) && hydratedCachedPayload.activities.length > 0);
@@ -1581,6 +1598,7 @@ app.get('/api/strava-data', async (req, res) => {
         if (hydrated && cacheKey) {
           userDataCache.set(cacheKey, cachedPayload);
         }
+        ensurePayloadCountryMetadata(cachedPayload);
         const cachedHasBackup = Boolean(cachedPayload?.loadingInfo?.hasActivitiesBackup)
           || Boolean(Array.isArray(cachedPayload?.activities) && cachedPayload.activities.length > 0);
         const loadingInfo = createLoadingInfo({
@@ -1784,6 +1802,8 @@ app.get('/api/strava-data', async (req, res) => {
       historicalBackfill: updatedMetadata.historicalBackfill,
     };
 
+    ensurePayloadCountryMetadata(responsePayload);
+
     if (updatedMetadata.lastSuccessfulPage !== undefined) {
       responsePayload.pageInfo.lastSuccessfulPage = updatedMetadata.lastSuccessfulPage;
     }
@@ -1862,6 +1882,7 @@ app.get('/api/strava-data', async (req, res) => {
         if (hydrated && cacheKey) {
           userDataCache.set(cacheKey, hydratedCachedPayload);
         }
+        ensurePayloadCountryMetadata(hydratedCachedPayload);
         const retryAfterSeconds = Number.parseInt(error.response?.headers?.['retry-after'], 10);
         const retryAfter = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : Math.ceil(CACHE_TTL_MS / 1000);
 
@@ -1983,6 +2004,8 @@ app.get('/api/strava-data', async (req, res) => {
             activityMetadata: storedActivityMetadata,
             pageInfo: storedPageInfo,
           };
+
+          ensurePayloadCountryMetadata(enrichedStoredPayload);
 
           if (cacheKey) {
             userDataCache.set(cacheKey, enrichedStoredPayload);
@@ -2143,6 +2166,7 @@ async function fetchAllActivities(
       for (const activity of incomingActivities) {
         const estimatedCalories = estimateCalories(activity);
         const normalizedActivity = { ...activity, estimated_calories: estimatedCalories };
+        annotateActivityWithCountry(normalizedActivity);
         const key = buildActivityKey(normalizedActivity);
 
         if (key && seenActivityKeys.has(key)) {
@@ -2707,6 +2731,8 @@ async function persistSnapshotFromActivities({
       return bTime - aTime;
     });
 
+  annotateActivitiesWithCountry(sanitizedActivities);
+
   const normalizedAthlete = athlete && typeof athlete === 'object' ? { ...athlete } : {};
   if (!('id' in normalizedAthlete) || normalizedAthlete.id === undefined || normalizedAthlete.id === null) {
     const numericId = Number(normalizedUserId);
@@ -2740,6 +2766,8 @@ async function persistSnapshotFromActivities({
       nextPageStart: null,
     },
   };
+
+  ensurePayloadCountryMetadata(snapshotPayload);
 
   let snapshotResult = null;
   try {
@@ -3914,6 +3942,8 @@ function mergeSnapshotPayload(existingPayload = {}, incomingPayload = {}) {
   };
 
   mergedPayload.totals.activities = mergedActivities.length;
+
+  ensurePayloadCountryMetadata(mergedPayload);
 
   return mergedPayload;
 }

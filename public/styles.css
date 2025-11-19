@@ -1047,12 +1047,6 @@ body.rank-modal-open .site-header__inner {
   color: #f8fafc;
 }
 
-.mobile-pull-indicator {
-  position: sticky;
-  top: calc(var(--app-safe-area-top) + 0.5rem);
-  align-self: flex-start;
-}
-
 @media (max-width: 767px) {
   .dashboard-shell {
     padding-bottom: calc(6.5rem + var(--app-safe-area-bottom));

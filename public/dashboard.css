@@ -5259,6 +5259,16 @@ body.is-bottom-nav-active .dashboard-panel {
     margin-inline: 0;
 }
 
+body.is-bottom-nav-active [data-dashboard-panel="profile"] {
+    width: calc(100% - clamp(0.65rem, 3.5vw, 1.25rem) * 2);
+    margin-inline: clamp(0.65rem, 3.5vw, 1.25rem);
+    margin-block: 0;
+}
+
+body.is-bottom-nav-active [data-dashboard-panel="profile"] .panel-card {
+    margin-block: 0;
+}
+
 body.is-bottom-nav-active .dashboard-panel .panel-card {
     border-radius: 0 !important;
     padding-left: max(var(--app-safe-area-left), 0px);

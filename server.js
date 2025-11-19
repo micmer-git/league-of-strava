@@ -6,6 +6,7 @@ const express = require('express');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const countryCoder = require('@rapideditor/country-coder');
 const {
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
@@ -43,6 +44,7 @@ const COIN_VALUE_MAP = {
   '👑': 10000,
 };
 const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
+const EMOJI_STRIP_REGEX = /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Regional_Indicator}\u200d]+/gu;
 
 const CACHE_STORAGE_DIR = process.env.CACHE_STORAGE_DIR
   ? path.resolve(process.env.CACHE_STORAGE_DIR)
@@ -81,6 +83,100 @@ const TRACKED_SEGMENTS = [
   { id: 34534915, name: 'Orezzo' },
   // Add more segments as needed
 ];
+
+function sanitizeCountryName(value) {
+  if (!value) {
+    return '';
+  }
+
+  return String(value)
+    .replace(EMOJI_STRIP_REGEX, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function deriveCountryFromCoordinates(activity = {}) {
+  const latLng = Array.isArray(activity.start_latlng) ? activity.start_latlng : null;
+  if (!latLng || latLng.length < 2) {
+    return null;
+  }
+
+  const [lat, lon] = latLng;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return null;
+  }
+
+  const feature = countryCoder.feature([lon, lat], { level: 'country', maxLevel: 'country' });
+  if (!feature?.properties) {
+    return null;
+  }
+
+  const { iso1A2, emojiFlag, nameEn } = feature.properties;
+  const normalizedName = sanitizeCountryName(nameEn);
+  const normalizedCode = typeof iso1A2 === 'string' ? iso1A2.trim().toUpperCase() : '';
+  const normalizedFlag = emojiFlag || (normalizedCode ? countryCoder.emojiFlag(normalizedCode) : null);
+
+  if (!normalizedName && !normalizedCode && !normalizedFlag) {
+    return null;
+  }
+
+  return {
+    name: normalizedName || null,
+    code: normalizedCode || null,
+    flag: normalizedFlag || null,
+  };
+}
+
+function applyCountryMetadata(activity = {}) {
+  if (!activity || typeof activity !== 'object') {
+    return activity;
+  }
+
+  const existingCountryName = sanitizeCountryName(
+    activity.location_country
+    || activity.country
+    || activity.country_name,
+  );
+
+  if (existingCountryName) {
+    activity.location_country = existingCountryName;
+    if (!activity.country) {
+      activity.country = existingCountryName;
+    }
+  }
+
+  const hasFlag = typeof activity.country_flag === 'string' && activity.country_flag.trim().length > 0;
+  const hasCode = typeof activity.location_country_code === 'string'
+    && activity.location_country_code.trim().length > 0;
+
+  if (existingCountryName && hasFlag && hasCode) {
+    return activity;
+  }
+
+  const derivedCountry = deriveCountryFromCoordinates(activity);
+  if (!derivedCountry) {
+    return activity;
+  }
+
+  if (!existingCountryName && derivedCountry.name) {
+    activity.location_country = derivedCountry.name;
+    if (!activity.country) {
+      activity.country = derivedCountry.name;
+    }
+  }
+
+  if (!hasCode && derivedCountry.code) {
+    activity.location_country_code = derivedCountry.code;
+  }
+
+  const resolvedFlag = hasFlag ? activity.country_flag : derivedCountry.flag;
+  if (resolvedFlag) {
+    activity.country_flag = resolvedFlag;
+    activity.location_country_flag = resolvedFlag;
+  }
+
+  return activity;
+}
 
 // Helper function to pause execution (to respect rate limits)
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -479,6 +575,10 @@ app.get('/api/strava-data', async (req, res) => {
       console.warn(`Unable to merge stored snapshot for athlete ${userId}:`, mergeError.message);
     }
 
+    if (Array.isArray(responsePayload.activities)) {
+      responsePayload.activities = responsePayload.activities.map(activity => applyCountryMetadata(activity));
+    }
+
     try {
       console.log(`Persisting snapshot for athlete ${userId} to Google Sheets.`);
       await appendUserSnapshot({
@@ -687,7 +787,7 @@ async function fetchAllActivities(accessToken, { startPage = 1, pageCount = 3, p
 
       const activities = activitiesResponse.data.map(activity => {
         const estimatedCalories = estimateCalories(activity);
-        return { ...activity, estimated_calories: estimatedCalories };
+        return applyCountryMetadata({ ...activity, estimated_calories: estimatedCalories });
       });
 
       lastPageSize = activities.length;

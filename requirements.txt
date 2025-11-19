@@ -11,3 +11,4 @@ gunicorn==20.1.0
 psycopg2-binary==2.9.3
 flask_migrate
 dotenv
+pycountry

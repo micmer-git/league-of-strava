@@ -665,6 +665,24 @@
             gap: 5px;
         }
 
+        .activity-side {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        .activity-flag {
+            font-size: 1.8em;
+            line-height: 1;
+        }
+
+        .activity-flag.activity-flag--text {
+            font-size: 0.95em;
+            color: #666;
+            font-weight: 600;
+        }
+
         .activity-coins .coin {
             display: flex;
             align-items: center;
@@ -819,6 +837,17 @@
 
             .activity-main p, .activity-coins .coin {
                 font-size: 0.8em;
+            }
+
+            .activity-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .activity-side {
+                width: 100%;
+                align-items: flex-start;
             }
 
             .activity-medals {
@@ -1145,10 +1174,18 @@
                                 <p>{{ activity.calories | round(0) }} kcal</p>
                                 <p>{{ activity.additional_data.Activity_Type }}</p> <!-- Accessing additional data -->
                             </div>
-                            <div class="activity-coins">
-                                <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
-                                <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
-                                <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                            <div class="activity-side">
+                                {% set flag_label = activity.country_flag or activity.country_name %}
+                                {% if flag_label %}
+                                    <div class="activity-flag {% if not activity.country_flag %}activity-flag--text{% endif %}" title="{{ activity.country_name or '' }}">
+                                        {{ flag_label }}
+                                    </div>
+                                {% endif %}
+                                <div class="activity-coins">
+                                    <span class="coin">+{{ activity.coins.everest | round(2) }} 🏔️</span>
+                                    <span class="coin">+{{ activity.coins.pizza | round(1) }} 🍕</span>
+                                    <span class="coin">+{{ activity.coins.heartbeat | int }} ❤️</span>
+                                </div>
                             </div>
                             {% set activity_medals = [] %}
                             {% if activity.additional_data %}
@@ -1275,40 +1312,49 @@
 
             // Load More functionality
             const loadMoreButton = document.getElementById('load-more-button');
-            if (loadMoreButton) {
-                let currentCount = 10;
-                const totalActivities = {{ user.activities|length }};
-                const additionalActivities = {{ user.activities|tojson }};
-                loadMoreButton.addEventListener('click', function() {
-                    const activitiesList = document.getElementById('activities-list');
-                    const nextCount = currentCount + 10;
-                    for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
-                        const activity = additionalActivities[i];
-                        const medals = activity.additional_data ? (activity.additional_data.medals || activity.additional_data.Medals || []) : [];
-                        const medalsMarkup = medals.length ? `
+                if (loadMoreButton) {
+                    let currentCount = 10;
+                    const totalActivities = {{ user.activities|length }};
+                    const additionalActivities = {{ user.activities|tojson }};
+                    loadMoreButton.addEventListener('click', function() {
+                        const activitiesList = document.getElementById('activities-list');
+                        const nextCount = currentCount + 10;
+                        for (let i = currentCount; i < nextCount && i < totalActivities; i++) {
+                            const activity = additionalActivities[i];
+                            const medals = activity.additional_data ? (activity.additional_data.medals || activity.additional_data.Medals || []) : [];
+                            const medalsMarkup = medals.length ? `
                                 <div class="activity-medals">
                                     ${medals.map(medal => `<span class="medal-badge">${medal}</span>`).join('')}
                                 </div>
                             ` : '';
-                        const activityItem = document.createElement('div');
-                        activityItem.classList.add('activity-item');
-                        activityItem.innerHTML = `
-                            <div class="activity-main">
-                                <h3><a href="${activity.link}" target="_blank">${activity.name}</a> | ${Math.round(activity.distance)} km | ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</h3>
-                                <p>${activity.date}</p>
-                                <p>${Math.round(activity.elevation_gain)} vertical m</p>
-                                <p>${Math.round(activity.calories)} kcal</p>
-                                <p>${activity.additional_data.Activity_Type}</p>
-                            </div>
-                            <div class="activity-coins">
-                                <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
-                                <span class="coin">+${Math.round(activity.coins.pizza)} 🍕</span>
-                                <span class="coin">+${Math.round(activity.coins.heartbeat)} ❤️</span>
-                            </div>
-                            ${medalsMarkup}
-                        `;
-                        activitiesList.appendChild(activityItem);
-                    }
+                            const countryName = activity.country_name || '';
+                            const flagLabel = activity.country_flag || countryName;
+                            const flagTitleValue = countryName.replace(/"/g, '&quot;');
+                            const flagTitleAttr = flagLabel && flagTitleValue ? ` title="${flagTitleValue}"` : '';
+                            const flagClass = activity.country_flag ? 'activity-flag' : 'activity-flag activity-flag--text';
+                            const flagMarkup = flagLabel ? `<div class="${flagClass}"${flagTitleAttr}>${flagLabel}</div>` : '';
+                            const activityItem = document.createElement('div');
+                            activityItem.classList.add('activity-item');
+                            activityItem.innerHTML = `
+                                <div class="activity-main">
+                                    <h3><a href="${activity.link}" target="_blank">${activity.name}</a> | ${Math.round(activity.distance)} km | ${Math.round(activity.duration)} h ${Math.round(activity.duration_minutes)} m</h3>
+                                    <p>${activity.date}</p>
+                                    <p>${Math.round(activity.elevation_gain)} vertical m</p>
+                                    <p>${Math.round(activity.calories)} kcal</p>
+                                    <p>${activity.additional_data.Activity_Type}</p>
+                                </div>
+                                <div class="activity-side">
+                                    ${flagMarkup}
+                                    <div class="activity-coins">
+                                        <span class="coin">+${activity.coins.everest.toFixed(2)} 🏔️</span>
+                                        <span class="coin">+${Math.round(activity.coins.pizza)} 🍕</span>
+                                        <span class="coin">+${Math.round(activity.coins.heartbeat)} ❤️</span>
+                                    </div>
+                                </div>
+                                ${medalsMarkup}
+                            `;
+                            activitiesList.appendChild(activityItem);
+                        }
                     currentCount = nextCount;
                     if (currentCount >= totalActivities) {
                         loadMoreButton.style.display = 'none';

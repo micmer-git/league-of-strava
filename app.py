@@ -15,6 +15,7 @@ from config import *
 from models import *
 import numpy as np
 from urllib.parse import urlencode
+import pycountry
 
 app = Flask(__name__)
 # Configuration
@@ -60,6 +61,70 @@ CALORIE_ADJUSTMENT_FACTOR = 0.65
 
 # Import models after initializing db to avoid circular imports
 from models import User, Activity
+
+
+COUNTRY_KEYS = (
+    'location_country',
+    'Location_Country',
+    'country',
+    'Country',
+    'country_name',
+    'Country_Name',
+    'countryCode',
+    'Country_Code'
+)
+
+
+def _country_value_to_code(country_value):
+    """Return a two-letter country code from different country representations."""
+    if not country_value:
+        return None
+
+    candidate = str(country_value).strip()
+    if not candidate:
+        return None
+
+    if len(candidate) == 2 and candidate.isalpha():
+        return candidate.upper()
+
+    try:
+        country = pycountry.countries.lookup(candidate)
+        return country.alpha_2
+    except LookupError:
+        return None
+
+
+def country_code_to_flag(country_code):
+    """Convert a two-letter ISO code to the unicode flag emoji."""
+    if not country_code:
+        return None
+
+    try:
+        return ''.join(chr(ord('🇦') + ord(char) - ord('A')) for char in country_code.upper())
+    except Exception:
+        return None
+
+
+def get_activity_country_info(additional_data):
+    """Extract the country name and corresponding flag emoji from activity data."""
+    if not isinstance(additional_data, dict):
+        return None, None
+
+    country_name = None
+    for key in COUNTRY_KEYS:
+        value = additional_data.get(key)
+        if value:
+            country_name = str(value).strip()
+            if country_name:
+                break
+    if not country_name:
+        return None, None
+
+    country_flag = country_code_to_flag(_country_value_to_code(country_name))
+    return country_name, country_flag
+
+
+
 
 
 def process_backup_csv_files(source_folder: str | None = None):
@@ -1370,6 +1435,8 @@ def dashboard(username):
     activities = Activity.query.filter_by(user_id=user.id).order_by(Activity.date.desc()).all()
     activities_list = []
     for activity in activities:
+        additional_data = activity.additional_data or {}
+        country_name, country_flag = get_activity_country_info(additional_data)
         activities_list.append({
             'id': activity.activity_id,
             'name': activity.name,
@@ -1386,7 +1453,9 @@ def dashboard(username):
                 'heartbeat': activity.coins_heartbeat
             },
             'link': activity.link,
-            'additional_data': activity.additional_data  # Ensure this is serializable
+            'additional_data': additional_data,  # Ensure this is serializable
+            'country_name': country_name,
+            'country_flag': country_flag
         })
 
     # Sort activities by date descending

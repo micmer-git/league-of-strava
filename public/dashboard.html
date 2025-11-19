@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-geo@4.4.5/build/index.umd.min.js"></script>
 <!-- Include a date picker library (optional) -->
 <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -102,6 +103,31 @@
 </div>
 </div>
 </section>
+</div>
+<div aria-describedby="country-map-summary country-map-status" aria-hidden="true" aria-labelledby="country-map-title" aria-modal="true" class="country-map-modal" hidden id="country-map-modal" role="dialog">
+  <div class="country-map-modal__backdrop" data-country-map-dismiss=""></div>
+  <section class="country-map-modal__dialog" role="document" tabindex="-1">
+    <button class="country-map-modal__close" data-country-map-dismiss="" type="button">Close</button>
+    <header class="country-map-modal__header">
+      <h2 class="country-map-modal__title" id="country-map-title">World activity map</h2>
+      <p class="country-map-modal__summary" id="country-map-summary">Country metadata will appear once activities are synced.</p>
+    </header>
+    <div class="country-map-modal__body">
+      <div class="country-map-modal__canvas-shell">
+        <div class="country-map-modal__loading" hidden id="country-map-loading">Loading world map…</div>
+        <canvas aria-label="World map showing colored countries" id="country-map-canvas"></canvas>
+        <p class="country-map-modal__empty" id="country-map-empty">Country metadata will appear once activities are synced.</p>
+      </div>
+      <div class="country-map-modal__legend" hidden id="country-map-legend">
+        <div aria-hidden="true" class="country-map-modal__legend-scale"></div>
+        <div class="country-map-modal__legend-labels">
+          <span data-country-legend-min>Fewer activities</span>
+          <span data-country-legend-max>More activities</span>
+        </div>
+      </div>
+      <p class="country-map-modal__status" id="country-map-status" role="status"></p>
+    </div>
+  </section>
 </div>
 <main class="dashboard-shell">
 <div class="hidden bg-red-100 text-red-700 p-4 rounded mb-4" id="error-message"></div>

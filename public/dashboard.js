@@ -835,6 +835,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let likesTotalElement = document.getElementById('likes-total');
     let countryTotalElement = document.getElementById('country-total');
     let renderFunStats = () => {};
+    let updateCountryMapSummary = () => {};
+    let refreshCountryMapIfVisible = () => {};
     const profileWalletTotalElement = document.getElementById('profile-wallet-total');
     const shareButton = document.getElementById('share-dashboard');
     const shareCardPreview = document.getElementById('share-card-preview');
@@ -857,12 +859,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareModalDismissElements = shareModalElement
         ? Array.from(shareModalElement.querySelectorAll('[data-share-modal-dismiss]'))
         : [];
+    const countryMapModalElement = document.getElementById('country-map-modal');
+    const countryMapDialog = countryMapModalElement?.querySelector('.country-map-modal__dialog') || null;
+    const countryMapDismissElements = countryMapModalElement
+        ? Array.from(countryMapModalElement.querySelectorAll('[data-country-map-dismiss]'))
+        : [];
+    const countryMapCanvas = document.getElementById('country-map-canvas');
+    const countryMapSummaryElement = document.getElementById('country-map-summary');
+    const countryMapLegendElement = document.getElementById('country-map-legend');
+    const countryMapLegendMinElement = countryMapLegendElement?.querySelector('[data-country-legend-min]') || null;
+    const countryMapLegendMaxElement = countryMapLegendElement?.querySelector('[data-country-legend-max]') || null;
+    const countryMapStatusElement = document.getElementById('country-map-status');
+    const countryMapLoadingElement = document.getElementById('country-map-loading');
+    const countryMapEmptyElement = document.getElementById('country-map-empty');
+    const COUNTRY_MAP_TOPOJSON_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
     let shareModalReturnFocusTo = null;
+    let countryMapModalReturnFocusTo = null;
     let profilePeriodModalReturnFocusTo = null;
     let profilePeriodModalActiveTrigger = null;
     let activitiesFilterReturnFocusTo = null;
     let pendingActivitiesOptions = null;
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
+    let countryMapChart = null;
+    let countryMapFeaturesPromise = null;
     let pendingWalletRender = false;
     const manualSyncButton = document.getElementById('fetch-strava-button');
     const setManualSyncButtonState = (isLoading) => {
@@ -1285,6 +1304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindWalletBottomSheet();
         bindWalletLayerToggles();
         bindWalletExportShare();
+        bindCountryStatButton();
     };
 
     const onPanelReady = (panelName, callback) => {
@@ -2496,6 +2516,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let latestFunStats = null;
     let latestFunStatsContext = { hasActivities: false };
+    let latestCountryStats = [];
     let latestWalletSummaryPayload = null;
     let latestWalletMetrics = [];
     let hasMoreActivities = false;
@@ -7506,6 +7527,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             likes: aggregated.likes,
             countryCount,
             topCountries,
+            countryStats: derivedCountryStats,
         };
     }
 
@@ -9565,12 +9587,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.classList.add('tooltip-target');
     };
 
+    function bindCountryStatButton() {
+        if (!countryStatButton) {
+            return;
+        }
+        if (countryStatButton.dataset.countryMapBound === 'true') {
+            return;
+        }
+        countryStatButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            hideTooltip();
+            openCountryMapModal();
+        });
+        countryStatButton.dataset.countryMapBound = 'true';
+    }
+
+    bindCountryStatButton();
+
     renderFunStats = (stats = latestFunStats, context = latestFunStatsContext) => {
         if (!stats) {
             return;
         }
 
         const hasActivities = Boolean(context?.hasActivities);
+        latestCountryStats = Array.isArray(stats.countryStats) ? stats.countryStats : [];
+        updateCountryMapSummary();
+        refreshCountryMapIfVisible();
 
         if (globeTotalElement) {
             globeTotalElement.textContent = formatStatValue(stats.globeTrips);
@@ -9620,7 +9662,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? `${formatCount(countryCount)} countries explored.${highlights ? ` Top stops: ${highlights}.` : ''}`
                 : 'Country metadata will appear once activities are synced.';
             countryStatButton.setAttribute('aria-label', message);
-            attachTooltip(countryStatButton, message);
+            countryStatButton.setAttribute('title', message);
         }
         if (likesTotalElement) {
             likesTotalElement.textContent = formatCount(stats.likes);
@@ -9634,8 +9676,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             attachTooltip(likesStatButton, message);
         }
     };
-    renderFunStats();
-
     document.addEventListener('click', (event) => {
         if (!event.target.closest('.insight-anchor')) {
             hideTooltip();
@@ -10275,6 +10315,286 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, 260);
     };
+
+    const isCountryMapModalVisible = () => Boolean(countryMapModalElement
+        && !countryMapModalElement.hidden
+        && countryMapModalElement.classList.contains('is-visible'));
+
+    const setCountryMapStatus = (message = '') => {
+        if (countryMapStatusElement) {
+            countryMapStatusElement.textContent = message;
+        }
+    };
+
+    const toggleCountryMapLoading = (isLoading) => {
+        if (!countryMapLoadingElement) {
+            return;
+        }
+        countryMapLoadingElement.hidden = !isLoading;
+    };
+
+    updateCountryMapSummary = () => {
+        if (!countryMapSummaryElement) {
+            return;
+        }
+
+        if (!Array.isArray(latestCountryStats) || latestCountryStats.length === 0) {
+            countryMapSummaryElement.textContent = 'Country metadata will appear once activities are synced.';
+            if (countryMapEmptyElement) {
+                countryMapEmptyElement.hidden = false;
+            }
+            return;
+        }
+
+        const totalCountries = latestCountryStats.length;
+        const totalActivities = latestCountryStats.reduce((sum, entry) => {
+            const count = Number.isFinite(entry?.count) ? entry.count : 0;
+            return sum + count;
+        }, 0);
+        const highlights = latestCountryStats.slice(0, 3)
+            .map((entry) => {
+                const name = entry?.name || getCountryDisplayName(entry?.code);
+                const flag = entry?.flag || countryCodeToFlagEmoji(entry?.code);
+                const count = Number.isFinite(entry?.count) ? entry.count : 0;
+                const countSuffix = count > 0 ? ` (${formatCount(count)})` : '';
+                return `${flag ? `${flag} ` : ''}${name}${countSuffix}`;
+            })
+            .join(' · ');
+
+        const summaryParts = [`${formatCount(totalCountries)} countries tracked`];
+        if (Number.isFinite(totalActivities) && totalActivities > 0) {
+            summaryParts.push(`${formatCount(totalActivities)} logged activities`);
+        }
+        const summaryText = `${summaryParts.join(' · ')}${highlights ? ` — Top stops: ${highlights}` : ''}`;
+        countryMapSummaryElement.textContent = summaryText;
+        if (countryMapEmptyElement) {
+            countryMapEmptyElement.hidden = true;
+        }
+    };
+    updateCountryMapSummary();
+
+    const updateCountryMapLegend = (maxValue = 0) => {
+        if (!countryMapLegendElement) {
+            return;
+        }
+
+        if (!maxValue || maxValue <= 0) {
+            countryMapLegendElement.hidden = true;
+            return;
+        }
+
+        countryMapLegendElement.hidden = false;
+        if (countryMapLegendMinElement) {
+            countryMapLegendMinElement.textContent = 'Fewer activities';
+        }
+        if (countryMapLegendMaxElement) {
+            countryMapLegendMaxElement.textContent = `${formatCount(maxValue)} activities`;
+        }
+    };
+
+    const destroyCountryMapChart = () => {
+        if (countryMapChart) {
+            countryMapChart.destroy();
+            countryMapChart = null;
+        }
+    };
+
+    const loadCountryMapFeatures = () => {
+        if (countryMapFeaturesPromise) {
+            return countryMapFeaturesPromise;
+        }
+        if (!countryMapCanvas || typeof window.ChartGeo === 'undefined' || !window.ChartGeo.topojson) {
+            return Promise.resolve(null);
+        }
+        countryMapFeaturesPromise = fetch(COUNTRY_MAP_TOPOJSON_URL)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Failed to load map (${response.status})`);
+                }
+                return response.json();
+            })
+            .then((topology) => {
+                const featureCollection = window.ChartGeo.topojson.feature(topology, topology.objects.countries);
+                return Array.isArray(featureCollection?.features) ? featureCollection.features : null;
+            })
+            .catch((error) => {
+                console.error('Unable to fetch world map data', error);
+                countryMapFeaturesPromise = null;
+                return null;
+            });
+        return countryMapFeaturesPromise;
+    };
+
+    const renderCountryMapVisualization = async () => {
+        updateCountryMapSummary();
+
+        if (!countryMapCanvas) {
+            return;
+        }
+
+        if (!Array.isArray(latestCountryStats) || latestCountryStats.length === 0) {
+            destroyCountryMapChart();
+            updateCountryMapLegend(0);
+            if (countryMapEmptyElement) {
+                countryMapEmptyElement.hidden = false;
+            }
+            setCountryMapStatus('');
+            return;
+        }
+
+        if (countryMapEmptyElement) {
+            countryMapEmptyElement.hidden = true;
+        }
+
+        if (typeof window.Chart === 'undefined' || typeof window.ChartGeo === 'undefined') {
+            setCountryMapStatus('Map renderer is still loading. Please try again in a moment.');
+            return;
+        }
+
+        setCountryMapStatus('');
+        toggleCountryMapLoading(true);
+        const features = await loadCountryMapFeatures();
+        toggleCountryMapLoading(false);
+
+        if (!features || !Array.isArray(features)) {
+            setCountryMapStatus('Unable to load the world map right now.');
+            destroyCountryMapChart();
+            return;
+        }
+
+        const statsLookup = new Map(latestCountryStats.map((entry) => [entry.code, entry]));
+        const dataset = features.map((feature) => {
+            const rawCode = feature?.properties?.iso_a2 || feature?.properties?.abbrev || feature?.id || '';
+            const code = normalizeCountryCode(String(rawCode));
+            const stat = code ? statsLookup.get(code) : null;
+            const value = Number.isFinite(stat?.count) ? stat.count : 0;
+            const name = stat?.name || feature?.properties?.name || (code || 'Unknown');
+            const flag = stat?.flag || (code ? countryCodeToFlagEmoji(code) : '');
+            return { feature, value, name, flag };
+        });
+        const maxValue = dataset.reduce((max, entry) => Math.max(max, entry.value), 0);
+        updateCountryMapLegend(maxValue);
+
+        if (maxValue <= 0) {
+            setCountryMapStatus('Activities have been recorded, but country-level data is still being aggregated.');
+        }
+
+        const chartData = {
+            labels: dataset.map((entry) => entry.name),
+            datasets: [{
+                label: 'Activities by country',
+                outline: features,
+                data: dataset,
+            }],
+        };
+
+        const chartOptions = {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const raw = context?.raw;
+                            const value = Number.isFinite(raw?.value) ? raw.value : 0;
+                            const label = raw?.name || context?.label || 'Unknown';
+                            const flag = raw?.flag ? `${raw.flag} ` : '';
+                            return `${flag}${label}: ${formatCount(value)} activities`;
+                        },
+                    },
+                },
+            },
+            scales: {
+                projection: {
+                    axis: 'x',
+                    projection: 'equalEarth',
+                },
+                color: {
+                    axis: 'y',
+                    quantize: 6,
+                    legend: { position: 'bottom-right' },
+                    interpolate: 'blues',
+                },
+            },
+        };
+
+        if (countryMapChart) {
+            countryMapChart.data = chartData;
+            countryMapChart.options = chartOptions;
+            countryMapChart.update();
+        } else {
+            const context = countryMapCanvas.getContext('2d');
+            countryMapChart = new window.Chart(context, {
+                type: 'choropleth',
+                data: chartData,
+                options: chartOptions,
+            });
+        }
+    };
+
+    const openCountryMapModal = () => {
+        if (!countryMapModalElement) {
+            return;
+        }
+
+        countryMapModalReturnFocusTo = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        countryMapModalElement.hidden = false;
+        countryMapModalElement.setAttribute('aria-hidden', 'false');
+        window.requestAnimationFrame(() => {
+            countryMapModalElement.classList.add('is-visible');
+        });
+        document.body.classList.add('is-country-map-open');
+
+        if (countryMapDialog instanceof HTMLElement) {
+            countryMapDialog.focus({ preventScroll: true });
+        }
+
+        renderCountryMapVisualization();
+    };
+
+    const closeCountryMapModal = () => {
+        if (!countryMapModalElement) {
+            return;
+        }
+
+        countryMapModalElement.classList.remove('is-visible');
+        countryMapModalElement.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('is-country-map-open');
+
+        window.setTimeout(() => {
+            if (countryMapModalElement && !countryMapModalElement.classList.contains('is-visible')) {
+                countryMapModalElement.hidden = true;
+                if (countryMapModalReturnFocusTo instanceof HTMLElement) {
+                    countryMapModalReturnFocusTo.focus({ preventScroll: true });
+                }
+                countryMapModalReturnFocusTo = null;
+            }
+        }, 240);
+    };
+
+    refreshCountryMapIfVisible = () => {
+        if (isCountryMapModalVisible()) {
+            renderCountryMapVisualization();
+        }
+    };
+
+    countryMapDismissElements.forEach((element) => {
+        element.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeCountryMapModal();
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && isCountryMapModalVisible()) {
+            event.preventDefault();
+            closeCountryMapModal();
+        }
+    });
+
+    renderFunStats();
 
     const buildShareSummary = () => {
         const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';

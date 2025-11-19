@@ -2856,46 +2856,34 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     text-transform: uppercase;
     font-weight: 600;
     color: rgba(226, 232, 240, 0.85);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.2rem;
+}
+
+.wallet-chart__overlay-balance {
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226, 232, 240, 0.78);
+    margin: 0 0 0.2rem;
 }
 
 .wallet-chart__overlay-value {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: #f8fafc;
-    margin-bottom: 0.25rem;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.4rem;
-}
-
-.wallet-chart__overlay-change {
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: rgba(34, 197, 94, 0.9);
     margin: 0;
 }
 
-.wallet-chart__overlay-change--positive {
+.wallet-chart__overlay-value--positive {
     color: #22c55e;
 }
 
-.wallet-chart__overlay-change--negative {
+.wallet-chart__overlay-value--negative {
     color: #f87171;
 }
 
-.wallet-chart__overlay-change:empty {
-    display: none;
-}
-
-.wallet-chart__overlay-percent {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #22c55e;
-}
-
-.wallet-chart__overlay-percent:empty {
+.wallet-chart__overlay-value:empty {
     display: none;
 }
 
@@ -2908,6 +2896,10 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .dark .wallet-chart__overlay-label {
     color: rgba(248, 250, 252, 0.9);
+}
+
+.dark .wallet-chart__overlay-balance {
+    color: rgba(226, 232, 240, 0.85);
 }
 
 .dark .wallet-chart__hint {

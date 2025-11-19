@@ -990,9 +990,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletOverlayElements = {
         container: document.getElementById('wallet-chart-overlay'),
         label: document.getElementById('wallet-overlay-label'),
-        value: document.getElementById('wallet-overlay-value-amount'),
-        percent: document.getElementById('wallet-overlay-percent'),
-        change: document.getElementById('wallet-overlay-change'),
+        balance: document.getElementById('wallet-overlay-balance'),
+        value: document.getElementById('wallet-overlay-value'),
     };
     let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
     let walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
@@ -1015,9 +1014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let walletOverlayLastPointKey = null;
     let walletHighlightThrottleHandle = null;
     let walletHighlightPending = null;
-    let walletTouchLongPressTimer = null;
     let walletTouchLongPressActive = false;
-    let walletTouchStartPoint = null;
     let walletLastTapTime = 0;
     let walletLastTapCoords = null;
     let chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
@@ -1031,9 +1028,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
-    const WALLET_LONG_PRESS_DELAY = 350;
     const WALLET_PAN_THROTTLE_MS = 100;
-    const WALLET_LONG_PRESS_MOVE_THRESHOLD = 18;
     const WALLET_DOUBLE_TAP_WINDOW_MS = 320;
     const WALLET_DOUBLE_TAP_DISTANCE_PX = 28;
     const applyTouchActionToChart = (canvasElement) => {
@@ -1066,11 +1061,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const walletOverlayDefaults = {
         label: 'Wallet insight',
-        value: 'Click a point to inspect it.',
-        percent: '',
-        change: '',
-        percentDirection: null,
-        changeDirection: null,
+        balance: 'Balance',
+        value: 'Hover or tap a point to inspect it.',
+        valueDirection: null,
     };
 
     const setWalletChartSkeletonVisible = (visible = false) => {
@@ -1121,18 +1114,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (walletOverlayElements.label) {
             walletOverlayElements.label.textContent = nextState.label;
         }
+        if (walletOverlayElements.balance) {
+            walletOverlayElements.balance.textContent = nextState.balance;
+        }
         if (walletOverlayElements.value) {
             walletOverlayElements.value.textContent = nextState.value;
-        }
-        if (walletOverlayElements.percent) {
-            walletOverlayElements.percent.textContent = nextState.percent;
-            walletOverlayElements.percent.classList.toggle('wallet-chart__overlay-change--positive', nextState.percentDirection === 'positive');
-            walletOverlayElements.percent.classList.toggle('wallet-chart__overlay-change--negative', nextState.percentDirection === 'negative');
-        }
-        if (walletOverlayElements.change) {
-            walletOverlayElements.change.textContent = nextState.change;
-            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--positive', nextState.changeDirection === 'positive');
-            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--negative', nextState.changeDirection === 'negative');
+            walletOverlayElements.value.classList.toggle('wallet-chart__overlay-value--positive', nextState.valueDirection === 'positive');
+            walletOverlayElements.value.classList.toggle('wallet-chart__overlay-value--negative', nextState.valueDirection === 'negative');
         }
     };
     const dashboardPanels = new Map();
@@ -1250,9 +1238,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         setWalletChartSkeletonVisible(isShellLoading());
         walletOverlayElements.container = document.getElementById('wallet-chart-overlay');
         walletOverlayElements.label = document.getElementById('wallet-overlay-label');
-        walletOverlayElements.value = document.getElementById('wallet-overlay-value-amount');
-        walletOverlayElements.percent = document.getElementById('wallet-overlay-percent');
-        walletOverlayElements.change = document.getElementById('wallet-overlay-change');
+        walletOverlayElements.balance = document.getElementById('wallet-overlay-balance');
+        walletOverlayElements.value = document.getElementById('wallet-overlay-value');
         walletZoomButtons.out = document.getElementById('wallet-zoom-out');
         walletZoomButtons.in = document.getElementById('wallet-zoom-in');
         walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
@@ -5355,7 +5342,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             overlayRole: baseOverlayRole,
         });
 
-        const percentLabel = formatPercentLabel(percentChange);
+        const percentLabel = Number.isFinite(percentChange)
+            ? `${percentChange > 0 ? '+' : percentChange < 0 ? '-' : ''}${Math.abs(Math.round(percentChange))}%`
+            : '';
         const percentDirection = percentLabel
             ? percentChange > 0
                 ? 'positive'
@@ -5371,16 +5360,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             : Number.isFinite(changeValue)
                 ? changeValue
                 : null;
-        const changeText = Number.isFinite(deltaValue)
-            ? formatSignedUsdCompact(deltaValue, { includeZeroSign: true })
-            : '';
-        const changeDirection = Number.isFinite(deltaValue)
-            ? deltaValue > 0
-                ? 'positive'
-                : deltaValue < 0
-                    ? 'negative'
-                    : null
-            : null;
+        const valueDirection = percentDirection
+            || (Number.isFinite(deltaValue)
+                ? deltaValue > 0
+                    ? 'positive'
+                    : deltaValue < 0
+                        ? 'negative'
+                        : null
+                : null);
+        const combinedValue = percentLabel
+            ? `${balanceText} (${percentLabel})`
+            : balanceText;
 
         const pointKey = `${target.datasetIndex}-${target.index}`;
         if (walletOverlayLastPointKey !== pointKey) {
@@ -5397,11 +5387,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyWalletOverlayState({
             visible: true,
             label,
-            value: balanceText,
-            percent: percentLabel || '',
-            percentDirection,
-            change: changeText,
-            changeDirection,
+            balance: walletOverlayDefaults.balance,
+            value: combinedValue,
+            valueDirection,
             position: pointerPosition,
         });
     };
@@ -5670,12 +5658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const clearTouchLongPress = () => {
-            if (walletTouchLongPressTimer) {
-                window.clearTimeout(walletTouchLongPressTimer);
-                walletTouchLongPressTimer = null;
-            }
             walletTouchLongPressActive = false;
-            walletTouchStartPoint = null;
         };
 
         const trackTapForReset = (touch) => {
@@ -5728,6 +5711,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateWalletChartActiveElements(elements, position, primary);
         });
 
+        walletChartCanvas.addEventListener('pointerenter', (event) => {
+            if (!walletChartInstance || event.pointerType === 'touch') {
+                return;
+            }
+            highlightFromEvent(event, { allowEmpty: true });
+        });
+
+        walletChartCanvas.addEventListener('pointermove', (event) => {
+            if (!walletChartInstance || event.pointerType === 'touch') {
+                return;
+            }
+            highlightFromEvent(event, { allowEmpty: true, throttle: true });
+        });
+
         walletChartCanvas.addEventListener('touchstart', (event) => {
             if (!event.touches || event.touches.length === 0) {
                 return;
@@ -5742,11 +5739,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const touch = event.touches[0];
             const startX = Number.isFinite(touch.clientX) ? touch.clientX : 0;
             const startY = Number.isFinite(touch.clientY) ? touch.clientY : 0;
-            walletTouchStartPoint = { x: startX, y: startY };
-            walletTouchLongPressTimer = window.setTimeout(() => {
-                walletTouchLongPressActive = true;
-                highlightFromEvent(buildPointFromClient(startX, startY));
-            }, WALLET_LONG_PRESS_DELAY);
+            walletTouchLongPressActive = true;
+            highlightFromEvent(buildPointFromClient(startX, startY));
         }, { passive: true });
 
         walletChartCanvas.addEventListener('touchmove', (event) => {
@@ -5763,13 +5757,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             if (!walletTouchLongPressActive) {
-                if (walletTouchLongPressTimer && walletTouchStartPoint) {
-                    const deltaX = (touch.clientX ?? 0) - walletTouchStartPoint.x;
-                    const deltaY = (touch.clientY ?? 0) - walletTouchStartPoint.y;
-                    if (Math.hypot(deltaX, deltaY) > WALLET_LONG_PRESS_MOVE_THRESHOLD) {
-                        clearTouchLongPress();
-                    }
-                }
                 return;
             }
             const point = buildPointFromClient(touch.clientX, touch.clientY);

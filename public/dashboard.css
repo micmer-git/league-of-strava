@@ -1937,6 +1937,41 @@ to { opacity: 1; transform: translateY(0); }
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
 }
 
+@media (max-width: 639px) {
+    .profile-card__coins .profile-metrics__row,
+    .profile-card__wallet-totals {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0 clamp(0.35rem, 4vw, 0.65rem);
+        scrollbar-width: thin;
+    }
+
+    .profile-card__coins .profile-metrics__row::-webkit-scrollbar,
+    .profile-card__wallet-totals::-webkit-scrollbar {
+        height: 0.2rem;
+    }
+
+    .profile-card__coins .profile-metric-pill,
+    .wallet-total-pill {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: clamp(3.25rem, 18vw, 4.5rem);
+        padding-inline: clamp(0.45rem, 3vw, 0.65rem);
+        font-size: clamp(0.72rem, 3.4vw, 0.82rem);
+    }
+
+    .profile-card__coins .profile-metric-pill [aria-hidden="true"],
+    .wallet-total-pill__icon {
+        font-size: clamp(0.85rem, 4vw, 1rem);
+    }
+
+    .wallet-total-pill__value {
+        font-size: clamp(0.78rem, 3.2vw, 0.9rem);
+    }
+}
+
 @media (min-width: 640px) {
     .profile-card__coins .profile-metrics__row,
     .profile-card__wallet-totals {

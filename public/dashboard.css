@@ -1229,7 +1229,7 @@ to { opacity: 1; transform: translateY(0); }
 .profile-card__hero {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    align-items: stretch;
+    align-items: flex-start;
     gap: 0.9rem;
     width: 100%;
 }
@@ -1272,14 +1272,29 @@ to { opacity: 1; transform: translateY(0); }
 .profile-card__season-stats {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: clamp(0.5rem, 2vw, 0.85rem);
     padding: 0;
-    margin-left: clamp(0.35rem, 1vw, 0.75rem);
+    margin: 0;
     border: 0;
     background: transparent;
     box-shadow: none;
     min-width: 0;
-    align-self: stretch;
+    width: 100%;
+}
+
+.profile-card__stat-rows {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.5rem, 2vw, 0.9rem);
+    width: 100%;
+}
+
+.profile-card__stat-row {
+    border-radius: var(--radius-md);
+    padding: clamp(0.5rem, 2vw, 0.85rem);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-soft);
 }
 
 .profile-card__season-pills .profile-metrics__row {
@@ -1339,10 +1354,6 @@ to { opacity: 1; transform: translateY(0); }
         gap: 0.75rem;
     }
 
-    .profile-card__season-stats {
-        margin-left: clamp(0.25rem, 1vw, 0.5rem);
-    }
-
     .profile-card__season-pills .profile-metrics__row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -1383,6 +1394,7 @@ to { opacity: 1; transform: translateY(0); }
     border: none;
     background: transparent;
     padding: 0;
+    margin-top: clamp(0.5rem, 2vw, 0.85rem);
     font: inherit;
     color: inherit;
     text-align: left;
@@ -2003,11 +2015,11 @@ body.is-bottom-nav-active .profile-card__coins.stats-card__pills .achievement-ca
 }
 
 body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft {
-    background-color: transparent;
-    box-shadow: none;
-    border: none;
-    border-radius: 0;
-    padding: clamp(0.5rem, 4vw, 1rem) 0;
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: clamp(1rem, 4vw, 1.5rem);
 }
 
 body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::before,
@@ -5247,21 +5259,29 @@ body.dark .profile-card__balance-range {
 
 
 /* Full-bleed mobile panels when the bottom navigation is visible */
+body.is-bottom-nav-active {
+    background-color: var(--color-surface);
+}
+
 body.is-bottom-nav-active .dashboard-shell {
     width: 100%;
     margin: 0;
     padding-left: max(var(--app-safe-area-left), 0px);
     padding-right: max(var(--app-safe-area-right), 0px);
+    padding-top: max(var(--app-safe-area-top), 0px);
+    padding-bottom: calc(var(--bottom-nav-height) + var(--app-safe-area-bottom) + clamp(1.25rem, 5vw, 1.75rem));
 }
 
 body.is-bottom-nav-active .dashboard-panel {
     width: 100%;
     margin-inline: 0;
+    padding-inline: clamp(0.75rem, 4vw, 1.25rem);
+    background-color: var(--color-surface);
 }
 
 body.is-bottom-nav-active [data-dashboard-panel="profile"] {
-    width: calc(100% - clamp(0.65rem, 3.5vw, 1.25rem) * 2);
-    margin-inline: clamp(0.65rem, 3.5vw, 1.25rem);
+    width: 100%;
+    margin-inline: 0;
     margin-block: 0;
 }
 
@@ -5270,14 +5290,11 @@ body.is-bottom-nav-active [data-dashboard-panel="profile"] .panel-card {
 }
 
 body.is-bottom-nav-active .dashboard-panel .panel-card {
-    border-radius: 0 !important;
-    padding-left: max(var(--app-safe-area-left), 0px);
-    padding-right: max(var(--app-safe-area-right), 0px);
-    padding-top: clamp(1rem, 4vw, 1.5rem);
-    padding-bottom: clamp(1rem, 4vw, 1.5rem);
-    box-shadow: none;
-    border-left: none;
-    border-right: none;
+    border-radius: var(--radius-lg) !important;
+    padding: clamp(1rem, 4vw, 1.5rem);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
 }
 
 

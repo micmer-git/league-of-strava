@@ -2675,7 +2675,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let highlightedWalletSnapshotElement = null;
     let hasActivitiesState = false;
 
-    const HOURS_PER_RANK_LEVEL = 100;
+    const BASE_RANK_HOURS_PER_LEVEL = 100;
+    const PRESTIGE_HOURS_PER_LEVEL = 20;
+    const MASTER_PRESTIGE_HOURS_PER_LEVEL = 100;
     const BASE_RANK_GROUPS = [
         { name: 'Wood', emoji: '🪵', levels: 10 },
         { name: 'Metal', emoji: '⚙️', levels: 10 },
@@ -2685,16 +2687,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         { name: 'Platinum', emoji: '💎', levels: 10 },
     ];
     const PRESTIGE_GROUPS = [
-        { name: 'Prestige 1', emoji: '🍎', levels: 10 },
-        { name: 'Prestige 2', emoji: '🍌', levels: 10 },
-        { name: 'Prestige 3', emoji: '🍇', levels: 10 },
-        { name: 'Prestige 4', emoji: '🍉', levels: 10 },
-        { name: 'Prestige 5', emoji: '🍒', levels: 10 },
-        { name: 'Prestige 6', emoji: '🍍', levels: 10 },
-        { name: 'Prestige 7', emoji: '🥑', levels: 10 },
-        { name: 'Prestige 8', emoji: '🌮', levels: 10 },
-        { name: 'Prestige 9', emoji: '🍣', levels: 10 },
-        { name: 'Prestige 10', emoji: '🍕', levels: 10 },
+        { prestigeNumber: 1, emoji: '🍎', levels: 10 },
+        { prestigeNumber: 2, emoji: '🍌', levels: 10 },
+        { prestigeNumber: 3, emoji: '🍇', levels: 10 },
+        { prestigeNumber: 4, emoji: '🍉', levels: 10 },
+        { prestigeNumber: 5, emoji: '🍒', levels: 10 },
+        { prestigeNumber: 6, emoji: '🍍', levels: 10 },
+        { prestigeNumber: 7, emoji: '🥑', levels: 10 },
+        { prestigeNumber: 8, emoji: '🌮', levels: 10 },
+        { prestigeNumber: 9, emoji: '🍣', levels: 10 },
+        { prestigeNumber: 10, emoji: '🍕', levels: 10 },
     ];
     const MASTER_PRESTIGE_LEVELS = 100;
     const MASTER_PRESTIGE_EMOJI = '👑';
@@ -2702,27 +2704,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const buildRankConfig = () => {
         const levels = [];
 
-        const addGroupLevels = (group) => {
-            for (let level = group.levels; level >= 1; level -= 1) {
-                const index = levels.length;
+        let currentMinHours = 0;
+
+        const addGroupLevels = (group, hoursPerLevel, nameBuilder) => {
+            const levelNameBuilder = typeof nameBuilder === 'function'
+                ? nameBuilder
+                : (level) => `${group.name} ${level}`;
+
+            for (let level = 1; level <= group.levels; level += 1) {
                 levels.push({
-                    name: `${group.name} ${level}`,
+                    name: levelNameBuilder(level),
                     emoji: group.emoji,
-                    minHours: index * HOURS_PER_RANK_LEVEL,
+                    minHours: currentMinHours,
+                    hoursPerLevel,
                 });
+                currentMinHours += hoursPerLevel;
             }
         };
 
-        BASE_RANK_GROUPS.forEach(addGroupLevels);
-        PRESTIGE_GROUPS.forEach(addGroupLevels);
+        BASE_RANK_GROUPS.forEach(group => addGroupLevels(group, BASE_RANK_HOURS_PER_LEVEL));
+        PRESTIGE_GROUPS.forEach(group => addGroupLevels(
+            group,
+            PRESTIGE_HOURS_PER_LEVEL,
+            (level) => `Prestige ${group.prestigeNumber} - Level ${level}`,
+        ));
 
-        for (let master = MASTER_PRESTIGE_LEVELS; master >= 1; master -= 1) {
-            const index = levels.length;
+        for (let master = 1; master <= MASTER_PRESTIGE_LEVELS; master += 1) {
             levels.push({
                 name: `Master Prestige ${master}`,
                 emoji: MASTER_PRESTIGE_EMOJI,
-                minHours: index * HOURS_PER_RANK_LEVEL,
+                minHours: currentMinHours,
+                hoursPerLevel: MASTER_PRESTIGE_HOURS_PER_LEVEL,
             });
+            currentMinHours += MASTER_PRESTIGE_HOURS_PER_LEVEL;
         }
 
         return levels;

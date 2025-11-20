@@ -300,7 +300,10 @@
         { icon: '🌊', title: 'Ultra Swim Expedition', detail: 'Cinque giorni di nuoto open water consecutivi' },
       ];
 
-      const HOURS_PER_LEVEL = 100;
+      const BASE_HOURS_PER_LEVEL = 100;
+      const PRESTIGE_HOURS_PER_LEVEL = 20;
+      const MASTER_PRESTIGE_HOURS_PER_LEVEL = 100;
+
       const baseRankGroups = [
         { name: 'Wood', emoji: '🪵', levels: 10 },
         { name: 'Metal', emoji: '⚙️', levels: 10 },
@@ -311,16 +314,16 @@
       ];
 
       const prestigeGroups = [
-        { name: 'Prestige 1', emoji: '🍎', levels: 10 },
-        { name: 'Prestige 2', emoji: '🍌', levels: 10 },
-        { name: 'Prestige 3', emoji: '🍇', levels: 10 },
-        { name: 'Prestige 4', emoji: '🍉', levels: 10 },
-        { name: 'Prestige 5', emoji: '🍒', levels: 10 },
-        { name: 'Prestige 6', emoji: '🍍', levels: 10 },
-        { name: 'Prestige 7', emoji: '🥑', levels: 10 },
-        { name: 'Prestige 8', emoji: '🌮', levels: 10 },
-        { name: 'Prestige 9', emoji: '🍣', levels: 10 },
-        { name: 'Prestige 10', emoji: '🍕', levels: 10 },
+        { prestigeNumber: 1, emoji: '🍎', levels: 10 },
+        { prestigeNumber: 2, emoji: '🍌', levels: 10 },
+        { prestigeNumber: 3, emoji: '🍇', levels: 10 },
+        { prestigeNumber: 4, emoji: '🍉', levels: 10 },
+        { prestigeNumber: 5, emoji: '🍒', levels: 10 },
+        { prestigeNumber: 6, emoji: '🍍', levels: 10 },
+        { prestigeNumber: 7, emoji: '🥑', levels: 10 },
+        { prestigeNumber: 8, emoji: '🌮', levels: 10 },
+        { prestigeNumber: 9, emoji: '🍣', levels: 10 },
+        { prestigeNumber: 10, emoji: '🍕', levels: 10 },
       ];
 
       const MASTER_PRESTIGE_LEVELS = 100;
@@ -328,33 +331,38 @@
 
       const buildRankLevels = () => {
         const levels = [];
-        baseRankGroups.forEach((group) => {
-          for (let level = group.levels; level >= 1; level -= 1) {
-            const index = levels.length;
+        let currentMinHours = 0;
+
+        const addGroupLevels = (group, hoursPerLevel, nameBuilder) => {
+          const levelNameBuilder = typeof nameBuilder === 'function'
+            ? nameBuilder
+            : (level) => `${group.name} ${level}`;
+
+          for (let level = 1; level <= group.levels; level += 1) {
             levels.push({
-              name: `${group.name} ${level}`,
+              name: levelNameBuilder(level),
               emoji: group.emoji,
-              minHours: index * HOURS_PER_LEVEL,
+              minHours: currentMinHours,
+              hoursPerLevel,
             });
+            currentMinHours += hoursPerLevel;
           }
-        });
-        prestigeGroups.forEach((group) => {
-          for (let level = group.levels; level >= 1; level -= 1) {
-            const index = levels.length;
-            levels.push({
-              name: `${group.name} ${level}`,
-              emoji: group.emoji,
-              minHours: index * HOURS_PER_LEVEL,
-            });
-          }
-        });
-        for (let master = MASTER_PRESTIGE_LEVELS; master >= 1; master -= 1) {
-          const index = levels.length;
+        };
+
+        baseRankGroups.forEach((group) => addGroupLevels(group, BASE_HOURS_PER_LEVEL));
+        prestigeGroups.forEach((group) => addGroupLevels(
+          group,
+          PRESTIGE_HOURS_PER_LEVEL,
+          (level) => `Prestige ${group.prestigeNumber} - Level ${level}`,
+        ));
+        for (let master = 1; master <= MASTER_PRESTIGE_LEVELS; master += 1) {
           levels.push({
             name: `Master Prestige ${master}`,
             emoji: MASTER_PRESTIGE_EMOJI,
-            minHours: index * HOURS_PER_LEVEL,
+            minHours: currentMinHours,
+            hoursPerLevel: MASTER_PRESTIGE_HOURS_PER_LEVEL,
           });
+          currentMinHours += MASTER_PRESTIGE_HOURS_PER_LEVEL;
         }
         return levels;
       };
@@ -363,27 +371,29 @@
       const TOTAL_RANK_LEVELS = rankLevels.length;
 
       const getRankProgress = (totalHours) => {
+        const normalizedHours = Number.isFinite(totalHours) ? Math.max(0, totalHours) : 0;
         let currentIndex = 0;
         for (let i = 0; i < rankLevels.length; i += 1) {
           const nextLevel = rankLevels[i + 1];
-          if (!nextLevel || totalHours < nextLevel.minHours) {
+          if (!nextLevel || normalizedHours < nextLevel.minHours) {
             currentIndex = i;
             break;
           }
         }
 
         const currentRank = rankLevels[currentIndex];
+        const currentLevelHours = currentRank.hoursPerLevel || 0;
         const nextRank = rankLevels[currentIndex + 1] || {
           name: 'Master Prestige ∞',
           emoji: MASTER_PRESTIGE_EMOJI,
-          minHours: currentRank.minHours + HOURS_PER_LEVEL,
+          minHours: currentRank.minHours + currentLevelHours,
         };
 
         const clampedProgress = Math.min(
-          Math.max(0, totalHours - currentRank.minHours),
-          HOURS_PER_LEVEL,
+          Math.max(0, normalizedHours - currentRank.minHours),
+          currentLevelHours,
         );
-        const ratioWithinLevel = clampedProgress / HOURS_PER_LEVEL;
+        const ratioWithinLevel = currentLevelHours > 0 ? clampedProgress / currentLevelHours : 0;
 
         return {
           currentRank,
@@ -391,10 +401,12 @@
           currentIndex,
           ratioWithinLevel,
           clampedProgress,
+          hoursPerLevel: currentLevelHours,
         };
       };
 
-      const updateProgressVisual = (fillElement, recentElement, ratioWithinLevel, clampedProgress, recentHours) => {
+      const updateProgressVisual = (fillElement, recentElement, ratioWithinLevel, clampedProgress, recentHours, hoursPerLevel) => {
+        const spanHours = hoursPerLevel || 0;
         const progressPercent = (ratioWithinLevel * 100);
         if (fillElement) {
           fillElement.style.width = `${progressPercent.toFixed(2)}%`;
@@ -402,7 +414,7 @@
 
         let recentPercent = 0;
         if (recentElement) {
-          const recentContribution = Math.max(0, Math.min(recentHours, HOURS_PER_LEVEL));
+          const recentContribution = Math.max(0, Math.min(recentHours, spanHours));
           const effectiveRecent = Math.min(recentContribution, clampedProgress);
           const recentRatioWithinProgress = clampedProgress === 0 ? 0 : effectiveRecent / clampedProgress;
           const relativeToFill = recentElement.dataset && recentElement.dataset.relativeFill === 'true';
@@ -935,6 +947,7 @@
           nextRank,
           ratioWithinLevel,
           clampedProgress,
+          hoursPerLevel,
         } = getRankProgress(totalHours);
 
         setText('training-total-hours', formatMetric(totalHours, { decimals: 0, suffix: ' h totali' }));
@@ -952,7 +965,7 @@
 
         const trainingFill = document.getElementById('training-progress-fill');
         const trainingRecent = document.getElementById('training-progress-recent');
-        updateProgressVisual(trainingFill, trainingRecent, ratioWithinLevel, clampedProgress, lastWeekHours);
+        updateProgressVisual(trainingFill, trainingRecent, ratioWithinLevel, clampedProgress, lastWeekHours, hoursPerLevel);
 
         const classAssignment = pickFellowshipClass(athleteProfile);
         setText('profile-class-crest', classAssignment.entry.crest);
@@ -984,6 +997,7 @@
           currentIndex,
           ratioWithinLevel,
           clampedProgress,
+          hoursPerLevel,
         } = getRankProgress(totalHours);
 
         setText(
@@ -1001,7 +1015,7 @@
 
         const progressBar = document.getElementById('progress-bar');
         const progressRecent = document.getElementById('progress-recent');
-        updateProgressVisual(progressBar, progressRecent, ratioWithinLevel, clampedProgress, lastMonthHours);
+        updateProgressVisual(progressBar, progressRecent, ratioWithinLevel, clampedProgress, lastMonthHours, hoursPerLevel);
         if (progressBar) {
           progressBar.setAttribute('aria-valuenow', `${totalHours}`);
           progressBar.setAttribute('aria-valuemin', `${currentRank.minHours}`);

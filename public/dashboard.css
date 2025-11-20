@@ -1297,6 +1297,15 @@ to { opacity: 1; transform: translateY(0); }
     box-shadow: var(--shadow-soft);
 }
 
+.profile-card__stat-row.profile-card__season-pills,
+.profile-card__stat-row.profile-card__coins,
+.profile-card__stat-row.profile-card__wallet-totals {
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
 .profile-card__season-pills .profile-metrics__row {
     width: 100%;
     grid-template-columns: repeat(auto-fit, minmax(4.75rem, 1fr));
@@ -1312,7 +1321,8 @@ to { opacity: 1; transform: translateY(0); }
 }
 
 .profile-card__season-pills .profile-metrics__row,
-.profile-card__coins.stats-card__pills > .profile-metrics__row {
+.profile-card__coins.stats-card__pills > .profile-metrics__row,
+.profile-card__wallet-totals.profile-card__stat-row {
     display: flex;
     flex-wrap: nowrap;
     width: 100%;
@@ -1320,13 +1330,19 @@ to { opacity: 1; transform: translateY(0); }
 }
 
 .profile-card__season-pills .profile-metric-pill,
-.profile-card__coins.stats-card__pills .profile-metric-pill {
+.profile-card__coins.stats-card__pills .profile-metric-pill,
+.profile-card__wallet-totals .profile-metric-pill {
     flex: 1 1 0;
     min-width: 0;
     white-space: nowrap;
     justify-content: space-between;
     font-size: clamp(0.7rem, 2.2vw, 0.85rem);
     padding-inline: clamp(0.35rem, 1.5vw, 0.6rem);
+}
+
+.profile-card__wallet-totals .wallet-total-pill {
+    gap: 0.4rem;
+    padding-block: 0.55rem;
 }
 
 .profile-card__wallet-totals {
@@ -1758,6 +1774,11 @@ to { opacity: 1; transform: translateY(0); }
     margin-inline: calc(-1 * clamp(0.35rem, 4vw, 0.85rem));
 }
 
+.profile-card__badges--premium {
+    gap: 0.75rem;
+    padding-inline: clamp(0.5rem, 4vw, 1rem);
+}
+
 .profile-card__badges::-webkit-scrollbar {
     height: 0.35rem;
 }
@@ -1781,6 +1802,13 @@ to { opacity: 1; transform: translateY(0); }
     scroll-snap-align: start;
     flex: 0 0 auto;
     max-width: 100%;
+}
+
+.profile-card__badges--premium .profile-card__badge-item {
+    flex: 0 0 calc(50% - 0.5rem);
+    min-width: min(18rem, 80vw);
+    padding: 0.65rem 0.95rem;
+    scroll-snap-align: center;
 }
 
 .profile-card__badge-label {
@@ -1807,10 +1835,22 @@ to { opacity: 1; transform: translateY(0); }
         margin-inline: 0;
     }
 
+    .profile-card__badges--premium {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-inline: clamp(0.5rem, 4vw, 1rem);
+        margin-inline: calc(-1 * clamp(0.5rem, 4vw, 1rem));
+    }
+
     .profile-card__badge-item {
         min-width: max-content;
         padding: 0.5rem 0.8rem;
         font-size: 0.9rem;
+    }
+
+    .profile-card__badges--premium .profile-card__badge-item {
+        min-width: 14rem;
+        padding: 0.7rem 1.05rem;
     }
 
     .profile-card__badge-label {

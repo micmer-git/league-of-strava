@@ -1036,8 +1036,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         segmentSection.classList.add('hidden');
     }
     const segmentStatusElement = document.getElementById('segment-status');
-    const bestActivitiesContainer = document.getElementById('best-activities');
-    const topPerformancesEmptyState = document.getElementById('top-performances-empty');
+    let bestActivitiesContainer = document.getElementById('best-activities');
+    let topPerformancesEmptyState = document.getElementById('top-performances-empty');
     const yearSelect = document.getElementById('year-select');
     let activitiesContainer = document.getElementById('activities-container');
     let activitiesEmptyState = document.getElementById('activities-empty');
@@ -1060,6 +1060,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityDistanceMaxInput = document.getElementById('activity-distance-max');
     const activityElevationMinInput = document.getElementById('activity-elevation-min');
     const activityElevationMaxInput = document.getElementById('activity-elevation-max');
+    const activitySortSelect = document.getElementById('activity-sort-by');
     const requestFilterContainer = document.getElementById('activities-request-filters');
     const raceFilterWrapper = document.getElementById('activities-race-filter');
     const raceFilterSelect = document.getElementById('race-filter-select');
@@ -1323,6 +1324,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         activitiesSectionElement = document.getElementById('activities-section');
         activityFilterSummary = document.getElementById('activity-filter-summary');
         activityFilterActive = document.getElementById('activity-filter-active');
+        bestActivitiesContainer = document.getElementById('best-activities');
+        topPerformancesEmptyState = document.getElementById('top-performances-empty');
         activitiesMedalInfo = document.getElementById('activities-medal-info');
         activitiesMedalInfoEmoji = document.getElementById('activities-medal-info-emoji');
         activitiesMedalInfoLabel = document.getElementById('activities-medal-info-label');
@@ -2623,6 +2626,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         climbSegmentId: null,
         coinEmoji: null,
         countries: [],
+        sortBy: 'date-desc',
     };
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
     let activityFilterUniverseCount = 0;
@@ -9830,6 +9834,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             filters.type = typeValue.length > 0 ? typeValue : 'all';
         }
 
+        if (activitySortSelect) {
+            const sortValue = (activitySortSelect.value || '').trim();
+            filters.sortBy = sortValue.length > 0 ? sortValue : 'date-desc';
+        }
+
         filters.minHours = parseNumberInputValue(activityHoursMinInput);
         filters.maxHours = parseNumberInputValue(activityHoursMaxInput);
         if (filters.minHours !== null && filters.maxHours !== null && filters.maxHours < filters.minHours) {
@@ -10053,6 +10062,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                     currentActivityFilters.type = 'all';
                     if (activityTypeFilter) {
                         setSelectValue(activityTypeFilter, 'all');
+                    }
+                    clearQuickFilterSelection();
+                    return true;
+                }
+            });
+        }
+
+        if (filters.sortBy && filters.sortBy !== 'date-desc') {
+            const sortLabels = {
+                'distance-desc': 'Distance',
+                'duration-desc': 'Duration',
+                'balance-desc': 'Balance',
+                'elevation-desc': 'Elevation',
+            };
+            const sortLabel = sortLabels[filters.sortBy] || 'Custom order';
+            descriptors.push({
+                label: `Sort · ${sortLabel}`,
+                onRemove: () => {
+                    currentActivityFilters.sortBy = 'date-desc';
+                    if (activitySortSelect) {
+                        setSelectValue(activitySortSelect, 'date-desc');
                     }
                     clearQuickFilterSelection();
                     return true;
@@ -10766,6 +10796,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const resetActivityFilterInputs = () => {
         if (activityTypeFilter) {
             activityTypeFilter.value = 'all';
+        }
+        if (activitySortSelect) {
+            activitySortSelect.value = 'date-desc';
         }
         [
             activityHoursMinInput,
@@ -15102,12 +15135,46 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'best-activities' element not found in the DOM.");
         }
 
+        const sortKey = currentActivityFilters.sortBy || 'date-desc';
+        const getActivityTimestamp = (activity) => {
+            const date = new Date(activity?.start_date);
+            const time = date.getTime();
+            return Number.isFinite(time) ? time : 0;
+        };
+        const resolveSortValue = (activity) => {
+            if (!activity) {
+                return 0;
+            }
+
+            switch (sortKey) {
+                case 'distance-desc':
+                    return Number.isFinite(activity.distance) ? activity.distance : 0;
+                case 'duration-desc':
+                    return Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
+                case 'balance-desc': {
+                    const stats = computeActivitySmallStats(activity);
+                    const coins = getActivityCoinRewards(activity, stats);
+                    const medals = getActivityMedals(activity);
+                    const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
+                    const medalValue = medals.length * MEDAL_DOLLAR_VALUE;
+                    return coinValue + medalValue;
+                }
+                case 'elevation-desc':
+                    return Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+                case 'date-desc':
+                default:
+                    return getActivityTimestamp(activity);
+            }
+        };
+
         sortedActivities = activities
             .slice()
             .sort((a, b) => {
-                const dateA = new Date(a.start_date);
-                const dateB = new Date(b.start_date);
-                return dateB - dateA;
+                const primaryDiff = resolveSortValue(b) - resolveSortValue(a);
+                if (primaryDiff !== 0) {
+                    return primaryDiff;
+                }
+                return getActivityTimestamp(b) - getActivityTimestamp(a);
             });
 
         rebuildMedalFilteredActivities();
@@ -15253,6 +15320,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (activitySortSelect) {
+        activitySortSelect.addEventListener('change', () => {
+            scheduleFilterApply({ preserveVisibleCount: false });
+        });
+    }
+
     [
         activityHoursMinInput,
         activityHoursMaxInput,
@@ -15320,6 +15393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         refreshPanelReferences();
         bindActivitiesFilterOpenButton();
         bindActivitiesMedalInfoClearButton();
+        requestActivitiesRender({ preserveVisibleCount: true });
     });
 
     activitiesFilterDismissButtons.forEach((button) => {

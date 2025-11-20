@@ -1039,6 +1039,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let bestActivitiesContainer = document.getElementById('best-activities');
     let topPerformancesSection = document.getElementById('activities-top-performances');
     let topPerformancesEmptyState = document.getElementById('top-performances-empty');
+    const topPerformanceActivityHighlights = new Map();
+    const topPerformanceActivityOrder = [];
     const yearSelect = document.getElementById('year-select');
     let activitiesContainer = document.getElementById('activities-container');
     let activitiesEmptyState = document.getElementById('activities-empty');
@@ -11662,6 +11664,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             return span;
         };
 
+        const getActivityKey = (activity) => {
+            const key = activity?.id || activity?.external_id;
+            return key ? String(key) : null;
+        };
+
         activitiesToRender.forEach(activity => {
             const card = document.createElement('div');
             card.className = 'activity-card rounded-lg p-4 flex flex-col gap-4 shadow-sm sm:flex-row sm:items-start sm:justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
@@ -11736,6 +11743,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             headerRow.appendChild(titleContainer);
             headerRow.appendChild(details);
             infoWrapper.appendChild(headerRow);
+
+            const activityKey = getActivityKey(activity);
+            const highlightEntries = activityKey ? (topPerformanceActivityHighlights.get(activityKey) || []) : [];
+            if (highlightEntries.length > 0) {
+                const highlightRow = document.createElement('div');
+                highlightRow.className = 'flex flex-wrap items-center gap-2';
+
+                highlightEntries.forEach(highlight => {
+                    const badge = createBadge({
+                        icon: '🔝',
+                        valueText: highlight.title,
+                        subtitleText: highlight.groupLabel || null,
+                        tooltipText: highlight.formattedValue
+                            ? `${highlight.title} • ${highlight.formattedValue}`
+                            : highlight.title,
+                        className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-50',
+                        ariaLabel: `Top performance: ${highlight.title}`,
+                    });
+
+                    highlightRow.appendChild(badge);
+                });
+
+                infoWrapper.appendChild(highlightRow);
+            }
 
             const stats = computeActivitySmallStats(activity);
             const statsRow = document.createElement('div');
@@ -14294,6 +14325,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (medalsSection) medalsSection.innerHTML = '';
         if (segmentContainer) segmentContainer.innerHTML = '';
         if (bestActivitiesContainer) bestActivitiesContainer.innerHTML = '';
+        topPerformanceActivityHighlights.clear();
+        topPerformanceActivityOrder.length = 0;
         if (segmentStatusElement) {
             segmentStatusElement.textContent = '';
             segmentStatusElement.classList.add('hidden');
@@ -14789,11 +14822,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const shouldRenderTopPerformances = Boolean(topFilterShortcutActive);
-        setTopPerformancesVisibility(shouldRenderTopPerformances);
+        setTopPerformancesVisibility(false);
 
-        // === Update Best Activities with Clickable Titles ===
-        if (bestActivitiesContainer && shouldRenderTopPerformances) {
-            bestActivitiesContainer.innerHTML = '';
+        // === Update Best Activities Highlights ===
+        if (shouldRenderTopPerformances) {
+            if (bestActivitiesContainer) {
+                bestActivitiesContainer.innerHTML = '';
+            }
 
             if (topPerformancesEmptyState) {
                 topPerformancesEmptyState.classList.toggle('hidden', hasActivities);
@@ -14825,7 +14860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const groupRowMap = new Map();
 
                 const ensureGroupRow = (group) => {
-                    if (!group || !group.key) {
+                    if (!group || !group.key || !bestActivitiesContainer) {
                         return null;
                     }
 
@@ -14853,6 +14888,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
 
                     return groupRowMap.get(group.key) || null;
+                };
+
+                const registerTopPerformanceHighlight = (activity, metricTitle, groupLabel, formattedValue) => {
+                    if (!activity) {
+                        return;
+                    }
+
+                    const activityId = activity.id || activity.external_id;
+                    if (!activityId) {
+                        return;
+                    }
+
+                    const key = String(activityId);
+                    const highlights = topPerformanceActivityHighlights.get(key) || [];
+                    highlights.push({
+                        title: metricTitle,
+                        groupLabel,
+                        formattedValue,
+                    });
+                    topPerformanceActivityHighlights.set(key, highlights);
+
+                    const alreadyRegistered = topPerformanceActivityOrder.some(entry => entry.key === key);
+                    if (!alreadyRegistered) {
+                        topPerformanceActivityOrder.push({ key, activity });
+                    }
                 };
 
                 const metrics = [
@@ -15117,6 +15177,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const activityId = bestActivity.id || bestActivity.external_id;
                         const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : null;
 
+                        if (bestActivity) {
+                            registerTopPerformanceHighlight(
+                                bestActivity,
+                                metric.title,
+                                group?.label || '',
+                                formattedValue,
+                            );
+                        }
+
                         return {
                             group,
                             hasResult: true,
@@ -15225,7 +15294,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn("'best-activities' element not found in the DOM.");
         }
 
-        const sortKey = currentActivityFilters.sortBy || 'date-desc';
+        const topPerformanceActivities = topFilterShortcutActive && topPerformanceActivityOrder.length > 0
+            ? Array.from(new Map(topPerformanceActivityOrder.map(entry => [entry.key, entry.activity])).values())
+            : null;
+
+        const sortKey = topFilterShortcutActive ? 'date-desc' : (currentActivityFilters.sortBy || 'date-desc');
         const getActivityTimestamp = (activity) => {
             const date = new Date(activity?.start_date);
             const time = date.getTime();
@@ -15257,15 +15330,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         };
 
-        sortedActivities = activities
-            .slice()
-            .sort((a, b) => {
-                const primaryDiff = resolveSortValue(b) - resolveSortValue(a);
-                if (primaryDiff !== 0) {
-                    return primaryDiff;
-                }
-                return getActivityTimestamp(b) - getActivityTimestamp(a);
-            });
+        sortedActivities = Array.isArray(topPerformanceActivities) && topPerformanceActivities.length > 0
+            ? topPerformanceActivities
+            : activities
+                .slice()
+                .sort((a, b) => {
+                    const primaryDiff = resolveSortValue(b) - resolveSortValue(a);
+                    if (primaryDiff !== 0) {
+                        return primaryDiff;
+                    }
+                    return getActivityTimestamp(b) - getActivityTimestamp(a);
+                });
 
         rebuildMedalFilteredActivities();
 

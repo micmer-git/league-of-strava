@@ -992,6 +992,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
+    const rankModalProgressElement = document.getElementById('rank-modal-progress');
     const rankModalContentElement = document.getElementById('rank-modal-content');
     const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
@@ -4333,8 +4334,104 @@ document.addEventListener('DOMContentLoaded', async () => {
         return slide;
     };
 
+    const renderHistoricalMedalProgress = (progressElement) => {
+        if (!progressElement) {
+            return;
+        }
+
+        progressElement.innerHTML = '';
+
+        const progressMedals = Array.isArray(medalInventory)
+            ? medalInventory.filter((medal) => {
+                const targetValue = medal?.progressStatus?.targetValue;
+                return medal?.progressStatus && Number.isFinite(targetValue) && targetValue > 0;
+            })
+            : [];
+
+        if (progressMedals.length === 0) {
+            progressElement.hidden = true;
+            progressElement.setAttribute('aria-hidden', 'true');
+            return;
+        }
+
+        progressElement.hidden = false;
+        progressElement.setAttribute('aria-hidden', 'false');
+
+        const title = document.createElement('p');
+        title.className = 'rank-modal__progress-title';
+        title.textContent = 'Historical medals';
+        progressElement.appendChild(title);
+
+        const list = document.createElement('ul');
+        list.className = 'rank-modal__progress-list';
+        list.setAttribute('role', 'list');
+
+        const orderedMedals = progressMedals.slice().sort((a, b) => {
+            const orderA = medalOrderMap.get(a?.name) ?? Number.MAX_SAFE_INTEGER;
+            const orderB = medalOrderMap.get(b?.name) ?? Number.MAX_SAFE_INTEGER;
+            if (orderA === orderB) {
+                return (a?.name || '').localeCompare(b?.name || '');
+            }
+            return orderA - orderB;
+        });
+
+        orderedMedals.forEach((medal) => {
+            const item = document.createElement('li');
+            item.className = 'rank-modal__progress-item';
+
+            const header = document.createElement('div');
+            header.className = 'rank-modal__progress-header';
+
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'rank-modal__progress-name';
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.textContent = medal.emoji || '🏅';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = medal.name || 'Progress medal';
+            nameGroup.append(emojiSpan, nameSpan);
+
+            const medalCount = Math.max(0, toNonNegativeInteger(medal?.count));
+            const countSpan = document.createElement('span');
+            countSpan.className = 'rank-modal__progress-count';
+            countSpan.textContent = medalCount > 0
+                ? `${medalCount.toLocaleString()}× earned`
+                : 'Not yet earned';
+
+            header.append(nameGroup, countSpan);
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'rank-modal__progress-bar';
+            progressBar.setAttribute('role', 'progressbar');
+
+            const progressFill = document.createElement('div');
+            progressFill.className = 'rank-modal__progress-bar-fill';
+            const percentComplete = Number.isFinite(medal.progressStatus?.percentComplete)
+                ? Math.min(100, Math.max(0, medal.progressStatus.percentComplete))
+                : 0;
+            progressFill.style.width = `${percentComplete}%`;
+            progressFill.setAttribute('aria-hidden', 'true');
+            progressBar.setAttribute('aria-valuemin', '0');
+            progressBar.setAttribute('aria-valuemax', '100');
+            progressBar.setAttribute('aria-valuenow', percentComplete.toFixed(1));
+            progressBar.setAttribute('aria-label', `${medal.name || 'Progress medal'} progress`);
+            progressBar.appendChild(progressFill);
+
+            const status = document.createElement('p');
+            status.className = 'rank-modal__progress-status';
+            status.textContent = formatMedalProgressText(medal.progressStatus) || 'Progress tracking unavailable';
+
+            item.append(header, progressBar, status);
+            list.appendChild(item);
+        });
+
+        progressElement.appendChild(list);
+    };
+
     const renderRankRewardModalContent = ({
         summaryElement,
+        progressElement,
         snapshotsElement,
         listElement,
         idPrefix = 'rank-modal',
@@ -4391,6 +4488,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .map((fragment) => fragment.trim())
                 .join('');
             summaryElement.hidden = summaryFragments.length === 0;
+        }
+
+        if (progressElement) {
+            renderHistoricalMedalProgress(progressElement);
         }
 
         if (snapshotsElement) {
@@ -4458,6 +4559,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const renderRankModal = () => {
         renderRankRewardModalContent({
             summaryElement: rankModalSummaryElement,
+            progressElement: rankModalProgressElement,
             snapshotsElement: rankModalSnapshotsElement,
             listElement: rankModalListElement,
             idPrefix: 'rank-modal',
@@ -5028,6 +5130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (detail) {
             return detail;
         }
+
         const label = typeof progressStatus.label === 'string' ? progressStatus.label.trim() : '';
         const percentLabel = typeof progressStatus.percentLabel === 'string'
             ? progressStatus.percentLabel.trim()
@@ -5035,6 +5138,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasPercent = Number.isFinite(progressStatus.percentComplete)
             ? `${Math.round(progressStatus.percentComplete)}%`
             : percentLabel;
+        const completedSets = Number.isFinite(progressStatus.completedSets)
+            ? Math.max(0, progressStatus.completedSets)
+            : 0;
+
+        const summaryParts = [];
+        if (completedSets > 0) {
+            summaryParts.push(`${completedSets.toLocaleString()}× earned`);
+        }
+        if (hasPercent) {
+            summaryParts.push(`${hasPercent} to next`);
+        }
+
+        if (summaryParts.length > 0) {
+            return summaryParts.join(' • ');
+        }
+
         if (label && hasPercent) {
             return `${label} (${hasPercent})`;
         }
@@ -12884,19 +13003,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 return numeric.toFixed(2);
             };
-        const formattedCurrent = formatValue(safeCurrent);
+
+        const completedSets = safeTarget > 0 ? Math.floor(safeCurrent / safeTarget) : 0;
+        const remainderValue = safeTarget > 0
+            ? safeCurrent - (completedSets * safeTarget)
+            : safeCurrent;
+
+        const formattedCurrent = formatValue(remainderValue);
         const formattedTarget = safeTarget > 0 ? formatValue(safeTarget) : '';
         const unitSuffix = unitLabel ? ` ${unitLabel}` : '';
+
         const label = safeTarget > 0
             ? `${formattedCurrent}${unitSuffix} / ${formattedTarget}${unitSuffix}`
             : `${formattedCurrent}${unitSuffix}`;
-        const percentComplete = safeTarget > 0 ? Math.min(100, (safeCurrent / safeTarget) * 100) : 0;
+
+        const percentComplete = safeTarget > 0
+            ? Math.min(100, Math.max(0, (remainderValue / safeTarget) * 100))
+            : 0;
         const percentLabel = safeTarget > 0 ? `${Math.round(percentComplete)}%` : '';
-        const detail = percentLabel ? `${label} (${percentLabel})` : label;
+
+        const statusParts = [];
+        if (completedSets > 0) {
+            statusParts.push(`${completedSets.toLocaleString()}× earned`);
+        }
+        if (percentLabel) {
+            statusParts.push(`${percentLabel} to next`);
+        }
+        const detail = statusParts.length > 0
+            ? statusParts.join(' • ')
+            : (percentLabel ? `${label} (${percentLabel})` : label);
+
         const isComplete = safeTarget > 0 && safeCurrent >= safeTarget;
         return {
-            currentValue: safeCurrent,
+            currentValue: remainderValue,
+            totalValue: safeCurrent,
             targetValue: safeTarget,
+            completedSets,
             percentComplete,
             percentLabel,
             label,
@@ -12959,7 +13101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 name: definition.name,
                 emoji: definition.emoji || '🏅',
                 description: definition.description || '',
-                count: progressStatus.isComplete ? 1 : 0,
+                count: Math.max(0, Number(progressStatus.completedSets) || 0),
                 isDayBased: false,
                 category: definition.category || 'Lifetime Progress',
                 legacyCategory: definition.category || 'Lifetime Progress',

@@ -362,25 +362,6 @@
       <p class="panel-card__subtitle" id="activity-filter-summary"></p>
     </div>
   </header>
-  <div class="activities-panel__requests" id="activities-request-filters" hidden>
-    <div class="activities-panel__request" id="activities-race-filter" hidden>
-      <label class="activities-panel__request-label" for="race-filter-select">Race focus</label>
-      <select id="race-filter-select">
-        <option value="">All races</option>
-      </select>
-      <p class="activities-panel__request-note">Shows approved races logged in your contact requests.</p>
-    </div>
-    <div class="activities-panel__request" id="activities-climb-filter" hidden>
-      <label class="activities-panel__request-label" for="climb-filter-select">Climb attempts</label>
-      <select id="climb-filter-select">
-        <option value="">All climbs</option>
-      </select>
-      <div class="activities-panel__attempts" id="climb-attempts-detail" hidden>
-        <p class="activities-panel__request-note" id="climb-attempts-summary"></p>
-        <ul class="activities-panel__attempts-list" id="climb-attempts-list"></ul>
-      </div>
-    </div>
-  </div>
         <div aria-live="polite" class="activities-medal-info hidden" id="activities-medal-info" role="status" aria-hidden="true">
           <div class="activities-medal-info__content">
             <span class="activities-medal-info__emoji" id="activities-medal-info-emoji"></span>
@@ -431,7 +412,7 @@
 <header class="filter-modal__header">
 <div>
 <h2 id="activities-filter-modal-title">Filter activities</h2>
-<p class="filter-modal__subtitle">Set your criteria and we’ll refresh the feed instantly.</p>
+<p class="filter-modal__subtitle">Set your criteria and we’ll refresh the feed instantly. Filters stack together so you can zero in on exactly what you need.</p>
 </div>
 <button class="filter-modal__close" data-activities-filter-dismiss="" type="button">
 <span aria-hidden="true">✕</span>
@@ -460,6 +441,9 @@
 <span>Recovery spins</span>
 </button>
 </div>
+<div class="filter-form__grid filter-form__grid--two-column">
+<div class="filter-stack">
+<p class="filter-stack__title">Timeline & type</p>
 <div class="filter-collapsible-group" data-filter-collapsible-group="">
 <div class="filter-collapsible" data-filter-collapsible="">
 <button aria-controls="filter-content-year" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
@@ -487,6 +471,44 @@
 </label>
 </div>
 </div>
+<div class="filter-collapsible" data-filter-collapsible="">
+<button aria-controls="filter-content-races" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+<span>Races</span>
+<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+</button>
+<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-races">
+<div class="filter-field" id="activities-race-filter" hidden>
+<label class="activities-panel__request-label" for="race-filter-select">Race focus</label>
+<select id="race-filter-select">
+<option value="">All races</option>
+</select>
+<p class="activities-panel__request-note">Shows approved races logged in your contact requests.</p>
+</div>
+</div>
+</div>
+<div class="filter-collapsible" data-filter-collapsible="">
+<button aria-controls="filter-content-climbs" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
+<span>Climb attempts</span>
+<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
+</button>
+<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-climbs">
+<div class="filter-field" id="activities-climb-filter" hidden>
+<label class="activities-panel__request-label" for="climb-filter-select">Climb attempts</label>
+<select id="climb-filter-select">
+<option value="">All climbs</option>
+</select>
+<div class="activities-panel__attempts" id="climb-attempts-detail" hidden>
+<p class="activities-panel__request-note" id="climb-attempts-summary"></p>
+<ul class="activities-panel__attempts-list" id="climb-attempts-list"></ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="filter-stack">
+<p class="filter-stack__title">Metrics & location</p>
+<div class="filter-collapsible-group" data-filter-collapsible-group="">
 <div class="filter-collapsible" data-filter-collapsible="">
 <button aria-controls="filter-content-hours" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
 <span>Hours (h)</span>
@@ -547,6 +569,8 @@
       <p class="filter-chip-list__empty" id="country-filter-empty">Country metadata will appear once activities are synced.</p>
     </div>
   </div>
+</div>
+</div>
 </div>
 </div>
 <div class="filter-form__actions">

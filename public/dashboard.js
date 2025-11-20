@@ -11620,6 +11620,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             return badge;
         };
 
+        const createEmojiSpan = (emoji, extraClass = '') => {
+            const span = document.createElement('span');
+            span.className = ['activity-card__emoji', extraClass].filter(Boolean).join(' ');
+            span.textContent = emoji;
+            return span;
+        };
+
         activitiesToRender.forEach(activity => {
             const card = document.createElement('div');
             card.className = 'activity-card rounded-lg p-4 flex flex-col gap-4 shadow-sm sm:flex-row sm:items-start sm:justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
@@ -11758,14 +11765,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 tooltipLines.push(`Total haul: ${usdCodeFormatter.format(totalValueDollars)}.`);
 
-                const coinsBadge = createBadge({
-                    icon: '💵',
-                    valueText: usdCodeFormatter.format(totalValueDollars),
-                    tooltipText: tooltipLines.join('\n'),
-                    className: 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200',
-                    ariaLabel: `Value collected ${usdCodeFormatter.format(totalValueDollars)}`
-                });
-                smallStatsGroup.appendChild(coinsBadge);
+                const valueTag = document.createElement('span');
+                valueTag.className = 'activity-card__value-tag tooltip-target';
+                valueTag.textContent = `+${usdCodeFormatter.format(totalValueDollars)}`;
+                valueTag.setAttribute('aria-label', `Value collected ${usdCodeFormatter.format(totalValueDollars)}`);
+                attachTooltip(valueTag, tooltipLines.join('\n'));
+                titleContainer.appendChild(valueTag);
             }
 
             const achievementHighlights = getActivityAchievementHighlights(activity, stats);
@@ -11788,9 +11793,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const badge = document.createElement('button');
                     badge.type = 'button';
                     badge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-slate-200/80 px-2.5 py-1 text-base font-semibold text-slate-800 shadow-sm dark:bg-slate-800/60 dark:text-slate-100';
-                    const emojiSpan = document.createElement('span');
-                    emojiSpan.className = 'leading-none';
-                    emojiSpan.textContent = emoji;
+                    const emojiSpan = createEmojiSpan(emoji);
 
                     const countSpan = document.createElement('span');
                     countSpan.className = 'text-[10px] font-semibold';
@@ -11811,49 +11814,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
-            const hasCoinBadges = Object.entries(coinCounts).some(([emoji, count]) => count && emoji !== '💲');
             const hasMedalBadges = medalRewards.length > 0;
 
-            if (hasCoinBadges || hasMedalBadges) {
+            if (hasMedalBadges) {
                 appendBadgeBreak();
                 const rewardRow = document.createElement('div');
                 rewardRow.className = 'activity-card__reward-row flex flex-wrap items-center gap-2';
-
-                Object.entries(coinCounts).forEach(([emoji, count]) => {
-                    if (!count || emoji === '💲') {
-                        return;
-                    }
-
-                    const badgeClasses = COIN_BADGE_CLASS_MAP[emoji]
-                        || 'bg-slate-200/80 text-slate-800 dark:bg-slate-800/60 dark:text-slate-100';
-                    const coinBadge = document.createElement('span');
-                    coinBadge.className = `tooltip-target inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-base font-semibold shadow-sm ${badgeClasses}`;
-
-                    const emojiSpan = document.createElement('span');
-                    emojiSpan.className = 'leading-none';
-                    emojiSpan.textContent = emoji;
-
-                    const countSpan = document.createElement('span');
-                    countSpan.className = 'text-[10px] font-semibold';
-                    countSpan.textContent = `${count.toLocaleString()}×`;
-
-                    coinBadge.appendChild(countSpan);
-                    coinBadge.appendChild(emojiSpan);
-
-                    const coinValue = count * (COIN_VALUE_MAP[emoji] || 0);
-                    const countLabel = `${count.toLocaleString()}× ${emoji}`;
-                    const tooltipText = `${countLabel} minted = ${usdCodeFormatter.format(coinValue)}`;
-                    coinBadge.setAttribute('aria-label', `${countLabel} minted worth ${usdCodeFormatter.format(coinValue)}`);
-                    attachTooltip(coinBadge, tooltipText);
-
-                    rewardRow.appendChild(coinBadge);
-                });
 
                 medalRewards.forEach(medal => {
                     const medalBadge = document.createElement('button');
                     medalBadge.type = 'button';
                     medalBadge.className = 'tooltip-target inline-flex items-center justify-center rounded-full bg-yellow-100 px-2.5 py-1 text-base font-semibold text-yellow-700 shadow-sm dark:bg-yellow-900/40 dark:text-yellow-200';
-                    medalBadge.innerHTML = `<span class="leading-none">${medal.emoji}</span>`;
+                    const medalEmoji = createEmojiSpan(medal.emoji);
+                    medalBadge.innerHTML = '';
+                    medalBadge.appendChild(medalEmoji);
                     medalBadge.setAttribute('aria-label', medal.name);
                     attachTooltip(medalBadge, `${medal.name} • ${medal.description}`);
                     rewardRow.appendChild(medalBadge);

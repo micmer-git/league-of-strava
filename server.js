@@ -4222,6 +4222,31 @@ function computeLeaderboardMetrics(activities = []) {
   };
 }
 
+function normalizeCoinTotals(source = {}) {
+  return COIN_EMOJIS.reduce((acc, emoji) => {
+    const rawValue = source?.coinBreakdown?.[emoji] ?? source[emoji];
+    const numericValue = Number(rawValue);
+    acc[emoji] = Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
+    return acc;
+  }, {});
+}
+
+function calculateWalletBalance({ coinTotals = {}, medalCount = 0 } = {}) {
+  const totalCoinValue = Object.entries(coinTotals).reduce((sum, [emoji, count]) => {
+    const coinValue = COIN_VALUE_MAP[emoji] || BASE_COIN_VALUE;
+    const normalizedCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+    return sum + (coinValue * normalizedCount);
+  }, 0);
+
+  const medalValue = (Number.isFinite(Number(medalCount)) ? Number(medalCount) : 0) * MEDAL_DOLLAR_VALUE;
+
+  return {
+    totalCoinValue,
+    medalValue,
+    walletBalance: totalCoinValue + medalValue,
+  };
+}
+
 function getRankProgress(totalHours = 0) {
   const numericHours = Number(totalHours);
   const normalizedHours = Number.isFinite(numericHours) ? Math.max(0, numericHours) : 0;
@@ -4278,19 +4303,14 @@ function buildLeaderboardSummary(payload = {}) {
     ? derivedMetrics.totals.calories
     : (Number.isFinite(Number(totals.calories)) ? Number(totals.calories) : 0);
 
-  const coinTotals = derivedMetrics.coinTotals;
+  const existingCoinTotals = normalizeCoinTotals(payload.coinBreakdown || payload.wallet || payload);
+  const coinTotals = COIN_EMOJIS.some(emoji => existingCoinTotals[emoji] > 0)
+    ? existingCoinTotals
+    : derivedMetrics.coinTotals;
   const coins = Object.values(coinTotals).reduce((sum, count) => sum + (Number(count) || 0), 0);
   const dollars = Math.max(0, Math.round(totalHours * 10));
 
-  const emojiBands = [
-    { threshold: 200, emoji: '👑' },
-    { threshold: 100, emoji: '💎' },
-    { threshold: 50, emoji: '🧈' },
-    { threshold: 25, emoji: '💰' },
-    { threshold: 0, emoji: '💲' },
-  ];
-
-  const emoji = emojiBands.find(band => coins >= band.threshold)?.emoji || '💲';
+  const emoji = rankProgress.currentRank?.emoji || '';
 
   const pizzaCoins = Math.max(0, Math.round(totalCalories / PIZZA_KCAL));
 
@@ -4298,13 +4318,12 @@ function buildLeaderboardSummary(payload = {}) {
     ? payload.activities.reduce((sum, activity) => sum + (Number(activity?.achievement_count) || 0), 0)
     : 0;
 
-  const totalCoinValue = Object.entries(coinTotals).reduce((sum, [emoji, count]) => {
-    const coinValue = COIN_VALUE_MAP[emoji] || BASE_COIN_VALUE;
-    return sum + (coinValue * (Number(count) || 0));
-  }, 0);
-  const totalMedalValue = medalCount * MEDAL_DOLLAR_VALUE;
-  const totalHaulValue = dollars + totalCoinValue + totalMedalValue;
-  const walletBalance = totalCoinValue + totalMedalValue;
+  const { totalCoinValue, medalValue, walletBalance } = calculateWalletBalance({
+    coinTotals,
+    medalCount,
+  });
+
+  const totalHaulValue = dollars + totalCoinValue + medalValue;
   const rank = {
     name: rankProgress.currentRank?.name || '',
     emoji: rankProgress.currentRank?.emoji || '',

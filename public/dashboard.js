@@ -1037,6 +1037,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const segmentStatusElement = document.getElementById('segment-status');
     let bestActivitiesContainer = document.getElementById('best-activities');
+    let topPerformancesSection = document.getElementById('activities-top-performances');
     let topPerformancesEmptyState = document.getElementById('top-performances-empty');
     const yearSelect = document.getElementById('year-select');
     let activitiesContainer = document.getElementById('activities-container');
@@ -1326,6 +1327,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activityFilterSummary = document.getElementById('activity-filter-summary');
         activityFilterActive = document.getElementById('activity-filter-active');
         bestActivitiesContainer = document.getElementById('best-activities');
+        topPerformancesSection = document.getElementById('activities-top-performances');
         topPerformancesEmptyState = document.getElementById('top-performances-empty');
         activitiesMedalInfo = document.getElementById('activities-medal-info');
         activitiesMedalInfoEmoji = document.getElementById('activities-medal-info-emoji');
@@ -1518,6 +1520,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rewardSummaryCache = { key: null, summary: null };
     let visibleMedalCount = 0;
     let activeQuickFilter = null;
+    let activeFilterShortcut = null;
+    let topFilterShortcutActive = false;
     let lastShareData = null;
     let shareCopyResetTimeout = null;
 
@@ -2628,6 +2632,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         coinEmoji: null,
         countries: [],
         sortBy: 'date-desc',
+        topShortcut: false,
     };
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
     let activityFilterUniverseCount = 0;
@@ -9880,6 +9885,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         filters.countries = Array.from(countryFilterSelection);
 
+        filters.topShortcut = topFilterShortcutActive;
+
         return filters;
     };
 
@@ -10027,12 +10034,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     };
 
+    const setActiveFilterShortcut = (shortcutKey = null) => {
+        activeFilterShortcut = shortcutKey || null;
+        topFilterShortcutActive = activeFilterShortcut === 'top';
+        currentActivityFilters.topShortcut = topFilterShortcutActive;
+    };
+
+    const clearFilterShortcutSelection = () => {
+        setActiveFilterShortcut(null);
+    };
+
     const clearQuickFilterSelection = () => {
         activeQuickFilter = null;
         quickFilterButtons.forEach((button) => {
             button.classList.remove('is-active');
             button.setAttribute('aria-pressed', 'false');
         });
+    };
+
+    const setTopPerformancesVisibility = (isVisible) => {
+        if (topPerformancesSection) {
+            topPerformancesSection.toggleAttribute('hidden', !isVisible);
+        }
+
+        if (!isVisible && bestActivitiesContainer) {
+            bestActivitiesContainer.innerHTML = '';
+        }
+
+        if (!isVisible && topPerformancesEmptyState) {
+            topPerformancesEmptyState.classList.add('hidden');
+        }
     };
 
     const formatRangeDescription = (minValue = null, maxValue = null, label = '', decimals = 0, unitSuffix = '') => {
@@ -10086,6 +10117,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         setSelectValue(activitySortSelect, 'date-desc');
                     }
                     clearQuickFilterSelection();
+                    return true;
+                }
+            });
+        }
+
+        if (filters.topShortcut) {
+            descriptors.push({
+                label: 'Shortcut · Top',
+                onRemove: () => {
+                    setSelectValue(activitySortSelect, 'date-desc');
+                    clearFilterShortcutSelection();
+                    currentActivityFilters.topShortcut = false;
                     return true;
                 }
             });
@@ -10822,6 +10865,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         clearCountryFilterSelection();
         currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
+        clearFilterShortcutSelection();
         clearQuickFilterSelection();
     };
 
@@ -10878,6 +10922,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const handler = filterShortcutHandlers[normalizedKey];
         if (typeof handler === 'function') {
             handler();
+            setActiveFilterShortcut(normalizedKey);
+        } else {
+            clearFilterShortcutSelection();
         }
 
         if (filterApplyTimeout) {
@@ -14741,8 +14788,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             segmentSection.classList.toggle('hidden', !shouldShowSegments);
         }
 
+        const shouldRenderTopPerformances = Boolean(topFilterShortcutActive);
+        setTopPerformancesVisibility(shouldRenderTopPerformances);
+
         // === Update Best Activities with Clickable Titles ===
-        if (bestActivitiesContainer) {
+        if (bestActivitiesContainer && shouldRenderTopPerformances) {
             bestActivitiesContainer.innerHTML = '';
 
             if (topPerformancesEmptyState) {
@@ -15169,6 +15219,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else if (topPerformancesEmptyState) {
                 topPerformancesEmptyState.classList.remove('hidden');
             }
+        } else if (!shouldRenderTopPerformances) {
+            setTopPerformancesVisibility(false);
         } else {
             console.warn("'best-activities' element not found in the DOM.");
         }
@@ -15364,6 +15416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (activitySortSelect) {
         activitySortSelect.addEventListener('change', () => {
+            clearFilterShortcutSelection();
             scheduleFilterApply({ preserveVisibleCount: false });
         });
     }
@@ -15515,11 +15568,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (activeQuickFilter === filterKey) {
                 resetActivityFilterInputs();
+                clearFilterShortcutSelection();
                 requestActivitiesRender({ preserveVisibleCount: false });
                 return;
             }
 
             activeQuickFilter = filterKey;
+            clearFilterShortcutSelection();
             quickFilterButtons.forEach(btn => {
                 const isActive = btn === button;
                 btn.classList.toggle('is-active', isActive);

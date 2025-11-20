@@ -2636,6 +2636,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         sortBy: 'date-desc',
         topShortcut: false,
     };
+    const ALLOWED_ACTIVITY_SORTS = new Set(['date-desc', 'distance-desc', 'balance-desc', 'elevation-desc']);
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
     let activityFilterUniverseCount = 0;
     let raceRequestMap = new Map();
@@ -9895,7 +9896,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (activitySortSelect) {
             const sortValue = (activitySortSelect.value || '').trim();
-            filters.sortBy = sortValue.length > 0 ? sortValue : 'date-desc';
+            const normalizedSort = sortValue.length > 0 ? sortValue : 'date-desc';
+            filters.sortBy = ALLOWED_ACTIVITY_SORTS.has(normalizedSort)
+                ? normalizedSort
+                : 'date-desc';
+        }
+
+        if (!ALLOWED_ACTIVITY_SORTS.has(filters.sortBy)) {
+            filters.sortBy = 'date-desc';
         }
 
         filters.minHours = parseNumberInputValue(activityHoursMinInput);
@@ -10157,7 +10165,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (filters.sortBy && filters.sortBy !== 'date-desc') {
             const sortLabels = {
                 'distance-desc': 'Distance',
-                'duration-desc': 'Duration',
                 'balance-desc': 'Balance',
                 'elevation-desc': 'Elevation',
             };
@@ -10954,7 +10961,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const filterShortcutHandlers = {
         top: () => {
-            setSelectValue(activitySortSelect, 'duration-desc');
+            setSelectValue(activitySortSelect, 'date-desc');
         },
         money: () => {
             setSelectValue(activitySortSelect, 'balance-desc');
@@ -14818,7 +14825,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const shouldRenderTopPerformances = Boolean(topFilterShortcutActive);
-        setTopPerformancesVisibility(false);
+        setTopPerformancesVisibility(shouldRenderTopPerformances);
 
         // === Update Best Activities Highlights ===
         if (shouldRenderTopPerformances) {
@@ -15209,69 +15216,84 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
 
                         const card = document.createElement('div');
-                        card.className = 'top-performance-card rounded-lg p-4 shadow-sm flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4';
+                        card.className = 'activity-card top-performance-card rounded-lg p-4 flex flex-col gap-4 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
                         card.dataset.performanceMetric = metric.title;
 
-                        const infoWrapper = document.createElement('div');
-                        infoWrapper.className = 'top-performance-card__content flex min-w-0 flex-1 items-start gap-3';
+                        const metricRow = document.createElement('div');
+                        metricRow.className = 'flex items-start gap-3';
 
                         const iconSpan = document.createElement('span');
-                        iconSpan.className = 'text-3xl';
+                        iconSpan.className = 'activities-top-performance__icon text-3xl';
                         iconSpan.textContent = metric.icon;
 
-                        const titleWrapper = document.createElement('div');
-                        titleWrapper.className = 'flex min-w-0 flex-col gap-2';
+                        const metricBody = document.createElement('div');
+                        metricBody.className = 'flex min-w-0 flex-col gap-2';
 
                         const metricHeader = document.createElement('div');
-                        metricHeader.className = 'top-performance-card__metric flex flex-wrap items-baseline gap-2';
+                        metricHeader.className = 'flex flex-wrap items-center gap-2';
 
                         const titleLabel = document.createElement('span');
                         titleLabel.className = 'top-performance-card__title text-base font-semibold leading-tight break-words';
                         titleLabel.textContent = metric.title;
-
                         metricHeader.appendChild(titleLabel);
-                        titleWrapper.appendChild(metricHeader);
 
-                        const entriesWrapper = document.createElement('div');
-                        entriesWrapper.className = 'top-performance-card__entries flex flex-col gap-2';
+                        const badgeRow = document.createElement('div');
+                        badgeRow.className = 'flex flex-wrap items-center gap-2';
 
-                        const entryTag = entry.hasResult && entry.activityUrl ? 'a' : 'div';
-                        const entryElement = document.createElement(entryTag);
-                        entryElement.className = 'top-performance-card__entry flex flex-col gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
+                        const groupBadge = document.createElement('span');
+                        groupBadge.className = 'activities-top-performance__badge';
+                        groupBadge.textContent = entry.group?.label || 'Top pick';
+                        badgeRow.appendChild(groupBadge);
 
-                        if (entryTag === 'a') {
-                            entryElement.href = entry.activityUrl;
-                            entryElement.target = '_blank';
-                            entryElement.rel = 'noopener noreferrer';
-                            entryElement.setAttribute('aria-label', `${metric.title} — best ${entry.group.label.toLowerCase()} activity on Strava`);
-                        }
+                        const valueBadge = document.createElement('span');
+                        valueBadge.className = 'activity-card__value-tag activities-top-performance__value';
+                        valueBadge.textContent = entry.formattedValue || '—';
+                        badgeRow.appendChild(valueBadge);
 
-                        const valueLabel = document.createElement('span');
-                        valueLabel.className = 'top-performance-card__value text-sm text-slate-600 dark:text-slate-300 break-words';
-                        valueLabel.textContent = entry.formattedValue || '—';
-                        entryElement.appendChild(valueLabel);
+                        metricBody.appendChild(metricHeader);
+                        metricBody.appendChild(badgeRow);
+
+                        metricRow.appendChild(iconSpan);
+                        metricRow.appendChild(metricBody);
+                        card.appendChild(metricRow);
+
+                        const activityContent = document.createElement('div');
+                        activityContent.className = 'flex flex-col gap-1';
 
                         if (entry.hasResult) {
-                            const activityName = document.createElement('span');
-                            activityName.className = 'top-performance-card__activity-name text-sm font-semibold text-slate-700 dark:text-slate-200 break-words';
-                            activityName.textContent = entry.activityName;
-                            entryElement.appendChild(activityName);
-
-                            if (entry.activityMeta) {
-                                const activityMeta = document.createElement('span');
-                                activityMeta.className = 'top-performance-card__activity-meta text-xs text-slate-500 dark:text-slate-400';
-                                activityMeta.textContent = entry.activityMeta;
-                                entryElement.appendChild(activityMeta);
+                            const activityElement = document.createElement(entry.activityUrl ? 'a' : 'div');
+                            activityElement.className = 'activity-card__title text-lg font-semibold';
+                            if (entry.activityUrl) {
+                                activityElement.href = entry.activityUrl;
+                                activityElement.target = '_blank';
+                                activityElement.rel = 'noopener noreferrer';
+                                activityElement.classList.add('activity-card__title-link');
+                                activityElement.setAttribute('aria-label', `${metric.title} — best ${entry.group.label.toLowerCase()} activity on Strava`);
                             }
+                            activityElement.textContent = entry.activityName;
+                            activityContent.appendChild(activityElement);
                         }
 
-                        entriesWrapper.appendChild(entryElement);
-                        titleWrapper.appendChild(entriesWrapper);
+                        const metaText = document.createElement('span');
+                        metaText.className = 'activities-top-performance__meta text-sm text-slate-600 dark:text-slate-300';
+                        if (entry.hasResult) {
+                            metaText.textContent = entry.activityMeta || 'Recorded on Strava';
+                        } else {
+                            metaText.textContent = 'No qualifying activities yet for this metric.';
+                        }
+                        activityContent.appendChild(metaText);
 
-                        infoWrapper.appendChild(iconSpan);
-                        infoWrapper.appendChild(titleWrapper);
+                        const detailText = document.createElement('p');
+                        detailText.className = 'activities-top-performance__detail text-sm text-slate-700 dark:text-slate-200';
+                        if (entry.hasResult) {
+                            const groupLabel = entry.group?.label || 'Activity';
+                            detailText.textContent = `${groupLabel} highlight • ${entry.formattedValue}`;
+                        } else {
+                            detailText.textContent = 'Keep logging efforts to unlock your top performance.';
+                        }
+                        activityContent.appendChild(detailText);
 
-                        card.appendChild(infoWrapper);
+                        card.appendChild(activityContent);
                         row.content.appendChild(card);
                         cardsCreated += 1;
                     });
@@ -15284,9 +15306,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else if (topPerformancesEmptyState) {
                 topPerformancesEmptyState.classList.remove('hidden');
             }
-        } else if (!shouldRenderTopPerformances) {
-            setTopPerformancesVisibility(false);
-        } else {
+        } else if (shouldRenderTopPerformances && !bestActivitiesContainer) {
             console.warn("'best-activities' element not found in the DOM.");
         }
 
@@ -15308,8 +15328,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             switch (sortKey) {
                 case 'distance-desc':
                     return Number.isFinite(activity.distance) ? activity.distance : 0;
-                case 'duration-desc':
-                    return Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
                 case 'balance-desc': {
                     const stats = computeActivitySmallStats(activity);
                     const coins = getActivityCoinRewards(activity, stats);

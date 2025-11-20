@@ -4982,81 +4982,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        if (!activeMedalFilter) {
-            activitiesMedalInfo.classList.add('hidden');
-            activitiesMedalInfo.setAttribute('aria-hidden', 'true');
-            if (activitiesMedalInfoEmoji) {
-                activitiesMedalInfoEmoji.textContent = '';
-                activitiesMedalInfoEmoji.classList.add('hidden');
-            }
-            if (activitiesMedalInfoLabel) {
-                activitiesMedalInfoLabel.textContent = '';
-            }
-            if (activitiesMedalInfoDescription) {
-                activitiesMedalInfoDescription.textContent = '';
-                activitiesMedalInfoDescription.classList.add('hidden');
-            }
-            return;
-        }
-
-        const emojiValue = activeMedalMeta?.emoji || '';
-        const normalizedCount = toNonNegativeInteger(activeMedalMeta?.count);
-        const countValue = normalizedCount.toLocaleString();
-        const rarityLabel = typeof activeMedalMeta?.category === 'string'
-            ? activeMedalMeta.category.trim()
-            : '';
-        const legacyCategory = typeof activeMedalMeta?.legacyCategory === 'string'
-            ? activeMedalMeta.legacyCategory.trim()
-            : '';
-        const descriptionText = typeof activeMedalMeta?.description === 'string'
-            ? activeMedalMeta.description.trim()
-            : '';
-        const rarityDescription = typeof activeMedalMeta?.rarityDescription === 'string'
-            ? activeMedalMeta.rarityDescription.trim()
-            : '';
-
-        activitiesMedalInfo.classList.remove('hidden');
-        activitiesMedalInfo.removeAttribute('aria-hidden');
-
+        activitiesMedalInfo.classList.add('hidden');
+        activitiesMedalInfo.setAttribute('aria-hidden', 'true');
         if (activitiesMedalInfoEmoji) {
-            activitiesMedalInfoEmoji.textContent = emojiValue;
-            activitiesMedalInfoEmoji.classList.toggle('hidden', !emojiValue);
+            activitiesMedalInfoEmoji.textContent = '';
+            activitiesMedalInfoEmoji.classList.add('hidden');
         }
-
         if (activitiesMedalInfoLabel) {
-            const labelParts = [];
-            if (emojiValue) {
-                labelParts.push(emojiValue);
-            }
-            if (activeMedalFilter) {
-                labelParts.push(activeMedalFilter);
-            }
-            activitiesMedalInfoLabel.textContent = labelParts.join(' ').trim();
+            activitiesMedalInfoLabel.textContent = '';
         }
-
         if (activitiesMedalInfoDescription) {
-            const infoParts = [];
-            if (rarityLabel) {
-                infoParts.push(rarityLabel);
-            }
-            if (legacyCategory && legacyCategory !== rarityLabel) {
-                infoParts.push(legacyCategory);
-            }
-            if (descriptionText) {
-                infoParts.push(descriptionText);
-            }
-            if (rarityDescription && rarityDescription !== descriptionText) {
-                infoParts.push(rarityDescription);
-            }
-            const progressSummary = formatMedalProgressText(activeMedalMeta?.progressStatus);
-            if (progressSummary) {
-                infoParts.push(`Progress ${progressSummary}`);
-            }
-            if (infoParts.length === 0) {
-                infoParts.push(normalizedCount > 0 ? `${countValue} earned` : 'Not earned yet');
-            }
-            activitiesMedalInfoDescription.textContent = infoParts.join(' • ');
-            activitiesMedalInfoDescription.classList.toggle('hidden', infoParts.length === 0);
+            activitiesMedalInfoDescription.textContent = '';
+            activitiesMedalInfoDescription.classList.add('hidden');
         }
     }
 
@@ -10324,26 +10261,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             activityFilterSummary.textContent = baseSummary;
         }
 
-        const filterDescriptors = describeActivityFilters(currentActivityFilters);
-        if (activeMedalFilter) {
-            const medalDescription = activeMedalMeta?.emoji
-                ? `Medal: ${activeMedalMeta.emoji} ${activeMedalFilter}`
-                : `Medal: ${activeMedalFilter}`;
-            filterDescriptors.push({ label: medalDescription });
-        }
-
-        const summaryLines = [];
-        summaryLines.push(activityFilterSummary.textContent);
-        if (filterDescriptors.length > 0) {
-            const filterSummaryText = filterDescriptors
-                .map(descriptor => descriptor.label)
-                .join(' · ');
-            summaryLines.push(`Filters: ${filterSummaryText}`);
-        }
-
-        activityFilterSummary.innerHTML = summaryLines
-            .map(line => `<span class="panel-card__summary-line">${escapeHtml(line)}</span>`)
-            .join('');
     };
 
     const requestActivitiesRender = (options = {}) => {

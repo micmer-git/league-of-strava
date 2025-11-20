@@ -14305,6 +14305,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (status === 'delta_sync_complete') {
             completeInitialLoading('Data refreshed successfully!');
             fadeOutSpinner();
+            if (syncResult.fullSyncTriggered) {
+                updateInitialLoadingState('finalize', 'active', 'Full history is syncing in the background.');
+            }
             return;
         }
 

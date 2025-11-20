@@ -1061,7 +1061,11 @@ app.post('/api/strava/sync', async (req, res) => {
       ? null
       : await getLatestUserSyncEntry(userId);
 
-    if (wantsFullHistoricalSync || !existingSyncEntry) {
+    const shouldTriggerFullSync = wantsFullHistoricalSync || !existingSyncEntry;
+    let fullSyncTriggered = false;
+
+    if (shouldTriggerFullSync) {
+      fullSyncTriggered = true;
       if (wantsFullHistoricalSync) {
         console.log(`User ${userId}: Kicking off FORCED full historical sync.`);
       } else {
@@ -1069,10 +1073,6 @@ app.post('/api/strava/sync', async (req, res) => {
       }
       runFullHistoricalSync(userId, accessToken, { athlete: athleteProfile }).catch((error) => {
         console.error(`User ${userId}: FAILED full historical sync.`, error);
-      });
-      return res.json({
-        status: 'full_sync_started',
-        forcedFullSync: wantsFullHistoricalSync,
       });
     }
 
@@ -1083,13 +1083,12 @@ app.post('/api/strava/sync', async (req, res) => {
       existingActivities = Array.isArray(historyResult.activities) ? historyResult.activities : [];
     } catch (payloadError) {
       console.warn(`User ${userId}: Unable to load stored activity history. Triggering full sync.`, payloadError);
-      runFullHistoricalSync(userId, accessToken, { athlete: athleteProfile }).catch((error) => {
-        console.error(`User ${userId}: FAILED full historical sync after history load error.`, error);
-      });
-      return res.json({
-        status: 'full_sync_started',
-        forcedFullSync: wantsFullHistoricalSync,
-      });
+      if (!fullSyncTriggered) {
+        fullSyncTriggered = true;
+        runFullHistoricalSync(userId, accessToken, { athlete: athleteProfile }).catch((error) => {
+          console.error(`User ${userId}: FAILED full historical sync after history load error.`, error);
+        });
+      }
     }
 
     const updatedData = await runDeltaSync(userId, accessToken, existingActivities);
@@ -1105,7 +1104,7 @@ app.post('/api/strava/sync', async (req, res) => {
       console.warn(`User ${userId}: Unable to persist snapshot after delta sync.`, persistError.message);
     }
 
-    return res.json({ status: 'delta_sync_complete', data: updatedData });
+    return res.json({ status: 'delta_sync_complete', data: updatedData, fullSyncTriggered });
   } catch (error) {
     console.error('Error initiating Strava sync:', error.message || error);
     const statusCode = error.statusCode || error.response?.status || 500;

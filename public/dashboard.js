@@ -1060,38 +1060,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activityDistanceMaxInput = document.getElementById('activity-distance-max');
     const activityElevationMinInput = document.getElementById('activity-elevation-min');
     const activityElevationMaxInput = document.getElementById('activity-elevation-max');
-    [
-        activityHoursMinInput,
-        activityHoursMaxInput,
-        activityDistanceMinInput,
-        activityDistanceMaxInput,
-        activityElevationMinInput,
-        activityElevationMaxInput,
-    ].forEach((input) => {
-        if (input) {
-            input.value = '';
-        }
-    });
+    const requestFilterContainer = document.getElementById('activities-request-filters');
+    const raceFilterWrapper = document.getElementById('activities-race-filter');
     const raceFilterSelect = document.getElementById('race-filter-select');
+    const climbFilterWrapper = document.getElementById('activities-climb-filter');
     const climbFilterSelect = document.getElementById('climb-filter-select');
     const climbAttemptsDetail = document.getElementById('climb-attempts-detail');
     const climbAttemptsSummary = document.getElementById('climb-attempts-summary');
     const climbAttemptsList = document.getElementById('climb-attempts-list');
-    const yearFilterHint = document.getElementById('year-filter-hint');
-    const typeFilterHint = document.getElementById('type-filter-hint');
-    const raceFilterHint = document.getElementById('race-filter-hint');
-    const climbFilterHint = document.getElementById('climb-filter-hint');
-    const rangeDisplayElements = {
-        hours: document.querySelector('[data-range-display="hours"]'),
-        distance: document.querySelector('[data-range-display="distance"]'),
-        elevation: document.querySelector('[data-range-display="elevation"]'),
-    };
     const rankProgressTriggerElement = document.getElementById('rank-progress-trigger');
     const activityFilterForm = document.getElementById('activities-filter-form');
     const activitiesFilterModal = document.getElementById('activities-filter-modal');
     let activitiesFilterOpenButton = document.getElementById('activities-filter-open');
     const activitiesFilterDismissButtons = Array.from(document.querySelectorAll('[data-activities-filter-dismiss]'));
+    const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
+    const filterCollapsibleElements = Array.from(document.querySelectorAll('[data-filter-collapsible]'));
     const countryFilterList = document.getElementById('country-filter-list');
     const countryFilterEmptyState = document.getElementById('country-filter-empty');
     let loadMoreButton = document.getElementById('load-more-btn');
@@ -1529,6 +1513,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletMetricsCache = { key: null, metrics: [] };
     const rewardSummaryCache = { key: null, summary: null };
     let visibleMedalCount = 0;
+    let activeQuickFilter = null;
     let lastShareData = null;
     let shareCopyResetTimeout = null;
 
@@ -9877,53 +9862,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    const updateRangeDisplay = (displayElement, minInput, maxInput, unitSuffix = '', decimals = 0) => {
-        if (!displayElement) {
-            return;
-        }
-
-        const minValue = parseNumberInputValue(minInput);
-        const maxValue = parseNumberInputValue(maxInput);
-
-        if (minValue === null && maxValue === null) {
-            displayElement.textContent = 'Any';
-            return;
-        }
-
-        const formatValue = (value) => formatNumberWithDecimals(value, decimals) + unitSuffix;
-
-        if (minValue !== null && maxValue !== null) {
-            displayElement.textContent = `${formatValue(minValue)}–${formatValue(maxValue)}`;
-            return;
-        }
-
-        if (minValue !== null) {
-            displayElement.textContent = `≥ ${formatValue(minValue)}`;
-            return;
-        }
-
-        displayElement.textContent = `≤ ${formatValue(maxValue)}`;
-    };
-
-    const refreshRangeDisplays = () => {
-        updateRangeDisplay(rangeDisplayElements.hours, activityHoursMinInput, activityHoursMaxInput, 'h', 1);
-        updateRangeDisplay(rangeDisplayElements.distance, activityDistanceMinInput, activityDistanceMaxInput, ' km');
-        updateRangeDisplay(rangeDisplayElements.elevation, activityElevationMinInput, activityElevationMaxInput, ' m');
-    };
-
-    const refreshFilterHints = () => {
-        if (yearFilterHint && yearSelect) {
-            const yearValue = (yearSelect.value || '').trim();
-            yearFilterHint.textContent = yearValue ? yearValue : 'Any';
-        }
-        if (typeFilterHint && activityTypeFilter) {
-            const typeValue = (activityTypeFilter.value || '').trim();
-            typeFilterHint.textContent = typeValue && typeValue !== 'all'
-                ? formatActivityTypeLabel(typeValue)
-                : 'Any';
-        }
-    };
-
     const formatActivityTypeLabel = (type = '') => {
         if (typeof type !== 'string' || type.trim() === '') {
             return '';
@@ -10136,12 +10074,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 activityTypeFilter.value = 'all';
             }
-
-            refreshFilterHints();
         }
 
         renderCountryFilterChips(buildCountryStatsFromActivities(activities));
 
+    };
+
+    const clearQuickFilterSelection = () => {
+        activeQuickFilter = null;
+        quickFilterButtons.forEach((button) => {
+            button.classList.remove('is-active');
+            button.setAttribute('aria-pressed', 'false');
+        });
     };
 
     const formatRangeDescription = (minValue = null, maxValue = null, label = '', decimals = 0, unitSuffix = '') => {
@@ -10173,6 +10117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (activityTypeFilter) {
                         setSelectValue(activityTypeFilter, 'all');
                     }
+                    clearQuickFilterSelection();
                     return true;
                 }
             });
@@ -10195,6 +10140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (maxInput) {
                         maxInput.value = '';
                     }
+                    clearQuickFilterSelection();
                     return true;
                 }
             });
@@ -10925,8 +10871,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         clearCountryFilterSelection();
         currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
-        refreshRangeDisplays();
-        refreshFilterHints();
+        clearQuickFilterSelection();
+    };
+
+    const quickFilterHandlers = {
+        endurance: () => {
+            setSelectValue(activityTypeFilter, 'ride');
+            if (activityHoursMinInput) activityHoursMinInput.value = '3';
+            if (activityDistanceMinInput) activityDistanceMinInput.value = '80';
+            if (activityElevationMinInput) activityElevationMinInput.value = '';
+            if (activityHoursMaxInput) activityHoursMaxInput.value = '';
+            if (activityDistanceMaxInput) activityDistanceMaxInput.value = '';
+            if (activityElevationMaxInput) activityElevationMaxInput.value = '';
+        },
+        'climb-day': () => {
+            setSelectValue(activityTypeFilter, 'ride');
+            if (activityElevationMinInput) activityElevationMinInput.value = '1200';
+            if (activityHoursMinInput) activityHoursMinInput.value = '';
+            if (activityDistanceMinInput) activityDistanceMinInput.value = '';
+            if (activityHoursMaxInput) activityHoursMaxInput.value = '';
+            if (activityDistanceMaxInput) activityDistanceMaxInput.value = '';
+            if (activityElevationMaxInput) activityElevationMaxInput.value = '';
+        },
+        recovery: () => {
+            setSelectValue(activityTypeFilter, 'all');
+            if (activityHoursMinInput) activityHoursMinInput.value = '';
+            if (activityDistanceMinInput) activityDistanceMinInput.value = '';
+            if (activityElevationMinInput) activityElevationMinInput.value = '';
+            if (activityHoursMaxInput) activityHoursMaxInput.value = '1.5';
+            if (activityDistanceMaxInput) activityDistanceMaxInput.value = '40';
+            if (activityElevationMaxInput) activityElevationMaxInput.value = '600';
+        }
     };
 
     const buildRaceRequestEntry = (request = {}) => {
@@ -11335,9 +11310,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         climbSegmentActivityMatches = segmentToActivities;
         activityClimbMatches = activityToSegments;
 
-        if (raceFilterSelect) {
+        if (raceFilterWrapper && raceFilterSelect) {
             const hasRaces = raceRequestMap.size > 0;
-            raceFilterSelect.disabled = !hasRaces;
+            raceFilterWrapper.hidden = !hasRaces;
             raceFilterSelect.innerHTML = '<option value="">All races</option>'
                 + Array.from(raceRequestMap.values())
                     .map(race => `<option value="${race.id}">${escapeHtml(race.label)}</option>`)
@@ -11346,14 +11321,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 currentActivityFilters.raceRequestId = null;
                 raceFilterSelect.value = '';
             }
-            if (raceFilterHint) {
-                raceFilterHint.textContent = hasRaces ? 'Optional' : 'No races yet';
-            }
         }
 
-        if (climbFilterSelect) {
+        if (climbFilterWrapper && climbFilterSelect) {
             const hasClimbs = climbRequestMap.size > 0;
-            climbFilterSelect.disabled = !hasClimbs;
+            climbFilterWrapper.hidden = !hasClimbs;
             const climbOptions = Array.from(climbRequestMap.values())
                 .sort((a, b) => {
                     const aLabel = a.label || '';
@@ -11373,9 +11345,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 currentActivityFilters.climbSegmentId = null;
                 climbFilterSelect.value = '';
             }
-            if (climbFilterHint) {
-                climbFilterHint.textContent = hasClimbs ? 'Optional' : 'No climbs yet';
-            }
+        }
+
+        if (requestFilterContainer) {
+            const shouldShowContainer = (raceRequestMap.size > 0) || (climbRequestMap.size > 0);
+            requestFilterContainer.hidden = !shouldShowContainer;
         }
 
         renderClimbAttemptsDetail(currentActivityFilters.climbSegmentId);
@@ -15337,16 +15311,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, FILTER_APPLY_DELAY_MS);
     };
 
+    filterCollapsibleElements.forEach((collapsible, index) => {
+        if (!collapsible) {
+            return;
+        }
+
+        const trigger = collapsible.querySelector('[data-filter-toggle]');
+        const content = collapsible.querySelector('[data-filter-content]');
+
+        if (!trigger || !content) {
+            return;
+        }
+
+        if (!content.id) {
+            content.id = `filter-content-${index + 1}`;
+        }
+
+        trigger.setAttribute('aria-controls', content.id);
+
+        const setExpanded = (expanded) => {
+            collapsible.classList.toggle('is-open', expanded);
+            trigger.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            content.hidden = !expanded;
+        };
+
+        setExpanded(false);
+
+        trigger.addEventListener('click', () => {
+            const expanded = collapsible.classList.contains('is-open');
+            setExpanded(!expanded);
+        });
+
+        trigger.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setExpanded(false);
+                trigger.focus();
+            }
+        });
+    });
+
     if (yearSelect) {
         yearSelect.addEventListener('change', () => {
-            refreshFilterHints();
             scheduleFilterApply({ preserveVisibleCount: false });
         });
     }
 
     if (activityTypeFilter) {
         activityTypeFilter.addEventListener('change', () => {
-            refreshFilterHints();
             scheduleFilterApply({ preserveVisibleCount: false });
         });
     }
@@ -15364,14 +15375,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         ['input', 'change'].forEach(eventName => {
             input.addEventListener(eventName, () => {
-                refreshRangeDisplays();
                 scheduleFilterApply({ preserveVisibleCount: false });
             });
         });
     });
-
-    refreshRangeDisplays();
-    refreshFilterHints();
 
     if (countryFilterList) {
         countryFilterList.addEventListener('click', (event) => {
@@ -15473,10 +15480,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 climbFilterSelect.value = '';
                 renderClimbAttemptsDetail(null);
             }
-            if (raceFilterHint) {
-                const label = raceFilterSelect.options[raceFilterSelect.selectedIndex]?.textContent;
-                raceFilterHint.textContent = selectedRace && label ? label : 'Optional';
-            }
             requestActivitiesRender({ preserveVisibleCount: false });
         });
     }
@@ -15490,13 +15493,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                 raceFilterSelect.value = '';
             }
             renderClimbAttemptsDetail(selectedClimb);
-            if (climbFilterHint) {
-                const label = climbFilterSelect.options[climbFilterSelect.selectedIndex]?.textContent;
-                climbFilterHint.textContent = selectedClimb && label ? label : 'Optional';
-            }
             requestActivitiesRender({ preserveVisibleCount: false });
         });
     }
+
+    quickFilterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const filterKey = button?.dataset?.quickFilter;
+            if (!filterKey) {
+                return;
+            }
+
+            if (activeQuickFilter === filterKey) {
+                resetActivityFilterInputs();
+                requestActivitiesRender({ preserveVisibleCount: false });
+                return;
+            }
+
+            activeQuickFilter = filterKey;
+            quickFilterButtons.forEach(btn => {
+                const isActive = btn === button;
+                btn.classList.toggle('is-active', isActive);
+                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+
+            const handler = quickFilterHandlers[filterKey];
+            if (typeof handler === 'function') {
+                handler();
+            }
+
+            scheduleFilterApply({ preserveVisibleCount: false });
+        });
+    });
 
     if (shareButton) {
         shareButton.addEventListener('click', async () => {

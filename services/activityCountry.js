@@ -273,6 +273,55 @@ const resolveCountryFromLatLng = (lat, lon, { confidence = 0.72, source = 'coord
   };
 };
 
+const resolveCountryFromRegionValue = (regionValue) => {
+  if (!regionValue) {
+    return null;
+  }
+  if (typeof regionValue === 'string') {
+    const code = lookupCountryCode(regionValue);
+    return code ? { code, source: 'region', confidence: 0.995 } : null;
+  }
+  if (Array.isArray(regionValue)) {
+    for (const entry of regionValue) {
+      const resolved = resolveCountryFromRegionValue(entry);
+      if (resolved) {
+        return resolved;
+      }
+    }
+    return null;
+  }
+  if (typeof regionValue !== 'object') {
+    return null;
+  }
+
+  const regionFields = [
+    regionValue.country,
+    regionValue.country_code,
+    regionValue.countryCode,
+    regionValue.code,
+    regionValue.name,
+    regionValue.region,
+    regionValue.region_name,
+    regionValue.regionName,
+    regionValue.abbrev,
+    regionValue.abbreviation,
+    regionValue.display_name,
+    regionValue.displayName,
+  ];
+
+  for (const field of regionFields) {
+    if (!field) {
+      continue;
+    }
+    const resolved = resolveCountryFromRegionValue(field);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return null;
+};
+
 const registerCandidate = (candidates, candidate) => {
   if (!candidate?.code) {
     return;
@@ -306,6 +355,14 @@ const resolveCountryForActivity = (activity = {}) => {
       source: activity.country_source || 'existing',
     });
   }
+
+  const regionHints = [activity.region, activity.location_region, activity.activity_region].filter(Boolean);
+  regionHints.forEach((regionHint) => {
+    const resolved = resolveCountryFromRegionValue(regionHint);
+    if (resolved) {
+      registerCandidate(candidates, resolved);
+    }
+  });
 
   const directCountryCode = lookupCountryCode(activity.location_country || activity.country);
   if (directCountryCode) {

@@ -303,14 +303,28 @@
       const HOURS_PER_LEVEL = 100;
       const baseRankGroups = [
         { name: 'Wood', emoji: '🪵', levels: 10 },
-        { name: 'Steel', emoji: '⚙️', levels: 10 },
+        { name: 'Metal', emoji: '⚙️', levels: 10 },
         { name: 'Bronze', emoji: '🥉', levels: 10 },
         { name: 'Silver', emoji: '🥈', levels: 10 },
         { name: 'Gold', emoji: '🥇', levels: 10 },
         { name: 'Platinum', emoji: '💎', levels: 10 },
       ];
-      const PRESTIGE_LEVELS = 100;
-      const PRESTIGE_EMOJI = '🏆';
+
+      const prestigeGroups = [
+        { name: 'Prestige 1', emoji: '🍎', levels: 10 },
+        { name: 'Prestige 2', emoji: '🍌', levels: 10 },
+        { name: 'Prestige 3', emoji: '🍇', levels: 10 },
+        { name: 'Prestige 4', emoji: '🍉', levels: 10 },
+        { name: 'Prestige 5', emoji: '🍒', levels: 10 },
+        { name: 'Prestige 6', emoji: '🍍', levels: 10 },
+        { name: 'Prestige 7', emoji: '🥑', levels: 10 },
+        { name: 'Prestige 8', emoji: '🌮', levels: 10 },
+        { name: 'Prestige 9', emoji: '🍣', levels: 10 },
+        { name: 'Prestige 10', emoji: '🍕', levels: 10 },
+      ];
+
+      const MASTER_PRESTIGE_LEVELS = 100;
+      const MASTER_PRESTIGE_EMOJI = '👑';
 
       const buildRankLevels = () => {
         const levels = [];
@@ -324,11 +338,21 @@
             });
           }
         });
-        for (let prestige = PRESTIGE_LEVELS; prestige >= 1; prestige -= 1) {
+        prestigeGroups.forEach((group) => {
+          for (let level = group.levels; level >= 1; level -= 1) {
+            const index = levels.length;
+            levels.push({
+              name: `${group.name} ${level}`,
+              emoji: group.emoji,
+              minHours: index * HOURS_PER_LEVEL,
+            });
+          }
+        });
+        for (let master = MASTER_PRESTIGE_LEVELS; master >= 1; master -= 1) {
           const index = levels.length;
           levels.push({
-            name: `Prestige ${prestige}`,
-            emoji: PRESTIGE_EMOJI,
+            name: `Master Prestige ${master}`,
+            emoji: MASTER_PRESTIGE_EMOJI,
             minHours: index * HOURS_PER_LEVEL,
           });
         }
@@ -350,8 +374,8 @@
 
         const currentRank = rankLevels[currentIndex];
         const nextRank = rankLevels[currentIndex + 1] || {
-          name: 'Prestige ∞',
-          emoji: PRESTIGE_EMOJI,
+          name: 'Master Prestige ∞',
+          emoji: MASTER_PRESTIGE_EMOJI,
           minHours: currentRank.minHours + HOURS_PER_LEVEL,
         };
 

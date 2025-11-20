@@ -2923,6 +2923,10 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     gap: 1.25rem;
 }
 
+.filter-form__grid--two-column {
+    gap: 1.25rem 1.5rem;
+}
+
 .filter-banner {
     display: flex;
     flex-wrap: wrap;
@@ -3031,6 +3035,31 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     .filter-form__grid {
         grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
     }
+
+    .filter-form__grid--two-column {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.filter-stack {
+    display: grid;
+    gap: 0.75rem;
+    background: rgba(248, 250, 252, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+}
+
+.dark .filter-stack {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(148, 163, 184, 0.5);
+}
+
+.filter-stack__title {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
 }
 
 .filter-quick-actions {
@@ -3134,10 +3163,65 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     width: 100%;
 }
 
+.filter-form__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    position: sticky;
+    bottom: 0;
+    padding: 0.5rem 0.35rem 0 0.35rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 60%, rgba(255, 255, 255, 0.6) 100%);
+    backdrop-filter: blur(6px);
+}
+
+@media (max-width: 639px) {
+    .filter-form__actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.dark .filter-form__actions {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.85) 60%, rgba(15, 23, 42, 0.7) 100%);
+}
+
 .activities-list {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+}
+
+.activity-card__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.activity-card__value-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #15803d;
+    padding: 0.2rem 0.55rem;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.dark .activity-card__value-tag {
+    color: #4ade80;
+    background: rgba(21, 128, 61, 0.35);
+    border-color: rgba(74, 222, 128, 0.35);
+}
+
+.activity-card__emoji {
+    font-size: 1rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
 }
 
 .activities-panel {
@@ -5007,10 +5091,11 @@ body.dark .activity-card__title-link:focus-visible,
     inset-inline: 0;
     bottom: 0;
     background: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.35);
     border-top-left-radius: 24px;
     border-top-right-radius: 24px;
-    padding: clamp(1.25rem, 4vw, 1.75rem);
-    max-height: min(85vh, 640px);
+    padding: clamp(1.4rem, 4vw, 2rem);
+    max-height: min(90vh, 720px);
     overflow-y: auto;
     box-shadow: 0 -24px 60px rgba(15, 23, 42, 0.25);
 }
@@ -5061,8 +5146,8 @@ body.dark .activity-card__title-link:focus-visible,
         inset: 50% auto auto 50%;
         transform: translate(-50%, -50%);
         border-radius: var(--radius-lg);
-        max-height: 75vh;
-        width: min(540px, calc(100vw - 4rem));
+        max-height: 80vh;
+        width: min(720px, calc(100vw - 4rem));
     }
 }
 

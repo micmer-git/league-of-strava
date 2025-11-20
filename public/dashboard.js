@@ -1075,6 +1075,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activitiesFilterOpenButton = document.getElementById('activities-filter-open');
     const activitiesFilterDismissButtons = Array.from(document.querySelectorAll('[data-activities-filter-dismiss]'));
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
+    const filterShortcutButtons = Array.from(document.querySelectorAll('[data-filter-shortcut]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
     const filterCollapsibleElements = Array.from(document.querySelectorAll('[data-filter-collapsible]'));
     const countryFilterList = document.getElementById('country-filter-list');
@@ -10854,6 +10855,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const filterShortcutHandlers = {
+        top: () => {
+            setSelectValue(activitySortSelect, 'duration-desc');
+        },
+        money: () => {
+            setSelectValue(activitySortSelect, 'balance-desc');
+        },
+        ride: () => {
+            setSelectValue(activityTypeFilter, 'ride');
+        },
+        swim: () => {
+            setSelectValue(activityTypeFilter, 'swim');
+        },
+        bike: () => {
+            setSelectValue(activityTypeFilter, 'ride');
+        }
+    };
+
+    const applyFilterShortcut = (shortcutKey) => {
+        const normalizedKey = (shortcutKey || '').toLowerCase();
+        const handler = filterShortcutHandlers[normalizedKey];
+        if (typeof handler === 'function') {
+            handler();
+        }
+
+        if (filterApplyTimeout) {
+            clearTimeout(filterApplyTimeout);
+            filterApplyTimeout = null;
+        }
+
+        clearQuickFilterSelection();
+        activeQuickFilter = null;
+        requestActivitiesRender({ preserveVisibleCount: false });
+        closeActivitiesFilterModal();
+        navigateToActivitiesPanel();
+    };
+
     const buildRaceRequestEntry = (request = {}) => {
         const requestId = (request.requestUid || request.timestamp || `race-${Math.random().toString(36).slice(2)}`).toString();
         const raceDate = request.raceDate ? new Date(request.raceDate) : null;
@@ -15202,6 +15240,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const navigateToActivitiesPanel = () => {
+        mapsTo('activities', { focusTab: true });
+    };
+
     function applyFilters(options = {}) {
         const { preserveVisibleCount = false } = options;
         if (!Array.isArray(allData.activities)) {
@@ -15411,30 +15453,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    if (resetActivityFiltersButton) {
-        resetActivityFiltersButton.addEventListener('click', () => {
-            if (filterApplyTimeout) {
-                clearTimeout(filterApplyTimeout);
-                filterApplyTimeout = null;
-            }
-            resetActivityFilterInputs();
-            resetMedalFilterState();
-            requestActivitiesRender({ preserveVisibleCount: false });
-            closeActivitiesFilterModal();
-        });
-    }
+        if (resetActivityFiltersButton) {
+            resetActivityFiltersButton.addEventListener('click', () => {
+                if (filterApplyTimeout) {
+                    clearTimeout(filterApplyTimeout);
+                    filterApplyTimeout = null;
+                }
+                resetActivityFilterInputs();
+                resetMedalFilterState();
+                requestActivitiesRender({ preserveVisibleCount: false });
+                closeActivitiesFilterModal();
+                navigateToActivitiesPanel();
+            });
+        }
 
-    if (activityFilterForm) {
-        activityFilterForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            if (filterApplyTimeout) {
-                clearTimeout(filterApplyTimeout);
-                filterApplyTimeout = null;
-            }
-            requestActivitiesRender({ preserveVisibleCount: false });
-            closeActivitiesFilterModal();
-        });
-    }
+        if (activityFilterForm) {
+            activityFilterForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                if (filterApplyTimeout) {
+                    clearTimeout(filterApplyTimeout);
+                    filterApplyTimeout = null;
+                }
+                requestActivitiesRender({ preserveVisibleCount: false });
+                closeActivitiesFilterModal();
+                navigateToActivitiesPanel();
+            });
+        }
 
     if (raceFilterSelect) {
         raceFilterSelect.addEventListener('change', () => {
@@ -15488,6 +15532,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             scheduleFilterApply({ preserveVisibleCount: false });
+            closeActivitiesFilterModal();
+            navigateToActivitiesPanel();
+        });
+    });
+
+    filterShortcutButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const shortcutKey = button?.dataset?.filterShortcut;
+            if (!shortcutKey) {
+                return;
+            }
+            applyFilterShortcut(shortcutKey);
         });
     });
 

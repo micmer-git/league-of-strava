@@ -3158,9 +3158,10 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     border-radius: 9999px;
     color: #0f172a;
     display: inline-flex;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.35rem 0.65rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    gap: 0.5rem;
+    padding: 0.5rem 0.85rem;
 }
 
 .filter-active-tags__pill::before {
@@ -3168,13 +3169,13 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     border-radius: 9999px;
     content: '';
     display: inline-block;
-    height: 0.45rem;
-    margin-right: 0.4rem;
-    width: 0.45rem;
+    height: 0.55rem;
+    margin-right: 0;
+    width: 0.55rem;
 }
 
 .filter-active-tags__pill-text {
-    line-height: 1.1;
+    line-height: 1.2;
 }
 
 .filter-active-tags__pill-remove {
@@ -3184,11 +3185,14 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     color: inherit;
     cursor: pointer;
     display: inline-flex;
-    font-size: 0.85em;
-    font-weight: 700;
+    font-size: 1.15em;
+    font-weight: 800;
+    height: 1.75rem;
+    justify-content: center;
     line-height: 1;
-    margin-left: 0.35rem;
-    padding: 0;
+    margin-left: 0.25rem;
+    padding: 0.1rem;
+    width: 1.75rem;
     transition: opacity 0.15s ease, transform 0.15s ease;
 }
 

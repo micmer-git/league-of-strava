@@ -2673,9 +2673,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     let highlightedWalletSnapshotElement = null;
     let hasActivitiesState = false;
 
-    const MASTER_PRESTIGE_MAX = 1000;
-    const MASTER_PRESTIGE_START_HOURS = 4000;
-    const MAX_RANK_HOURS = 20000;
+    const HOURS_PER_RANK_LEVEL = 100;
+    const BASE_RANK_GROUPS = [
+        { name: 'Wood', emoji: '🪵', levels: 10 },
+        { name: 'Metal', emoji: '⚙️', levels: 10 },
+        { name: 'Bronze', emoji: '🥉', levels: 10 },
+        { name: 'Silver', emoji: '🥈', levels: 10 },
+        { name: 'Gold', emoji: '🥇', levels: 10 },
+        { name: 'Platinum', emoji: '💎', levels: 10 },
+    ];
+    const PRESTIGE_GROUPS = [
+        { name: 'Prestige 1', emoji: '🍎', levels: 10 },
+        { name: 'Prestige 2', emoji: '🍌', levels: 10 },
+        { name: 'Prestige 3', emoji: '🍇', levels: 10 },
+        { name: 'Prestige 4', emoji: '🍉', levels: 10 },
+        { name: 'Prestige 5', emoji: '🍒', levels: 10 },
+        { name: 'Prestige 6', emoji: '🍍', levels: 10 },
+        { name: 'Prestige 7', emoji: '🥑', levels: 10 },
+        { name: 'Prestige 8', emoji: '🌮', levels: 10 },
+        { name: 'Prestige 9', emoji: '🍣', levels: 10 },
+        { name: 'Prestige 10', emoji: '🍕', levels: 10 },
+    ];
+    const MASTER_PRESTIGE_LEVELS = 100;
+    const MASTER_PRESTIGE_EMOJI = '👑';
+
+    const buildRankConfig = () => {
+        const levels = [];
+
+        const addGroupLevels = (group) => {
+            for (let level = group.levels; level >= 1; level -= 1) {
+                const index = levels.length;
+                levels.push({
+                    name: `${group.name} ${level}`,
+                    emoji: group.emoji,
+                    minHours: index * HOURS_PER_RANK_LEVEL,
+                });
+            }
+        };
+
+        BASE_RANK_GROUPS.forEach(addGroupLevels);
+        PRESTIGE_GROUPS.forEach(addGroupLevels);
+
+        for (let master = MASTER_PRESTIGE_LEVELS; master >= 1; master -= 1) {
+            const index = levels.length;
+            levels.push({
+                name: `Master Prestige ${master}`,
+                emoji: MASTER_PRESTIGE_EMOJI,
+                minHours: index * HOURS_PER_RANK_LEVEL,
+            });
+        }
+
+        return levels;
+    };
+
+    const RANK_CONFIG = buildRankConfig();
+    const TOTAL_RANK_LEVELS = RANK_CONFIG.length;
 
     const rankTriggerElements = [
         currentRankElement,
@@ -3676,10 +3728,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (levelProgressElement) {
-            const levelCap = MASTER_PRESTIGE_MAX;
-            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
+            const levelCap = TOTAL_RANK_LEVELS;
             const level = hasActivities
-                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
+                ? Math.min(rankProgressState.currentRankIndex + 1, levelCap)
                 : 0;
 
             levelProgressElement.textContent = `(${level}/${levelCap})`;
@@ -13404,65 +13455,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const medalOrderMap = new Map(medalsConfig.map((medal, index) => [medal.name, index]));
 
     // === Rank Configuration ===
-    const baseRanks = [
-        { name: 'Bronze 3', emoji: '🥉', minHours: 0 },
-        { name: 'Bronze 2', emoji: '🥉', minHours: 100 },
-        { name: 'Bronze 1', emoji: '🥉', minHours: 200 },
-        { name: 'Silver 3', emoji: '🥈', minHours: 300 },
-        { name: 'Silver 2', emoji: '🥈', minHours: 400 },
-        { name: 'Silver 1', emoji: '🥈', minHours: 500 },
-        { name: 'Gold 3', emoji: '🥇', minHours: 600 },
-        { name: 'Gold 2', emoji: '🥇', minHours: 700 },
-        { name: 'Gold 1', emoji: '🥇', minHours: 800 },
-        { name: 'Platinum 3', emoji: '🏆', minHours: 900 },
-        { name: 'Platinum 2', emoji: '🏆', minHours: 1000 },
-        { name: 'Platinum 1', emoji: '🏆', minHours: 1100 },
-        { name: 'Diamond 3', emoji: '💎', minHours: 1200 },
-        { name: 'Diamond 2', emoji: '💎', minHours: 1300 },
-        { name: 'Diamond 1', emoji: '💎', minHours: 1400 },
-        { name: 'Master 3', emoji: '🔥', minHours: 1500 },
-        { name: 'Master 2', emoji: '🔥', minHours: 1600 },
-        { name: 'Master 1', emoji: '🔥', minHours: 1700 },
-        { name: 'Grandmaster 3', emoji: '🚀', minHours: 1800 },
-        { name: 'Grandmaster 2', emoji: '🚀', minHours: 1900 },
-        { name: 'Grandmaster 1', emoji: '🚀', minHours: 2000 },
-        { name: 'Challenger', emoji: '🌟', minHours: 2100 },
-        { name: 'Ascendant', emoji: '✨', minHours: 2300 },
-        { name: 'Paragon', emoji: '🛡️', minHours: 2600 },
-        { name: 'Mythic', emoji: '🐉', minHours: 2900 },
-        { name: 'Celestial', emoji: '🌠', minHours: 3200 },
-        { name: 'Eternal', emoji: '♾️', minHours: 3500 },
-        { name: 'Transcendent', emoji: '🧬', minHours: 3800 },
-        { name: 'Apex', emoji: '🗻', minHours: 3900 }
-    ];
-
-    const masterPrestigeIncrement = (MASTER_PRESTIGE_MAX > 1)
-        ? (MAX_RANK_HOURS - MASTER_PRESTIGE_START_HOURS) / (MASTER_PRESTIGE_MAX - 1)
-        : 0;
-
-    let lastPrestigeMinHours = MASTER_PRESTIGE_START_HOURS - 1;
-    const masterPrestigeRanks = Array.from({ length: MASTER_PRESTIGE_MAX }, (_, index) => {
-        const computedHours = index === MASTER_PRESTIGE_MAX - 1
-            ? MAX_RANK_HOURS
-            : MASTER_PRESTIGE_START_HOURS + (index * masterPrestigeIncrement);
-        const roundedHours = Math.round(computedHours);
-        const minHours = index === 0
-            ? MASTER_PRESTIGE_START_HOURS
-            : Math.max(lastPrestigeMinHours + 1, roundedHours);
-        lastPrestigeMinHours = minHours;
-        return {
-            name: `Master Prestige ${index + 1}`,
-            emoji: '⭐',
-            minHours
-        };
-    });
-
-    const rankConfig = [
-        ...baseRanks,
-        ...masterPrestigeRanks
-    ];
-
-    activeRankConfig = rankConfig;
+    activeRankConfig = RANK_CONFIG;
 
     // === Coin Configuration ===
     function getActivityMedals(activity = {}) {
@@ -14381,6 +14374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // === Ranking System ===
+        const rankConfig = Array.isArray(activeRankConfig) ? activeRankConfig : [];
         let currentRank = rankConfig[0];
         let currentRankIndex = 0;
 
@@ -14461,10 +14455,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (levelProgressElement) {
-            const levelCap = MASTER_PRESTIGE_MAX;
-            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
+            const levelCap = TOTAL_RANK_LEVELS;
             const level = hasActivities
-                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
+                ? Math.min(rankProgressState.currentRankIndex + 1, levelCap)
                 : 0;
 
             levelProgressElement.innerHTML = '';

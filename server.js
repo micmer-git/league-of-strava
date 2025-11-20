@@ -61,7 +61,7 @@ const COIN_VALUE_MAP = {
 };
 const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
 
-const HOURS_PER_RANK_LEVEL = 100;
+const BASE_RANK_HOURS_PER_LEVEL = 100;
 const BASE_RANK_GROUPS = [
   { name: 'Wood', emoji: '🪵', levels: 10 },
   { name: 'Metal', emoji: '⚙️', levels: 10 },
@@ -71,52 +71,65 @@ const BASE_RANK_GROUPS = [
   { name: 'Platinum', emoji: '💎', levels: 10 },
 ];
 
+const PRESTIGE_HOURS_PER_LEVEL = 20;
 const PRESTIGE_GROUPS = [
-  { name: 'Prestige 1', emoji: '🍎', levels: 10 },
-  { name: 'Prestige 2', emoji: '🍌', levels: 10 },
-  { name: 'Prestige 3', emoji: '🍇', levels: 10 },
-  { name: 'Prestige 4', emoji: '🍉', levels: 10 },
-  { name: 'Prestige 5', emoji: '🍒', levels: 10 },
-  { name: 'Prestige 6', emoji: '🍍', levels: 10 },
-  { name: 'Prestige 7', emoji: '🥑', levels: 10 },
-  { name: 'Prestige 8', emoji: '🌮', levels: 10 },
-  { name: 'Prestige 9', emoji: '🍣', levels: 10 },
-  { name: 'Prestige 10', emoji: '🍕', levels: 10 },
+  { prestigeNumber: 1, emoji: '🍎', levels: 10 },
+  { prestigeNumber: 2, emoji: '🍌', levels: 10 },
+  { prestigeNumber: 3, emoji: '🍇', levels: 10 },
+  { prestigeNumber: 4, emoji: '🍉', levels: 10 },
+  { prestigeNumber: 5, emoji: '🍒', levels: 10 },
+  { prestigeNumber: 6, emoji: '🍍', levels: 10 },
+  { prestigeNumber: 7, emoji: '🥑', levels: 10 },
+  { prestigeNumber: 8, emoji: '🌮', levels: 10 },
+  { prestigeNumber: 9, emoji: '🍣', levels: 10 },
+  { prestigeNumber: 10, emoji: '🍕', levels: 10 },
 ];
 
 const MASTER_PRESTIGE_LEVELS = 100;
+const MASTER_PRESTIGE_HOURS_PER_LEVEL = 100;
 const MASTER_PRESTIGE_EMOJI = '👑';
 
 function buildRankLevels() {
   const levels = [];
-  const addGroupLevels = (group) => {
-    for (let level = group.levels; level >= 1; level -= 1) {
-      const index = levels.length;
+  let currentMinHours = 0;
+
+  const addGroupLevels = (group, hoursPerLevel, nameBuilder) => {
+    const levelNameBuilder = typeof nameBuilder === 'function'
+      ? nameBuilder
+      : (level) => `${group.name} ${level}`;
+
+    for (let level = 1; level <= group.levels; level += 1) {
       levels.push({
-        name: `${group.name} ${level}`,
+        name: levelNameBuilder(level),
         emoji: group.emoji,
-        minHours: index * HOURS_PER_RANK_LEVEL,
+        minHours: currentMinHours,
+        hoursPerLevel,
       });
+      currentMinHours += hoursPerLevel;
     }
   };
 
-  BASE_RANK_GROUPS.forEach(addGroupLevels);
-  PRESTIGE_GROUPS.forEach(addGroupLevels);
+  BASE_RANK_GROUPS.forEach(group => addGroupLevels(group, BASE_RANK_HOURS_PER_LEVEL));
+  PRESTIGE_GROUPS.forEach(group => addGroupLevels(
+    group,
+    PRESTIGE_HOURS_PER_LEVEL,
+    (level) => `Prestige ${group.prestigeNumber} - Level ${level}`,
+  ));
 
-  for (let master = MASTER_PRESTIGE_LEVELS; master >= 1; master -= 1) {
-    const index = levels.length;
+  for (let master = 1; master <= MASTER_PRESTIGE_LEVELS; master += 1) {
     levels.push({
       name: `Master Prestige ${master}`,
       emoji: MASTER_PRESTIGE_EMOJI,
-      minHours: index * HOURS_PER_RANK_LEVEL,
+      minHours: currentMinHours,
+      hoursPerLevel: MASTER_PRESTIGE_HOURS_PER_LEVEL,
     });
+    currentMinHours += MASTER_PRESTIGE_HOURS_PER_LEVEL;
   }
 
   return levels;
 }
 
 const RANK_LEVELS = buildRankLevels();
-const MAX_RANK_INDEX = Math.max(RANK_LEVELS.length - 1, 0);
 
 const CACHE_STORAGE_DIR = process.env.CACHE_STORAGE_DIR
   ? path.resolve(process.env.CACHE_STORAGE_DIR)
@@ -4212,12 +4225,22 @@ function computeLeaderboardMetrics(activities = []) {
 function getRankProgress(totalHours = 0) {
   const numericHours = Number(totalHours);
   const normalizedHours = Number.isFinite(numericHours) ? Math.max(0, numericHours) : 0;
-  const levelIndex = Math.min(Math.floor(normalizedHours / HOURS_PER_RANK_LEVEL), MAX_RANK_INDEX);
-  const currentRank = RANK_LEVELS[levelIndex] || { name: 'Unranked', emoji: '', minHours: 0 };
+  let levelIndex = 0;
+
+  for (let i = 0; i < RANK_LEVELS.length; i += 1) {
+    const nextRank = RANK_LEVELS[i + 1];
+    if (!nextRank || normalizedHours < nextRank.minHours) {
+      levelIndex = i;
+      break;
+    }
+  }
+
+  const currentRank = RANK_LEVELS[levelIndex] || { name: 'Unranked', emoji: '', minHours: 0, hoursPerLevel: 0 };
   const nextRank = RANK_LEVELS[levelIndex + 1] || null;
-  const maxHours = nextRank ? nextRank.minHours : currentRank.minHours + HOURS_PER_RANK_LEVEL;
-  const progressWithinLevel = maxHours > currentRank.minHours
-    ? Math.min(1, Math.max(0, (normalizedHours - currentRank.minHours) / (maxHours - currentRank.minHours)))
+  const currentLevelHours = currentRank.hoursPerLevel || 0;
+  const maxHours = nextRank ? nextRank.minHours : currentRank.minHours + currentLevelHours;
+  const progressWithinLevel = currentLevelHours > 0
+    ? Math.min(1, Math.max(0, (normalizedHours - currentRank.minHours) / currentLevelHours))
     : 0;
 
   return {

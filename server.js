@@ -61,6 +61,63 @@ const COIN_VALUE_MAP = {
 };
 const COIN_EMOJIS = Object.keys(COIN_VALUE_MAP);
 
+const HOURS_PER_RANK_LEVEL = 100;
+const BASE_RANK_GROUPS = [
+  { name: 'Wood', emoji: '🪵', levels: 10 },
+  { name: 'Metal', emoji: '⚙️', levels: 10 },
+  { name: 'Bronze', emoji: '🥉', levels: 10 },
+  { name: 'Silver', emoji: '🥈', levels: 10 },
+  { name: 'Gold', emoji: '🥇', levels: 10 },
+  { name: 'Platinum', emoji: '💎', levels: 10 },
+];
+
+const PRESTIGE_GROUPS = [
+  { name: 'Prestige 1', emoji: '🍎', levels: 10 },
+  { name: 'Prestige 2', emoji: '🍌', levels: 10 },
+  { name: 'Prestige 3', emoji: '🍇', levels: 10 },
+  { name: 'Prestige 4', emoji: '🍉', levels: 10 },
+  { name: 'Prestige 5', emoji: '🍒', levels: 10 },
+  { name: 'Prestige 6', emoji: '🍍', levels: 10 },
+  { name: 'Prestige 7', emoji: '🥑', levels: 10 },
+  { name: 'Prestige 8', emoji: '🌮', levels: 10 },
+  { name: 'Prestige 9', emoji: '🍣', levels: 10 },
+  { name: 'Prestige 10', emoji: '🍕', levels: 10 },
+];
+
+const MASTER_PRESTIGE_LEVELS = 100;
+const MASTER_PRESTIGE_EMOJI = '👑';
+
+function buildRankLevels() {
+  const levels = [];
+  const addGroupLevels = (group) => {
+    for (let level = group.levels; level >= 1; level -= 1) {
+      const index = levels.length;
+      levels.push({
+        name: `${group.name} ${level}`,
+        emoji: group.emoji,
+        minHours: index * HOURS_PER_RANK_LEVEL,
+      });
+    }
+  };
+
+  BASE_RANK_GROUPS.forEach(addGroupLevels);
+  PRESTIGE_GROUPS.forEach(addGroupLevels);
+
+  for (let master = MASTER_PRESTIGE_LEVELS; master >= 1; master -= 1) {
+    const index = levels.length;
+    levels.push({
+      name: `Master Prestige ${master}`,
+      emoji: MASTER_PRESTIGE_EMOJI,
+      minHours: index * HOURS_PER_RANK_LEVEL,
+    });
+  }
+
+  return levels;
+}
+
+const RANK_LEVELS = buildRankLevels();
+const MAX_RANK_INDEX = Math.max(RANK_LEVELS.length - 1, 0);
+
 const CACHE_STORAGE_DIR = process.env.CACHE_STORAGE_DIR
   ? path.resolve(process.env.CACHE_STORAGE_DIR)
   : path.join(__dirname, 'static', 'cache');
@@ -4153,6 +4210,26 @@ function computeLeaderboardMetrics(activities = []) {
   };
 }
 
+function getRankProgress(totalHours = 0) {
+  const numericHours = Number(totalHours);
+  const normalizedHours = Number.isFinite(numericHours) ? Math.max(0, numericHours) : 0;
+  const levelIndex = Math.min(Math.floor(normalizedHours / HOURS_PER_RANK_LEVEL), MAX_RANK_INDEX);
+  const currentRank = RANK_LEVELS[levelIndex] || { name: 'Unranked', emoji: '', minHours: 0 };
+  const nextRank = RANK_LEVELS[levelIndex + 1] || null;
+  const maxHours = nextRank ? nextRank.minHours : currentRank.minHours + HOURS_PER_RANK_LEVEL;
+  const progressWithinLevel = maxHours > currentRank.minHours
+    ? Math.min(1, Math.max(0, (normalizedHours - currentRank.minHours) / (maxHours - currentRank.minHours)))
+    : 0;
+
+  return {
+    levelIndex,
+    currentRank,
+    nextRank,
+    maxHours,
+    progressWithinLevel,
+  };
+}
+
 function buildLeaderboardSummary(payload = {}) {
   const athlete = payload.athlete || {};
   const totals = payload.totals || {};
@@ -4172,10 +4249,8 @@ function buildLeaderboardSummary(payload = {}) {
   const totalDistanceKm = derivedMetrics.totals.distanceMeters > 0
     ? derivedMetrics.totals.distanceMeters / 1000
     : (Number.isFinite(Number(totals.distance)) ? Number(totals.distance) / 1000 : 0);
-  const levelCap = 1000;
-  const maxRankHours = 20000;
-  const hoursPerLevel = levelCap > 0 ? maxRankHours / levelCap : maxRankHours;
-  const level = hoursPerLevel > 0 ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap) : 0;
+  const rankProgress = getRankProgress(totalHours);
+  const level = rankProgress.levelIndex;
 
   const totalCalories = derivedMetrics.totals.calories > 0
     ? derivedMetrics.totals.calories
@@ -4208,11 +4283,22 @@ function buildLeaderboardSummary(payload = {}) {
   const totalMedalValue = medalCount * MEDAL_DOLLAR_VALUE;
   const totalHaulValue = dollars + totalCoinValue + totalMedalValue;
   const walletBalance = totalCoinValue + totalMedalValue;
+  const rank = {
+    name: rankProgress.currentRank?.name || '',
+    emoji: rankProgress.currentRank?.emoji || '',
+    level,
+    minHours: rankProgress.currentRank?.minHours ?? 0,
+    maxHours: rankProgress.maxHours,
+    progress: rankProgress.progressWithinLevel,
+  };
 
   return {
     userId,
     displayName,
     level,
+    rankName: rank.name,
+    rankEmoji: rank.emoji,
+    rank,
     dollars,
     coins,
     emoji,

@@ -11,7 +11,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         '💎': 10000,
         '👑': 50000
     };
-    const MEDAL_DOLLAR_VALUE = 2000;
+    const MEDAL_BASE_VALUE = 100000;
+    const MEDAL_GROWTH_RATE = 1.05;
+    const calculateMedalDollarValue = (count = 0) => {
+        const safeCount = Math.max(0, Number(count) || 0);
+        if (safeCount === 0) {
+            return 0;
+        }
+        return MEDAL_BASE_VALUE * (MEDAL_GROWTH_RATE ** safeCount);
+    };
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
     const COIN_COLOR_MAP = {
         '💲': '#0ea5e9',
@@ -993,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
     const rankModalProgressElement = document.getElementById('rank-modal-progress');
+    const rankModalMilestonesElement = document.getElementById('rank-modal-milestones');
     const rankModalContentElement = document.getElementById('rank-modal-content');
     const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
@@ -1517,6 +1526,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const FILTER_APPLY_DELAY_MS = 250;
     let filterApplyTimeout = null;
     let medalInventory = [];
+    let milestoneCarouselIndex = 0;
     let medalContributionMap = new Map();
     let medalContributionHighlightsByDate = new Map();
     const walletMetricsCache = { key: null, metrics: [] };
@@ -2128,7 +2138,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             categories,
             medalSummary: {
                 count: medalCount,
-                value: medalCount * MEDAL_DOLLAR_VALUE,
+                value: calculateMedalDollarValue(medalCount),
             },
             medalsEarned,
             medalInventory,
@@ -2535,7 +2545,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + toNonNegativeInteger(medal?.count), 0);
         const medalSummary = {
             count: totalMedalCount,
-            value: totalMedalCount * MEDAL_DOLLAR_VALUE,
+            value: calculateMedalDollarValue(totalMedalCount),
         };
 
         const getRaritySortValue = (medal) => (Number.isFinite(medal?.rarityIndex) ? medal.rarityIndex : -1);
@@ -3901,7 +3911,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const medalValue = accumulator.medalCount * MEDAL_DOLLAR_VALUE;
+        const medalValue = calculateMedalDollarValue(accumulator.medalCount);
         const startDate = accumulator.windowStartTimestamp !== null
             ? new Date(accumulator.windowStartTimestamp)
             : windowStart;
@@ -4443,6 +4453,166 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressElement.appendChild(list);
     };
 
+    const buildMilestoneCarouselData = () => {
+        const progressEntries = Array.isArray(medalInventory) ? medalInventory : [];
+        const progressByName = new Map(progressEntries.map(entry => [entry.name, entry]));
+        const grouped = new Map();
+
+        PROGRESS_MEDAL_DEFINITIONS.forEach((definition) => {
+            const category = definition.milestoneCategory || definition.category || 'Milestones';
+            const progress = progressByName.get(definition.name);
+            const progressStatus = progress?.progressStatus || createMedalProgressStatus({
+                currentValue: progress?.progressStatus?.totalValue || 0,
+                targetValue: definition.targetValue,
+                unitLabel: definition.unitLabel,
+                unitDescription: definition.unitDescription,
+                formatter: definition.formatter,
+            });
+            const entry = {
+                name: definition.name,
+                emoji: definition.emoji || '🌳',
+                count: toNonNegativeInteger(progress?.count),
+                progressStatus,
+            };
+
+            if (!grouped.has(category)) {
+                grouped.set(category, []);
+            }
+            grouped.get(category).push(entry);
+        });
+
+        const orderedCategories = MILESTONE_CATEGORY_ORDER.length > 0
+            ? MILESTONE_CATEGORY_ORDER
+            : Array.from(grouped.keys());
+
+        return orderedCategories.map((category) => ({
+            category,
+            entries: (grouped.get(category) || []).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
+        })).filter(group => group.entries.length > 0);
+    };
+
+    const renderMilestoneCarousel = () => {
+        if (!rankModalMilestonesElement) {
+            return;
+        }
+
+        const categories = buildMilestoneCarouselData();
+        const totalCategories = categories.length;
+        const isEmpty = totalCategories === 0;
+
+        rankModalMilestonesElement.innerHTML = '';
+        rankModalMilestonesElement.hidden = isEmpty;
+        rankModalMilestonesElement.setAttribute('aria-hidden', isEmpty ? 'true' : 'false');
+
+        if (isEmpty) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__milestones-empty';
+            emptyState.textContent = 'Milestone progress will appear once activities load.';
+            rankModalMilestonesElement.appendChild(emptyState);
+            return;
+        }
+
+        if (milestoneCarouselIndex >= totalCategories) {
+            milestoneCarouselIndex = 0;
+        }
+        if (milestoneCarouselIndex < 0) {
+            milestoneCarouselIndex = totalCategories - 1;
+        }
+
+        const activeCategory = categories[milestoneCarouselIndex];
+
+        const card = document.createElement('div');
+        card.className = 'rank-modal__milestones-card';
+
+        const header = document.createElement('div');
+        header.className = 'rank-modal__milestones-header';
+
+        const title = document.createElement('p');
+        title.className = 'rank-modal__milestones-title';
+        title.textContent = '🌳 Milestone grove';
+
+        const indicator = document.createElement('span');
+        indicator.className = 'rank-modal__milestones-indicator';
+        indicator.textContent = `${activeCategory.category} • ${activeCategory.entries.length} goals`;
+
+        header.append(title, indicator);
+
+        const controls = document.createElement('div');
+        controls.className = 'rank-modal__milestones-controls';
+
+        const createNavButton = (direction) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'rank-modal__milestones-button';
+            button.textContent = '🌳';
+            const label = direction === 'next' ? 'Next milestone category' : 'Previous milestone category';
+            button.setAttribute('aria-label', label);
+            button.addEventListener('click', () => {
+                if (direction === 'next') {
+                    milestoneCarouselIndex = (milestoneCarouselIndex + 1) % totalCategories;
+                } else {
+                    milestoneCarouselIndex = (milestoneCarouselIndex - 1 + totalCategories) % totalCategories;
+                }
+                renderMilestoneCarousel();
+            });
+            return button;
+        };
+
+        const previousButton = createNavButton('previous');
+        const nextButton = createNavButton('next');
+        controls.append(previousButton, nextButton);
+
+        const subheader = document.createElement('div');
+        subheader.className = 'rank-modal__milestones-subheader';
+        subheader.append(indicator, controls);
+
+        const description = document.createElement('p');
+        description.className = 'rank-modal__milestones-description';
+        description.textContent = 'Swipe through ride, run, and swim milestones with the grove toggle.';
+
+        const list = document.createElement('ul');
+        list.className = 'rank-modal__milestones-list';
+        list.setAttribute('role', 'list');
+
+        activeCategory.entries.forEach((entry) => {
+            const item = document.createElement('li');
+            item.className = 'rank-modal__milestones-item';
+
+            const itemHeader = document.createElement('div');
+            itemHeader.className = 'rank-modal__milestones-item-header';
+
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'rank-modal__milestones-name';
+
+            const emoji = document.createElement('span');
+            emoji.className = 'rank-modal__milestones-emoji';
+            emoji.textContent = entry.emoji || '🌳';
+
+            const name = document.createElement('span');
+            name.className = 'rank-modal__milestones-name-text';
+            name.textContent = entry.name || 'Milestone';
+
+            nameGroup.append(emoji, name);
+
+            const count = Math.max(0, toNonNegativeInteger(entry?.count));
+            const countBadge = document.createElement('span');
+            countBadge.className = 'rank-modal__milestones-count';
+            countBadge.textContent = count > 0 ? `${count.toLocaleString()}× earned` : 'In progress';
+
+            itemHeader.append(nameGroup, countBadge);
+
+            const detail = document.createElement('p');
+            detail.className = 'rank-modal__milestones-progress';
+            detail.textContent = entry?.progressStatus?.detail || entry?.progressStatus?.label || 'Progress tracking unavailable';
+
+            item.append(itemHeader, detail);
+            list.appendChild(item);
+        });
+
+        card.append(header, subheader, description, list);
+        rankModalMilestonesElement.appendChild(card);
+    };
+
     const renderRankRewardModalContent = ({
         summaryElement,
         progressElement,
@@ -4456,6 +4626,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
         listElement.innerHTML = '';
+
+        renderMilestoneCarousel();
 
         if (summaryElement) {
             const totalHours = Number.isFinite(rankProgressState.totalHours)
@@ -7017,7 +7189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const coins = getActivityCoinRewards(activity, stats);
             const medals = getActivityMedals(activity);
             const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
-            const medalValue = medals.length * MEDAL_DOLLAR_VALUE;
+            const medalValue = calculateMedalDollarValue(medals.length);
 
             return {
                 date,
@@ -8258,7 +8430,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setMetric('calories', formatWeeklyMetric(Math.round(weeklyStats.calories), { suffix: 'kcal' }));
         setMetric('kudos', weeklyStats.kudos > 0 ? weeklyStats.kudos.toLocaleString() : '—');
 
-        const medalValue = weeklyStats.medalCount * MEDAL_DOLLAR_VALUE;
+        const medalValue = calculateMedalDollarValue(weeklyStats.medalCount);
         const totalValue = weeklyStats.coinValue + medalValue;
 
         weeklySnapshotData = {
@@ -9563,7 +9735,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : [];
         const sanitizedMedalSummary = {
             count: toNonNegativeInteger(medalSummary?.count),
-            value: Number.isFinite(medalSummary?.value) ? medalSummary.value : toNonNegativeInteger(medalSummary?.count) * MEDAL_DOLLAR_VALUE,
+            value: Number.isFinite(medalSummary?.value) ? medalSummary.value : calculateMedalDollarValue(medalSummary?.count),
         };
         const sanitizedMedalBreakdown = Array.isArray(medalBreakdown)
             ? medalBreakdown.map(medal => ({
@@ -11914,18 +12086,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (activityCountryCode) {
                 registerActivityCountryMetadata(activity);
                 const countryName = getCountryDisplayName(activityCountryCode);
-                const flagEmoji = countryMetadataByCode.get(activityCountryCode)?.flag
-                    || countryCodeToFlagEmoji(activityCountryCode);
-                if (flagEmoji) {
-                    const flagElement = document.createElement('span');
-                    flagElement.className = 'activity-card__country-flag tooltip-target';
-                    flagElement.textContent = flagEmoji;
-                    const labelText = countryName
-                        ? `${countryName} (${activityCountryCode})`
-                        : `Country ${activityCountryCode}`;
-                    flagElement.setAttribute('aria-label', `Activity location: ${labelText}`);
-                    attachTooltip(flagElement, labelText);
-                    details.appendChild(flagElement);
+                if (countryName) {
+                    const labelText = `${countryName} (${activityCountryCode})`;
+                    const countryLabel = document.createElement('span');
+                    countryLabel.className = 'activity-card__country-label';
+                    countryLabel.textContent = labelText;
+                    details.appendChild(countryLabel);
                 }
             }
 
@@ -12001,7 +12167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const totalCoinValueDollars = Object.entries(coinCounts).reduce((sum, [emoji, count]) => {
                 return sum + count * (COIN_VALUE_MAP[emoji] || 0);
             }, 0);
-            const medalValue = medalRewards.length * MEDAL_DOLLAR_VALUE;
+            const medalValue = calculateMedalDollarValue(medalRewards.length);
             const totalValueDollars = totalCoinValueDollars + medalValue;
 
             if (totalValueDollars > 0) {
@@ -12964,34 +13130,113 @@ document.addEventListener('DOMContentLoaded', async () => {
         return entries;
     }
 
-    const RIDE_DISTANCE_PROGRESS_THRESHOLDS = [5000, 10000, 15000];
-
     const PROGRESS_MEDAL_DEFINITIONS = [
         {
-            name: '2000-Hour Devotee',
-            emoji: '⏳',
-            description: 'Log 2,000 lifetime training hours.',
-            rarityKey: 'obsidian',
-            category: 'Lifetime Progress',
-            targetValue: 2000,
-            unitLabel: 'h',
-            unitDescription: 'hours',
-            formatter: formatHoursDisplay,
-            valueResolver: (totals) => totals.totalHours,
-        },
-        ...RIDE_DISTANCE_PROGRESS_THRESHOLDS.map((threshold) => ({
-            name: `Ride ${threshold.toLocaleString()} km`,
+            name: 'Ride 10,000 km',
             emoji: '🚴‍♂️',
-            description: `Accumulate ${threshold.toLocaleString()} km of lifetime riding.`,
+            description: 'Accumulate 10,000 km of lifetime riding.',
             rarityKey: 'obsidian',
-            category: 'Lifetime Progress',
-            targetValue: threshold,
+            category: 'Milestones',
+            milestoneCategory: 'Ride',
+            targetValue: 10000,
             unitLabel: 'km',
-            unitDescription: 'kilometers',
+            unitDescription: 'ride distance',
             formatter: formatKilometersDisplay,
             valueResolver: (totals) => totals.rideDistanceKm,
-        })),
+        },
+        {
+            name: 'Ride 100,000 m Elevation',
+            emoji: '⛰️',
+            description: 'Climb 100,000 m while riding.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Ride',
+            targetValue: 100000,
+            unitLabel: 'm',
+            unitDescription: 'ride elevation gain',
+            formatter: (value) => Math.round(value).toLocaleString(),
+            valueResolver: (totals) => totals.rideElevationM,
+        },
+        {
+            name: 'Ride 1,000 Hours',
+            emoji: '⏱️',
+            description: 'Log 1,000 hours on the bike.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Ride',
+            targetValue: 1000,
+            unitLabel: 'h',
+            unitDescription: 'ride hours',
+            formatter: formatHoursDisplay,
+            valueResolver: (totals) => totals.rideHours,
+        },
+        {
+            name: 'Run 1,000 km',
+            emoji: '🏃',
+            description: 'Cover 1,000 km of lifetime running.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Run',
+            targetValue: 1000,
+            unitLabel: 'km',
+            unitDescription: 'run distance',
+            formatter: formatKilometersDisplay,
+            valueResolver: (totals) => totals.runDistanceKm,
+        },
+        {
+            name: 'Run 20,000 m Elevation',
+            emoji: '🧗',
+            description: 'Climb 20,000 m while running.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Run',
+            targetValue: 20000,
+            unitLabel: 'm',
+            unitDescription: 'run elevation gain',
+            formatter: (value) => Math.round(value).toLocaleString(),
+            valueResolver: (totals) => totals.runElevationM,
+        },
+        {
+            name: 'Run 1,000 Hours',
+            emoji: '⌛',
+            description: 'Spend 1,000 hours running.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Run',
+            targetValue: 1000,
+            unitLabel: 'h',
+            unitDescription: 'run hours',
+            formatter: formatHoursDisplay,
+            valueResolver: (totals) => totals.runHours,
+        },
+        {
+            name: 'Swim 500 km',
+            emoji: '🏊',
+            description: 'Swim a total of 500 km.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Swim',
+            targetValue: 500,
+            unitLabel: 'km',
+            unitDescription: 'swim distance',
+            formatter: formatKilometersDisplay,
+            valueResolver: (totals) => totals.swimDistanceKm,
+        },
+        {
+            name: 'Swim 1,000 Hours',
+            emoji: '🌊',
+            description: 'Dedicate 1,000 hours to the water.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Swim',
+            targetValue: 1000,
+            unitLabel: 'h',
+            unitDescription: 'swim hours',
+            formatter: formatHoursDisplay,
+            valueResolver: (totals) => totals.swimHours,
+        },
     ];
+    const MILESTONE_CATEGORY_ORDER = ['Ride', 'Run', 'Swim'];
 
     const createMedalProgressStatus = ({
         currentValue = 0,
@@ -13086,18 +13331,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const totals = activityList.reduce((acc, activity) => {
             const movingTimeSeconds = Number(activity?.moving_time) || 0;
-            acc.totalHours += movingTimeSeconds > 0 ? movingTimeSeconds / 3600 : 0;
+            const hours = movingTimeSeconds > 0 ? movingTimeSeconds / 3600 : 0;
+            acc.totalHours += hours;
             const distanceMeters = Number(activity?.distance) || 0;
+            const elevationGain = Number(activity?.total_elevation_gain) || 0;
             const normalizedType = ((activity?.sport_type || activity?.type || '')).toUpperCase();
             if (normalizedType.includes('RIDE')) {
                 acc.rideDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
+                acc.rideElevationMeters += elevationGain > 0 ? elevationGain : 0;
+                acc.rideHours += hours;
+            }
+            if (normalizedType.includes('RUN')) {
+                acc.runDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
+                acc.runElevationMeters += elevationGain > 0 ? elevationGain : 0;
+                acc.runHours += hours;
+            }
+            if (normalizedType.includes('SWIM')) {
+                acc.swimDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
+                acc.swimHours += hours;
             }
             return acc;
-        }, { totalHours: 0, rideDistanceMeters: 0 });
+        }, {
+            totalHours: 0,
+            rideDistanceMeters: 0,
+            rideElevationMeters: 0,
+            rideHours: 0,
+            runDistanceMeters: 0,
+            runElevationMeters: 0,
+            runHours: 0,
+            swimDistanceMeters: 0,
+            swimHours: 0,
+        });
 
         const contextTotals = {
             totalHours: totals.totalHours,
             rideDistanceKm: totals.rideDistanceMeters / METERS_IN_KILOMETER,
+            rideElevationM: totals.rideElevationMeters,
+            rideHours: totals.rideHours,
+            runDistanceKm: totals.runDistanceMeters / METERS_IN_KILOMETER,
+            runElevationM: totals.runElevationMeters,
+            runHours: totals.runHours,
+            swimDistanceKm: totals.swimDistanceMeters / METERS_IN_KILOMETER,
+            swimHours: totals.swimHours,
         };
 
         return PROGRESS_MEDAL_DEFINITIONS.map((definition) => {
@@ -14667,6 +14942,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 count: toNonNegativeInteger(medal?.count),
             }))
             : [];
+        milestoneCarouselIndex = 0;
 
         medalContributionMap = new Map();
         medalContributionHighlightsByDate = new Map();
@@ -15489,7 +15765,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const coins = getActivityCoinRewards(activity, stats);
                     const medals = getActivityMedals(activity);
                     const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
-                    const medalValue = medals.length * MEDAL_DOLLAR_VALUE;
+                    const medalValue = calculateMedalDollarValue(medals.length);
                     return coinValue + medalValue;
                 }
                 case 'elevation-desc':

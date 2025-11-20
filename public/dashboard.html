@@ -422,63 +422,41 @@
 </button>
 </header>
 <form class="filter-form" id="activities-filter-form" novalidate="">
-<div class="filter-banner">
-<div class="filter-banner__label">
-<span aria-hidden="true">🎯</span>
-<span>Quick presets</span>
-</div>
-<p class="filter-banner__active">Start with a preset or adjust the sections below.</p>
-</div>
-<div aria-label="Quick filter presets" class="filter-quick-actions" role="group">
-<button aria-pressed="false" class="filter-chip" data-quick-filter="endurance" type="button">
+<div class="filter-shortcuts" aria-label="Filter shortcuts" role="group">
+<button class="filter-shortcut" data-filter-shortcut="top" type="button">
+<span aria-hidden="true">🔝</span>
+<span>Top</span>
+</button>
+<button class="filter-shortcut" data-filter-shortcut="money" type="button">
+<span aria-hidden="true">💰</span>
+<span>Money</span>
+</button>
+<button class="filter-shortcut" data-filter-shortcut="ride" type="button">
 <span aria-hidden="true">🚴</span>
-<span>Long rides</span>
+<span>Ride</span>
 </button>
-<button aria-pressed="false" class="filter-chip" data-quick-filter="climb-day" type="button">
-<span aria-hidden="true">🧗</span>
-<span>Climb days</span>
+<button class="filter-shortcut" data-filter-shortcut="swim" type="button">
+<span aria-hidden="true">🏊</span>
+<span>Swim</span>
 </button>
-<button aria-pressed="false" class="filter-chip" data-quick-filter="recovery" type="button">
-<span aria-hidden="true">🧘</span>
-<span>Recovery spins</span>
+<button class="filter-shortcut" data-filter-shortcut="bike" type="button">
+<span aria-hidden="true">🚲</span>
+<span>Bike</span>
 </button>
 </div>
-<div class="filter-form__grid filter-form__grid--two-column">
+<div class="filter-form__grid filter-form__grid--stacked">
 <div class="filter-stack">
 <p class="filter-stack__title">Timeline & type</p>
-<div class="filter-collapsible-group" data-filter-collapsible-group="">
-<div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-year" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Year</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-year">
 <label class="filter-field">
-<span class="sr-only">Year</span>
+<span class="filter-field__label">Year</span>
 <select id="year-select"></select>
 </label>
-</div>
-</div>
-<div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-type" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Type</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-type">
 <label class="filter-field">
-<span class="sr-only">Activity type</span>
+<span class="filter-field__label">Type</span>
 <select id="activity-type-filter">
 <option value="all">All types</option>
 </select>
 </label>
-</div>
-</div>
-<div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-races" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Races</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-races">
 <div class="filter-field" id="activities-race-filter" hidden>
 <label class="activities-panel__request-label" for="race-filter-select">Race focus</label>
 <select id="race-filter-select">
@@ -486,14 +464,6 @@
 </select>
 <p class="activities-panel__request-note">Shows approved races logged in your contact requests.</p>
 </div>
-</div>
-</div>
-<div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-climbs" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Climb attempts</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-climbs">
 <div class="filter-field" id="activities-climb-filter" hidden>
 <label class="activities-panel__request-label" for="climb-filter-select">Climb attempts</label>
 <select id="climb-filter-select">
@@ -504,14 +474,6 @@
 <ul class="activities-panel__attempts-list" id="climb-attempts-list"></ul>
 </div>
 </div>
-</div>
-</div>
-<div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-sort" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Sort</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-sort">
 <label class="filter-field filter-field--select" for="activity-sort-by">
 <span class="filter-field__label">Order results by</span>
 <select id="activity-sort-by">
@@ -524,19 +486,10 @@
 </label>
 <p class="filter-field__hint">Applies to both the activity feed and Top Performances.</p>
 </div>
-</div>
-</div>
-</div>
 <div class="filter-stack">
 <p class="filter-stack__title">Metrics & location</p>
-<div class="filter-collapsible-group" data-filter-collapsible-group="">
-<div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-hours" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Hours (h)</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-hours">
 <div class="filter-field filter-field--range">
+<span class="filter-field__label">Hours (h)</span>
 <div class="filter-range">
 <label class="sr-only" for="activity-hours-min">Minimum hours</label>
 <input id="activity-hours-min" min="0" placeholder="Min" step="0.1" type="number"/>
@@ -544,15 +497,8 @@
 <input id="activity-hours-max" min="0" placeholder="Max" step="0.1" type="number"/>
 </div>
 </div>
-</div>
-</div>
-<div class="filter-collapsible" data-filter-collapsible="">
-<button aria-controls="filter-content-distance" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-<span>Distance (km)</span>
-<span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-</button>
-<div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-distance">
 <div class="filter-field filter-field--range">
+<span class="filter-field__label">Distance (km)</span>
 <div class="filter-range">
 <label class="sr-only" for="activity-distance-min">Minimum distance</label>
 <input id="activity-distance-min" min="0" placeholder="Min" step="1" type="number"/>
@@ -560,37 +506,19 @@
 <input id="activity-distance-max" min="0" placeholder="Max" step="1" type="number"/>
 </div>
 </div>
+<div class="filter-field filter-field--range">
+<span class="filter-field__label">Elevation (m)</span>
+<div class="filter-range">
+<label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
+<input id="activity-elevation-min" min="0" placeholder="Min" step="10" type="number"/>
+<label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
+<input id="activity-elevation-max" min="0" placeholder="Max" step="10" type="number"/>
 </div>
 </div>
-<div class="filter-collapsible" data-filter-collapsible="">
-  <button aria-controls="filter-content-elevation" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-    <span>Elevation (m)</span>
-    <span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-  </button>
-  <div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-elevation">
-    <div class="filter-field filter-field--range">
-      <div class="filter-range">
-        <label class="sr-only" for="activity-elevation-min">Minimum elevation</label>
-        <input id="activity-elevation-min" min="0" placeholder="Min" step="10" type="number"/>
-        <label class="sr-only" for="activity-elevation-max">Maximum elevation</label>
-        <input id="activity-elevation-max" min="0" placeholder="Max" step="10" type="number"/>
-      </div>
-    </div>
-  </div>
-</div>
-<div class="filter-collapsible" data-filter-collapsible="">
-  <button aria-controls="filter-content-country" aria-expanded="false" class="filter-collapsible__trigger" data-filter-toggle="" type="button">
-    <span>Country</span>
-    <span aria-hidden="true" class="filter-collapsible__chevron">⌄</span>
-  </button>
-  <div class="filter-collapsible__content" data-filter-content="" hidden="" id="filter-content-country">
-    <div class="filter-field">
-      <span class="sr-only">Country filter</span>
-      <div class="filter-chip-list" id="country-filter-list" role="group" aria-label="Country filter"></div>
-      <p class="filter-chip-list__empty" id="country-filter-empty">Country metadata will appear once activities are synced.</p>
-    </div>
-  </div>
-</div>
+<div class="filter-field">
+<span class="filter-field__label">Country</span>
+<div class="filter-chip-list" id="country-filter-list" role="group" aria-label="Country filter"></div>
+<p class="filter-chip-list__empty" id="country-filter-empty">Country metadata will appear once activities are synced.</p>
 </div>
 </div>
 </div>

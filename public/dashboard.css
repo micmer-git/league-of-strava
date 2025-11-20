@@ -3970,6 +3970,135 @@ body.dark .medals-category__description {
     gap: 1.25rem;
 }
 
+.rank-modal__milestones {
+    display: block;
+}
+
+.rank-modal__milestones-card {
+    background: linear-gradient(135deg, rgba(236, 244, 255, 0.95), rgba(224, 242, 254, 0.9));
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 18px;
+    padding: 1rem;
+    box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
+}
+
+.rank-modal__milestones-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.rank-modal__milestones-title {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-text-primary);
+}
+
+.rank-modal__milestones-indicator {
+    font-size: 0.95rem;
+    color: rgba(51, 65, 85, 0.75);
+}
+
+.rank-modal__milestones-subheader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.35rem;
+}
+
+.rank-modal__milestones-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.rank-modal__milestones-button {
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    color: #1d4ed8;
+    border-radius: 9999px;
+    padding: 0.35rem 0.55rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rank-modal__milestones-button:hover,
+.rank-modal__milestones-button:focus-visible {
+    outline: none;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 16px rgba(37, 99, 235, 0.25);
+}
+
+.rank-modal__milestones-description {
+    margin: 0.4rem 0 0.8rem;
+    font-size: 0.95rem;
+    color: rgba(51, 65, 85, 0.8);
+}
+
+.rank-modal__milestones-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.rank-modal__milestones-item {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.85);
+    padding: 0.75rem 0.85rem;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.rank-modal__milestones-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.rank-modal__milestones-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.rank-modal__milestones-emoji {
+    font-size: 1.2rem;
+}
+
+.rank-modal__milestones-name-text {
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.rank-modal__milestones-count {
+    font-size: 0.9rem;
+    color: rgba(51, 65, 85, 0.75);
+    background: rgba(226, 232, 240, 0.7);
+    border-radius: 9999px;
+    padding: 0.15rem 0.6rem;
+}
+
+.rank-modal__milestones-progress {
+    margin: 0;
+    color: rgba(51, 65, 85, 0.78);
+    font-size: 0.92rem;
+}
+
+.rank-modal__milestones-empty {
+    margin: 0;
+    color: rgba(51, 65, 85, 0.75);
+    font-size: 0.95rem;
+}
+
 .rank-modal__snapshots {
     display: flex;
     flex-direction: column;
@@ -4305,6 +4434,36 @@ body.dark .medals-category__description {
 
 .dark .rank-modal__summary {
     background: rgba(30, 41, 59, 0.6);
+}
+
+.dark .rank-modal__milestones-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.9));
+    border-color: rgba(148, 163, 184, 0.4);
+    box-shadow: 0 18px 32px rgba(2, 6, 23, 0.5);
+}
+
+.dark .rank-modal__milestones-title,
+.dark .rank-modal__milestones-name-text {
+    color: var(--color-text-inverse);
+}
+
+.dark .rank-modal__milestones-indicator,
+.dark .rank-modal__milestones-description,
+.dark .rank-modal__milestones-progress,
+.dark .rank-modal__milestones-empty,
+.dark .rank-modal__milestones-count {
+    color: rgba(226, 232, 240, 0.82);
+}
+
+.dark .rank-modal__milestones-item {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.dark .rank-modal__milestones-button {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+    color: #bfdbfe;
 }
 
 .dark .rank-modal__content {
@@ -5163,6 +5322,19 @@ body.dashboard-body {
     display: block;
 }
 
+.activity-card__country-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: rgba(51, 65, 85, 0.9);
+    background: rgba(226, 232, 240, 0.65);
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    line-height: 1.2;
+}
+
 .activity-card__country-flag {
     display: inline-flex;
     align-items: center;
@@ -5192,6 +5364,13 @@ body.dark .activity-card,
 .dark .activity-card {
     background: rgba(15, 23, 42, 0.72);
     border-color: rgba(148, 163, 184, 0.25);
+}
+
+body.dark .activity-card__country-label,
+.dark .activity-card__country-label {
+    background: rgba(51, 65, 85, 0.55);
+    border-color: rgba(148, 163, 184, 0.45);
+    color: rgba(226, 232, 240, 0.9);
 }
 
 body.dark .activity-card__country-flag,

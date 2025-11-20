@@ -61,11 +61,31 @@ function normalizeLeaderboardEntry(entry = {}) {
     }, {});
   };
 
+  const sanitizeRank = (rank = null) => {
+    if (!rank || typeof rank !== 'object') {
+      return null;
+    }
+
+    const sanitized = {
+      name: typeof rank.name === 'string' ? rank.name : '',
+      emoji: typeof rank.emoji === 'string' ? rank.emoji : '',
+      level: sanitizeNumber(rank.level),
+      minHours: sanitizeNumber(rank.minHours),
+      maxHours: sanitizeNumber(rank.maxHours),
+      progress: sanitizeNumber(rank.progress),
+    };
+
+    return sanitized;
+  };
+
   return {
     timestamp: entry.timestamp || new Date().toISOString(),
     userId,
     displayName: entry.displayName || userId,
     level: sanitizeNumber(entry.level),
+    rankName: typeof entry.rankName === 'string' ? entry.rankName : '',
+    rankEmoji: typeof entry.rankEmoji === 'string' ? entry.rankEmoji : '',
+    rank: sanitizeRank(entry.rank),
     dollars: sanitizeNumber(entry.dollars),
     emoji: typeof entry.emoji === 'string' ? entry.emoji : '💲',
     coins: sanitizeNumber(entry.coins),

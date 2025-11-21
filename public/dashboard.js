@@ -8135,6 +8135,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         header.appendChild(closeButton);
         walletHeatmapPopover.appendChild(header);
 
+        const highlights = [];
+        if (entry.hasDiamondCoin) {
+            highlights.push('💎 Diamond coin collected');
+        }
+        if (entry.hasCrowdCoin) {
+            highlights.push('🧈 Crowd coin collected');
+        }
+        if (entry.hasHistoricalMedals) {
+            highlights.push('🔴 Historical medals present');
+        }
+
+        const highlightSection = document.createElement('div');
+        highlightSection.className = 'wallet-heatmap__popover-section';
+        const highlightLabel = document.createElement('p');
+        highlightLabel.className = 'wallet-heatmap__popover-label';
+        highlightLabel.textContent = 'Highlights';
+        const highlightList = document.createElement('ul');
+        highlightList.className = 'wallet-heatmap__chip-row wallet-heatmap__chip-row--stacked';
+
+        if (highlights.length === 0) {
+            const item = document.createElement('li');
+            item.className = 'wallet-heatmap__chip wallet-heatmap__chip--muted wallet-heatmap__chip--pill';
+            item.textContent = 'No special highlights this month';
+            highlightList.appendChild(item);
+        } else {
+            highlights.forEach(label => {
+                const item = document.createElement('li');
+                item.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill';
+                item.textContent = label;
+                highlightList.appendChild(item);
+            });
+        }
+
+        highlightSection.appendChild(highlightLabel);
+        highlightSection.appendChild(highlightList);
+        walletHeatmapPopover.appendChild(highlightSection);
+
         const coinSection = document.createElement('div');
         coinSection.className = 'wallet-heatmap__popover-section';
         const coinLabel = document.createElement('p');
@@ -8237,7 +8274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderWalletHeatmapPopover(entry, cell);
     };
 
-    const renderWalletHeatmap = (metrics = [], timeframe = walletSelectedTimeframe) => {
+    const renderWalletHeatmap = (metrics = []) => {
         if (!walletHeatmapGrid || !walletHeatmapEmptyState || !walletHeatmapContainer) {
             return;
         }
@@ -8246,13 +8283,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletHeatmapGrid.classList.remove('is-empty');
         walletHeatmapEmptyState.classList.add('hidden');
         hideWalletHeatmapPopover();
-
-        if (timeframe !== WALLET_TIMEFRAME_ALL) {
-            walletHeatmapGrid.classList.add('is-empty');
-            walletHeatmapEmptyState.textContent = 'Switch to the all-time view to see the monthly heatmap.';
-            walletHeatmapEmptyState.classList.remove('hidden');
-            return;
-        }
 
         const { rows, maxValue } = buildMonthlyHeatmapMatrix(metrics);
         if (!rows.length) {
@@ -8845,7 +8875,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             bucketType: chartSeries.bucketType,
         };
 
-        renderWalletHeatmap(metricsForAggregation, walletSelectedTimeframe);
+        renderWalletHeatmap(availableMetrics);
 
         const nextChartKey = hasWalletChartData(activeChartKey)
             ? activeChartKey
@@ -16011,7 +16041,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         updateHistoricalMedalMonths(latestWalletMetrics, medalContributionHighlightsByDate);
-        renderWalletHeatmap(latestWalletMetrics, walletSelectedTimeframe);
+        renderWalletHeatmap(latestWalletMetrics);
 
         updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
 

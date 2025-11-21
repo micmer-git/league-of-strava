@@ -2826,9 +2826,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!normalized) {
             return '';
         }
-        const flag = countryMetadataByCode.get(normalized)?.flag || countryCodeToFlagEmoji(normalized);
         const name = getCountryDisplayName(normalized);
-        return flag ? `${flag} ${name}` : name;
+        return name;
     };
 
     const getActivityCountryCode = (activity = {}) => {
@@ -10092,19 +10091,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 'No heart rate data to estimate calories for this period.';
             attachTooltip(pizzaStatButton, message);
         }
-        if (countryStatButton) {
-            const countryCount = Number.isFinite(stats.countryCount) ? stats.countryCount : 0;
-            const topCountries = Array.isArray(stats.topCountries) ? stats.topCountries : [];
-            const highlights = topCountries.slice(0, 3)
-                .map((entry) => {
-                    const name = entry?.name || getCountryDisplayName(entry?.code);
-                    const flag = entry?.flag || countryCodeToFlagEmoji(entry?.code);
-                    const countText = Number.isFinite(entry?.count) && entry.count > 0
-                        ? ` (${formatCount(entry.count)})`
-                        : '';
-                    return `${flag ? `${flag} ` : ''}${name}${countText}`;
-                })
-                .join(' · ');
+            if (countryStatButton) {
+                const countryCount = Number.isFinite(stats.countryCount) ? stats.countryCount : 0;
+                const topCountries = Array.isArray(stats.topCountries) ? stats.topCountries : [];
+                const highlights = topCountries.slice(0, 3)
+                    .map((entry) => {
+                        const name = entry?.name || getCountryDisplayName(entry?.code);
+                        const countText = Number.isFinite(entry?.count) && entry.count > 0
+                            ? ` (${formatCount(entry.count)})`
+                            : '';
+                        return `${name}${countText}`;
+                    })
+                    .join(' · ');
             const message = countryCount > 0
                 ? `${formatCount(countryCount)} countries explored.${highlights ? ` Top stops: ${highlights}.` : ''}`
                 : 'Country metadata will appear once activities are synced.';
@@ -10305,7 +10303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const labelSpan = document.createElement('span');
             labelSpan.className = 'filter-chip__label';
-            labelSpan.textContent = entry.flag ? `${entry.flag} ${entry.name}` : entry.name;
+            labelSpan.textContent = entry.name || entry.code;
             chip.appendChild(labelSpan);
 
             const metaSpan = document.createElement('span');
@@ -10851,10 +10849,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const highlights = latestCountryStats.slice(0, 3)
             .map((entry) => {
                 const name = entry?.name || getCountryDisplayName(entry?.code);
-                const flag = entry?.flag || countryCodeToFlagEmoji(entry?.code);
                 const count = Number.isFinite(entry?.count) ? entry.count : 0;
                 const countSuffix = count > 0 ? ` (${formatCount(count)})` : '';
-                return `${flag ? `${flag} ` : ''}${name}${countSuffix}`;
+                return `${name}${countSuffix}`;
             })
             .join(' · ');
 
@@ -10969,8 +10966,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const stat = code ? statsLookup.get(code) : null;
             const value = Number.isFinite(stat?.count) ? stat.count : 0;
             const name = stat?.name || feature?.properties?.name || (code || 'Unknown');
-            const flag = stat?.flag || (code ? countryCodeToFlagEmoji(code) : '');
-            return { feature, value, name, flag };
+            return { feature, value, name };
         });
         const maxValue = dataset.reduce((max, entry) => Math.max(max, entry.value), 0);
         updateCountryMapLegend(maxValue);
@@ -10998,8 +10994,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             const raw = context?.raw;
                             const value = Number.isFinite(raw?.value) ? raw.value : 0;
                             const label = raw?.name || context?.label || 'Unknown';
-                            const flag = raw?.flag ? `${raw.flag} ` : '';
-                            return `${flag}${label}: ${formatCount(value)} activities`;
+                            return `${label}: ${formatCount(value)} activities`;
                         },
                     },
                 },
@@ -12085,14 +12080,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const activityCountryCode = getActivityCountryCode(activity);
             if (activityCountryCode) {
                 registerActivityCountryMetadata(activity);
-                const countryName = getCountryDisplayName(activityCountryCode);
-                if (countryName) {
-                    const labelText = `${countryName} (${activityCountryCode})`;
-                    const countryLabel = document.createElement('span');
-                    countryLabel.className = 'activity-card__country-label';
-                    countryLabel.textContent = labelText;
-                    details.appendChild(countryLabel);
-                }
             }
 
             const headerRow = document.createElement('div');

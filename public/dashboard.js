@@ -1001,7 +1001,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
     const rankModalProgressElement = document.getElementById('rank-modal-progress');
-    const rankModalMilestonesElement = document.getElementById('rank-modal-milestones');
     const rankModalContentElement = document.getElementById('rank-modal-content');
     const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
@@ -1527,6 +1526,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     let filterApplyTimeout = null;
     let medalInventory = [];
     let milestoneCarouselIndex = 0;
+    const progressDisciplineTabs = [
+        { key: 'Run', emoji: '🏃', label: 'Run progression' },
+        { key: 'Ride', emoji: '🚴', label: 'Ride progression' },
+        { key: 'Swim', emoji: '🏊', label: 'Swim progression' },
+    ];
+    let activeProgressDiscipline = progressDisciplineTabs[0].key;
     let medalContributionMap = new Map();
     let medalContributionHighlightsByDate = new Map();
     const walletMetricsCache = { key: null, metrics: [] };
@@ -2122,6 +2127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? summary.medalInventory.map((medal) => ({
                 ...applyRarityMetadata(medal),
                 count: toNonNegativeInteger(medal?.count),
+                milestoneCategory: medal?.milestoneCategory || medal?.category || '',
             }))
             : [];
 
@@ -4371,25 +4377,62 @@ document.addEventListener('DOMContentLoaded', async () => {
             })
             : [];
 
-        if (progressMedals.length === 0) {
-            progressElement.hidden = true;
-            progressElement.setAttribute('aria-hidden', 'true');
-            return;
-        }
-
         progressElement.hidden = false;
         progressElement.setAttribute('aria-hidden', 'false');
+
+        const header = document.createElement('div');
+        header.className = 'rank-modal__progress-header';
 
         const title = document.createElement('p');
         title.className = 'rank-modal__progress-title';
         title.textContent = 'Historical medals';
-        progressElement.appendChild(title);
+        header.appendChild(title);
+
+        const toggle = document.createElement('div');
+        toggle.className = 'rank-modal__progress-toggle';
+
+        progressDisciplineTabs.forEach((tab) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            const isActive = activeProgressDiscipline === tab.key;
+            button.className = `rank-modal__progress-toggle-button${isActive ? ' is-active' : ''}`;
+            button.textContent = `${tab.emoji} ${tab.key}`;
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            button.setAttribute('aria-label', `${tab.label}`);
+            button.addEventListener('click', () => {
+                if (activeProgressDiscipline !== tab.key) {
+                    activeProgressDiscipline = tab.key;
+                    renderHistoricalMedalProgress(progressElement);
+                }
+            });
+            toggle.appendChild(button);
+        });
+
+        header.appendChild(toggle);
+        progressElement.appendChild(header);
+
+        if (progressMedals.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__progress-empty';
+            emptyState.textContent = 'Medal progression will appear once activities load.';
+            progressElement.appendChild(emptyState);
+            return;
+        }
 
         const list = document.createElement('ul');
         list.className = 'rank-modal__progress-list';
         list.setAttribute('role', 'list');
 
-        const orderedMedals = progressMedals.slice().sort((a, b) => {
+        const normalizedDiscipline = (activeProgressDiscipline || '').toLowerCase();
+        const filteredMedals = progressMedals.filter((medal) => {
+            const category = (medal?.milestoneCategory || medal?.category || '').toLowerCase();
+            if (!category) {
+                return true;
+            }
+            return category === normalizedDiscipline;
+        });
+
+        const orderedMedals = filteredMedals.slice().sort((a, b) => {
             const orderA = medalOrderMap.get(a?.name) ?? Number.MAX_SAFE_INTEGER;
             const orderB = medalOrderMap.get(b?.name) ?? Number.MAX_SAFE_INTEGER;
             if (orderA === orderB) {
@@ -4398,12 +4441,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             return orderA - orderB;
         });
 
+        if (orderedMedals.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__progress-empty';
+            emptyState.textContent = `${activeProgressDiscipline} progression will appear once activities load.`;
+            progressElement.appendChild(emptyState);
+            return;
+        }
+
         orderedMedals.forEach((medal) => {
             const item = document.createElement('li');
             item.className = 'rank-modal__progress-item';
 
-            const header = document.createElement('div');
-            header.className = 'rank-modal__progress-header';
+            const itemHeader = document.createElement('div');
+            itemHeader.className = 'rank-modal__progress-item-header';
 
             const nameGroup = document.createElement('div');
             nameGroup.className = 'rank-modal__progress-name';
@@ -4422,7 +4473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? `${medalCount.toLocaleString()}× earned`
                 : 'Not yet earned';
 
-            header.append(nameGroup, countSpan);
+            itemHeader.append(nameGroup, countSpan);
 
             const progressBar = document.createElement('div');
             progressBar.className = 'rank-modal__progress-bar';
@@ -4445,7 +4496,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             status.className = 'rank-modal__progress-status';
             status.textContent = formatMedalProgressText(medal.progressStatus) || 'Progress tracking unavailable';
 
-            item.append(header, progressBar, status);
+            item.append(itemHeader, progressBar, status);
             list.appendChild(item);
         });
 
@@ -4625,8 +4676,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
         listElement.innerHTML = '';
-
-        renderMilestoneCarousel();
 
         if (summaryElement) {
             const totalHours = Number.isFinite(rankProgressState.totalHours)
@@ -13306,6 +13355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isDayBased: false,
                 category: definition.category || 'Lifetime Progress',
                 legacyCategory: definition.category || 'Lifetime Progress',
+                milestoneCategory: definition.milestoneCategory || '',
                 ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
                 progressStatus: createMedalProgressStatus({
                     targetValue: definition.targetValue,
@@ -13381,6 +13431,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isDayBased: false,
                 category: definition.category || 'Lifetime Progress',
                 legacyCategory: definition.category || 'Lifetime Progress',
+                milestoneCategory: definition.milestoneCategory || '',
                 ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
                 progressStatus,
             };

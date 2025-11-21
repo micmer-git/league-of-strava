@@ -15047,8 +15047,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         {
             name: 'Coppa Coppi Protector',
-            emoji: '🥩',
-            description: 'Logged an activity with elevation gain > 2000m and distance < 100 km',
+            emoji: '🚴',
+            description: 'Complete the Coppa Coppi challenge.',
+            discipline: 'ride',
             criteria: (activity) => activity.total_elevation_gain > 2000 && (activity.distance / 1000) < 100
         },
         {

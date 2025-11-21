@@ -47,7 +47,18 @@ const SIGNED_ATHLETE_COOKIE_MAX_AGE_MS = Number.parseInt(process.env.SIGNED_ATHL
   || 30 * 24 * 60 * 60 * 1000;
 
 const PIZZA_KCAL = 800;
-const MEDAL_DOLLAR_VALUE = 2000;
+const HISTORICAL_MEDAL_BASE_VALUE = 100000;
+const HISTORICAL_MEDAL_GROWTH_RATE = 1.05;
+const MEDAL_RARITY_VALUE_MAP = {
+  verdant: 1000,
+  cerulean: 5000,
+  amethyst: 10000,
+  auric: 20000,
+  ember: 30000,
+  crimson: 40000,
+  obsidian: 50000,
+};
+const DEFAULT_MEDAL_RARITY_KEY = 'verdant';
 const BASE_COIN_VALUE = 200;
 const EARTH_CIRCUMFERENCE_KM = 40075;
 const EVEREST_HEIGHT_M = 8849;
@@ -4231,18 +4242,85 @@ function normalizeCoinTotals(source = {}) {
   }, {});
 }
 
-function calculateWalletBalance({ coinTotals = {}, medalCount = 0 } = {}) {
+function normalizeMedalRarityKey(key) {
+  if (typeof key !== 'string') {
+    return DEFAULT_MEDAL_RARITY_KEY;
+  }
+
+  const normalized = key.trim().toLowerCase();
+  return MEDAL_RARITY_VALUE_MAP[normalized] ? normalized : DEFAULT_MEDAL_RARITY_KEY;
+}
+
+function calculateHistoricalMedalValue(count = 0) {
+  const safeCount = Math.max(0, Number(count) || 0);
+  if (safeCount === 0) {
+    return 0;
+  }
+
+  return HISTORICAL_MEDAL_BASE_VALUE * (HISTORICAL_MEDAL_GROWTH_RATE ** safeCount);
+}
+
+function calculateMedalValue({ medalBreakdown = [], medalCount = 0, historicalCount = 0 } = {}) {
+  const medals = Array.isArray(medalBreakdown) ? medalBreakdown : [];
+  let resolvedHistoricalCount = Math.max(0, Number(historicalCount) || 0);
+  let standardValue = 0;
+  let standardCount = 0;
+
+  medals.forEach((medal) => {
+    const rawCount = Number(medal?.count);
+    const count = Number.isFinite(rawCount) && rawCount > 0 ? rawCount : 1;
+    const isHistorical = Boolean(medal?.progressStatus || medal?.milestoneCategory);
+    if (isHistorical) {
+      resolvedHistoricalCount += count;
+      return;
+    }
+
+    const rarityKey = normalizeMedalRarityKey(medal?.rarityKey || medal?.rarity || medal?.rarityLabel);
+    const rarityValue = MEDAL_RARITY_VALUE_MAP[rarityKey] || MEDAL_RARITY_VALUE_MAP[DEFAULT_MEDAL_RARITY_KEY];
+    standardCount += count;
+    standardValue += rarityValue * count;
+  });
+
+  const fallbackCount = Number.isFinite(Number(medalCount)) ? Math.max(0, Number(medalCount)) : 0;
+  const hasBreakdown = medals.length > 0;
+  const standardValueWithFallback = (standardCount > 0 || hasBreakdown)
+    ? standardValue
+    : (fallbackCount * MEDAL_RARITY_VALUE_MAP[DEFAULT_MEDAL_RARITY_KEY]);
+  const standardCountWithFallback = (standardCount > 0 || hasBreakdown)
+    ? standardCount
+    : fallbackCount;
+  const historicalValue = calculateHistoricalMedalValue(resolvedHistoricalCount);
+  const totalCount = resolvedHistoricalCount + standardCountWithFallback;
+  const totalValue = historicalValue + standardValueWithFallback;
+
+  return {
+    medalCount: totalCount,
+    medalValue: totalValue,
+  };
+}
+
+function calculateWalletBalance({
+  coinTotals = {},
+  medalCount = 0,
+  medalBreakdown = [],
+  historicalMedalCount = 0,
+} = {}) {
   const totalCoinValue = Object.entries(coinTotals).reduce((sum, [emoji, count]) => {
     const coinValue = COIN_VALUE_MAP[emoji] || BASE_COIN_VALUE;
     const normalizedCount = Number.isFinite(Number(count)) ? Number(count) : 0;
     return sum + (coinValue * normalizedCount);
   }, 0);
 
-  const medalValue = (Number.isFinite(Number(medalCount)) ? Number(medalCount) : 0) * MEDAL_DOLLAR_VALUE;
+  const { medalValue, medalCount: resolvedMedalCount } = calculateMedalValue({
+    medalBreakdown,
+    medalCount,
+    historicalCount: historicalMedalCount,
+  });
 
   return {
     totalCoinValue,
     medalValue,
+    medalCount: resolvedMedalCount,
     walletBalance: totalCoinValue + medalValue,
   };
 }
@@ -4318,7 +4396,7 @@ function buildLeaderboardSummary(payload = {}) {
     ? payload.activities.reduce((sum, activity) => sum + (Number(activity?.achievement_count) || 0), 0)
     : 0;
 
-  const { totalCoinValue, medalValue, walletBalance } = calculateWalletBalance({
+  const { totalCoinValue, medalValue, walletBalance, medalCount: resolvedMedalCount } = calculateWalletBalance({
     coinTotals,
     medalCount,
   });
@@ -4345,7 +4423,7 @@ function buildLeaderboardSummary(payload = {}) {
     emoji,
     totalHaulValue,
     pizzaCoins,
-    medals: medalCount,
+    medals: resolvedMedalCount,
     worldTrips: derivedMetrics.worldTrips,
     everestSummits: derivedMetrics.everestSummits,
     pizzas: derivedMetrics.pizzas,

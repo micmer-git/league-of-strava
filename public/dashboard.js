@@ -13,12 +13,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const MEDAL_BASE_VALUE = 100000;
     const MEDAL_GROWTH_RATE = 1.05;
-    const calculateMedalDollarValue = (count = 0) => {
-        const safeCount = Math.max(0, Number(count) || 0);
-        if (safeCount === 0) {
-            return 0;
+    const MEDAL_RARITY_VALUE_MAP = {
+        verdant: 1000,
+        cerulean: 5000,
+        amethyst: 10000,
+        auric: 20000,
+        ember: 30000,
+        crimson: 40000,
+        obsidian: 50000,
+    };
+    const calculateMedalDollarValue = (countOrMedals = 0) => {
+        if (Array.isArray(countOrMedals)) {
+            return calculateMedalValueSummary(countOrMedals).totalValue;
         }
-        return MEDAL_BASE_VALUE * (MEDAL_GROWTH_RATE ** safeCount);
+
+        return calculateHistoricalMedalValue(countOrMedals);
     };
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
     const COIN_COLOR_MAP = {
@@ -251,6 +260,61 @@ document.addEventListener('DOMContentLoaded', async () => {
             rarityEmoji: meta.emoji,
             rarityTier: meta.tier,
             rarityDescription: meta.description,
+        };
+    };
+
+    const calculateHistoricalMedalValue = (count = 0) => {
+        const safeCount = Math.max(0, Number(count) || 0);
+        if (safeCount === 0) {
+            return 0;
+        }
+
+        return MEDAL_BASE_VALUE * (MEDAL_GROWTH_RATE ** safeCount);
+    };
+
+    const getMedalRarityValue = (medal = {}) => {
+        const rarityKey = normalizeRarityKey(medal?.rarityKey || medal?.rarity || medal?.rarityLabel);
+        return MEDAL_RARITY_VALUE_MAP[rarityKey] || MEDAL_RARITY_VALUE_MAP[DEFAULT_MEDAL_RARITY_KEY];
+    };
+
+    const isHistoricalMedal = (medal = {}) => Boolean(medal?.progressStatus || medal?.milestoneCategory);
+
+    const calculateMedalValueSummary = (medals = []) => {
+        const medalsList = Array.isArray(medals) ? medals : [];
+
+        let historicalCount = 0;
+        let historicalValue = 0;
+        let standardValue = 0;
+        let standardCount = 0;
+
+        medalsList.forEach((medal) => {
+            const rawCount = medal?.count;
+            const normalizedCount = toNonNegativeInteger(rawCount);
+            const count = Number.isFinite(rawCount) ? normalizedCount : 1;
+            if (count <= 0) {
+                return;
+            }
+
+            if (isHistoricalMedal(medal)) {
+                historicalCount += count;
+                return;
+            }
+
+            standardCount += count;
+            standardValue += getMedalRarityValue(medal) * count;
+        });
+
+        historicalValue = calculateHistoricalMedalValue(historicalCount);
+        const totalCount = historicalCount + standardCount;
+        const totalValue = historicalValue + standardValue;
+
+        return {
+            totalCount,
+            historicalCount,
+            standardCount,
+            historicalValue,
+            standardValue,
+            totalValue,
         };
     };
 
@@ -1525,6 +1589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const FILTER_APPLY_DELAY_MS = 250;
     let filterApplyTimeout = null;
     let medalInventory = [];
+    let historicalMedalInventory = [];
     let milestoneCarouselIndex = 0;
     const progressDisciplineTabs = [
         { key: 'Run', emoji: '🏃', label: 'Run progression' },
@@ -2140,11 +2205,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             }))
             : [];
 
+        const medalValueSummary = calculateMedalValueSummary(medalsEarned);
+        const historicalCount = toNonNegativeInteger(
+            summary.medalSummary?.historicalCount ?? medalValueSummary.historicalCount,
+        );
+        const historicalValue = Number.isFinite(summary.medalSummary?.historicalValue)
+            ? summary.medalSummary.historicalValue
+            : medalValueSummary.historicalValue;
+        const standardValue = Number.isFinite(summary.medalSummary?.standardValue)
+            ? summary.medalSummary.standardValue
+            : medalValueSummary.standardValue;
+
         return {
             categories,
             medalSummary: {
-                count: medalCount,
-                value: calculateMedalDollarValue(medalCount),
+                count: medalCount || medalValueSummary.totalCount,
+                value: Number.isFinite(summary.medalSummary?.value)
+                    ? summary.medalSummary.value
+                    : medalValueSummary.totalValue,
+                historicalCount,
+                historicalValue,
+                standardValue,
             },
             medalsEarned,
             medalInventory,
@@ -2548,10 +2629,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + toNonNegativeInteger(medal?.count), 0);
+        const medalValueSummary = calculateMedalValueSummary(medalsEarned);
         const medalSummary = {
-            count: totalMedalCount,
-            value: calculateMedalDollarValue(totalMedalCount),
+            count: medalValueSummary.totalCount,
+            value: medalValueSummary.totalValue,
+            historicalCount: medalValueSummary.historicalCount,
+            historicalValue: medalValueSummary.historicalValue,
+            standardValue: medalValueSummary.standardValue,
         };
 
         const getRaritySortValue = (medal) => (Number.isFinite(medal?.rarityIndex) ? medal.rarityIndex : -1);
@@ -3916,7 +4000,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const medalValue = calculateMedalDollarValue(accumulator.medalCount);
+        const medalValue = calculateMedalDollarValue(accumulator.medalDetails);
         const startDate = accumulator.windowStartTimestamp !== null
             ? new Date(accumulator.windowStartTimestamp)
             : windowStart;
@@ -4370,8 +4454,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         progressElement.innerHTML = '';
 
-        const progressMedals = Array.isArray(medalInventory)
-            ? medalInventory.filter((medal) => {
+        const progressMedals = Array.isArray(historicalMedalInventory)
+            ? historicalMedalInventory.filter((medal) => {
                 const targetValue = medal?.progressStatus?.targetValue;
                 return medal?.progressStatus && Number.isFinite(targetValue) && targetValue > 0;
             })
@@ -4504,7 +4588,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const buildMilestoneCarouselData = () => {
-        const progressEntries = Array.isArray(medalInventory) ? medalInventory : [];
+        const progressEntries = Array.isArray(historicalMedalInventory) ? historicalMedalInventory : [];
         const progressByName = new Map(progressEntries.map(entry => [entry.name, entry]));
         const grouped = new Map();
 
@@ -7237,7 +7321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const coins = getActivityCoinRewards(activity, stats);
             const medals = getActivityMedals(activity);
             const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
-            const medalValue = calculateMedalDollarValue(medals.length);
+            const medalValue = calculateMedalDollarValue(medals);
 
             return {
                 date,
@@ -8478,7 +8562,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setMetric('calories', formatWeeklyMetric(Math.round(weeklyStats.calories), { suffix: 'kcal' }));
         setMetric('kudos', weeklyStats.kudos > 0 ? weeklyStats.kudos.toLocaleString() : '—');
 
-        const medalValue = calculateMedalDollarValue(weeklyStats.medalCount);
+        const medalValue = calculateMedalDollarValue(weeklyStats.medalDetails);
         const totalValue = weeklyStats.coinValue + medalValue;
 
         weeklySnapshotData = {
@@ -9781,16 +9865,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sanitizedCategories = Array.isArray(achievementCategories)
             ? achievementCategories.filter(category => category && !EXCLUDED_WALLET_CATEGORIES.has(category.name))
             : [];
-        const sanitizedMedalSummary = {
-            count: toNonNegativeInteger(medalSummary?.count),
-            value: Number.isFinite(medalSummary?.value) ? medalSummary.value : calculateMedalDollarValue(medalSummary?.count),
-        };
         const sanitizedMedalBreakdown = Array.isArray(medalBreakdown)
             ? medalBreakdown.map(medal => ({
                 ...medal,
                 count: toNonNegativeInteger(medal?.count),
             }))
             : [];
+
+        const medalSummaryFromBreakdown = calculateMedalValueSummary(sanitizedMedalBreakdown);
+        const sanitizedMedalSummary = {
+            count: toNonNegativeInteger(medalSummary?.count ?? medalSummaryFromBreakdown.totalCount),
+            value: Number.isFinite(medalSummary?.value)
+                ? medalSummary.value
+                : medalSummaryFromBreakdown.totalValue,
+            historicalCount: toNonNegativeInteger(
+                medalSummary?.historicalCount ?? medalSummaryFromBreakdown.historicalCount,
+            ),
+            historicalValue: Number.isFinite(medalSummary?.historicalValue)
+                ? medalSummary.historicalValue
+                : medalSummaryFromBreakdown.historicalValue,
+            standardValue: Number.isFinite(medalSummary?.standardValue)
+                ? medalSummary.standardValue
+                : medalSummaryFromBreakdown.standardValue,
+        };
 
         latestWalletSummaryPayload = {
             categories: sanitizedCategories.map(category => ({
@@ -12222,7 +12319,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const totalCoinValueDollars = Object.entries(coinCounts).reduce((sum, [emoji, count]) => {
                 return sum + count * (COIN_VALUE_MAP[emoji] || 0);
             }, 0);
-            const medalValue = calculateMedalDollarValue(medalRewards.length);
+            const medalValue = calculateMedalDollarValue(medalRewards);
             const totalValueDollars = totalCoinValueDollars + medalValue;
 
             if (totalValueDollars > 0) {
@@ -14993,12 +15090,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalsEarned = lifetimeRewardSummary.medalsEarned;
         const medalSummary = lifetimeRewardSummary.medalSummary;
 
-        medalInventory = Array.isArray(lifetimeRewardSummary.medalInventory)
+        const fullMedalInventory = Array.isArray(lifetimeRewardSummary.medalInventory)
             ? lifetimeRewardSummary.medalInventory.map(medal => ({
                 ...medal,
                 count: toNonNegativeInteger(medal?.count),
             }))
             : [];
+
+        historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);
+        medalInventory = fullMedalInventory.filter(medal => !isHistoricalMedal(medal));
         milestoneCarouselIndex = 0;
 
         medalContributionMap = new Map();
@@ -15822,7 +15922,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const coins = getActivityCoinRewards(activity, stats);
                     const medals = getActivityMedals(activity);
                     const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
-                    const medalValue = calculateMedalDollarValue(medals.length);
+                    const medalValue = calculateMedalDollarValue(medals);
                     return coinValue + medalValue;
                 }
                 case 'elevation-desc':

@@ -184,6 +184,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Year-long haul recap.',
         },
     };
+    const PROFILE_PERIOD_OPTIONS_BY_KEY = {
+        yearly: { shortLabel: '1Y', longLabel: 'One-year' },
+        quarter: { shortLabel: '3M', longLabel: 'Three-month' },
+        monthly: { shortLabel: '1M', longLabel: 'One-month' },
+        weekly: { shortLabel: '7D', longLabel: 'Seven-day' },
+    };
 
     const MEDAL_RARITY_LEVELS = [
         {
@@ -961,6 +967,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let countryMapModalReturnFocusTo = null;
     let profilePeriodModalReturnFocusTo = null;
     let profilePeriodModalActiveTrigger = null;
+    let profilePeriodModalActiveKey = 'yearly';
     let activitiesFilterReturnFocusTo = null;
     let pendingActivitiesOptions = null;
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
@@ -1094,11 +1101,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const profilePeriodModalDescriptionElement = document.getElementById('profile-period-modal-description');
     const profilePeriodModalCloseButton = document.getElementById('profile-period-modal-close');
     const profilePeriodModalDismissElements = Array.from(document.querySelectorAll('[data-profile-period-dismiss]'));
+    const profilePeriodToggleElement = document.getElementById('profile-period-toggle');
+    const profilePeriodToggleButtons = profilePeriodToggleElement
+        ? Array.from(profilePeriodToggleElement.querySelectorAll('[data-profile-period-option]'))
+        : [];
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
-        week: document.getElementById('profile-wallet-change-week'),
-        month: document.getElementById('profile-wallet-change-month'),
-        quarter: document.getElementById('profile-wallet-change-quarter'),
         year: document.getElementById('profile-wallet-change-year')
     };
     const walletChangeSnapshotKeyMap = {
@@ -3633,9 +3641,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             return null;
         }
 
-        const thousands = Math.abs(value) / 1_000;
-        const decimals = thousands >= 100 ? 0 : 1;
-        const formatted = `$${thousands.toFixed(decimals)}k`;
+        const absoluteValue = Math.abs(value);
+        const formatMillions = absoluteValue >= 1_000_000;
+        const divisor = formatMillions ? 1_000_000 : 1_000;
+        const scaledValue = absoluteValue / divisor;
+        const decimals = scaledValue >= 100 ? 0 : 1;
+        const suffix = formatMillions ? 'M' : 'k';
+        const formatted = `$${scaledValue.toFixed(decimals)}${suffix}`;
         return value > 0 ? `+${formatted}` : `-${formatted}`;
     };
 
@@ -5431,6 +5443,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         return snapshotSource.find((snapshot) => (snapshot?.key || '').toLowerCase() === normalizedKey) || null;
     }
 
+    const resolveProfilePeriodOption = (periodKey) => PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] || null;
+
+    const updateProfilePeriodToggleState = (periodKey) => {
+        if (!profilePeriodToggleButtons || profilePeriodToggleButtons.length === 0) {
+            return;
+        }
+
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+        profilePeriodToggleButtons.forEach((button) => {
+            const isActive = button.dataset.profilePeriodOption === normalizedKey;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+            button.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+    };
+
+    const setProfilePeriodModalPeriod = (periodKey, { label = '', summary = '' } = {}) => {
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey]
+            ? periodKey
+            : (PROFILE_PERIOD_OPTIONS_BY_KEY[profilePeriodModalActiveKey] ? profilePeriodModalActiveKey : 'yearly');
+
+        profilePeriodModalActiveKey = normalizedKey;
+        updateProfilePeriodToggleState(normalizedKey);
+
+        const option = resolveProfilePeriodOption(normalizedKey) || {};
+        const metadata = PROFILE_PERIOD_MODAL_METADATA[normalizedKey] || {};
+
+        renderProfilePeriodModal(normalizedKey, {
+            label: label || option.longLabel || metadata.title || '',
+            summary: summary || metadata.description || '',
+        });
+    };
+
     function renderProfilePeriodModal(periodKey, { label = '', summary = '' } = {}) {
         if (!profilePeriodModalContentElement) {
             return;
@@ -5438,11 +5483,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         profilePeriodModalContentElement.innerHTML = '';
 
-        const snapshot = getRankSnapshotForPeriodKey(periodKey);
-        const metadata = PROFILE_PERIOD_MODAL_METADATA[periodKey] || {};
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+        const snapshot = getRankSnapshotForPeriodKey(normalizedKey);
+        const metadata = PROFILE_PERIOD_MODAL_METADATA[normalizedKey] || {};
         const titleText = metadata.title
             || (label ? `${label} overview` : 'Wallet change overview');
-        const shortLabel = PROFILE_PERIOD_SHORT_LABELS_BY_KEY[periodKey] || '';
+        const shortLabel = PROFILE_PERIOD_SHORT_LABELS_BY_KEY[normalizedKey] || '';
 
         if (profilePeriodModalTitleElement) {
             const combinedTitle = shortLabel
@@ -5452,9 +5498,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (profilePeriodModalDescriptionElement) {
-            const rangeDescription = snapshot?.rangeLabel || '';
-            profilePeriodModalDescriptionElement.textContent = rangeDescription;
-            profilePeriodModalDescriptionElement.hidden = !rangeDescription;
+            const descriptionText = summary || snapshot?.rangeLabel || metadata.description || '';
+            profilePeriodModalDescriptionElement.textContent = descriptionText;
+            profilePeriodModalDescriptionElement.hidden = !descriptionText;
         }
 
         if (!snapshot) {
@@ -5478,11 +5524,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const label = trigger?.dataset?.profilePeriodLabel || '';
         const summary = trigger?.dataset?.profilePeriodSummary || '';
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
 
-        renderProfilePeriodModal(periodKey, { label, summary });
+        setProfilePeriodModalPeriod(normalizedKey, { label, summary });
 
-        if (periodKey) {
-            profilePeriodModalElement.dataset.profilePeriodKey = periodKey;
+        if (normalizedKey) {
+            profilePeriodModalElement.dataset.profilePeriodKey = normalizedKey;
         } else {
             delete profilePeriodModalElement.dataset.profilePeriodKey;
         }
@@ -5552,6 +5599,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
+
+    const bindProfilePeriodToggle = () => {
+        if (!profilePeriodToggleButtons || profilePeriodToggleButtons.length === 0) {
+            return;
+        }
+
+        profilePeriodToggleButtons.forEach((button) => {
+            if (button.dataset.profilePeriodBound === 'true') {
+                return;
+            }
+
+            const { profilePeriodOption: periodOption } = button.dataset;
+            button.dataset.profilePeriodBound = 'true';
+
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setProfilePeriodModalPeriod(periodOption);
+            });
+
+            button.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setProfilePeriodModalPeriod(periodOption);
+                }
+            });
+        });
+
+        updateProfilePeriodToggleState(profilePeriodModalActiveKey);
+    };
 
     function bindProfilePeriodModal(element, { periodKey, longLabel, tooltipText } = {}) {
         if (!element || !periodKey) {
@@ -10904,36 +10981,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const weeklySnapshot = getRankSnapshotForPeriodKey('weekly');
-        const weeklyChangeValue = Number.isFinite(weeklySnapshot?.totalValue)
-            ? weeklySnapshot.totalValue
-            : null;
-
-        const monthlySnapshot = getRankSnapshotForPeriodKey('monthly');
-        const monthlyChangeValue = Number.isFinite(monthlySnapshot?.totalValue)
-            ? monthlySnapshot.totalValue
-            : null;
-
-        applyWalletChangeToElement(
-            walletBalanceChangeElements.week,
-            weeklyChangeValue,
-            null,
-            { shortLabel: '7D', longLabel: 'Seven-day' }
-        );
-
-        applyWalletChangeToElement(
-            walletBalanceChangeElements.month,
-            monthlyChangeValue,
-            null,
-            { shortLabel: '1M', longLabel: 'One-month' }
-        );
-
-        applyWalletChangeToElement(
-            walletBalanceChangeElements.quarter,
-            walletGrowthStats?.quarterChangeValue ?? null,
-            walletGrowthStats?.quarterChangePct ?? null,
-            { shortLabel: '3M', longLabel: 'Three-month' }
-        );
         applyWalletChangeToElement(
             walletBalanceChangeElements.year,
             walletGrowthStats?.yearChangeValue ?? null,
@@ -17669,6 +17716,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindLoadMoreButton();
     bindMedalsLoadMoreButton();
     bindWalletChangeSnapshotTriggers();
+    bindProfilePeriodToggle();
     bindWalletTimeRangeButtons();
     bindWalletLayerToggles();
     bindWalletBottomSheet();

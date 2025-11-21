@@ -104,6 +104,9 @@
                   <div class="progress-bar__recent" id="progress-recent" aria-hidden="true"></div>
                 </div>
               </div>
+              <button type="button" class="rank-modal__trigger" id="open-rank-modal">
+                🌌 Map the ladder
+              </button>
               <div class="tooltip" id="rank-tooltip" role="dialog" aria-modal="false">
                 <h3>Rank Progression</h3>
                 <ul id="rank-list">
@@ -113,6 +116,27 @@
             </div>
           </div>
         </section>
+
+        <div class="rank-modal" id="rank-modal" hidden role="dialog" aria-modal="true" aria-labelledby="rank-modal-title">
+          <div class="rank-modal__backdrop" id="rank-modal-backdrop"></div>
+          <div class="rank-modal__dialog">
+            <header class="rank-modal__header">
+              <div class="rank-modal__current">
+                <span class="rank-modal__emoji" id="rank-modal-current-emoji" aria-hidden="true">🏅</span>
+                <div>
+                  <p class="rank-modal__eyebrow">Current focus</p>
+                  <p class="rank-modal__title" id="rank-modal-title">Rank</p>
+                  <p class="rank-modal__hours" id="rank-modal-current-hours">— h logged</p>
+                </div>
+              </div>
+              <button type="button" class="rank-modal__close" id="rank-modal-close" aria-label="Chiudi mappa rank">✕</button>
+            </header>
+            <div class="rank-modal__bands" id="rank-modal-bands" aria-live="polite">
+              <!-- Bands populated dynamically -->
+            </div>
+            <p class="rank-modal__hint">Tap an emoji to recenter and explore neighboring ladders.</p>
+          </div>
+        </div>
 
         <!-- Weekly Stats -->
         <section class="card weekly-card" aria-labelledby="weekly-heading" id="section-weekly" data-section="weekly">
@@ -367,8 +391,55 @@
         return levels;
       };
 
+      const buildRankBands = () => {
+        const bands = [];
+        let minHours = 0;
+
+        const pushBand = (label, emoji, levels, hoursPerLevel) => {
+          const span = (Number(levels) || 0) * (Number(hoursPerLevel) || 0);
+          bands.push({
+            label,
+            emoji,
+            minHours,
+            maxHours: minHours + span,
+          });
+          minHours += span;
+        };
+
+        baseRankGroups.forEach((group) => pushBand(group.name, group.emoji, group.levels, BASE_HOURS_PER_LEVEL));
+        prestigeGroups.forEach((group) => pushBand(
+          `Prestige ${group.prestigeNumber}`,
+          group.emoji,
+          group.levels,
+          PRESTIGE_HOURS_PER_LEVEL,
+        ));
+        pushBand('Master Prestige', MASTER_PRESTIGE_EMOJI, MASTER_PRESTIGE_LEVELS, MASTER_PRESTIGE_HOURS_PER_LEVEL);
+
+        if (bands.length) {
+          bands[bands.length - 1].maxHours = Infinity;
+        }
+
+        return bands;
+      };
+
       const rankLevels = buildRankLevels();
+      const rankBands = buildRankBands();
       const TOTAL_RANK_LEVELS = rankLevels.length;
+
+      const clampBandIndex = (index) => Math.max(0, Math.min(rankBands.length - 1, index));
+
+      const findBandIndexForHours = (hours = 0) => {
+        const normalizedHours = Number.isFinite(hours) ? Math.max(0, hours) : 0;
+        let bandIndex = 0;
+        for (let i = 0; i < rankBands.length; i += 1) {
+          const nextBand = rankBands[i + 1];
+          if (!nextBand || normalizedHours < nextBand.minHours) {
+            bandIndex = i;
+            break;
+          }
+        }
+        return bandIndex;
+      };
 
       const getRankProgress = (totalHours) => {
         const normalizedHours = Number.isFinite(totalHours) ? Math.max(0, totalHours) : 0;
@@ -1000,6 +1071,8 @@
           hoursPerLevel,
         } = getRankProgress(totalHours);
 
+        activeRankBandIndex = findBandIndexForHours(totalHours);
+
         setText(
           'current-rank',
           `${currentRank.emoji} ${currentRank.name} (${currentIndex + 1}/${TOTAL_RANK_LEVELS})`,
@@ -1041,6 +1114,88 @@
             list.appendChild(item);
           });
         }
+      };
+
+      let activeRankBandIndex = 0;
+
+      const renderRankModal = (centerIndex = activeRankBandIndex) => {
+        const modalEmoji = document.getElementById('rank-modal-current-emoji');
+        const bandsContainer = document.getElementById('rank-modal-bands');
+
+        if (!bandsContainer) return;
+
+        const safeIndex = clampBandIndex(centerIndex);
+        const band = rankBands[safeIndex];
+        activeRankBandIndex = safeIndex;
+
+        setText('rank-modal-title', band?.label || 'Rank');
+        setText('rank-modal-current-hours', `${formatMetric(band?.minHours, { decimals: 0, suffix: ' h' })} logged`);
+        if (modalEmoji && band?.emoji) {
+          modalEmoji.textContent = band.emoji;
+        }
+
+        bandsContainer.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        [-2, -1, 0, 1, 2].forEach((offset) => {
+          const bandIndex = clampBandIndex(safeIndex + offset);
+          const entry = rankBands[bandIndex];
+          if (!entry) return;
+
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `rank-modal__band${offset === 0 ? ' is-active' : ''}`;
+          button.dataset.bandIndex = `${bandIndex}`;
+          button.disabled = offset === 0;
+          button.innerHTML = `
+            <span class="rank-modal__band-emoji" aria-hidden="true">${entry.emoji}</span>
+            <span class="rank-modal__band-label">${entry.label}</span>
+            <p class="rank-modal__band-hours">${formatMetric(entry.minHours, { decimals: 0, suffix: ' h' })}</p>
+          `;
+          fragment.appendChild(button);
+        });
+        bandsContainer.appendChild(fragment);
+      };
+
+      const initRankModal = () => {
+        const modal = document.getElementById('rank-modal');
+        const openButton = document.getElementById('open-rank-modal');
+        const closeButton = document.getElementById('rank-modal-close');
+        const backdrop = document.getElementById('rank-modal-backdrop');
+        const bandsContainer = document.getElementById('rank-modal-bands');
+
+        const closeModal = () => {
+          if (modal) {
+            modal.setAttribute('hidden', 'true');
+          }
+          document.body.classList.remove('is-lock-scroll');
+        };
+
+        const openModal = (bandIndex) => {
+          if (!modal) return;
+          const fallbackIndex = findBandIndexForHours(trainingVolume.totalHours);
+          const startingIndex = Number.isFinite(bandIndex) ? clampBandIndex(bandIndex) : fallbackIndex;
+          renderRankModal(startingIndex);
+          modal.removeAttribute('hidden');
+          document.body.classList.add('is-lock-scroll');
+        };
+
+        openButton?.addEventListener('click', () => openModal());
+        closeButton?.addEventListener('click', closeModal);
+        backdrop?.addEventListener('click', closeModal);
+        document.addEventListener('keyup', (event) => {
+          if (event.key === 'Escape') {
+            closeModal();
+          }
+        });
+
+        bandsContainer?.addEventListener('click', (event) => {
+          const target = event.target.closest('.rank-modal__band');
+          if (!target || target.disabled) return;
+          const nextIndex = Number(target.dataset.bandIndex);
+          if (Number.isFinite(nextIndex)) {
+            renderRankModal(nextIndex);
+          }
+        });
       };
 
       const renderTopAchievements = (achievements = []) => {
@@ -1682,6 +1837,7 @@
       const classAssignment = renderProfile();
       renderTopAchievements(topAchievements);
       renderRank();
+      initRankModal();
       renderMedals(athleteProfile, classAssignment);
       initNavigation();
     })();

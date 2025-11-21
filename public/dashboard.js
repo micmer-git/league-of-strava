@@ -2868,6 +2868,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         previousMonthHours: 0,
         lastWeekHours: 0,
     };
+    let viewingRankIndex = 0;
     const RANK_REWARD_PERIODS = [
         { key: 'weekly', label: 'Last 7 days', days: 7 },
         { key: 'monthly', label: 'Last 30 days', days: 30 },
@@ -5246,13 +5247,90 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const renderRankModal = () => {
+        if (rankModalSummaryElement) {
+            rankModalSummaryElement.innerHTML = '';
+            rankModalSummaryElement.style.display = 'none';
+        }
+
         renderRankRewardModalContent({
-            summaryElement: rankModalSummaryElement,
+            summaryElement: null,
             progressElement: rankModalProgressElement,
             snapshotsElement: rankModalSnapshotsElement,
             timelineElement: rankModalTimelineElement,
             idPrefix: 'rank-modal',
         });
+
+        renderRankCarousel();
+    };
+
+    const renderRankCarousel = () => {
+        const containerId = 'rank-carousel-container';
+        let container = document.getElementById(containerId);
+
+        if (!container) {
+            container = document.createElement('div');
+            container.id = containerId;
+            container.className = 'rank-carousel';
+            const dialogBody = rankModalElement?.querySelector('.rank-modal__body') || rankModalContentElement;
+            if (dialogBody) {
+                dialogBody.insertBefore(container, dialogBody.firstChild);
+            }
+        }
+
+        container.innerHTML = '';
+
+        const config = Array.isArray(activeRankConfig) ? activeRankConfig : RANK_CONFIG;
+        if (!config.length) {
+            return;
+        }
+
+        const maxIndex = config.length - 1;
+        const centerIndex = Math.max(0, Math.min(viewingRankIndex, maxIndex));
+
+        const carouselTrack = document.createElement('div');
+        carouselTrack.className = 'rank-carousel__track';
+
+        const renderItem = (offset) => {
+            const targetIndex = centerIndex + offset;
+            const rank = config[targetIndex];
+
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = `rank-carousel__item rank-carousel__item--${offset === 0 ? 'center' : 'side'}`;
+
+            if (!rank) {
+                item.style.visibility = 'hidden';
+                item.disabled = true;
+                carouselTrack.appendChild(item);
+                return;
+            }
+
+            if (offset === 0) {
+                item.innerHTML = `
+                    <div class="rank-carousel__main-emoji">${rank.emoji}</div>
+                    <div class="rank-carousel__info">
+                        <div class="rank-carousel__title">${rank.name}</div>
+                        <div class="rank-carousel__hours">${formatHoursDisplay(rank.minHours)} h logged</div>
+                    </div>
+                `;
+                item.setAttribute('aria-current', 'true');
+                item.disabled = true;
+            } else {
+                item.innerHTML = `
+                    <div class="rank-carousel__side-emoji">${rank.emoji}</div>
+                `;
+                item.onclick = () => {
+                    viewingRankIndex = targetIndex;
+                    renderRankCarousel();
+                };
+            }
+
+            carouselTrack.appendChild(item);
+        };
+
+        [-2, -1, 0, 1, 2].forEach((offset) => renderItem(offset));
+
+        container.appendChild(carouselTrack);
     };
 
     const clearRankSnapshotHighlight = () => {
@@ -5342,6 +5420,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!rankModalElement) {
             return;
         }
+
+        viewingRankIndex = rankProgressState.currentRankIndex;
 
         rankModalPreviouslyFocusedElement = document.activeElement instanceof HTMLElement
             ? document.activeElement

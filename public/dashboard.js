@@ -3934,35 +3934,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const currentGroupIndex = Math.max(rankGroups.findIndex(group => group.rank.emoji === currentRank.emoji), 0);
 
-        const markerPriorityMap = { group: 1, detail: 2, current: 3 };
-        const markerMap = new Map();
+        const getGroupIndexForRank = (rank = {}) => rankGroups.findIndex(group => group.rank.emoji === rank.emoji);
 
-        const addMarker = (rank, type) => {
-            if (!rank || typeof rank.minHours !== 'number') {
-                return;
-            }
-            const priority = markerPriorityMap[type] || 0;
-            const key = rank.minHours;
-            const existing = markerMap.get(key);
-            if (!existing || priority > existing.priority) {
-                markerMap.set(key, { rank, type, priority });
-            }
+        const buildMarkerSet = (focusGroupIndex) => {
+            const markerPriorityMap = { group: 1, detail: 2, current: 3 };
+            const markerMap = new Map();
+
+            const addMarker = (rank, type) => {
+                if (!rank || typeof rank.minHours !== 'number') {
+                    return;
+                }
+                const priority = markerPriorityMap[type] || 0;
+                const key = rank.minHours;
+                const existing = markerMap.get(key);
+                if (!existing || priority > existing.priority) {
+                    markerMap.set(key, { rank, type, priority });
+                }
+            };
+
+            addMarker(currentRank, 'current');
+            addMarker(nextRank, 'detail');
+
+            const sliceStart = Math.max(0, focusGroupIndex - 2);
+            const sliceEnd = Math.min(rankGroups.length, focusGroupIndex + 3);
+
+            rankGroups
+                .slice(sliceStart, sliceEnd)
+                .forEach((group) => addMarker(group?.rank, 'group'));
+
+            return Array.from(markerMap.values())
+                .sort((a, b) => a.rank.minHours - b.rank.minHours);
         };
-
-        addMarker(currentRank, 'current');
-        addMarker(nextRank, 'detail');
-
-        rankGroups
-            .slice(currentGroupIndex + 1, currentGroupIndex + 3)
-            .forEach((group) => addMarker(group?.rank, 'group'));
-
-        const sortedMarkers = Array.from(markerMap.values())
-            .sort((a, b) => a.rank.minHours - b.rank.minHours);
 
         const containerWidth = timelineElement.getBoundingClientRect().width
             || timelineElement.offsetWidth
+            || window.innerWidth
             || 0;
-        const timelineWidth = Math.max(containerWidth, sortedMarkers.length * 160);
+        const estimatedWidth = Math.max(rankGroups.length, 3) * 160;
+        const timelineWidth = Math.max(containerWidth, estimatedWidth);
         timelineInner.style.minWidth = `${timelineWidth}px`;
         timelineInner.style.width = `${timelineWidth}px`;
 
@@ -4029,67 +4038,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         markers.className = 'rank-modal__timeline-markers';
         markers.setAttribute('role', 'list');
 
-        const markerEntries = [];
-
-        sortedMarkers.forEach(({ rank, type }) => {
-            const marker = document.createElement('div');
-            marker.className = 'rank-modal__timeline-marker';
-            marker.dataset.markerType = type;
-            marker.setAttribute('role', 'listitem');
-            marker.setAttribute('tabindex', '0');
-
-            const markerPercent = maxHours > 0
-                ? Math.min(100, Math.max(0, (rank.minHours / maxHours) * 100))
-                : 0;
-            marker.style.left = `${markerPercent}%`;
-
-            const isCurrent = type === 'current';
-            const isComplete = rank.minHours <= safeTotalHours;
-
-            if (isCurrent) {
-                marker.classList.add('is-current');
-                marker.setAttribute('aria-current', 'true');
-            }
-            if (isComplete && !isCurrent) {
-                marker.classList.add('is-complete');
-            }
-            if (type === 'group' && !isCurrent) {
-                marker.classList.add('rank-modal__timeline-marker--group');
-            }
-
-            const ariaSuffix = isCurrent ? ', current rank' : '';
-            const ariaTypeLabel = type === 'group'
-                ? 'crest tier overview'
-                : 'rank milestone';
-            marker.setAttribute(
-                'aria-label',
-                `${rank.emoji} ${rank.name || 'Rank'} ${ariaTypeLabel} — available at ${formatHoursDisplay(rank.minHours)} hours${ariaSuffix}`
-            );
-
-            const markerDot = document.createElement('span');
-            markerDot.className = 'rank-modal__timeline-dot';
-
-            const emoji = document.createElement('span');
-            emoji.className = 'rank-modal__timeline-emoji';
-            emoji.textContent = rank.emoji || '🏅';
-
-            const name = document.createElement('span');
-            name.className = 'rank-modal__timeline-name';
-            name.textContent = rank.name || 'Rank milestone';
-
-            const hours = document.createElement('span');
-            hours.className = 'rank-modal__timeline-hours';
-            hours.textContent = `≥ ${formatHoursDisplay(rank.minHours)} h`;
-
-            if (type === 'group' && !isCurrent) {
-                marker.append(markerDot, emoji);
-            } else {
-                marker.append(markerDot, emoji, name, hours);
-            }
-
-            markerEntries.push({ element: marker, rank });
-            markers.appendChild(marker);
-        });
+        let markerEntries = [];
+        let focusedGroupIndex = currentGroupIndex;
 
         const setFocusedMarker = (entry) => {
             markerEntries.forEach(({ element }) => element.classList.remove('is-focused'));
@@ -4103,24 +4053,105 @@ document.addEventListener('DOMContentLoaded', async () => {
             centerMarkerInView(entry.element);
         };
 
-        markerEntries.forEach((entry) => {
-            const handleActivate = () => setFocusedMarker(entry);
-            entry.element.addEventListener('click', handleActivate);
-            entry.element.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    handleActivate();
+        const renderMarkersForGroup = (groupIndex, focusRank) => {
+            focusedGroupIndex = Math.max(0, Math.min(groupIndex, rankGroups.length - 1));
+            const sortedMarkers = buildMarkerSet(focusedGroupIndex);
+
+            markers.innerHTML = '';
+            markerEntries = [];
+
+            sortedMarkers.forEach(({ rank, type }) => {
+                const marker = document.createElement('div');
+                marker.className = 'rank-modal__timeline-marker';
+                marker.dataset.markerType = type;
+                marker.setAttribute('role', 'listitem');
+                marker.setAttribute('tabindex', '0');
+
+                const markerPercent = maxHours > 0
+                    ? Math.min(100, Math.max(0, (rank.minHours / maxHours) * 100))
+                    : 0;
+                marker.style.left = `${markerPercent}%`;
+
+                const isCurrent = type === 'current';
+                const isComplete = rank.minHours <= safeTotalHours;
+
+                if (isCurrent) {
+                    marker.classList.add('is-current');
+                    marker.setAttribute('aria-current', 'true');
                 }
+                if (isComplete && !isCurrent) {
+                    marker.classList.add('is-complete');
+                }
+                if (type === 'group' && !isCurrent) {
+                    marker.classList.add('rank-modal__timeline-marker--group');
+                }
+
+                const ariaSuffix = isCurrent ? ', current rank' : '';
+                const ariaTypeLabel = type === 'group'
+                    ? 'crest tier overview'
+                    : 'rank milestone';
+                marker.setAttribute(
+                    'aria-label',
+                    `${rank.emoji} ${rank.name || 'Rank'} ${ariaTypeLabel} — available at ${formatHoursDisplay(rank.minHours)} hours${ariaSuffix}`
+                );
+
+                const markerDot = document.createElement('span');
+                markerDot.className = 'rank-modal__timeline-dot';
+
+                const emoji = document.createElement('span');
+                emoji.className = 'rank-modal__timeline-emoji';
+                emoji.textContent = rank.emoji || '🏅';
+
+                const name = document.createElement('span');
+                name.className = 'rank-modal__timeline-name';
+                name.textContent = rank.name || 'Rank milestone';
+
+                const hours = document.createElement('span');
+                hours.className = 'rank-modal__timeline-hours';
+                hours.textContent = `≥ ${formatHoursDisplay(rank.minHours)} h`;
+
+                if (type === 'group' && !isCurrent) {
+                    marker.append(markerDot, emoji);
+                } else {
+                    marker.append(markerDot, emoji, name, hours);
+                }
+
+                const entry = { element: marker, rank, type };
+                markerEntries.push(entry);
+                markers.appendChild(marker);
+
+                const handleActivate = () => {
+                    const targetGroupIndex = getGroupIndexForRank(entry.rank);
+                    const hasDifferentGroupFocus = targetGroupIndex !== -1 && targetGroupIndex !== focusedGroupIndex;
+
+                    if (hasDifferentGroupFocus) {
+                        renderMarkersForGroup(targetGroupIndex, entry.rank);
+                        return;
+                    }
+
+                    setFocusedMarker(entry);
+                };
+
+                marker.addEventListener('click', handleActivate);
+                marker.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleActivate();
+                    }
+                });
             });
-        });
 
-        const initialEntry = markerEntries.find(({ element }) => element.dataset.markerType === 'current')
-            || markerEntries.find(({ element }) => element.dataset.markerType === 'detail')
-            || markerEntries[0];
+            const initialEntry = (focusRank && markerEntries.find(({ rank }) => rank === focusRank))
+                || markerEntries.find(({ element }) => element.dataset.markerType === 'current')
+                || markerEntries.find(({ element }) => element.dataset.markerType === 'detail')
+                || markerEntries[0];
 
-        setFocusedMarker(initialEntry);
+            setFocusedMarker(initialEntry);
+        };
 
-        timelineInner.append(track, focusPanel, markers);
+        renderMarkersForGroup(currentGroupIndex, currentRank);
+
+        timelineInner.append(track, markers, focusPanel);
         scrollArea.appendChild(timelineInner);
         timelineElement.append(scrollArea);
         timelineElement.hidden = false;

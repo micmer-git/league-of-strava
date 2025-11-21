@@ -3834,13 +3834,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? Math.min(100, Math.max(0, (clampedHours / maxHours) * 100))
             : 0;
 
-        const timelineHeader = document.createElement('div');
-        timelineHeader.className = 'rank-modal__timeline-header';
-        timelineHeader.innerHTML = `
-            <p class="rank-modal__timeline-title">Crest ladder</p>
-            <p class="rank-modal__timeline-subtitle">Jump to nearby crest tiers and see what it takes to reach them.</p>
-        `;
-
         const scrollArea = document.createElement('div');
         scrollArea.className = 'rank-modal__timeline-scroll';
 
@@ -3851,7 +3844,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? rankProgressState.currentRankIndex
             : 0;
         const currentRank = config[currentIndex] || config[0] || {};
-        const previousRank = config[currentIndex - 1] || null;
         const nextRank = config[currentIndex + 1] || null;
 
         const rankGroups = [];
@@ -3864,8 +3856,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const currentGroupIndex = Math.max(rankGroups.findIndex(group => group.rank.emoji === currentRank.emoji), 0);
-        const startGroupIndex = Math.max(0, currentGroupIndex - 3);
-        const endGroupIndex = Math.min(rankGroups.length - 1, currentGroupIndex + 3);
 
         const markerPriorityMap = { group: 1, detail: 2, current: 3 };
         const markerMap = new Map();
@@ -3883,19 +3873,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         addMarker(currentRank, 'current');
-        addMarker(previousRank, 'detail');
         addMarker(nextRank, 'detail');
 
-        for (let i = startGroupIndex; i <= endGroupIndex; i += 1) {
-            const group = rankGroups[i];
-            addMarker(group?.rank, 'group');
-        }
+        rankGroups
+            .slice(currentGroupIndex + 1, currentGroupIndex + 3)
+            .forEach((group) => addMarker(group?.rank, 'group'));
 
         const sortedMarkers = Array.from(markerMap.values())
             .sort((a, b) => a.rank.minHours - b.rank.minHours);
 
-        const timelineWidth = Math.max(760, sortedMarkers.length * 120);
+        const containerWidth = timelineElement.getBoundingClientRect().width
+            || timelineElement.offsetWidth
+            || 0;
+        const timelineWidth = Math.max(containerWidth, sortedMarkers.length * 160);
         timelineInner.style.minWidth = `${timelineWidth}px`;
+        timelineInner.style.width = `${timelineWidth}px`;
 
         const track = document.createElement('div');
         track.className = 'rank-modal__timeline-track';
@@ -3952,7 +3944,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const markerRect = marker.getBoundingClientRect();
             const scrollRect = scrollArea.getBoundingClientRect();
             const offset = markerRect.left - scrollRect.left - (scrollRect.width / 2) + (markerRect.width / 2);
-            scrollArea.scrollLeft += offset;
+            const targetLeft = scrollArea.scrollLeft + offset;
+            scrollArea.scrollTo({ left: targetLeft, behavior: 'smooth' });
         };
 
         const markers = document.createElement('div');
@@ -4052,7 +4045,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         timelineInner.append(track, focusPanel, markers);
         scrollArea.appendChild(timelineInner);
-        timelineElement.append(timelineHeader, scrollArea);
+        timelineElement.append(scrollArea);
         timelineElement.hidden = false;
     };
 

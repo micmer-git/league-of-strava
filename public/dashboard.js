@@ -1208,6 +1208,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activitiesMedalInfoLabel = document.getElementById('activities-medal-info-label');
     let activitiesMedalInfoDescription = document.getElementById('activities-medal-info-description');
     let activitiesMedalInfoClearButton = document.getElementById('activities-medal-info-clear');
+    let topAchievementsCarousel = document.getElementById('top-achievements-carousel');
+    let profileActivityHistoryElement = document.getElementById('profile-activity-history');
+    let topAchievementsInterval = null;
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
@@ -1498,6 +1501,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         activitiesFilterOpenButton = document.getElementById('activities-filter-open');
         loadMoreButton = document.getElementById('load-more-btn');
         activityFetchWarning = document.getElementById('activities-fetch-warning');
+        topAchievementsCarousel = document.getElementById('top-achievements-carousel');
+        profileActivityHistoryElement = document.getElementById('profile-activity-history');
+        if (topAchievementsInterval) {
+            clearInterval(topAchievementsInterval);
+            topAchievementsInterval = null;
+        }
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
         setWalletChartSkeletonVisible(isShellLoading());
@@ -10914,6 +10923,115 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const renderTopAchievementsCarousel = (container, achievements = []) => {
+        if (!container) {
+            return;
+        }
+
+        const track = container.querySelector('[data-top-achievements-track]');
+        if (!track) {
+            return;
+        }
+
+        track.innerHTML = '';
+        if (topAchievementsInterval) {
+            clearInterval(topAchievementsInterval);
+            topAchievementsInterval = null;
+        }
+
+        const visibleAchievements = achievements.slice(0, 6);
+        if (visibleAchievements.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+
+        const slides = visibleAchievements.map((achievement) => {
+            const slide = document.createElement('article');
+            slide.className = 'profile-top-achievements__slide';
+
+            const title = document.createElement('span');
+            title.className = 'profile-top-achievements__slide-title';
+            title.innerHTML = `<span class="profile-top-achievements__slide-emoji">${achievement.emoji || '⭐️'}</span>${achievement.label}`;
+
+            const description = document.createElement('span');
+            description.className = 'profile-top-achievements__slide-description';
+            const normalizedCount = toNonNegativeInteger(achievement.count);
+            const timesEarned = normalizedCount > 0 ? `${normalizedCount.toLocaleString()}× earned` : 'Unlocked';
+            description.textContent = `${achievement.description || 'Unlocked milestone.'} · ${timesEarned}`;
+
+            slide.append(title, description);
+            track.appendChild(slide);
+            return slide;
+        });
+
+        let currentIndex = 0;
+        const activateSlide = (index) => {
+            slides.forEach((slide, idx) => {
+                slide.classList.toggle('is-active', idx === index);
+            });
+            track.style.transform = `translateX(-${index * 100}%)`;
+        };
+
+        activateSlide(currentIndex);
+
+        if (slides.length > 1) {
+            topAchievementsInterval = window.setInterval(() => {
+                currentIndex = (currentIndex + 1) % slides.length;
+                activateSlide(currentIndex);
+            }, 4800);
+        }
+    };
+
+    const renderActivityHistorySummary = (container, activities = []) => {
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            const emptyMessage = document.createElement('p');
+            emptyMessage.className = 'profile-activity-history__value';
+            emptyMessage.textContent = 'No activity history yet.';
+            container.appendChild(emptyMessage);
+            return;
+        }
+
+        const validDates = activities
+            .map(activity => new Date(activity.start_date))
+            .filter(date => !Number.isNaN(date.getTime()))
+            .sort((a, b) => a - b);
+
+        const formatDate = (date) => date.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+
+        const appendRow = (label, value) => {
+            const row = document.createElement('div');
+            row.className = 'profile-activity-history__row';
+
+            const labelEl = document.createElement('span');
+            labelEl.className = 'profile-activity-history__label';
+            labelEl.textContent = label;
+
+            const valueEl = document.createElement('span');
+            valueEl.className = 'profile-activity-history__value';
+            valueEl.textContent = value;
+
+            row.append(labelEl, valueEl);
+            container.appendChild(row);
+        };
+
+        if (validDates.length > 0) {
+            appendRow('First activity', formatDate(validDates[0]));
+            appendRow('Latest activity', formatDate(validDates[validDates.length - 1]));
+        }
+    };
+
     const destroyCoinMixChart = () => {
         if (coinMixChartInstance) {
             coinMixChartInstance.destroy();
@@ -16271,28 +16389,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (rankDetailsElement) {
             rankDetailsElement.innerHTML = '';
 
-            if (hasActivities) {
-                const oldestActivityDate = activities.reduce((oldest, activity) => {
-                    const activityDate = new Date(activity.start_date);
-                    if (!Number.isNaN(activityDate.getTime()) && activityDate < oldest) {
-                        return activityDate;
-                    }
-                    return oldest;
-                }, new Date(activities[0]?.start_date));
-
-                if (!Number.isNaN(oldestActivityDate.getTime())) {
-                    const formattedOldestDate = oldestActivityDate.toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                    });
-
-                    const oldestActivityElement = document.createElement('div');
-                    oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
-                    oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
-                    rankDetailsElement.appendChild(oldestActivityElement);
-                }
-            } else {
+            if (!hasActivities) {
                 const noDataElement = document.createElement('div');
                 noDataElement.className = 'text-sm text-gray-500';
                 noDataElement.textContent = 'No activities available for the selected filters.';
@@ -16326,6 +16423,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
+        renderTopAchievementsCarousel(topAchievementsCarousel, premiumAchievements);
+        renderActivityHistorySummary(profileActivityHistoryElement, lifetimeActivities);
 
         updateWalletChartData({
             activities,

@@ -1062,7 +1062,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
     const rankModalElement = document.getElementById('rank-modal');
-    const rankModalListElement = document.getElementById('rank-modal-list');
+    const rankModalTimelineElement = document.getElementById('rank-modal-timeline');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
     const rankModalProgressElement = document.getElementById('rank-modal-progress');
     const rankModalContentElement = document.getElementById('rank-modal-content');
@@ -3767,6 +3767,141 @@ document.addEventListener('DOMContentLoaded', async () => {
         return numeric.toFixed(2);
     };
 
+    const getRankTimelineMaxHours = (config = []) => {
+        if (!Array.isArray(config) || config.length === 0) {
+            return 0;
+        }
+
+        const lastRank = config[config.length - 1] || {};
+        const lastMinHours = Number(lastRank?.minHours);
+        const lastSpan = Number(lastRank?.hoursPerLevel ?? BASE_RANK_HOURS_PER_LEVEL);
+
+        if (!Number.isFinite(lastMinHours)) {
+            return 0;
+        }
+
+        return Math.max(0, lastMinHours + (Number.isFinite(lastSpan) ? lastSpan : 0));
+    };
+
+    const renderRankProgressTimeline = (timelineElement, config = []) => {
+        if (!timelineElement) {
+            return;
+        }
+
+        timelineElement.innerHTML = '';
+
+        const hasConfig = Array.isArray(config) && config.length > 0;
+        if (!hasConfig) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__empty';
+            emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
+            timelineElement.appendChild(emptyState);
+            return;
+        }
+
+        const maxHours = getRankTimelineMaxHours(config);
+        const safeTotalHours = Number.isFinite(rankProgressState.totalHours)
+            ? Math.max(0, rankProgressState.totalHours)
+            : 0;
+        const clampedHours = maxHours > 0
+            ? Math.min(safeTotalHours, maxHours)
+            : safeTotalHours;
+        const fillPercent = maxHours > 0
+            ? Math.min(100, Math.max(0, (clampedHours / maxHours) * 100))
+            : 0;
+
+        const timelineHeader = document.createElement('div');
+        timelineHeader.className = 'rank-modal__timeline-header';
+        timelineHeader.innerHTML = `
+            <p class="rank-modal__timeline-title">Crest ladder</p>
+            <p class="rank-modal__timeline-subtitle">Follow every emoji milestone from start to legend status.</p>
+        `;
+
+        const scrollArea = document.createElement('div');
+        scrollArea.className = 'rank-modal__timeline-scroll';
+
+        const timelineInner = document.createElement('div');
+        timelineInner.className = 'rank-modal__timeline-inner';
+        const timelineWidth = Math.max(960, config.length * 56);
+        timelineInner.style.minWidth = `${timelineWidth}px`;
+
+        const track = document.createElement('div');
+        track.className = 'rank-modal__timeline-track';
+        track.setAttribute('role', 'progressbar');
+        track.setAttribute('aria-valuemin', '0');
+        track.setAttribute('aria-valuemax', maxHours.toFixed(0));
+        track.setAttribute('aria-valuenow', clampedHours.toFixed(1));
+        track.setAttribute('aria-label', 'Lifetime hours across all rank levels');
+
+        const rail = document.createElement('div');
+        rail.className = 'rank-modal__timeline-rail';
+
+        const fill = document.createElement('div');
+        fill.className = 'rank-modal__timeline-fill';
+        fill.style.width = `${fillPercent}%`;
+        rail.appendChild(fill);
+
+        const label = document.createElement('div');
+        label.className = 'rank-modal__timeline-label';
+        label.textContent = `${formatHoursDisplay(safeTotalHours)} h logged`;
+
+        track.append(rail, label);
+
+        const markers = document.createElement('div');
+        markers.className = 'rank-modal__timeline-markers';
+        markers.setAttribute('role', 'list');
+
+        config.forEach((rank, index) => {
+            const marker = document.createElement('div');
+            marker.className = 'rank-modal__timeline-marker';
+            const markerPercent = maxHours > 0
+                ? Math.min(100, Math.max(0, (rank.minHours / maxHours) * 100))
+                : 0;
+            marker.style.left = `${markerPercent}%`;
+
+            const isCurrent = index === rankProgressState.currentRankIndex;
+            const isComplete = rank.minHours <= safeTotalHours;
+
+            if (isCurrent) {
+                marker.classList.add('is-current');
+                marker.setAttribute('aria-current', 'true');
+            }
+            if (isComplete && !isCurrent) {
+                marker.classList.add('is-complete');
+            }
+
+            marker.setAttribute('role', 'listitem');
+            marker.setAttribute(
+                'aria-label',
+                `${rank.emoji} ${rank.name || 'Rank'} — available at ${formatHoursDisplay(rank.minHours)} hours${isCurrent ? ', current rank' : ''}`
+            );
+            marker.tabIndex = isCurrent ? 0 : -1;
+
+            const markerDot = document.createElement('span');
+            markerDot.className = 'rank-modal__timeline-dot';
+
+            const emoji = document.createElement('span');
+            emoji.className = 'rank-modal__timeline-emoji';
+            emoji.textContent = rank.emoji || '🏅';
+
+            const name = document.createElement('span');
+            name.className = 'rank-modal__timeline-name';
+            name.textContent = rank.name || 'Rank milestone';
+
+            const hours = document.createElement('span');
+            hours.className = 'rank-modal__timeline-hours';
+            hours.textContent = `≥ ${formatHoursDisplay(rank.minHours)} h`;
+
+            marker.append(markerDot, emoji, name, hours);
+            markers.appendChild(marker);
+        });
+
+        timelineInner.append(track, markers);
+        scrollArea.appendChild(timelineInner);
+        timelineElement.append(timelineHeader, scrollArea);
+        timelineElement.hidden = false;
+    };
+
     const updateRankProgressBar = () => {
         const {
             totalHours,
@@ -4752,14 +4887,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressElement,
         snapshotsElement,
         listElement,
+        timelineElement,
         idPrefix = 'rank-modal',
     } = {}) => {
-        if (!listElement) {
+        if (!listElement && !timelineElement) {
             return;
         }
 
         const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
-        listElement.innerHTML = '';
+        if (listElement) {
+            listElement.innerHTML = '';
+        }
+        if (timelineElement) {
+            timelineElement.innerHTML = '';
+        }
 
         if (summaryElement) {
             const totalHours = Number.isFinite(rankProgressState.totalHours)
@@ -4837,7 +4978,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
             emptyState.className = 'rank-modal__empty';
             emptyState.setAttribute('role', 'note');
-            listElement.appendChild(emptyState);
+            const targetElement = timelineElement || listElement;
+            targetElement?.appendChild(emptyState);
+            return;
+        }
+
+        if (timelineElement && idPrefix === 'rank-modal') {
+            renderRankProgressTimeline(timelineElement, config);
+            return;
+        }
+
+        if (!listElement) {
             return;
         }
 
@@ -4879,7 +5030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             summaryElement: rankModalSummaryElement,
             progressElement: rankModalProgressElement,
             snapshotsElement: rankModalSnapshotsElement,
-            listElement: rankModalListElement,
+            timelineElement: rankModalTimelineElement,
             idPrefix: 'rank-modal',
         });
     };
@@ -4990,7 +5141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.add('rank-modal-open');
         setRankTriggerExpanded(true);
 
-        const currentItem = rankModalListElement?.querySelector('.rank-modal__item.is-current');
+        const currentItem = rankModalTimelineElement?.querySelector('.rank-modal__timeline-marker.is-current');
         const ensureScrollTop = () => {
             if (rankModalContentElement) {
                 rankModalContentElement.scrollTop = 0;

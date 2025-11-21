@@ -148,16 +148,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const PROFILE_PERIOD_KEY_BY_SHORT_LABEL = {
         '7D': 'weekly',
+        '1M': 'monthly',
         '3M': 'quarter',
         '1Y': 'yearly',
     };
     const PROFILE_PERIOD_SHORT_LABELS_BY_KEY = {
         weekly: '7D',
+        monthly: '1M',
         quarter: '3M',
         yearly: '1Y',
     };
     const PROFILE_RANGE_SUMMARY_LABELS = {
         '7D': '7D',
+        '1M': '1M',
         '3M': '3M',
         '1Y': '1Y',
     };
@@ -166,6 +169,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         weekly: {
             title: 'Last 7 Days Overview',
             description: 'Seven-day haul recap.',
+        },
+        monthly: {
+            title: 'Last Month Overview',
+            description: 'Thirty-day haul recap.',
         },
         quarter: {
             title: 'Last 3 Months Overview',
@@ -1090,10 +1097,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletBalanceChangeElements = {
         week: document.getElementById('profile-wallet-change-week'),
         month: document.getElementById('profile-wallet-change-month'),
+        quarter: document.getElementById('profile-wallet-change-quarter'),
         year: document.getElementById('profile-wallet-change-year')
     };
     const walletChangeSnapshotKeyMap = {
         '7d': 'weekly',
+        '1m': 'monthly',
         '3m': 'quarter',
         '1y': 'yearly',
     };
@@ -3711,6 +3720,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 switch (longLabel) {
                     case 'Seven-day':
                         return 'the last seven days';
+                    case 'One-month':
+                        return 'the last month';
                     case 'Three-month':
                         return 'the last three months';
                     case 'One-year':
@@ -10357,6 +10368,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? weeklySnapshot.totalValue
             : null;
 
+        const monthlySnapshot = getRankSnapshotForPeriodKey('monthly');
+        const monthlyChangeValue = Number.isFinite(monthlySnapshot?.totalValue)
+            ? monthlySnapshot.totalValue
+            : null;
+
         applyWalletChangeToElement(
             walletBalanceChangeElements.week,
             weeklyChangeValue,
@@ -10366,6 +10382,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         applyWalletChangeToElement(
             walletBalanceChangeElements.month,
+            monthlyChangeValue,
+            null,
+            { shortLabel: '1M', longLabel: 'One-month' }
+        );
+
+        applyWalletChangeToElement(
+            walletBalanceChangeElements.quarter,
             walletGrowthStats?.quarterChangeValue ?? null,
             walletGrowthStats?.quarterChangePct ?? null,
             { shortLabel: '3M', longLabel: 'Three-month' }

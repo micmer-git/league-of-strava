@@ -16316,9 +16316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : getLifetimeRewardSummary(lifetimeActivities);
 
         const shouldRecomputeMedals = (!Array.isArray(lifetimeRewardSummary.medalInventory)
-            || lifetimeRewardSummary.medalInventory.length === 0)
-            && Number.isFinite(lifetimeRewardSummary?.medalSummary?.count)
-            && lifetimeRewardSummary.medalSummary.count > 0;
+            || lifetimeRewardSummary.medalInventory.length === 0);
 
         if (shouldRecomputeMedals) {
             lifetimeRewardSummary = getLifetimeRewardSummary(lifetimeActivities);

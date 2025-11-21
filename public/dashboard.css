@@ -3879,6 +3879,45 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     scrollbar-gutter: stable both-edges;
 }
 
+.medal-discipline-slider {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    margin: 0.5rem 0 0.25rem;
+    background: var(--panel-ghost-bg, rgba(0, 0, 0, 0.02));
+    border-radius: 999px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.medal-discipline-slider__button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.medal-discipline-slider__button.is-active {
+    background: linear-gradient(135deg, #ffe6a7, #ffd166);
+    color: #7c3a00;
+    border-color: rgba(124, 58, 0, 0.15);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.medal-discipline-slider__button:focus-visible {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+}
+
 .medals-section::-webkit-scrollbar {
     width: 0.45rem;
 }
@@ -4065,6 +4104,14 @@ body.dark .medals-category__description {
 .dark .medals-section {
     background: transparent;
     scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+.dark .medal-discipline-slider {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.dark .medal-discipline-slider__button.is-active {
+    color: #111827;
 }
 
 .dark .medals-section::-webkit-scrollbar-thumb {

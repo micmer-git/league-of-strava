@@ -1117,6 +1117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let achievementWallet = document.getElementById('achievement-wallet');
     let medalsSection = document.getElementById('medals-section');
+    let medalDisciplineButtons = Array.from(document.querySelectorAll('[data-medal-discipline]'));
     const segmentContainer = document.querySelector('#segment-completions .grid');
     const segmentSection = document.getElementById('segment-completions');
     if (segmentSection) {
@@ -1413,6 +1414,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activitiesContainer = document.getElementById('activities-container');
         activitiesEmptyState = document.getElementById('activities-empty');
         medalsSection = document.getElementById('medals-section');
+        medalDisciplineButtons = Array.from(document.querySelectorAll('[data-medal-discipline]'));
         medalFilterBanner = document.getElementById('medal-filter-banner');
         medalFilterLabel = document.getElementById('medal-filter-label');
         medalFilterDescription = document.getElementById('medal-filter-description');
@@ -1612,6 +1614,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let filterApplyTimeout = null;
     let medalInventory = [];
     let historicalMedalInventory = [];
+    let activeMedalDiscipline = 'all';
     let milestoneCarouselIndex = 0;
     const progressDisciplineTabs = [
         { key: 'Run', emoji: '🏃', label: 'Run progression' },
@@ -5895,16 +5898,88 @@ document.addEventListener('DOMContentLoaded', async () => {
         toggleMedalFilter(resolvedMedal);
     };
 
+    const inferMedalDiscipline = (medal = {}) => {
+        const text = `${medal.name || ''} ${medal.description || ''} ${medal.legacyCategory || ''}`.toLowerCase();
+        const includesAny = (keywords = []) => keywords.some(keyword => text.includes(keyword));
+
+        if (includesAny(['swim', 'pool', 'open water', 'tri', 'aqua'])) {
+            return 'swim';
+        }
+
+        if (includesAny(['ride', 'bike', 'velo', 'cycle', 'climb', 'ascent', 'elevation', 'fondo', 'mtb', 'gravel'])) {
+            return 'ride';
+        }
+
+        if (includesAny(['run', 'marathon', 'mile', 'tempo', 'trail', 'half', '5k', '10k'])) {
+            return 'run';
+        }
+
+        return 'multi';
+    };
+
+    const matchesMedalDiscipline = (medal = {}, discipline = 'all') => {
+        if (!discipline || discipline === 'all') {
+            return true;
+        }
+
+        const medalDiscipline = (medal.discipline || inferMedalDiscipline(medal) || 'multi').toLowerCase();
+        if (medalDiscipline === 'multi') {
+            return true;
+        }
+
+        return medalDiscipline === discipline.toLowerCase();
+    };
+
+    const getFilteredMedalInventory = () => {
+        const inventory = Array.isArray(medalInventory) ? medalInventory : [];
+        if (!inventory.length) {
+            return [];
+        }
+
+        return inventory.filter(medal => matchesMedalDiscipline(medal, activeMedalDiscipline));
+    };
+
+    const updateMedalDisciplineButtons = () => {
+        medalDisciplineButtons.forEach((button) => {
+            if (!button) {
+                return;
+            }
+
+            const discipline = (button.dataset.medalDiscipline || 'all').toLowerCase();
+            const isActive = discipline === activeMedalDiscipline;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    };
+
+    const setActiveMedalDiscipline = (nextDiscipline = 'all') => {
+        const normalized = ['run', 'ride', 'swim', 'all'].includes(nextDiscipline.toLowerCase())
+            ? nextDiscipline.toLowerCase()
+            : 'all';
+        if (normalized === activeMedalDiscipline) {
+            updateMedalDisciplineButtons();
+            return;
+        }
+
+        activeMedalDiscipline = normalized;
+        visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, getFilteredMedalInventory().length || MEDALS_PAGE_SIZE);
+        updateMedalDisciplineButtons();
+        renderMedalsGrid();
+    };
+
     const renderMedalsGrid = () => {
         if (!medalsSection) {
             console.warn("'medals-section' element not found in the DOM.");
             return;
         }
 
+        updateMedalDisciplineButtons();
         medalsSection.innerHTML = '';
 
-        if (!Array.isArray(medalInventory) || medalInventory.length === 0) {
-            medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals earned for the selected filters.</p>';
+        const filteredInventory = getFilteredMedalInventory();
+
+        if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
+            medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals available for this sport focus yet. Switch to “All” to view the full collection.</p>';
             if (medalsLoadMoreButton) {
                 medalsLoadMoreButton.classList.add('hidden');
                 medalsLoadMoreButton.disabled = true;
@@ -5914,18 +5989,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (!Number.isFinite(visibleMedalCount) || visibleMedalCount <= 0) {
-            visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, medalInventory.length);
+            visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, filteredInventory.length);
         }
 
         if (activeMedalFilter) {
-            const activeIndex = medalInventory.findIndex(medal => medal.name === activeMedalFilter);
+            const activeIndex = filteredInventory.findIndex(medal => medal.name === activeMedalFilter);
             if (activeIndex >= 0 && activeIndex >= visibleMedalCount) {
                 visibleMedalCount = activeIndex + 1;
             }
         }
 
-        const sliceEnd = Math.min(visibleMedalCount, medalInventory.length);
-        const medalsToRender = medalInventory.slice(0, sliceEnd);
+        const sliceEnd = Math.min(visibleMedalCount, filteredInventory.length);
+        const medalsToRender = filteredInventory.slice(0, sliceEnd);
         const rarityOrder = [];
         const medalsByRarity = new Map();
 
@@ -6103,7 +6178,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalsLoadMoreButton.classList.remove('hidden');
                 medalsLoadMoreButton.disabled = false;
             } else {
-                const hasMore = sliceEnd < medalInventory.length;
+                const hasMore = sliceEnd < filteredInventory.length;
                 medalsLoadMoreButton.classList.toggle('hidden', !hasMore);
                 medalsLoadMoreButton.disabled = !hasMore;
             }
@@ -15997,11 +16072,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? lifetimeRewardSummary.medalInventory.map(medal => ({
                 ...medal,
                 count: toNonNegativeInteger(medal?.count),
+                discipline: medal?.discipline || inferMedalDiscipline(medal),
             }))
             : [];
 
         historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);
         medalInventory = fullMedalInventory.filter(medal => !isHistoricalMedal(medal));
+        activeMedalDiscipline = 'all';
         milestoneCarouselIndex = 0;
 
         medalContributionMap = new Map();
@@ -17615,6 +17692,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const handleMedalDisciplineClick = (event) => {
+        const button = event?.currentTarget;
+        const nextDiscipline = button?.dataset?.medalDiscipline || 'all';
+        setActiveMedalDiscipline(nextDiscipline);
+    };
+
+    const bindMedalDisciplineButtons = () => {
+        if (!Array.isArray(medalDisciplineButtons) || medalDisciplineButtons.length === 0) {
+            return;
+        }
+
+        medalDisciplineButtons.forEach((button) => {
+            if (!button || button.dataset.medalDisciplineBound === 'true') {
+                return;
+            }
+            button.dataset.medalDisciplineBound = 'true';
+            button.addEventListener('click', handleMedalDisciplineClick);
+        });
+
+        updateMedalDisciplineButtons();
+    };
+
     function bindWalletChangeSnapshotTriggers() {
         const elements = Array.from(document.querySelectorAll('[data-wallet-snapshot-key]')).filter(Boolean);
 
@@ -17702,6 +17801,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     onPanelReady('medals', () => {
         refreshPanelReferences();
         bindMedalsLoadMoreButton();
+        bindMedalDisciplineButtons();
         if (Array.isArray(allData.activities)) {
             applyFilters(lastActivitiesRenderOptions);
         }

@@ -3128,7 +3128,7 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .wallet-heatmap__grid {
     display: grid;
-    grid-template-columns: 4rem repeat(12, var(--wallet-heatmap-cell-size));
+    grid-template-columns: repeat(12, var(--wallet-heatmap-cell-size));
     grid-auto-rows: var(--wallet-heatmap-cell-size);
     gap: 0.22rem;
     align-items: stretch;
@@ -3145,18 +3145,6 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     border: 1px solid rgba(148, 163, 184, 0.45);
     transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
     position: relative;
-}
-
-.wallet-heatmap__year {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0.25rem 0.5rem;
-    font-weight: 700;
-    color: #0f172a;
-    border-radius: 0.6rem;
-    background: linear-gradient(135deg, rgba(15, 81, 50, 0.08), rgba(15, 81, 50, 0.02));
-    border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 .wallet-heatmap__cell[data-value] {
@@ -3411,12 +3399,6 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .dark .wallet-heatmap__cell[data-value] {
     border-color: rgba(74, 222, 128, 0.35);
-}
-
-.dark .wallet-heatmap__year {
-    color: #e2e8f0;
-    background: linear-gradient(135deg, rgba(15, 81, 50, 0.15), rgba(15, 81, 50, 0.06));
-    border-color: rgba(148, 163, 184, 0.35);
 }
 
 .dark .wallet-heatmap__popover {

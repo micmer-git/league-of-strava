@@ -164,23 +164,35 @@
   <div class="profile-card__avatar-shell" data-skeleton="avatar">
     <img alt="Athlete Avatar" class="profile-card__avatar" id="athlete-avatar" loading="lazy" src=""/>
   </div>
-  <div class="profile-card__identity">
-    <div class="profile-card__name-row">
-      <h2 class="profile-card__name" data-skeleton="text" id="athlete-name"></h2>
-      <button aria-label="Share highlight" class="profile-card__rank-action profile-card__share-action" id="share-dashboard" type="button">
-        <span aria-hidden="true">📤</span>
-        <span class="sr-only">Share highlight</span>
+    <div class="profile-card__identity">
+      <div class="profile-card__name-row">
+        <h2 class="profile-card__name" data-skeleton="text" id="athlete-name"></h2>
+        <button aria-label="Share highlight" class="profile-card__rank-action profile-card__share-action" id="share-dashboard" type="button">
+          <span aria-hidden="true">📤</span>
+          <span class="sr-only">Share highlight</span>
+        </button>
+      </div>
+      <div class="profile-card__rankline">
+        <span class="profile-card__rank" data-skeleton="pill" id="current-rank"></span>
+        <div class="profile-card__level-group">
+          <span class="profile-card__level" data-skeleton="pill" id="level-progress"></span>
+          <button class="profile-card__rank-action profile-card__info-action" id="rank-info-button" type="button" aria-label="Learn more about rank progression">ℹ️</button>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="profile-card__wallet profile-card__wallet--inline"
+        data-wallet-balance-container=""
+        data-panel-target="wallet"
+        data-panel-chart="balance"
+        aria-label="Open wallet performance graph"
+      >
+        <span class="profile-card__balance-label">Total Wallet</span>
+        <span class="profile-card__balance-value" data-skeleton="text" data-wallet-balance-value="" id="profile-wallet-total">$0.0M</span>
+        <span aria-live="polite" class="profile-card__balance-change profile-card__balance-change--secondary" id="profile-wallet-change-year">—</span>
       </button>
     </div>
-    <div class="profile-card__rankline">
-      <span class="profile-card__rank" data-skeleton="pill" id="current-rank"></span>
-      <div class="profile-card__level-group">
-        <span class="profile-card__level" data-skeleton="pill" id="level-progress"></span>
-        <button class="profile-card__rank-action profile-card__info-action" id="rank-info-button" type="button" aria-label="Learn more about rank progression">ℹ️</button>
-      </div>
-    </div>
   </div>
-</div>
     <div class="profile-card__season-stats profile-card__stat-rows" data-skeleton="panel">
       <div class="profile-metrics stats-card__pills profile-card__season-pills profile-card__stat-row">
         <div class="profile-metrics__row">
@@ -240,19 +252,35 @@
         <span class="wallet-total-pill__value" id="country-total">0</span>
       </button>
     </div>
+    <section aria-label="Biweekly balance heatmap" class="wallet-heatmap" id="wallet-heatmap">
+      <div class="wallet-heatmap__header">
+        <div class="wallet-heatmap__legend" id="wallet-heatmap-legend">
+          <span class="wallet-heatmap__legend-item">
+            <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--value"></span>
+            More collected
+          </span>
+          <span class="wallet-heatmap__legend-item">
+            <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--historical"></span>
+            Historical medal
+          </span>
+          <span class="wallet-heatmap__legend-item">
+            <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--diamond"></span>
+            Diamond coin
+          </span>
+          <span class="wallet-heatmap__legend-item">
+            <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--crowd"></span>
+            Crowd coin
+          </span>
+        </div>
+      </div>
+      <p class="wallet-heatmap__empty hidden" id="wallet-heatmap-empty">Switch to the all-time view to see the monthly heatmap.</p>
+      <div class="wallet-heatmap__grid-wrapper">
+        <div class="wallet-heatmap__grid" id="wallet-heatmap-grid" role="list"></div>
+        <div class="wallet-heatmap__backdrop hidden" id="wallet-heatmap-backdrop"></div>
+        <div aria-live="polite" class="wallet-heatmap__popover hidden" id="wallet-heatmap-popover" role="dialog"></div>
+      </div>
+    </section>
   </div>
-  <button
-    type="button"
-    class="profile-card__wallet"
-    data-wallet-balance-container=""
-    data-panel-target="wallet"
-    data-panel-chart="balance"
-    aria-label="Open wallet performance graph"
-  >
-    <span class="profile-card__balance-label">Total Wallet</span>
-    <span class="profile-card__balance-value" data-skeleton="text" data-wallet-balance-value="" id="profile-wallet-total">$0.0M</span>
-    <span aria-live="polite" class="profile-card__balance-change profile-card__balance-change--secondary" id="profile-wallet-change-year">—</span>
-  </button>
 </header>
         <div class="profile-card__progress" id="rank-progress-trigger">
             <div class="profile-card__progress-bar profile-card__progress-bar--labeled">
@@ -268,6 +296,16 @@
 <div class="profile-card__meta">
 <div class="profile-card__badges profile-card__badges--premium" id="premium-achievements"></div>
 </div>
+<section aria-label="Top achievements" class="profile-top-achievements" id="profile-top-achievements">
+  <div class="profile-top-achievements__header">
+    <p class="profile-top-achievements__eyebrow">Highlight reel</p>
+    <h3 class="profile-top-achievements__title">Top achievements</h3>
+  </div>
+  <div class="profile-top-achievements__carousel" id="top-achievements-carousel">
+    <div class="profile-top-achievements__track" data-top-achievements-track=""></div>
+  </div>
+</section>
+<section aria-label="Activity history" class="profile-activity-history" id="profile-activity-history"></section>
 <div class="profile-card__sync">
   <button
     id="fetch-strava-button"
@@ -332,34 +370,6 @@
   <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Hover or tap a point to inspect it.</p>
 </div>
 </div>
-<section aria-label="Biweekly balance heatmap" class="wallet-heatmap" id="wallet-heatmap">
-  <div class="wallet-heatmap__header">
-    <div class="wallet-heatmap__legend" id="wallet-heatmap-legend">
-      <span class="wallet-heatmap__legend-item">
-        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--value"></span>
-        More collected
-      </span>
-      <span class="wallet-heatmap__legend-item">
-        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--historical"></span>
-        Historical medal
-      </span>
-      <span class="wallet-heatmap__legend-item">
-        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--diamond"></span>
-        Diamond coin
-      </span>
-      <span class="wallet-heatmap__legend-item">
-        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--crowd"></span>
-        Crowd coin
-      </span>
-    </div>
-  </div>
-  <p class="wallet-heatmap__empty hidden" id="wallet-heatmap-empty">Switch to the all-time view to see the monthly heatmap.</p>
-  <div class="wallet-heatmap__grid-wrapper">
-    <div class="wallet-heatmap__grid" id="wallet-heatmap-grid" role="list"></div>
-    <div class="wallet-heatmap__backdrop hidden" id="wallet-heatmap-backdrop"></div>
-    <div aria-live="polite" class="wallet-heatmap__popover hidden" id="wallet-heatmap-popover" role="dialog"></div>
-  </div>
-</section>
 </div>
 </section>
 </template>

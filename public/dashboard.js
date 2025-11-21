@@ -558,27 +558,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         return Math.floor(numeric);
     };
     const CALORIE_SCALE_FACTOR = 0.65;
-    const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
-    const walletCompactFormatter = new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: 'USD',
-        notation: 'compact',
-        maximumFractionDigits: 1,
-    });
-
-    const formatWalletCompactValue = (value) => {
-        if (!Number.isFinite(value) || value <= 0) {
-            return 'No balance collected';
+    const formatWalletValue = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return '$0';
         }
-        return walletCompactFormatter.format(value);
+
+        const absolute = Math.abs(numeric);
+        let unit = '';
+        let scaled = absolute;
+
+        if (absolute >= 1_000_000) {
+            unit = 'M';
+            scaled = absolute / 1_000_000;
+        } else if (absolute >= 1_000) {
+            unit = 'k';
+            scaled = absolute / 1_000;
+        }
+
+        const decimals = scaled >= 10 || unit === '' ? 0 : 1;
+        const formatted = scaled.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: decimals,
+        });
+
+        const prefix = numeric < 0 ? '-' : '';
+        return `${prefix}$${formatted}${unit}`;
     };
-    const usdCodeFormatter = new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: 'USD',
-        currencyDisplay: 'symbol',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    });
+
+    const currencyFormatter = { format: formatWalletValue };
+    const usdCodeFormatter = { format: formatWalletValue };
     const DASHBOARD_CACHE_VERSION = 'v2';
     const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -13444,11 +13453,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const movingTime = movingHours >= 1
                 ? `${movingHours.toFixed(1)} hrs`
                 : `${Math.max(1, Math.round((activity.moving_time || 0) / 60))} mins`;
+            const caloriesBurned = Number.isFinite(activity.calories)
+                ? `${Math.round(activity.calories)} kcal`
+                : null;
             const metrics = [
                 formattedDate,
                 distanceKm ? `${distanceKm} km` : null,
                 movingTime,
-                elevationGain
+                elevationGain,
+                caloriesBurned
             ].filter(Boolean).join(' • ');
             const metricsText = document.createElement('span');
             metricsText.className = 'activity-card__details-text';

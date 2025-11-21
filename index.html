@@ -1615,6 +1615,11 @@
             medalList.appendChild(listItem);
           });
 
+          Array.from(medalList.children).forEach((medalItem) => {
+            medalItem.removeAttribute('hidden');
+            medalItem.style.display = '';
+          });
+
           categorySection.appendChild(medalList);
           fragment.appendChild(categorySection);
         });

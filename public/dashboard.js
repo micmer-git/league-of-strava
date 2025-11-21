@@ -586,6 +586,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${prefix}$${formatted}${unit}`;
     };
 
+    const walletCompactFormatter = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        notation: 'compact',
+        compactDisplay: 'short',
+        maximumFractionDigits: 1,
+    });
+
+    const formatWalletCompactValue = (value) => {
+        if (!Number.isFinite(value)) {
+            return '$0';
+        }
+        return walletCompactFormatter.format(value);
+    };
+
     const currencyFormatter = { format: formatWalletValue };
     const usdCodeFormatter = { format: formatWalletValue };
     const DASHBOARD_CACHE_VERSION = 'v2';

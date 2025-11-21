@@ -3970,10 +3970,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             || timelineElement.offsetWidth
             || window.innerWidth
             || 0;
-        const estimatedWidth = Math.max(rankGroups.length, 3) * 160;
-        const timelineWidth = Math.max(containerWidth, estimatedWidth);
-        timelineInner.style.minWidth = `${timelineWidth}px`;
-        timelineInner.style.width = `${timelineWidth}px`;
+        const timelineWidth = containerWidth || window.innerWidth || 0;
+        timelineInner.style.minWidth = `${Math.max(timelineWidth, 320)}px`;
+        timelineInner.style.width = '100%';
 
         const track = document.createElement('div');
         track.className = 'rank-modal__timeline-track';
@@ -3997,70 +3996,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         track.append(rail, label);
 
-        const focusPanel = document.createElement('div');
-        focusPanel.className = 'rank-modal__timeline-focus';
-        const focusLabel = document.createElement('p');
-        focusLabel.className = 'rank-modal__timeline-focus-label';
-        const focusHours = document.createElement('p');
-        focusHours.className = 'rank-modal__timeline-focus-hours';
-        const focusDelta = document.createElement('p');
-        focusDelta.className = 'rank-modal__timeline-focus-delta';
-        focusPanel.append(focusLabel, focusHours, focusDelta);
-
-        const updateFocusPanel = (rank) => {
-            if (!rank) {
-                focusLabel.textContent = 'Select a crest milestone';
-                focusHours.textContent = '';
-                focusDelta.textContent = '';
-                return;
-            }
-
-            const remaining = Math.max(0, rank.minHours - safeTotalHours);
-            focusLabel.textContent = `${rank.emoji} ${rank.name || 'Rank milestone'}`;
-            focusHours.textContent = `Requires ${formatHoursDisplay(rank.minHours)} hours`;    
-            focusDelta.textContent = remaining > 0
-                ? `${formatHoursDisplay(remaining)} more hours needed`
-                : 'Requirement met — keep climbing!';
-        };
-
-        const centerMarkerInView = (marker) => {
-            if (!marker) {
-                return;
-            }
-            const markerRect = marker.getBoundingClientRect();
-            const scrollRect = scrollArea.getBoundingClientRect();
-            const offset = markerRect.left - scrollRect.left - (scrollRect.width / 2) + (markerRect.width / 2);
-            const targetLeft = scrollArea.scrollLeft + offset;
-            scrollArea.scrollTo({ left: targetLeft, behavior: 'smooth' });
-        };
-
         const markers = document.createElement('div');
         markers.className = 'rank-modal__timeline-markers';
         markers.setAttribute('role', 'list');
 
-        let markerEntries = [];
-        let focusedGroupIndex = currentGroupIndex;
-
-        const setFocusedMarker = (entry) => {
-            markerEntries.forEach(({ element }) => element.classList.remove('is-focused'));
-            if (!entry || !entry.element) {
-                updateFocusPanel(null);
-                return;
-            }
-
-            entry.element.classList.add('is-focused');
-            updateFocusPanel(entry.rank);
-            centerMarkerInView(entry.element);
-        };
-
-        const renderMarkersForGroup = (groupIndex, focusRank) => {
-            focusedGroupIndex = Math.max(0, Math.min(groupIndex, rankGroups.length - 1));
-            const sortedMarkers = buildMarkerSet(focusedGroupIndex);
+        const renderMarkersForGroup = (groupIndex) => {
+            const focusedGroupIndex = Math.max(0, Math.min(groupIndex, rankGroups.length - 1));
+            const sliceStart = Math.max(0, focusedGroupIndex - 2);
+            const sliceEnd = Math.min(rankGroups.length - 1, focusedGroupIndex + 1);
+            const markerEntries = buildMarkerSet(focusedGroupIndex)
+                .filter(({ rank }) => {
+                    const groupIndexValue = getGroupIndexForRank(rank);
+                    return groupIndexValue >= sliceStart && groupIndexValue <= sliceEnd;
+                });
 
             markers.innerHTML = '';
-            markerEntries = [];
 
-            sortedMarkers.forEach(({ rank, type }) => {
+            markerEntries.forEach(({ rank, type }) => {
                 const marker = document.createElement('div');
                 marker.className = 'rank-modal__timeline-marker';
                 marker.dataset.markerType = type;
@@ -4116,42 +4068,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                     marker.append(markerDot, emoji, name, hours);
                 }
 
-                const entry = { element: marker, rank, type };
-                markerEntries.push(entry);
+                const popover = document.createElement('div');
+                popover.className = 'rank-modal__timeline-popover';
+                popover.innerHTML = `
+                    <span class="rank-modal__timeline-popover-emoji" aria-hidden="true">${rank.emoji}</span>
+                    <div class="rank-modal__timeline-popover-text">
+                        <span class="rank-modal__timeline-popover-name">${rank.name || 'Rank milestone'}</span>
+                        <span class="rank-modal__timeline-popover-hours">≥ ${formatHoursDisplay(rank.minHours)} h</span>
+                    </div>
+                `;
+                marker.appendChild(popover);
+
+                const showPopover = () => popover.classList.add('is-visible');
+                const hidePopover = () => popover.classList.remove('is-visible');
+
+                marker.addEventListener('mouseenter', showPopover);
+                marker.addEventListener('mouseleave', hidePopover);
+                marker.addEventListener('focus', showPopover);
+                marker.addEventListener('blur', hidePopover);
+
                 markers.appendChild(marker);
-
-                const handleActivate = () => {
-                    const targetGroupIndex = getGroupIndexForRank(entry.rank);
-                    const hasDifferentGroupFocus = targetGroupIndex !== -1 && targetGroupIndex !== focusedGroupIndex;
-
-                    if (hasDifferentGroupFocus) {
-                        renderMarkersForGroup(targetGroupIndex, entry.rank);
-                        return;
-                    }
-
-                    setFocusedMarker(entry);
-                };
-
-                marker.addEventListener('click', handleActivate);
-                marker.addEventListener('keydown', (event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        handleActivate();
-                    }
-                });
             });
-
-            const initialEntry = (focusRank && markerEntries.find(({ rank }) => rank === focusRank))
-                || markerEntries.find(({ element }) => element.dataset.markerType === 'current')
-                || markerEntries.find(({ element }) => element.dataset.markerType === 'detail')
-                || markerEntries[0];
-
-            setFocusedMarker(initialEntry);
         };
 
-        renderMarkersForGroup(currentGroupIndex, currentRank);
+        renderMarkersForGroup(currentGroupIndex);
 
-        timelineInner.append(track, markers, focusPanel);
+        timelineInner.append(track, markers);
         scrollArea.appendChild(timelineInner);
         timelineElement.append(scrollArea);
         timelineElement.hidden = false;
@@ -4195,28 +4137,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (rankingProgressWeeklyElement) {
-            const formattedWeekly = formatHoursDisplay(weekValue);
-            const prefix = weekValue > 0 ? '+' : '';
-            const weeklyLabel = `${prefix}${formattedWeekly} h last 7d`;
-            rankingProgressWeeklyElement.textContent = weeklyLabel;
-            rankingProgressWeeklyElement.setAttribute(
-                'aria-label',
-                weekValue > 0
-                    ? `${formattedWeekly} hours recorded in the last 7 days`
-                    : 'No hours recorded in the last 7 days'
-            );
+            rankingProgressWeeklyElement.textContent = '';
+            rankingProgressWeeklyElement.setAttribute('aria-hidden', 'true');
+            rankingProgressWeeklyElement.style.display = 'none';
         }
 
         if (levelProgressWeeklyFillElement) {
-            if (spanHours && weekValue > 0) {
-                const clampedWeekHours = Math.min(weekValue, spanHours);
-                const weeklyPercent = Math.min(100, Math.max(0, (clampedWeekHours / spanHours) * 100));
-                levelProgressWeeklyFillElement.style.width = `${weeklyPercent.toFixed(2)}%`;
-                levelProgressWeeklyFillElement.classList.add('is-visible');
-            } else {
-                levelProgressWeeklyFillElement.style.width = '0%';
-                levelProgressWeeklyFillElement.classList.remove('is-visible');
-            }
+            levelProgressWeeklyFillElement.style.width = '0%';
+            levelProgressWeeklyFillElement.classList.remove('is-visible');
+            levelProgressWeeklyFillElement.style.display = 'none';
+            levelProgressWeeklyFillElement.setAttribute('aria-hidden', 'true');
         }
 
         if (nextRankElement) {

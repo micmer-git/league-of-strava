@@ -3835,7 +3835,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         timelineHeader.className = 'rank-modal__timeline-header';
         timelineHeader.innerHTML = `
             <p class="rank-modal__timeline-title">Crest ladder</p>
-            <p class="rank-modal__timeline-subtitle">Follow every emoji milestone from start to legend status.</p>
+            <p class="rank-modal__timeline-subtitle">Jump to nearby crest tiers and see what it takes to reach them.</p>
         `;
 
         const scrollArea = document.createElement('div');
@@ -3843,7 +3843,55 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const timelineInner = document.createElement('div');
         timelineInner.className = 'rank-modal__timeline-inner';
-        const timelineWidth = Math.max(960, config.length * 56);
+
+        const currentIndex = Number.isInteger(rankProgressState.currentRankIndex)
+            ? rankProgressState.currentRankIndex
+            : 0;
+        const currentRank = config[currentIndex] || config[0] || {};
+        const previousRank = config[currentIndex - 1] || null;
+        const nextRank = config[currentIndex + 1] || null;
+
+        const rankGroups = [];
+        const seenGroupEmoji = new Set();
+        config.forEach((rank, index) => {
+            if (!seenGroupEmoji.has(rank.emoji)) {
+                seenGroupEmoji.add(rank.emoji);
+                rankGroups.push({ rank, index });
+            }
+        });
+
+        const currentGroupIndex = Math.max(rankGroups.findIndex(group => group.rank.emoji === currentRank.emoji), 0);
+        const startGroupIndex = Math.max(0, currentGroupIndex - 3);
+        const endGroupIndex = Math.min(rankGroups.length - 1, currentGroupIndex + 3);
+
+        const markerPriorityMap = { group: 1, detail: 2, current: 3 };
+        const markerMap = new Map();
+
+        const addMarker = (rank, type) => {
+            if (!rank || typeof rank.minHours !== 'number') {
+                return;
+            }
+            const priority = markerPriorityMap[type] || 0;
+            const key = rank.minHours;
+            const existing = markerMap.get(key);
+            if (!existing || priority > existing.priority) {
+                markerMap.set(key, { rank, type, priority });
+            }
+        };
+
+        addMarker(currentRank, 'current');
+        addMarker(previousRank, 'detail');
+        addMarker(nextRank, 'detail');
+
+        for (let i = startGroupIndex; i <= endGroupIndex; i += 1) {
+            const group = rankGroups[i];
+            addMarker(group?.rank, 'group');
+        }
+
+        const sortedMarkers = Array.from(markerMap.values())
+            .sort((a, b) => a.rank.minHours - b.rank.minHours);
+
+        const timelineWidth = Math.max(760, sortedMarkers.length * 120);
         timelineInner.style.minWidth = `${timelineWidth}px`;
 
         const track = document.createElement('div');
@@ -3868,19 +3916,61 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         track.append(rail, label);
 
+        const focusPanel = document.createElement('div');
+        focusPanel.className = 'rank-modal__timeline-focus';
+        const focusLabel = document.createElement('p');
+        focusLabel.className = 'rank-modal__timeline-focus-label';
+        const focusHours = document.createElement('p');
+        focusHours.className = 'rank-modal__timeline-focus-hours';
+        const focusDelta = document.createElement('p');
+        focusDelta.className = 'rank-modal__timeline-focus-delta';
+        focusPanel.append(focusLabel, focusHours, focusDelta);
+
+        const updateFocusPanel = (rank) => {
+            if (!rank) {
+                focusLabel.textContent = 'Select a crest milestone';
+                focusHours.textContent = '';
+                focusDelta.textContent = '';
+                return;
+            }
+
+            const remaining = Math.max(0, rank.minHours - safeTotalHours);
+            focusLabel.textContent = `${rank.emoji} ${rank.name || 'Rank milestone'}`;
+            focusHours.textContent = `Requires ${formatHoursDisplay(rank.minHours)} hours`;    
+            focusDelta.textContent = remaining > 0
+                ? `${formatHoursDisplay(remaining)} more hours needed`
+                : 'Requirement met — keep climbing!';
+        };
+
+        const centerMarkerInView = (marker) => {
+            if (!marker) {
+                return;
+            }
+            const markerRect = marker.getBoundingClientRect();
+            const scrollRect = scrollArea.getBoundingClientRect();
+            const offset = markerRect.left - scrollRect.left - (scrollRect.width / 2) + (markerRect.width / 2);
+            scrollArea.scrollLeft += offset;
+        };
+
         const markers = document.createElement('div');
         markers.className = 'rank-modal__timeline-markers';
         markers.setAttribute('role', 'list');
 
-        config.forEach((rank, index) => {
+        const markerEntries = [];
+
+        sortedMarkers.forEach(({ rank, type }) => {
             const marker = document.createElement('div');
             marker.className = 'rank-modal__timeline-marker';
+            marker.dataset.markerType = type;
+            marker.setAttribute('role', 'listitem');
+            marker.setAttribute('tabindex', '0');
+
             const markerPercent = maxHours > 0
                 ? Math.min(100, Math.max(0, (rank.minHours / maxHours) * 100))
                 : 0;
             marker.style.left = `${markerPercent}%`;
 
-            const isCurrent = index === rankProgressState.currentRankIndex;
+            const isCurrent = type === 'current';
             const isComplete = rank.minHours <= safeTotalHours;
 
             if (isCurrent) {
@@ -3890,13 +3980,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (isComplete && !isCurrent) {
                 marker.classList.add('is-complete');
             }
+            if (type === 'group' && !isCurrent) {
+                marker.classList.add('rank-modal__timeline-marker--group');
+            }
 
-            marker.setAttribute('role', 'listitem');
+            const ariaSuffix = isCurrent ? ', current rank' : '';
+            const ariaTypeLabel = type === 'group'
+                ? 'crest tier overview'
+                : 'rank milestone';
             marker.setAttribute(
                 'aria-label',
-                `${rank.emoji} ${rank.name || 'Rank'} — available at ${formatHoursDisplay(rank.minHours)} hours${isCurrent ? ', current rank' : ''}`
+                `${rank.emoji} ${rank.name || 'Rank'} ${ariaTypeLabel} — available at ${formatHoursDisplay(rank.minHours)} hours${ariaSuffix}`
             );
-            marker.tabIndex = isCurrent ? 0 : -1;
 
             const markerDot = document.createElement('span');
             markerDot.className = 'rank-modal__timeline-dot';
@@ -3913,11 +4008,46 @@ document.addEventListener('DOMContentLoaded', async () => {
             hours.className = 'rank-modal__timeline-hours';
             hours.textContent = `≥ ${formatHoursDisplay(rank.minHours)} h`;
 
-            marker.append(markerDot, emoji, name, hours);
+            if (type === 'group' && !isCurrent) {
+                marker.append(markerDot, emoji);
+            } else {
+                marker.append(markerDot, emoji, name, hours);
+            }
+
+            markerEntries.push({ element: marker, rank });
             markers.appendChild(marker);
         });
 
-        timelineInner.append(track, markers);
+        const setFocusedMarker = (entry) => {
+            markerEntries.forEach(({ element }) => element.classList.remove('is-focused'));
+            if (!entry || !entry.element) {
+                updateFocusPanel(null);
+                return;
+            }
+
+            entry.element.classList.add('is-focused');
+            updateFocusPanel(entry.rank);
+            centerMarkerInView(entry.element);
+        };
+
+        markerEntries.forEach((entry) => {
+            const handleActivate = () => setFocusedMarker(entry);
+            entry.element.addEventListener('click', handleActivate);
+            entry.element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleActivate();
+                }
+            });
+        });
+
+        const initialEntry = markerEntries.find(({ element }) => element.dataset.markerType === 'current')
+            || markerEntries.find(({ element }) => element.dataset.markerType === 'detail')
+            || markerEntries[0];
+
+        setFocusedMarker(initialEntry);
+
+        timelineInner.append(track, focusPanel, markers);
         scrollArea.appendChild(timelineInner);
         timelineElement.append(timelineHeader, scrollArea);
         timelineElement.hidden = false;

@@ -5097,7 +5097,7 @@ body.dark .medals-category__description {
 
 .rank-modal__timeline-inner {
     position: relative;
-    padding: 0.75rem 0 1.1rem;
+    padding: 0.75rem 0 1.35rem;
     min-width: 100%;
 }
 
@@ -5146,7 +5146,7 @@ body.dark .medals-category__description {
 
 .rank-modal__timeline-markers {
     position: relative;
-    height: 140px;
+    height: 160px;
     margin-top: 0.2rem;
 }
 
@@ -5159,7 +5159,7 @@ body.dark .medals-category__description {
     align-items: center;
     gap: 0.2rem;
     text-align: center;
-    width: 90px;
+    width: 78px;
     color: #0f172a;
     transition: transform 0.2s ease, color 0.2s ease;
 }
@@ -5222,38 +5222,48 @@ body.dark .medals-category__description {
     font-size: 1.25rem;
 }
 
-.rank-modal__timeline-marker.is-focused .rank-modal__timeline-dot {
-    box-shadow: 0 14px 32px rgba(37, 99, 235, 0.28);
-    background: #2563eb;
-    border-color: rgba(37, 99, 235, 0.28);
+.rank-modal__timeline-popover {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translate(-50%, 0);
+    padding: 0.5rem 0.65rem;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.15);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    min-width: 170px;
 }
 
-.rank-modal__timeline-focus {
-    margin: 0.45rem 0 0.15rem;
-    padding: 0.75rem 0.9rem;
-    border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+.rank-modal__timeline-popover.is-visible {
+    opacity: 1;
+    transform: translate(-50%, -6px);
+}
+
+.rank-modal__timeline-popover-emoji {
+    font-size: 1.15rem;
+}
+
+.rank-modal__timeline-popover-text {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
+    text-align: left;
 }
 
-.rank-modal__timeline-focus-label {
-    margin: 0;
+.rank-modal__timeline-popover-name {
     font-weight: 700;
     color: #0f172a;
-}
-
-.rank-modal__timeline-focus-hours {
-    margin: 0;
-    font-size: 0.95rem;
-    color: #1d4ed8;
-}
-
-.rank-modal__timeline-focus-delta {
-    margin: 0;
     font-size: 0.9rem;
+}
+
+.rank-modal__timeline-popover-hours {
+    font-size: 0.82rem;
     color: #475569;
 }
 
@@ -5398,28 +5408,19 @@ body.dark .medals-category__description {
     color: #e2e8f0;
 }
 
-.dark .rank-modal__timeline-marker.is-focused .rank-modal__timeline-dot {
-    background: #3b82f6;
-    border-color: rgba(147, 197, 253, 0.5);
-    box-shadow: 0 14px 32px rgba(59, 130, 246, 0.38);
+.dark .rank-modal__timeline-popover {
+    background: #0f172a;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5);
 }
 
-.dark .rank-modal__timeline-focus {
-    background: rgba(15, 23, 42, 0.95);
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.65);
-}
-
-.dark .rank-modal__timeline-focus-label {
+.dark .rank-modal__timeline-popover-name {
     color: #e2e8f0;
 }
 
-.dark .rank-modal__timeline-focus-hours {
-    color: #bfdbfe;
-}
-
-.dark .rank-modal__timeline-focus-delta {
+.dark .rank-modal__timeline-popover-hours {
     color: #cbd5f5;
 }
+
 
 .dark .rank-modal__milestones-card {
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.9));

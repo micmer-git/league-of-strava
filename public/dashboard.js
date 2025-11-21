@@ -317,6 +317,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalElement = document.getElementById('rank-modal');
     const rankModalListElement = document.getElementById('rank-modal-list');
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
+    const rankModalTimelineElement = document.getElementById('rank-modal-timeline');
+    const rankModalTimelineMarkersElement = document.getElementById('rank-modal-timeline-markers');
+    const rankModalTimelineFocusElement = document.getElementById('rank-modal-timeline-focus');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
@@ -1011,6 +1014,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentMonthHours: 0,
         previousMonthHours: 0,
     };
+    let rankTimelineSelectionIndex = null;
+    let rankTimelineGroups = [];
+    let rankTimelineMaxHours = 0;
 
     const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
 
@@ -1565,6 +1571,160 @@ document.addEventListener('DOMContentLoaded', async () => {
         return hours.toFixed(2);
     };
 
+    const extractRankHighLevel = (rankName) => {
+        if (typeof rankName !== 'string') {
+            return '';
+        }
+        return rankName.replace(/\s+\d+$/, '').trim();
+    };
+
+    const buildRankTimelineGroups = (config, currentHighLevel) => {
+        const groups = [];
+        const seen = new Set();
+        let currentIndex = -1;
+
+        config.forEach((rank) => {
+            const label = extractRankHighLevel(rank?.name);
+            if (!label || seen.has(label)) {
+                if (label && label === currentHighLevel && currentIndex === -1) {
+                    currentIndex = groups.findIndex(group => group.label === label);
+                }
+                return;
+            }
+
+            seen.add(label);
+
+            const group = {
+                label,
+                emoji: rank?.emoji || '⭐',
+                minHours: Number.isFinite(rank?.minHours) ? rank.minHours : 0,
+            };
+
+            groups.push(group);
+
+            if (label === currentHighLevel && currentIndex === -1) {
+                currentIndex = groups.length - 1;
+            }
+        });
+
+        const maxHours = groups.reduce((max, group) => Math.max(max, group.minHours || 0), 0);
+
+        return { groups, currentIndex, maxHours };
+    };
+
+    const getRankTimelineWindow = (groups, centerIndex, radius = 2) => {
+        if (!Array.isArray(groups) || groups.length === 0) {
+            return [];
+        }
+
+        const total = groups.length;
+        let start = Math.max(0, centerIndex - radius);
+        let end = Math.min(total - 1, centerIndex + radius);
+
+        while ((end - start) < radius * 2) {
+            if (start > 0) {
+                start -= 1;
+            } else if (end < total - 1) {
+                end += 1;
+            } else {
+                break;
+            }
+        }
+
+        return groups.slice(start, end + 1);
+    };
+
+    const clampTimelinePercent = (value) => Math.min(98, Math.max(2, value));
+
+    const scrollRankListToHighLevel = (label) => {
+        if (!label || !rankModalListElement) {
+            return;
+        }
+
+        const selector = `[data-rank-high-level="${label}"]`;
+        const targetItem = rankModalListElement.querySelector(selector);
+
+        if (targetItem && typeof targetItem.scrollIntoView === 'function') {
+            targetItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+    };
+
+    const handleRankTimelineSelection = (label) => {
+        if (!label || !Array.isArray(rankTimelineGroups)) {
+            return;
+        }
+
+        const index = rankTimelineGroups.findIndex(group => group.label === label);
+        if (index === -1) {
+            return;
+        }
+
+        rankTimelineSelectionIndex = index;
+        renderRankTimeline();
+        scrollRankListToHighLevel(label);
+    };
+
+    const renderRankTimeline = () => {
+        if (!rankModalTimelineElement || !rankModalTimelineMarkersElement) {
+            return;
+        }
+
+        const hasGroups = Array.isArray(rankTimelineGroups) && rankTimelineGroups.length > 0;
+        rankModalTimelineElement.hidden = !hasGroups;
+        rankModalTimelineMarkersElement.innerHTML = '';
+
+        if (!hasGroups) {
+            return;
+        }
+
+        const fallbackIndex = Math.max(0, rankTimelineGroups.findIndex(group => group.label === extractRankHighLevel(rankProgressState.currentRank?.name)));
+        const focusIndex = Math.min(
+            rankTimelineGroups.length - 1,
+            Math.max(0, Number.isInteger(rankTimelineSelectionIndex) ? rankTimelineSelectionIndex : fallbackIndex)
+        );
+        rankTimelineSelectionIndex = focusIndex;
+
+        const maxHours = rankTimelineMaxHours > 0
+            ? rankTimelineMaxHours
+            : (rankTimelineGroups[rankTimelineGroups.length - 1]?.minHours || 1);
+        const visibleGroups = getRankTimelineWindow(rankTimelineGroups, focusIndex);
+        const focusGroup = rankTimelineGroups[focusIndex];
+
+        const focusPercent = clampTimelinePercent(((focusGroup?.minHours || 0) / maxHours) * 100);
+        if (rankModalTimelineFocusElement) {
+            rankModalTimelineFocusElement.style.left = `${focusPercent}%`;
+        }
+
+        visibleGroups.forEach((group) => {
+            const percent = clampTimelinePercent(((group.minHours || 0) / maxHours) * 100);
+            const marker = document.createElement('button');
+            marker.type = 'button';
+            marker.className = 'rank-modal__timeline-marker';
+            marker.style.left = `${percent}%`;
+            marker.setAttribute('role', 'listitem');
+            marker.dataset.rankHighLevel = group.label;
+
+            const isActive = focusGroup?.label === group.label;
+            if (isActive) {
+                marker.setAttribute('aria-current', 'true');
+            }
+
+            marker.setAttribute(
+                'aria-label',
+                `${group.label} crest at ≥ ${formatHoursDisplay(group.minHours)} hours${isActive ? ' (centered)' : ''}`
+            );
+
+            marker.innerHTML = `
+                <span class="rank-modal__timeline-emoji" aria-hidden="true">${group.emoji}</span>
+                <span class="rank-modal__timeline-label">${group.label}</span>
+                <span class="rank-modal__timeline-hours">≥ ${formatHoursDisplay(group.minHours)} h</span>
+            `;
+
+            marker.addEventListener('click', () => handleRankTimelineSelection(group.label));
+            rankModalTimelineMarkersElement.appendChild(marker);
+        });
+    };
+
     const updateRankProgressBar = () => {
         const {
             totalHours,
@@ -1631,6 +1791,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
         rankModalListElement.innerHTML = '';
 
+        const currentHighLevelLabel = extractRankHighLevel(rankProgressState.currentRank?.name);
+        const { groups: timelineGroups, currentIndex: timelineCurrentIndex, maxHours: timelineMaxHours } = buildRankTimelineGroups(
+            config,
+            currentHighLevelLabel
+        );
+
+        rankTimelineGroups = timelineGroups;
+        rankTimelineMaxHours = timelineMaxHours;
+
+        const initialTimelineIndex = Number.isInteger(timelineCurrentIndex) && timelineCurrentIndex >= 0
+            ? timelineCurrentIndex
+            : 0;
+
+        const shouldResetTimelineSelection = !rankModalElement || rankModalElement.hidden;
+
+        if (
+            !Number.isInteger(rankTimelineSelectionIndex)
+            || rankTimelineSelectionIndex >= rankTimelineGroups.length
+            || shouldResetTimelineSelection
+        ) {
+            rankTimelineSelectionIndex = initialTimelineIndex;
+        }
+
+        renderRankTimeline();
+
         if (rankModalSummaryElement) {
             const totalHours = Number.isFinite(rankProgressState.totalHours)
                 ? rankProgressState.totalHours
@@ -1684,6 +1869,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             emptyState.className = 'rank-modal__empty';
             emptyState.setAttribute('role', 'note');
             rankModalListElement.appendChild(emptyState);
+            if (rankModalTimelineElement) {
+                rankModalTimelineElement.hidden = true;
+            }
             return;
         }
 
@@ -1695,6 +1883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const item = document.createElement('div');
             item.className = 'rank-modal__item';
             item.setAttribute('role', 'listitem');
+            item.dataset.rankHighLevel = extractRankHighLevel(rank.name);
 
             const isCurrent = index === currentIndex;
 

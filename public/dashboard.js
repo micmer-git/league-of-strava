@@ -16337,16 +16337,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Achievement Wallet ===
 
-        let lifetimeRewardSummary = data.totals?.precomputedRewards
-            ? cloneRewardSummary(data.totals.precomputedRewards)
-            : getLifetimeRewardSummary(lifetimeActivities);
+        const precomputedRewards = data.totals?.precomputedRewards;
+        const shouldRecomputeMedals = !Array.isArray(precomputedRewards?.medalInventory)
+            || precomputedRewards.medalInventory.length === 0;
 
-        const shouldRecomputeMedals = (!Array.isArray(lifetimeRewardSummary.medalInventory)
-            || lifetimeRewardSummary.medalInventory.length === 0);
-
-        if (shouldRecomputeMedals) {
-            lifetimeRewardSummary = getLifetimeRewardSummary(lifetimeActivities);
-        }
+        const lifetimeRewardSummary = shouldRecomputeMedals
+            ? getLifetimeRewardSummary(lifetimeActivities)
+            : cloneRewardSummary(precomputedRewards);
         const categories = lifetimeRewardSummary.categories;
         const medalsEarned = lifetimeRewardSummary.medalsEarned;
         const medalSummary = lifetimeRewardSummary.medalSummary;

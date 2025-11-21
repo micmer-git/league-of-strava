@@ -1180,6 +1180,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let walletHeatmapWrapper = walletHeatmapGrid ? walletHeatmapGrid.parentElement : null;
     let walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
     let walletHeatmapPopover = document.getElementById('wallet-heatmap-popover');
+    let walletHeatmapBackdrop = document.getElementById('wallet-heatmap-backdrop');
     const walletOverlayElements = {
         container: document.getElementById('wallet-chart-overlay'),
         label: document.getElementById('wallet-overlay-label'),
@@ -1453,6 +1454,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartShareButton = document.getElementById('wallet-chart-share');
         walletHeatmapContainer = document.getElementById('wallet-heatmap');
         walletHeatmapGrid = document.getElementById('wallet-heatmap-grid');
+        walletHeatmapPopover = document.getElementById('wallet-heatmap-popover');
+        walletHeatmapBackdrop = document.getElementById('wallet-heatmap-backdrop');
+        walletHeatmapWrapper = walletHeatmapGrid ? walletHeatmapGrid.parentElement : null;
         walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
         if (walletAppearanceSelect) {
             walletAppearanceSelect.value = walletChartAppearancePreference;
@@ -8056,6 +8060,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let walletHeatmapActiveCell = null;
 
+    const ensureWalletHeatmapBackdrop = () => {
+        if (!walletHeatmapBackdrop && walletHeatmapContainer) {
+            walletHeatmapBackdrop = document.createElement('div');
+            walletHeatmapBackdrop.id = 'wallet-heatmap-backdrop';
+            walletHeatmapBackdrop.className = 'wallet-heatmap__backdrop hidden';
+            walletHeatmapContainer.appendChild(walletHeatmapBackdrop);
+        }
+        if (walletHeatmapBackdrop && !walletHeatmapBackdrop.dataset.bound) {
+            walletHeatmapBackdrop.addEventListener('click', hideWalletHeatmapPopover);
+            walletHeatmapBackdrop.dataset.bound = 'true';
+        }
+    };
+
+    const shouldUseFullscreenHeatmap = (triggerEvent) => {
+        if (triggerEvent && 'type' in triggerEvent) {
+            return true;
+        }
+        return window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 1024px)').matches;
+    };
+
     const hideWalletHeatmapPopover = () => {
         if (!walletHeatmapPopover) {
             return;
@@ -8064,6 +8088,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletHeatmapPopover.innerHTML = '';
         walletHeatmapPopover.style.removeProperty('left');
         walletHeatmapPopover.style.removeProperty('top');
+        walletHeatmapPopover.classList.remove('wallet-heatmap__popover--fullscreen');
+        if (walletHeatmapBackdrop) {
+            walletHeatmapBackdrop.classList.add('hidden');
+        }
+        if (walletHeatmapContainer) {
+            walletHeatmapContainer.classList.remove('is-popover-open');
+        }
         walletHeatmapActiveCell = null;
     };
 
@@ -8098,11 +8129,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return chip;
     };
 
-    const renderWalletHeatmapPopover = (entry, cell) => {
+    const renderWalletHeatmapPopover = (entry, cell, triggerEvent) => {
         if (!walletHeatmapPopover || !entry) {
             return;
         }
 
+        ensureWalletHeatmapBackdrop();
         walletHeatmapPopover.innerHTML = '';
 
         const header = document.createElement('div');
@@ -8257,12 +8289,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletHeatmapPopover.appendChild(historicalNote);
         }
 
+        const useFullscreen = shouldUseFullscreenHeatmap(triggerEvent);
+        walletHeatmapPopover.classList.toggle('wallet-heatmap__popover--fullscreen', useFullscreen);
         walletHeatmapPopover.classList.remove('hidden');
+        if (walletHeatmapBackdrop) {
+            walletHeatmapBackdrop.classList.toggle('hidden', !useFullscreen);
+        }
+        if (walletHeatmapContainer) {
+            walletHeatmapContainer.classList.add('is-popover-open');
+        }
+
         walletHeatmapActiveCell = cell || walletHeatmapActiveCell;
-        requestAnimationFrame(() => positionWalletHeatmapPopover(walletHeatmapActiveCell));
+        if (useFullscreen) {
+            walletHeatmapPopover.style.removeProperty('left');
+            walletHeatmapPopover.style.removeProperty('top');
+        } else {
+            requestAnimationFrame(() => positionWalletHeatmapPopover(walletHeatmapActiveCell));
+        }
     };
 
-    const handleHeatmapCellInteraction = (cell) => {
+    const handleHeatmapCellInteraction = (cell, triggerEvent) => {
         if (!cell) {
             return;
         }
@@ -8271,7 +8317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         walletHeatmapActiveCell = cell;
-        renderWalletHeatmapPopover(entry, cell);
+        renderWalletHeatmapPopover(entry, cell, triggerEvent);
     };
 
     const renderWalletHeatmap = (metrics = []) => {
@@ -8354,11 +8400,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cell.setAttribute('aria-label', accessibilityLabel);
 
                 walletHeatmapEntryMap.set(cell, entry);
-                cell.addEventListener('click', () => handleHeatmapCellInteraction(cell));
+                cell.addEventListener('click', (event) => handleHeatmapCellInteraction(cell, event));
                 cell.addEventListener('keydown', (event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        handleHeatmapCellInteraction(cell);
+                        handleHeatmapCellInteraction(cell, event);
                     }
                 });
 

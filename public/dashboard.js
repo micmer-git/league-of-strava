@@ -3933,6 +3933,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const currentGroupIndex = Math.max(rankGroups.findIndex(group => group.rank.emoji === currentRank.emoji), 0);
+        let focusedGroupIndex = currentGroupIndex;
 
         const getGroupIndexForRank = (rank = {}) => rankGroups.findIndex(group => group.rank.emoji === rank.emoji);
 
@@ -3966,12 +3967,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .sort((a, b) => a.rank.minHours - b.rank.minHours);
         };
 
-        const containerWidth = timelineElement.getBoundingClientRect().width
-            || timelineElement.offsetWidth
-            || window.innerWidth
-            || 0;
-        const timelineWidth = containerWidth || window.innerWidth || 0;
-        timelineInner.style.minWidth = `${Math.max(timelineWidth, 320)}px`;
+        timelineInner.style.minWidth = '100%';
         timelineInner.style.width = '100%';
 
         const track = document.createElement('div');
@@ -4000,14 +3996,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         markers.className = 'rank-modal__timeline-markers';
         markers.setAttribute('role', 'list');
 
-        const renderMarkersForGroup = (groupIndex) => {
-            const focusedGroupIndex = Math.max(0, Math.min(groupIndex, rankGroups.length - 1));
-            const sliceStart = Math.max(0, focusedGroupIndex - 2);
-            const sliceEnd = Math.min(rankGroups.length - 1, focusedGroupIndex + 1);
-            const markerEntries = buildMarkerSet(focusedGroupIndex)
-                .filter(({ rank }) => {
+        const renderMarkersForGroup = (groupIndex, { centerOnMarker = false } = {}) => {
+            const resolvedGroupIndex = Math.max(0, Math.min(groupIndex, rankGroups.length - 1));
+            focusedGroupIndex = resolvedGroupIndex;
+            const sliceStart = Math.max(0, resolvedGroupIndex - 2);
+            const sliceEnd = Math.min(rankGroups.length - 1, resolvedGroupIndex + 2);
+            const markerEntries = buildMarkerSet(resolvedGroupIndex)
+                .filter(({ rank, type }) => {
                     const groupIndexValue = getGroupIndexForRank(rank);
-                    return groupIndexValue >= sliceStart && groupIndexValue <= sliceEnd;
+                    const isDuplicateCurrentGroupMarker = type !== 'current' && rank?.emoji === currentRank?.emoji;
+                    return groupIndexValue >= sliceStart && groupIndexValue <= sliceEnd && !isDuplicateCurrentGroupMarker;
                 });
 
             markers.innerHTML = '';
@@ -4026,6 +4024,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const isCurrent = type === 'current';
                 const isComplete = rank.minHours <= safeTotalHours;
+                const markerGroupIndex = getGroupIndexForRank(rank);
 
                 if (isCurrent) {
                     marker.classList.add('is-current');
@@ -4087,8 +4086,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 marker.addEventListener('focus', showPopover);
                 marker.addEventListener('blur', hidePopover);
 
+                marker.dataset.groupIndex = markerGroupIndex;
+
+                if (Number.isInteger(markerGroupIndex)) {
+                    const handleMarkerActivate = (event) => {
+                        if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') {
+                            return;
+                        }
+                        event.preventDefault();
+                        renderMarkersForGroup(markerGroupIndex, { centerOnMarker: true });
+                    };
+
+                    marker.addEventListener('click', handleMarkerActivate);
+                    marker.addEventListener('keydown', handleMarkerActivate);
+                }
+
                 markers.appendChild(marker);
             });
+
+            if (centerOnMarker) {
+                requestAnimationFrame(() => {
+                    const focusMarker = markers.querySelector(`[data-group-index="${resolvedGroupIndex}"]`);
+                    if (!focusMarker) {
+                        return;
+                    }
+                    const markerOffset = focusMarker.offsetLeft + (focusMarker.offsetWidth / 2);
+                    const scrollTarget = Math.max(0, markerOffset - (scrollArea.clientWidth / 2));
+                    scrollArea.scrollTo({ left: scrollTarget, behavior: 'smooth' });
+                });
+            }
         };
 
         renderMarkersForGroup(currentGroupIndex);

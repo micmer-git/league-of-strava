@@ -4636,6 +4636,55 @@ body.dark .medals-category__description {
     color: #475569;
 }
 
+.rank-modal__timeline-marker--group {
+    width: 52px;
+    gap: 0.1rem;
+}
+
+.rank-modal__timeline-marker--group .rank-modal__timeline-name,
+.rank-modal__timeline-marker--group .rank-modal__timeline-hours {
+    display: none;
+}
+
+.rank-modal__timeline-marker--group .rank-modal__timeline-emoji {
+    font-size: 1.25rem;
+}
+
+.rank-modal__timeline-marker.is-focused .rank-modal__timeline-dot {
+    box-shadow: 0 14px 32px rgba(37, 99, 235, 0.28);
+    background: #2563eb;
+    border-color: rgba(37, 99, 235, 0.28);
+}
+
+.rank-modal__timeline-focus {
+    margin: 0.45rem 0 0.15rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.rank-modal__timeline-focus-label {
+    margin: 0;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.rank-modal__timeline-focus-hours {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #1d4ed8;
+}
+
+.rank-modal__timeline-focus-delta {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
 .rank-modal__list {
     display: flex;
     flex-direction: column;
@@ -4771,6 +4820,33 @@ body.dark .medals-category__description {
 
 .dark .rank-modal__timeline-marker.is-complete .rank-modal__timeline-dot {
     background: #60a5fa;
+}
+
+.dark .rank-modal__timeline-marker--group .rank-modal__timeline-emoji {
+    color: #e2e8f0;
+}
+
+.dark .rank-modal__timeline-marker.is-focused .rank-modal__timeline-dot {
+    background: #3b82f6;
+    border-color: rgba(147, 197, 253, 0.5);
+    box-shadow: 0 14px 32px rgba(59, 130, 246, 0.38);
+}
+
+.dark .rank-modal__timeline-focus {
+    background: rgba(15, 23, 42, 0.95);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.65);
+}
+
+.dark .rank-modal__timeline-focus-label {
+    color: #e2e8f0;
+}
+
+.dark .rank-modal__timeline-focus-hours {
+    color: #bfdbfe;
+}
+
+.dark .rank-modal__timeline-focus-delta {
+    color: #cbd5f5;
 }
 
 .dark .rank-modal__milestones-card {

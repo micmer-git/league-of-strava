@@ -2794,6 +2794,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         coinEmoji: null,
         countries: [],
         sortBy: 'date-desc',
+        startDate: null,
+        endDate: null,
         topShortcut: false,
     };
     const ALLOWED_ACTIVITY_SORTS = new Set(['date-desc', 'distance-desc', 'balance-desc', 'elevation-desc']);
@@ -8304,6 +8306,84 @@ document.addEventListener('DOMContentLoaded', async () => {
         ensureWalletHeatmapBackdrop();
         walletHeatmapPopover.innerHTML = '';
 
+        const coinEntries = Array.from(entry.coinCounts.entries()).sort((a, b) => b[1] - a[1]);
+        const medalEntries = Array.from(entry.medalCounts.values()).sort((a, b) => b.count - a.count);
+        const historicalMedals = medalEntries.filter((medal) => medal.historical);
+        const crowdCoinCount = entry.coinCounts.get(CROWD_COIN_EMOJI) || 0;
+        const diamondCoinCount = entry.coinCounts.get(DIAMOND_COIN_EMOJI) || 0;
+
+        const buildHeatmapActivityCard = (activity = {}) => {
+            const card = document.createElement('div');
+            card.className = 'activity-card wallet-heatmap__activity-card rounded-lg p-3 shadow-sm';
+
+            const headerRow = document.createElement('div');
+            headerRow.className = 'flex items-start justify-between gap-2';
+
+            const title = document.createElement('div');
+            title.className = 'activity-card__title text-base font-semibold';
+            title.textContent = activity.name || 'Activity';
+
+            const valueTag = document.createElement('span');
+            valueTag.className = 'activity-card__value-tag wallet-heatmap__value-tag';
+            const valueText = Number.isFinite(activity.totalValue) && activity.totalValue > 0
+                ? walletCompactFormatter.format(activity.totalValue)
+                : '—';
+            valueTag.textContent = valueText === '—' ? valueText : `+${valueText}`;
+
+            headerRow.appendChild(title);
+            headerRow.appendChild(valueTag);
+
+            const meta = document.createElement('p');
+            meta.className = 'wallet-heatmap__activity-meta';
+            const metaParts = [];
+            if (activity.date instanceof Date && !Number.isNaN(activity.date.getTime())) {
+                metaParts.push(activity.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }));
+            }
+            if (Number.isFinite(activity.distanceKm) && activity.distanceKm > 0) {
+                const distanceLabel = activity.distanceKm >= 100
+                    ? activity.distanceKm.toFixed(0)
+                    : activity.distanceKm.toFixed(1);
+                metaParts.push(`${distanceLabel} km`);
+            }
+            if (Number.isFinite(activity.elevationGain) && activity.elevationGain > 0) {
+                metaParts.push(`${Math.round(activity.elevationGain)} m`);
+            }
+            const typeLabel = formatActivityTypeLabel(activity.type);
+            if (typeLabel) {
+                metaParts.push(typeLabel);
+            }
+            meta.textContent = metaParts.join(' • ');
+
+            const badgeRow = document.createElement('div');
+            badgeRow.className = 'wallet-heatmap__badge-row';
+            const coinValueLabel = Number.isFinite(activity.coinValue) && activity.coinValue > 0
+                ? walletCompactFormatter.format(activity.coinValue)
+                : null;
+            const medalValueLabel = Number.isFinite(activity.medalValue) && activity.medalValue > 0
+                ? walletCompactFormatter.format(activity.medalValue)
+                : null;
+            if (coinValueLabel) {
+                const coinBadge = document.createElement('span');
+                coinBadge.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill wallet-heatmap__chip--soft';
+                coinBadge.textContent = `Coins · ${coinValueLabel}`;
+                badgeRow.appendChild(coinBadge);
+            }
+            if (medalValueLabel) {
+                const medalBadge = document.createElement('span');
+                medalBadge.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill wallet-heatmap__chip--soft';
+                medalBadge.textContent = `Medals · ${medalValueLabel}`;
+                badgeRow.appendChild(medalBadge);
+            }
+
+            card.appendChild(headerRow);
+            card.appendChild(meta);
+            if (badgeRow.childElementCount > 0) {
+                card.appendChild(badgeRow);
+            }
+
+            return card;
+        };
+
         const header = document.createElement('div');
         header.className = 'wallet-heatmap__popover-header';
 
@@ -8313,12 +8393,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         title.textContent = entry.label || 'Month overview';
         const subtitle = document.createElement('p');
         subtitle.className = 'wallet-heatmap__popover-subtitle';
-        subtitle.textContent = 'Coins and medals collected in this period';
+        subtitle.textContent = 'Monthly wallet snapshot';
         const value = document.createElement('p');
         value.className = 'wallet-heatmap__popover-value';
-        value.textContent = Number(entry.totalValue) > 0
-            ? currencyFormatter.format(entry.totalValue)
-            : 'No balance collected';
+        value.textContent = formatWalletCompactValue(entry.totalValue);
         titleWrap.appendChild(title);
         titleWrap.appendChild(subtitle);
         titleWrap.appendChild(value);
@@ -8334,15 +8412,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         header.appendChild(closeButton);
         walletHeatmapPopover.appendChild(header);
 
+        if (Array.isArray(entry.topActivities) && entry.topActivities.length > 0) {
+            const topActivitiesSection = document.createElement('div');
+            topActivitiesSection.className = 'wallet-heatmap__popover-section wallet-heatmap__popover-section--cards';
+
+            const activityLabel = document.createElement('p');
+            activityLabel.className = 'wallet-heatmap__popover-label';
+            activityLabel.textContent = 'Top balance activities';
+            topActivitiesSection.appendChild(activityLabel);
+
+            const cards = document.createElement('div');
+            cards.className = 'wallet-heatmap__activity-list';
+            entry.topActivities.slice(0, 3).forEach((activity) => {
+                cards.appendChild(buildHeatmapActivityCard(activity));
+            });
+
+            topActivitiesSection.appendChild(cards);
+            walletHeatmapPopover.appendChild(topActivitiesSection);
+        }
+
         const highlights = [];
-        if (entry.hasDiamondCoin) {
-            highlights.push('💎 Diamond coin collected');
+        historicalMedals.forEach((medal) => {
+            highlights.push(`${medal.emoji || '🏅'} ${medal.name} (historical ×${medal.count})`);
+        });
+        if (diamondCoinCount > 0) {
+            highlights.push(`💎 Diamond coin ×${diamondCoinCount}`);
         }
-        if (entry.hasCrowdCoin) {
-            highlights.push('🧈 Crowd coin collected');
+        if (crowdCoinCount > 0) {
+            highlights.push(`${CROWD_COIN_EMOJI} Crowd coin ×${crowdCoinCount}`);
         }
-        if (entry.hasHistoricalMedals) {
-            highlights.push('🔴 Historical medals present');
+        if (highlights.length === 0 && entry.hasHistoricalMedals) {
+            highlights.push('🔴 Historical medal collected');
         }
 
         const highlightSection = document.createElement('div');
@@ -8378,12 +8478,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         coinLabel.textContent = 'Coins collected';
         const coinRow = document.createElement('div');
         coinRow.className = 'wallet-heatmap__chip-row';
-        const coinEntries = Array.from(entry.coinCounts.entries()).sort((a, b) => b[1] - a[1]);
         if (coinEntries.length === 0) {
             coinRow.appendChild(buildHeatmapChip('No coins', 'wallet-heatmap__chip--muted'));
         } else {
             coinEntries.forEach(([emoji, count]) => {
-                coinRow.appendChild(buildHeatmapChip(`${emoji} ×${count}`));
+                const label = emoji === CROWD_COIN_EMOJI
+                    ? `${emoji} ×${count} · crowd`
+                    : `${emoji} ×${count}`;
+                coinRow.appendChild(buildHeatmapChip(label));
             });
         }
         coinSection.appendChild(coinLabel);
@@ -8397,64 +8499,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         medalLabel.textContent = 'Medals earned';
         const medalRow = document.createElement('div');
         medalRow.className = 'wallet-heatmap__chip-row';
-        const medalEntries = Array.from(entry.medalCounts.values()).sort((a, b) => b.count - a.count);
         if (medalEntries.length === 0) {
             medalRow.appendChild(buildHeatmapChip('No medals', 'wallet-heatmap__chip--muted'));
         } else {
             medalEntries.forEach(medal => {
-                const chip = buildHeatmapChip(`${medal.emoji || '🏅'} ${medal.name} ×${medal.count}`, medal.historical ? 'wallet-heatmap__chip--muted' : '');
+                const chip = buildHeatmapChip(
+                    `${medal.emoji || '🏅'} ${medal.name} ×${medal.count}${medal.historical ? ' • historical' : ''}`,
+                    medal.historical ? 'wallet-heatmap__chip--muted' : '',
+                );
                 medalRow.appendChild(chip);
             });
         }
         medalSection.appendChild(medalLabel);
         medalSection.appendChild(medalRow);
         walletHeatmapPopover.appendChild(medalSection);
-
-        if (Array.isArray(entry.topActivities) && entry.topActivities.length > 0) {
-            const topActivitiesSection = document.createElement('div');
-            topActivitiesSection.className = 'wallet-heatmap__popover-section';
-
-            const activityLabel = document.createElement('p');
-            activityLabel.className = 'wallet-heatmap__popover-label';
-            activityLabel.textContent = 'Top balance activities';
-            topActivitiesSection.appendChild(activityLabel);
-
-            const list = document.createElement('ol');
-            list.className = 'wallet-heatmap__chip-row wallet-heatmap__chip-row--stacked';
-
-            entry.topActivities.forEach((activity) => {
-                const item = document.createElement('li');
-                item.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill';
-
-                const name = document.createElement('span');
-                name.textContent = activity.name || 'Activity';
-
-                const meta = document.createElement('span');
-                meta.className = 'wallet-heatmap__chip-meta';
-                const valueLabel = Number.isFinite(activity.totalValue)
-                    ? currencyFormatter.format(activity.totalValue)
-                    : '—';
-                const typeLabel = activity.type ? ` · ${activity.type}` : '';
-                meta.textContent = `${valueLabel}${typeLabel}`;
-
-                item.appendChild(name);
-                item.appendChild(meta);
-                list.appendChild(item);
-            });
-
-            topActivitiesSection.appendChild(list);
-            walletHeatmapPopover.appendChild(topActivitiesSection);
-        }
-
-        if (entry.hasHistoricalMedals) {
-            const historicalNote = document.createElement('div');
-            historicalNote.className = 'wallet-heatmap__popover-section';
-            const note = document.createElement('p');
-            note.className = 'wallet-heatmap__popover-label';
-            note.textContent = 'Historical medals marked with the red circle.';
-            historicalNote.appendChild(note);
-            walletHeatmapPopover.appendChild(historicalNote);
-        }
 
         const useFullscreen = shouldUseFullscreenHeatmap(triggerEvent);
         walletHeatmapPopover.classList.toggle('wallet-heatmap__popover--fullscreen', useFullscreen);
@@ -8475,6 +8533,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const applyHeatmapMonthFilterToActivities = (entry) => {
+        if (!entry || !Number.isInteger(entry.year) || !Number.isInteger(entry.monthIndex)) {
+            return;
+        }
+        const startDate = normalizeFilterDate(new Date(entry.year, entry.monthIndex, 1));
+        const endDate = normalizeFilterDate(new Date(entry.year, entry.monthIndex + 1, 0), { endOfDay: true });
+
+        currentActivityFilters.startDate = startDate;
+        currentActivityFilters.endDate = endDate;
+        currentActivityFilters.sortBy = 'balance-desc';
+        currentActivityFilters.topShortcut = false;
+
+        if (activitySortSelect) {
+            setSelectValue(activitySortSelect, 'balance-desc');
+        }
+        if (yearSelect) {
+            yearSelect.value = String(entry.year);
+        }
+
+        clearFilterShortcutSelection();
+        clearQuickFilterSelection();
+        requestActivitiesRender({ preserveVisibleCount: false });
+        navigateToActivitiesPanel();
+    };
+
     const handleHeatmapCellInteraction = (cell, triggerEvent) => {
         if (!cell) {
             return;
@@ -8485,6 +8568,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         walletHeatmapActiveCell = cell;
         renderWalletHeatmapPopover(entry, cell, triggerEvent);
+        applyHeatmapMonthFilterToActivities(entry);
     };
 
     const renderWalletHeatmap = (metrics = []) => {
@@ -8560,7 +8644,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (entry?.hasCrowdCoin) {
                     detailParts.push('Crowd coin collected');
                 }
-                const valueLabel = value > 0 ? currencyFormatter.format(value) : 'No balance collected';
+                const valueLabel = formatWalletCompactValue(value);
                 const detailSuffix = detailParts.length ? ` (${detailParts.join(' · ')})` : '';
                 const accessibilityLabel = `${entry?.label || 'Monthly period'}: ${valueLabel}${detailSuffix}`;
                 cell.title = accessibilityLabel;
@@ -11428,6 +11512,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             .replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
+    const normalizeFilterDate = (value, { endOfDay = false } = {}) => {
+        const resolved = value instanceof Date ? value : new Date(value || 0);
+        if (Number.isNaN(resolved.getTime())) {
+            return null;
+        }
+        const normalized = new Date(resolved);
+        normalized.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+        return normalized;
+    };
+
     const setSelectValue = (selectElement, targetValue) => {
         if (!selectElement || typeof targetValue !== 'string') {
             return;
@@ -11477,6 +11571,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (filters.minElevation !== null && filters.maxElevation !== null && filters.maxElevation < filters.minElevation) {
             [filters.minElevation, filters.maxElevation] = [filters.maxElevation, filters.minElevation];
         }
+
+        filters.startDate = normalizeFilterDate(currentActivityFilters.startDate);
+        filters.endDate = normalizeFilterDate(currentActivityFilters.endDate, { endOfDay: true });
 
         if (currentActivityFilters?.coinEmoji && COIN_EMOJIS.includes(currentActivityFilters.coinEmoji)) {
             filters.coinEmoji = currentActivityFilters.coinEmoji;
@@ -11731,6 +11828,33 @@ document.addEventListener('DOMContentLoaded', async () => {
                         setSelectValue(activitySortSelect, 'date-desc');
                     }
                     clearQuickFilterSelection();
+                    return true;
+                }
+            });
+        }
+
+        const startDateFilter = normalizeFilterDate(filters.startDate);
+        const endDateFilter = normalizeFilterDate(filters.endDate, { endOfDay: true });
+        if (startDateFilter || endDateFilter) {
+            const startLabel = startDateFilter
+                ? startDateFilter.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Any time';
+            const endLabel = endDateFilter
+                ? endDateFilter.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Present';
+            const sameMonth = startDateFilter
+                && endDateFilter
+                && startDateFilter.getFullYear() === endDateFilter.getFullYear()
+                && startDateFilter.getMonth() === endDateFilter.getMonth();
+            const periodLabel = sameMonth
+                ? startDateFilter.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+                : `${startLabel} – ${endLabel}`;
+
+            descriptors.push({
+                label: `Period · ${periodLabel}`,
+                onRemove: () => {
+                    currentActivityFilters.startDate = null;
+                    currentActivityFilters.endDate = null;
                     return true;
                 }
             });
@@ -13003,6 +13127,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const activityMatchesFilters = (activity = {}, filters = DEFAULT_ACTIVITY_FILTERS) => {
         if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
+        if (Number.isNaN(activityDate.getTime())) {
+            return false;
+        }
+
+        if (filters.startDate instanceof Date && activityDate < filters.startDate) {
+            return false;
+        }
+        if (filters.endDate instanceof Date && activityDate > filters.endDate) {
             return false;
         }
 

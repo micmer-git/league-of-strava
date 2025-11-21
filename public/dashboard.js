@@ -5510,16 +5510,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const shortLabel = PROFILE_PERIOD_SHORT_LABELS_BY_KEY[normalizedKey] || '';
 
         if (profilePeriodModalTitleElement) {
-            const combinedTitle = shortLabel
-                ? `${titleText} • ${shortLabel}`
-                : titleText;
-            profilePeriodModalTitleElement.textContent = combinedTitle;
+            profilePeriodModalTitleElement.textContent = '';
+            profilePeriodModalTitleElement.hidden = true;
+            profilePeriodModalTitleElement.setAttribute('aria-hidden', 'true');
         }
 
         if (profilePeriodModalDescriptionElement) {
-            const descriptionText = summary || snapshot?.rangeLabel || metadata.description || '';
-            profilePeriodModalDescriptionElement.textContent = descriptionText;
-            profilePeriodModalDescriptionElement.hidden = !descriptionText;
+            profilePeriodModalDescriptionElement.textContent = '';
+            profilePeriodModalDescriptionElement.hidden = true;
+            profilePeriodModalDescriptionElement.setAttribute('aria-hidden', 'true');
         }
 
         if (!snapshot) {
@@ -5540,6 +5539,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!profilePeriodModalElement) {
             return;
         }
+
+        profilePeriodModalElement.setAttribute('aria-label', 'Balance overview');
 
         const label = trigger?.dataset?.profilePeriodLabel || '';
         const summary = trigger?.dataset?.profilePeriodSummary || '';

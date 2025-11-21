@@ -1594,3 +1594,88 @@ body.rank-modal-open .site-header__inner {
 .dark .rank-modal__progress-bar-fill {
   background: linear-gradient(90deg, #f59e0b, #fb923c);
 }
+
+.rank-modal__title-text,
+.rank-modal__title-description {
+  display: none;
+}
+
+.rank-modal__snapshot-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.rank-modal__snapshot-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.rank-modal__snapshot-stat-label {
+  color: #475569;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rank-modal__snapshot-stat-value,
+.rank-modal__snapshot-stat-secondary {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-modal__snapshot-stat-value {
+  color: #0f172a;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.rank-modal__snapshot-stat-secondary {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.rank-modal__snapshot-total-value,
+.rank-modal__snapshot-total-breakdown,
+.rank-modal__snapshot-subvalue {
+  color: #16a34a;
+}
+
+.dark .rank-modal__snapshot-stat {
+  background: #0f172a;
+  border-color: #1f2937;
+}
+
+.dark .rank-modal__snapshot-stat-label {
+  color: #cbd5e1;
+}
+
+.dark .rank-modal__snapshot-stat-value {
+  color: #f8fafc;
+}
+
+.dark .rank-modal__snapshot-stat-secondary {
+  color: #94a3b8;
+}
+
+.dark .rank-modal__snapshot-total-value,
+.dark .rank-modal__snapshot-total-breakdown,
+.dark .rank-modal__snapshot-subvalue {
+  color: #22c55e;
+}
+
+.profile-card__balance-value {
+  color: #16a34a;
+}
+
+.dark .profile-card__balance-value {
+  color: #22c55e;
+}

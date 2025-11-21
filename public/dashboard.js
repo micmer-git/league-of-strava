@@ -11539,10 +11539,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const normalizeFilterDate = (value, { endOfDay = false } = {}) => {
-        const resolved = value instanceof Date ? value : new Date(value || 0);
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+
+        const resolved = value instanceof Date ? value : new Date(value);
         if (Number.isNaN(resolved.getTime())) {
             return null;
         }
+
         const normalized = new Date(resolved);
         normalized.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
         return normalized;

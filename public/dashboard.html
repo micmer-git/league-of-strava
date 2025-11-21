@@ -339,8 +339,8 @@
   <div class="wallet-heatmap__header">
     <div class="wallet-heatmap__copy">
       <p class="wallet-heatmap__eyebrow">Balance cadence</p>
-      <h4 class="wallet-heatmap__title">Biweekly heatmap</h4>
-      <p class="wallet-heatmap__subtitle">Green intensity tracks how much was collected every two weeks.</p>
+      <h4 class="wallet-heatmap__title">Monthly history heatmap</h4>
+      <p class="wallet-heatmap__subtitle">All-time monthly grid (years × 12) with a custom green scale to show more/less balance.</p>
     </div>
     <div class="wallet-heatmap__legend" id="wallet-heatmap-legend">
       <span class="wallet-heatmap__legend-item">
@@ -361,8 +361,11 @@
       </span>
     </div>
   </div>
-  <p class="wallet-heatmap__empty hidden" id="wallet-heatmap-empty">No balance data available for this range.</p>
-  <div class="wallet-heatmap__grid" id="wallet-heatmap-grid" role="list"></div>
+  <p class="wallet-heatmap__empty hidden" id="wallet-heatmap-empty">Switch to the all-time view to see the monthly heatmap.</p>
+  <div class="wallet-heatmap__grid-wrapper">
+    <div class="wallet-heatmap__grid" id="wallet-heatmap-grid" role="list"></div>
+    <div aria-live="polite" class="wallet-heatmap__popover hidden" id="wallet-heatmap-popover" role="dialog"></div>
+  </div>
 </section>
 </div>
 </section>

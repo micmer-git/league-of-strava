@@ -16338,8 +16338,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // === Achievement Wallet ===
 
         const precomputedRewards = data.totals?.precomputedRewards;
-        const shouldRecomputeMedals = !Array.isArray(precomputedRewards?.medalInventory)
-            || precomputedRewards.medalInventory.length === 0;
+        const precomputedMedalInventory = Array.isArray(precomputedRewards?.medalInventory)
+            ? precomputedRewards.medalInventory
+            : [];
+
+        const hasVisiblePrecomputedMedals = precomputedMedalInventory.some((medal) => medal && !isHistoricalMedal(medal));
+        const shouldRecomputeMedals = precomputedMedalInventory.length === 0 || !hasVisiblePrecomputedMedals;
 
         const lifetimeRewardSummary = shouldRecomputeMedals
             ? getLifetimeRewardSummary(lifetimeActivities)

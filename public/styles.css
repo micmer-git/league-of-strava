@@ -1603,19 +1603,24 @@ body.rank-modal-open .site-header__inner {
 .rank-modal__snapshot-metrics {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.25rem 0;
+  gap: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow: hidden;
 }
 
 .rank-modal__snapshot-stat {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.rank-modal__snapshot-stat:last-child {
+  border-bottom: none;
 }
 
 .rank-modal__snapshot-stat-label {
@@ -1630,17 +1635,28 @@ body.rank-modal-open .site-header__inner {
 .rank-modal__snapshot-stat-secondary {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  justify-self: end;
 }
 
 .rank-modal__snapshot-stat-value {
   color: #0f172a;
   font-weight: 700;
-  margin-left: auto;
 }
 
 .rank-modal__snapshot-stat-secondary {
   color: #64748b;
   font-size: 0.9rem;
+}
+
+.rank-modal__snapshot-section-totalbox {
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #1e3a8a;
+  font-weight: 700;
+  text-align: center;
+  border: 1px solid #dbeafe;
 }
 
 .rank-modal__snapshot-total-value,

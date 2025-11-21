@@ -4508,6 +4508,32 @@ body.dark .medals-category__description {
     border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.profile-period__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0.25rem 1.5rem 0.85rem;
+}
+
+.profile-period__controls .profile-period-toggle {
+    margin: 0;
+}
+
+.profile-period__total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 14px;
+    background: rgba(224, 231, 255, 0.65);
+    border: 1px solid #dbeafe;
+    min-width: 180px;
+    box-shadow: 0 10px 20px rgba(148, 163, 184, 0.22);
+}
+
 .profile-period-toggle__button {
     border: none;
     background: transparent;
@@ -4831,21 +4857,22 @@ body.dark .medals-category__description {
     gap: 1rem;
 }
 
-.rank-modal__snapshot-heading {
+.rank-modal__snapshot-meta {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    align-items: baseline;
+    gap: 0.4rem;
+    flex-wrap: wrap;
 }
 
 .rank-modal__snapshot-label {
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.95rem;
     color: #0f172a;
 }
 
 .rank-modal__snapshot-range {
-    font-size: 0.8rem;
-    color: rgba(51, 65, 85, 0.75);
+    font-size: 0.78rem;
+    color: rgba(51, 65, 85, 0.7);
 }
 
 .rank-modal__snapshot-total {
@@ -4853,6 +4880,7 @@ body.dark .medals-category__description {
     flex-direction: column;
     align-items: flex-end;
     gap: 0.25rem;
+    min-width: 160px;
 }
 
 .rank-modal__snapshot-total-value {
@@ -4872,37 +4900,44 @@ body.dark .medals-category__description {
 }
 
 .rank-modal__snapshot-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: rgba(248, 250, 252, 0.9);
+    overflow: hidden;
 }
 
 .rank-modal__snapshot-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.75rem;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 14px 28px rgba(148, 163, 184, 0.22);
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.65rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.rank-modal__snapshot-stat:last-child {
+    border-bottom: none;
 }
 
 .rank-modal__snapshot-stat-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(15, 23, 42, 0.65);
+    font-size: 0.82rem;
+    color: rgba(15, 23, 42, 0.75);
 }
 
 .rank-modal__snapshot-stat-value {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 0.95rem;
+    font-weight: 700;
     color: #0f172a;
+    justify-self: end;
 }
 
 .rank-modal__snapshot-stat-secondary {
-    font-size: 0.75rem;
-    font-weight: 500;
+    grid-column: 2;
+    justify-self: end;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: rgba(37, 99, 235, 0.85);
 }
 
@@ -4933,12 +4968,6 @@ body.dark .medals-category__description {
     font-size: 0.85rem;
     font-weight: 600;
     color: #0f172a;
-}
-
-.rank-modal__snapshot-section-total {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: rgba(37, 99, 235, 0.85);
 }
 
 .rank-modal__snapshot-list {
@@ -4986,6 +5015,17 @@ body.dark .medals-category__description {
 .rank-modal__snapshot-more {
     font-size: 0.75rem;
     color: rgba(51, 65, 85, 0.7);
+}
+
+.rank-modal__snapshot-section-totalbox {
+    margin-top: 0.25rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 12px;
+    background: rgba(224, 231, 255, 0.6);
+    color: #1e3a8a;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid #dbeafe;
 }
 
 .rank-modal__summary-item {
@@ -5481,6 +5521,15 @@ body.dark .medals-category__description {
     color: rgba(148, 163, 184, 0.85);
 }
 
+.dark .rank-modal__snapshot-metrics {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(51, 65, 85, 0.7);
+}
+
+.dark .rank-modal__snapshot-stat {
+    border-color: rgba(51, 65, 85, 0.7);
+}
+
 .dark .rank-modal__snapshot-total-value {
     color: #60a5fa;
 }
@@ -5508,6 +5557,12 @@ body.dark .medals-category__description {
 
 .dark .rank-modal__snapshot-stat-secondary {
     color: rgba(147, 197, 253, 0.9);
+}
+
+.dark .rank-modal__snapshot-section-totalbox {
+    background: rgba(37, 99, 235, 0.25);
+    color: #bfdbfe;
+    border-color: rgba(96, 165, 250, 0.35);
 }
 
 .dark .rank-modal__snapshot-section {
@@ -5546,6 +5601,12 @@ body.dark .medals-category__description {
 
 .dark .rank-modal__summary-value {
     color: #f1f5f9;
+}
+
+.dark .profile-period__total {
+    background: rgba(37, 99, 235, 0.2);
+    border-color: rgba(96, 165, 250, 0.35);
+    box-shadow: 0 10px 22px rgba(2, 6, 23, 0.45);
 }
 
 .dark .rank-modal__title-group h2 {

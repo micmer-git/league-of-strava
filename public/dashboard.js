@@ -4505,14 +4505,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const header = document.createElement('header');
         header.className = 'rank-modal__snapshot-header';
 
-        const headingGroup = document.createElement('div');
-        headingGroup.className = 'rank-modal__snapshot-heading';
+        const headerMeta = document.createElement('div');
+        headerMeta.className = 'rank-modal__snapshot-meta';
 
         const labelElement = document.createElement('p');
         labelElement.className = 'rank-modal__snapshot-label';
         labelElement.textContent = label;
 
-        headingGroup.appendChild(labelElement);
+        headerMeta.appendChild(labelElement);
 
         const headingId = `${slide.id}-heading`;
         labelElement.id = headingId;
@@ -4522,7 +4522,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const rangeElement = document.createElement('p');
             rangeElement.className = 'rank-modal__snapshot-range';
             rangeElement.textContent = rangeLabel;
-            headingGroup.appendChild(rangeElement);
+            headerMeta.appendChild(rangeElement);
         }
 
         const totalGroup = document.createElement('div');
@@ -4550,7 +4550,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         totalGroup.append(totalValueElement, totalDetailElement);
-        header.append(headingGroup, totalGroup);
+        header.append(headerMeta, totalGroup);
         slide.appendChild(header);
 
         const metricsGrid = document.createElement('div');
@@ -4654,7 +4654,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const emojiSpan = document.createElement('span');
             emojiSpan.className = 'rank-modal__snapshot-emoji';
-            emojiSpan.textContent = emoji;
+            emojiSpan.textContent = `+ ${emoji}`;
 
             const countSpan = document.createElement('span');
             countSpan.className = 'rank-modal__snapshot-count';
@@ -4718,7 +4718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const emojiSpan = document.createElement('span');
             emojiSpan.className = 'rank-modal__snapshot-emoji';
-            emojiSpan.textContent = entry.emoji;
+            emojiSpan.textContent = `+ ${entry.emoji}`;
 
             const nameSpan = document.createElement('span');
             nameSpan.className = 'rank-modal__snapshot-name';
@@ -4749,12 +4749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const titleElement = document.createElement('p');
             titleElement.className = 'rank-modal__snapshot-section-title';
             titleElement.textContent = title;
-
-            const totalElement = document.createElement('span');
-            totalElement.className = 'rank-modal__snapshot-section-total';
-            totalElement.textContent = total;
-
-            sectionHeader.append(titleElement, totalElement);
+            sectionHeader.appendChild(titleElement);
             section.appendChild(sectionHeader);
 
             const list = document.createElement('ul');
@@ -4770,6 +4765,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             section.appendChild(list);
+
+            const totalBox = document.createElement('div');
+            totalBox.className = 'rank-modal__snapshot-section-totalbox';
+            totalBox.textContent = `${title} total: ${total}`;
+            section.appendChild(totalBox);
             return section;
         };
 
@@ -5557,6 +5557,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const slide = createRankSnapshotSlide(snapshot, 0, { idPrefix: 'profile-period' });
         if (slide) {
+            const totalGroup = slide.querySelector('.rank-modal__snapshot-total');
+            if (profilePeriodToggleElement) {
+                let controlsRow = profilePeriodModalElement.querySelector('.profile-period__controls');
+                if (!controlsRow) {
+                    controlsRow = document.createElement('div');
+                    controlsRow.className = 'profile-period__controls';
+                    profilePeriodToggleElement.replaceWith(controlsRow);
+                    controlsRow.appendChild(profilePeriodToggleElement);
+                }
+
+                if (totalGroup) {
+                    controlsRow.querySelectorAll('.profile-period__total').forEach((existingTotal) => {
+                        existingTotal.remove();
+                    });
+                    controlsRow.appendChild(totalGroup);
+                    totalGroup.classList.add('profile-period__total');
+                }
+            }
+
             profilePeriodModalContentElement.appendChild(slide);
         }
     }

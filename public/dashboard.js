@@ -6054,7 +6054,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return 'swim';
         }
 
-        if (includesAny(['ride', 'bike', 'velo', 'cycle', 'climb', 'ascent', 'elevation', 'fondo', 'mtb', 'gravel'])) {
+        if (includesAny(['ride', 'bike', 'velo', 'cycle', 'climb', 'ascent', 'elevation', 'fondo', 'mtb', 'gravel', 'coppa', 'coppi', 'protector'])) {
             return 'ride';
         }
 
@@ -15049,7 +15049,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Coppa Coppi Protector',
             emoji: '🥩',
             description: 'Logged an activity with elevation gain > 2000m and distance < 100 km',
-            criteria: (activity) => activity.total_elevation_gain > 2000 && (activity.distance / 1000) < 100
+            criteria: (activity) => activity.total_elevation_gain > 2000 && (activity.distance / 1000) < 100,
+            discipline: 'ride'
         },
         {
             name: '7-Day Caloric Champion',

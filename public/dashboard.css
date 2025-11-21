@@ -3002,6 +3002,150 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     display: none;
 }
 
+.wallet-heatmap {
+    margin-top: 1.75rem;
+    padding: 1rem 1rem 1.25rem;
+    border-radius: 1.1rem;
+    background: linear-gradient(180deg, rgba(226, 232, 240, 0.5), rgba(255, 255, 255, 0.85));
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.wallet-heatmap__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.wallet-heatmap__copy {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.wallet-heatmap__eyebrow {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #475569;
+    font-weight: 700;
+    margin: 0;
+}
+
+.wallet-heatmap__title {
+    font-size: 1.1rem;
+    margin: 0;
+    color: #0f172a;
+}
+
+.wallet-heatmap__subtitle {
+    margin: 0;
+    color: #475569;
+}
+
+.wallet-heatmap__legend {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.wallet-heatmap__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.wallet-heatmap__legend-swatch {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: linear-gradient(135deg, #e4f8ec, #16a34a);
+}
+
+.wallet-heatmap__legend-swatch--historical {
+    background: transparent;
+    border: 2px solid #ef4444;
+}
+
+.wallet-heatmap__legend-swatch--diamond {
+    background: transparent;
+    border: 2px solid #2563eb;
+}
+
+.wallet-heatmap__legend-swatch--crowd {
+    background: transparent;
+    border: 2px solid #eab308;
+}
+
+.wallet-heatmap__grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-rows: 1.35rem;
+    grid-auto-columns: 1.35rem;
+    gap: 0.4rem;
+    align-items: start;
+    justify-content: flex-start;
+}
+
+.wallet-heatmap__cell {
+    width: 100%;
+    height: 100%;
+    border-radius: 0.45rem;
+    background: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    position: relative;
+}
+
+.wallet-heatmap__cell[data-value] {
+    background: var(--wallet-heatmap-color, #d9f99d);
+    border-color: rgba(34, 197, 94, 0.35);
+}
+
+.wallet-heatmap__cell:hover,
+.wallet-heatmap__cell:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(34, 197, 94, 0.9);
+    outline: none;
+}
+
+.wallet-heatmap__cell.is-empty {
+    border-style: dashed;
+    border-color: rgba(148, 163, 184, 0.5);
+}
+
+.wallet-heatmap__empty {
+    color: #475569;
+    margin: 0 0 0.75rem;
+}
+
+.dark .wallet-heatmap {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95));
+    border-color: rgba(148, 163, 184, 0.45);
+}
+
+.dark .wallet-heatmap__title,
+.dark .wallet-heatmap__subtitle,
+.dark .wallet-heatmap__legend,
+.dark .wallet-heatmap__eyebrow,
+.dark .wallet-heatmap__empty {
+    color: #e2e8f0;
+}
+
+.dark .wallet-heatmap__cell {
+    background: #1e293b;
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+.dark .wallet-heatmap__cell[data-value] {
+    border-color: rgba(74, 222, 128, 0.35);
+}
+
 .dark .wallet-chart__overlay {
     background: rgba(2, 6, 23, 0.9);
     color: #f1f5f9;

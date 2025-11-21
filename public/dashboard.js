@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return calculateHistoricalMedalValue(countOrMedals);
     };
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
+    const CROWD_COIN_EMOJI = '🧈';
+    const DIAMOND_COIN_EMOJI = '💎';
     const COIN_COLOR_MAP = {
         '💲': '#0ea5e9',
         '💰': '#6366f1',
@@ -51,6 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const WALLET_BACKGROUND_ALPHA_START = 0.28;
     const WALLET_BACKGROUND_ALPHA_END = 0.48;
     const WALLET_HOVER_ALPHA_BOOST = 0.12;
+    const HEATMAP_COLOR_START = { r: 226, g: 244, b: 232 };
+    const HEATMAP_COLOR_END = { r: 34, g: 197, b: 94 };
     const MONTH_COMPARISON_LABELS = Array.from({ length: 12 }, (_, index) => {
         const date = new Date(2000, index, 1);
         return date.toLocaleDateString(undefined, { month: 'short' });
@@ -1161,6 +1165,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const premiumAchievementsElement = document.getElementById('premium-achievements');
     let walletChartCanvas = document.getElementById('wallet-chart');
     let walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
+    let walletHeatmapContainer = document.getElementById('wallet-heatmap');
+    let walletHeatmapGrid = document.getElementById('wallet-heatmap-grid');
+    let walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
     const walletOverlayElements = {
         container: document.getElementById('wallet-chart-overlay'),
         label: document.getElementById('wallet-overlay-label'),
@@ -1432,6 +1439,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletAppearanceSelect = document.getElementById('wallet-appearance-select');
         walletChartExportButton = document.getElementById('wallet-chart-export');
         walletChartShareButton = document.getElementById('wallet-chart-share');
+        walletHeatmapContainer = document.getElementById('wallet-heatmap');
+        walletHeatmapGrid = document.getElementById('wallet-heatmap-grid');
+        walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
         if (walletAppearanceSelect) {
             walletAppearanceSelect.value = walletChartAppearancePreference;
         }
@@ -7647,6 +7657,182 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 'quarter';
     };
 
+    const buildBiweeklyHeatmapSeries = (metrics = []) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return { entries: [], maxValue: 0 };
+        }
+
+        const bucketMap = new Map();
+        metrics.forEach(metric => {
+            const bucket = buildWalletBucketInfo(metric?.date, 'two-week');
+            if (!bucket) {
+                return;
+            }
+
+            const key = bucket.key;
+            const existing = bucketMap.get(key) || {
+                ...bucket,
+                totalValue: 0,
+                hasHistoricalMedals: false,
+                hasDiamondCoin: false,
+                hasCrowdCoin: false,
+            };
+
+            const value = Number(metric.coinValue) + Number(metric.medalValue);
+            const numericValue = Number.isFinite(value) ? value : 0;
+            existing.totalValue += numericValue;
+
+            const medals = Array.isArray(metric.medals) ? metric.medals : [];
+            if (!existing.hasHistoricalMedals && medals.some(isHistoricalMedal)) {
+                existing.hasHistoricalMedals = true;
+            }
+
+            const coins = Array.isArray(metric.coins) ? metric.coins : [];
+            if (!existing.hasDiamondCoin && coins.includes(DIAMOND_COIN_EMOJI)) {
+                existing.hasDiamondCoin = true;
+            }
+
+            if (!existing.hasCrowdCoin && coins.includes(CROWD_COIN_EMOJI)) {
+                existing.hasCrowdCoin = true;
+            }
+
+            bucketMap.set(key, existing);
+        });
+
+        if (bucketMap.size === 0) {
+            return { entries: [], maxValue: 0 };
+        }
+
+        const sortedEntries = Array.from(bucketMap.values()).sort((a, b) => {
+            const aTime = a.rangeStart instanceof Date ? a.rangeStart.getTime() : 0;
+            const bTime = b.rangeStart instanceof Date ? b.rangeStart.getTime() : 0;
+            return aTime - bTime;
+        });
+
+        const start = sortedEntries[0]?.rangeStart instanceof Date
+            ? new Date(sortedEntries[0].rangeStart)
+            : null;
+        const end = sortedEntries[sortedEntries.length - 1]?.rangeStart instanceof Date
+            ? new Date(sortedEntries[sortedEntries.length - 1].rangeStart)
+            : null;
+
+        const entries = [];
+        if (start && end) {
+            let cursor = new Date(start.getTime());
+            cursor.setHours(0, 0, 0, 0);
+            const lastTime = end.getTime();
+            while (cursor.getTime() <= lastTime) {
+                const bucket = buildWalletBucketInfo(cursor, 'two-week');
+                if (bucket) {
+                    const existing = bucketMap.get(bucket.key);
+                    entries.push(existing || {
+                        ...bucket,
+                        totalValue: 0,
+                        hasHistoricalMedals: false,
+                        hasDiamondCoin: false,
+                        hasCrowdCoin: false,
+                    });
+                }
+                cursor = new Date(cursor.getTime() + 14 * WALLET_DAY_IN_MS);
+            }
+        } else {
+            entries.push(...sortedEntries);
+        }
+
+        const maxValue = entries.reduce((max, entry) => {
+            const value = Number(entry?.totalValue) || 0;
+            return Math.max(max, value);
+        }, 0);
+
+        return {
+            entries,
+            maxValue,
+        };
+    };
+
+    const resolveHeatmapColor = (value, maxValue) => {
+        if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0 || value <= 0) {
+            return null;
+        }
+
+        const factor = clamp01(value / maxValue);
+        const r = Math.round(interpolate(HEATMAP_COLOR_START.r, HEATMAP_COLOR_END.r, factor));
+        const g = Math.round(interpolate(HEATMAP_COLOR_START.g, HEATMAP_COLOR_END.g, factor));
+        const b = Math.round(interpolate(HEATMAP_COLOR_START.b, HEATMAP_COLOR_END.b, factor));
+        return `rgb(${r}, ${g}, ${b})`;
+    };
+
+    const renderWalletHeatmap = (metrics = []) => {
+        if (!walletHeatmapGrid || !walletHeatmapEmptyState || !walletHeatmapContainer) {
+            return;
+        }
+
+        walletHeatmapGrid.innerHTML = '';
+        walletHeatmapGrid.classList.remove('is-empty');
+        walletHeatmapEmptyState.classList.add('hidden');
+
+        const { entries, maxValue } = buildBiweeklyHeatmapSeries(metrics);
+        if (!entries.length) {
+            walletHeatmapGrid.classList.add('is-empty');
+            walletHeatmapEmptyState.classList.remove('hidden');
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        entries.forEach(entry => {
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'wallet-heatmap__cell';
+            cell.setAttribute('role', 'listitem');
+
+            const value = Number(entry?.totalValue) || 0;
+            if (value > 0) {
+                const color = resolveHeatmapColor(value, maxValue);
+                if (color) {
+                    cell.style.setProperty('--wallet-heatmap-color', color);
+                }
+                cell.dataset.value = String(value);
+            } else {
+                cell.classList.add('is-empty');
+            }
+
+            const outlines = [];
+            if (entry?.hasHistoricalMedals) {
+                outlines.push('0 0 0 2px rgba(239, 68, 68, 0.95)');
+            }
+            if (entry?.hasDiamondCoin) {
+                outlines.push('0 0 0 4px rgba(37, 99, 235, 0.9)');
+            }
+            if (entry?.hasCrowdCoin) {
+                outlines.push('0 0 0 6px rgba(234, 179, 8, 0.95)');
+            }
+            if (outlines.length > 0) {
+                cell.style.boxShadow = outlines.join(', ');
+            }
+
+            const periodLabel = entry?.label || entry?.axisLabel || 'Two-week period';
+            const detailParts = [];
+            if (entry?.hasHistoricalMedals) {
+                detailParts.push('Historical medals earned');
+            }
+            if (entry?.hasDiamondCoin) {
+                detailParts.push('Diamond coin collected');
+            }
+            if (entry?.hasCrowdCoin) {
+                detailParts.push('Crowd coin collected');
+            }
+            const valueLabel = value > 0 ? currencyFormatter.format(value) : 'No balance collected';
+            const detailSuffix = detailParts.length ? ` (${detailParts.join(' · ')})` : '';
+            const accessibilityLabel = `${periodLabel}: ${valueLabel}${detailSuffix}`;
+            cell.title = accessibilityLabel;
+            cell.setAttribute('aria-label', accessibilityLabel);
+
+            fragment.appendChild(cell);
+        });
+
+        walletHeatmapGrid.appendChild(fragment);
+    };
+
     const buildWalletChartSeries = (metrics = [], { timeframe = WALLET_TIMEFRAME_ALL, yearColorAssignments = new Map() } = {}) => {
         if (!Array.isArray(metrics) || metrics.length === 0) {
             return {
@@ -8136,6 +8322,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             perPeriodLabel: chartSeries.changeLabel,
             bucketType: chartSeries.bucketType,
         };
+
+        renderWalletHeatmap(metricsForAggregation);
 
         const nextChartKey = hasWalletChartData(activeChartKey)
             ? activeChartKey

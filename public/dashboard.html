@@ -334,6 +334,35 @@
   <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Hover or tap a point to inspect it.</p>
 </div>
 </div>
+<section aria-label="Biweekly balance heatmap" class="wallet-heatmap" id="wallet-heatmap">
+  <div class="wallet-heatmap__header">
+    <div class="wallet-heatmap__copy">
+      <p class="wallet-heatmap__eyebrow">Balance cadence</p>
+      <h4 class="wallet-heatmap__title">Biweekly heatmap</h4>
+      <p class="wallet-heatmap__subtitle">Green intensity tracks how much was collected every two weeks.</p>
+    </div>
+    <div class="wallet-heatmap__legend" id="wallet-heatmap-legend">
+      <span class="wallet-heatmap__legend-item">
+        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--value"></span>
+        More collected
+      </span>
+      <span class="wallet-heatmap__legend-item">
+        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--historical"></span>
+        Historical medal
+      </span>
+      <span class="wallet-heatmap__legend-item">
+        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--diamond"></span>
+        Diamond coin
+      </span>
+      <span class="wallet-heatmap__legend-item">
+        <span aria-hidden="true" class="wallet-heatmap__legend-swatch wallet-heatmap__legend-swatch--crowd"></span>
+        Crowd coin
+      </span>
+    </div>
+  </div>
+  <p class="wallet-heatmap__empty hidden" id="wallet-heatmap-empty">No balance data available for this range.</p>
+  <div class="wallet-heatmap__grid" id="wallet-heatmap-grid" role="list"></div>
+</section>
 </div>
 </section>
 </template>

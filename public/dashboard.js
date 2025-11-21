@@ -8459,11 +8459,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const subtitle = document.createElement('p');
         subtitle.className = 'wallet-heatmap__popover-subtitle';
         subtitle.textContent = 'Monthly wallet snapshot';
+        const dateFilterButton = document.createElement('button');
+        dateFilterButton.type = 'button';
+        dateFilterButton.className = 'wallet-heatmap__popover-date';
+        dateFilterButton.textContent = entry.label || 'View month in activities';
+        dateFilterButton.addEventListener('click', () => {
+            applyHeatmapMonthFilterToActivities(entry);
+            hideWalletHeatmapPopover();
+        });
         const value = document.createElement('p');
         value.className = 'wallet-heatmap__popover-value';
         value.textContent = formatWalletCompactValue(entry.totalValue);
         titleWrap.appendChild(title);
         titleWrap.appendChild(subtitle);
+        titleWrap.appendChild(dateFilterButton);
         titleWrap.appendChild(value);
 
         const closeButton = document.createElement('button');
@@ -8633,7 +8642,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         walletHeatmapActiveCell = cell;
         renderWalletHeatmapPopover(entry, cell, triggerEvent);
-        applyHeatmapMonthFilterToActivities(entry);
     };
 
     const renderWalletHeatmap = (metrics = []) => {

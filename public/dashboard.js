@@ -191,6 +191,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         weekly: { shortLabel: '7D', longLabel: 'Seven-day' },
     };
 
+    const getActivityDate = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return null;
+        }
+
+        const rawDate = activity.start_date || activity.start_date_local;
+        if (!rawDate) {
+            return null;
+        }
+
+        const parsedDate = new Date(rawDate);
+        return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+    };
+
+    const getActivityTimestamp = (activity) => {
+        const parsedDate = getActivityDate(activity);
+        return parsedDate ? parsedDate.getTime() : null;
+    };
+
     const MEDAL_RARITY_LEVELS = [
         {
             key: 'verdant',
@@ -2361,8 +2380,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return;
                 }
 
-                const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
-                const weekInfo = getISOWeekInfo(activityDate);
+                const activityDate = getActivityDate(activity);
+                const weekInfo = activityDate ? getISOWeekInfo(activityDate) : null;
                 if (!weekInfo) {
                     return;
                 }
@@ -8609,12 +8628,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fragment = document.createDocumentFragment();
 
         rows.forEach(row => {
-            const yearCell = document.createElement('div');
-            yearCell.className = 'wallet-heatmap__year';
-            yearCell.textContent = row.year;
-            yearCell.setAttribute('aria-hidden', 'true');
-            fragment.appendChild(yearCell);
-
             row.months.forEach(entry => {
                 const cell = document.createElement('div');
                 cell.className = 'wallet-heatmap__cell';
@@ -9991,10 +10004,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const sortActivitiesDescending = (activities = []) => {
         return activities.slice().sort((a, b) => {
-            const dateA = new Date(a?.start_date || a?.start_date_local || 0);
-            const dateB = new Date(b?.start_date || b?.start_date_local || 0);
-            const timeA = Number.isFinite(dateA.getTime()) ? dateA.getTime() : 0;
-            const timeB = Number.isFinite(dateB.getTime()) ? dateB.getTime() : 0;
+            const timeA = getActivityTimestamp(a) || 0;
+            const timeB = getActivityTimestamp(b) || 0;
             return timeB - timeA;
         });
     };
@@ -12813,7 +12824,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return null;
                 }
                 const activityId = activity.id.toString();
-                const timestamp = Date.parse(activity.start_date || activity.start_date_local || 0);
+                const timestamp = getActivityTimestamp(activity);
                 if (!Number.isFinite(timestamp) || timestamp <= 0) {
                     return { id: activityId, timestamp: null };
                 }
@@ -12930,8 +12941,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (raceEntry.raceDate instanceof Date && !Number.isNaN(raceEntry.raceDate.getTime())) {
-            const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
-            if (Number.isNaN(activityDate.getTime())) {
+            const activityDate = getActivityDate(activity);
+            if (!activityDate) {
                 return false;
             }
             const diffHours = Math.abs(activityDate.getTime() - raceEntry.raceDate.getTime()) / (1000 * 60 * 60);
@@ -12969,8 +12980,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return attempts.some(attempt => attempt.activityId === activityId);
         }
 
-        const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
-        if (Number.isNaN(activityDate.getTime())) {
+        const activityDate = getActivityDate(activity);
+        if (!activityDate) {
             return false;
         }
 
@@ -13145,8 +13156,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return false;
         }
 
-        const activityDate = new Date(activity.start_date || activity.start_date_local || 0);
-        if (Number.isNaN(activityDate.getTime())) {
+        const activityDate = getActivityDate(activity);
+        if (!activityDate) {
             return false;
         }
 
@@ -13260,8 +13271,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         let previousMonth = 0;
 
         activities.forEach((activity) => {
-            const startDate = new Date(activity?.start_date || activity?.start_date_local || 0);
-            if (Number.isNaN(startDate.getTime())) {
+            const startDate = getActivityDate(activity);
+            if (!startDate) {
                 return;
             }
 
@@ -13289,8 +13300,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         let total = 0;
 
         activities.forEach((activity) => {
-            const startDate = new Date(activity?.start_date || activity?.start_date_local || 0);
-            if (Number.isNaN(startDate.getTime()) || startDate < cutoff) {
+            const startDate = getActivityDate(activity);
+            if (!startDate || startDate < cutoff) {
                 return;
             }
 
@@ -17231,8 +17242,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentActivityFilters = filters;
 
         const yearFilteredActivities = allData.activities.filter(activity => {
-            const activityDate = new Date(activity.start_date);
-            if (Number.isNaN(activityDate.getTime())) {
+            const activityDate = getActivityDate(activity);
+            if (!activityDate) {
                 return false;
             }
             if (selectedYear && selectedYear !== 'all' && activityDate.getFullYear().toString() !== selectedYear) {

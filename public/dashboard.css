@@ -5068,6 +5068,7 @@ body.dark .medals-category__description {
     border-radius: 18px;
     background: rgba(148, 163, 184, 0.12);
     box-shadow: 0 12px 28px rgba(148, 163, 184, 0.18);
+    overflow: visible;
 }
 
 .rank-modal__timeline-header {
@@ -5092,13 +5093,18 @@ body.dark .medals-category__description {
 
 .rank-modal__timeline-scroll {
     overflow-x: auto;
-    padding-bottom: 0.5rem;
+    overflow-y: visible;
+    padding: 0.5rem 0.75rem 0.75rem;
+    margin: 0 -0.75rem;
+    scrollbar-gutter: stable both-edges;
 }
 
 .rank-modal__timeline-inner {
     position: relative;
     padding: 0.75rem 0 1.35rem;
     min-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .rank-modal__timeline-track {
@@ -5108,6 +5114,7 @@ body.dark .medals-category__description {
     align-items: center;
     justify-content: center;
     width: 100%;
+    max-width: 100%;
 }
 
 .rank-modal__timeline-rail {
@@ -5238,6 +5245,7 @@ body.dark .medals-category__description {
     pointer-events: none;
     transition: opacity 0.18s ease, transform 0.18s ease;
     min-width: 170px;
+    z-index: 2;
 }
 
 .rank-modal__timeline-popover.is-visible {

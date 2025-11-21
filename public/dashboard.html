@@ -200,10 +200,6 @@
           <span aria-hidden="true" class="text-lg leading-none">👍</span>
           <span class="font-semibold" id="likes-total">0</span>
         </button>
-        <button class="tooltip-target profile-metric-pill bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200" id="country-stat" type="button">
-          <span aria-hidden="true" class="text-lg leading-none">🗺️</span>
-          <span class="font-semibold" id="country-total">0</span>
-        </button>
       </div>
     </div>
     <div class="profile-card__coins stats-card__pills profile-card__stat-row" id="coin-summary">
@@ -238,6 +234,10 @@
       <button aria-label="Open medals view" class="wallet-total-pill profile-metric-pill bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200" data-panel-target="medals" type="button">
         <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
         <span class="wallet-total-pill__value" id="wallet-summary-medal-count">0</span>
+      </button>
+      <button aria-label="Open country filters" class="wallet-total-pill profile-metric-pill bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200" id="country-stat" type="button">
+        <span aria-hidden="true" class="wallet-total-pill__icon">🗺️</span>
+        <span class="wallet-total-pill__value" id="country-total">0</span>
       </button>
     </div>
   </div>
@@ -515,7 +515,7 @@
 </div>
 <div class="filter-field">
 <span class="filter-field__label">Country</span>
-<div class="filter-chip-list" id="country-filter-list" role="group" aria-label="Country filter"></div>
+<div class="filter-chip-list" id="country-filter-list" role="group" aria-label="Country filter" tabindex="-1"></div>
 <p class="filter-chip-list__empty" id="country-filter-empty">Country metadata will appear once activities are synced.</p>
 </div>
 </div>

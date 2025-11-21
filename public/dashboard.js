@@ -10082,6 +10082,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.classList.add('tooltip-target');
     };
 
+    const focusCountryFilterSection = () => {
+        const target = countryFilterList || countryFilterEmptyState;
+        if (!target) {
+            return;
+        }
+
+        const scrollTarget = target.closest?.('.filter-field') || target;
+        if (scrollTarget instanceof HTMLElement && typeof scrollTarget.scrollIntoView === 'function') {
+            scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        if (target instanceof HTMLElement) {
+            target.focus({ preventScroll: true });
+        }
+    };
+
     function bindCountryStatButton() {
         if (!countryStatButton) {
             return;
@@ -10092,7 +10108,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         countryStatButton.addEventListener('click', (event) => {
             event.preventDefault();
             hideTooltip();
-            openCountryMapModal();
+            openActivitiesFilterModal();
+            window.requestAnimationFrame(() => {
+                focusCountryFilterSection();
+            });
         });
         countryStatButton.dataset.countryMapBound = 'true';
     }

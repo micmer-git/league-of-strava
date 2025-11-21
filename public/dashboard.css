@@ -3248,6 +3248,10 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     margin-top: 0.65rem;
 }
 
+.wallet-heatmap__popover-section--cards {
+    gap: 0.5rem;
+}
+
 .wallet-heatmap__popover-label {
     font-size: 0.85rem;
     color: #475569;
@@ -3266,6 +3270,44 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     list-style: none;
     padding: 0;
     margin: 0;
+}
+
+.wallet-heatmap__activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.wallet-heatmap__activity-card {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: #f8fafc;
+}
+
+.wallet-heatmap__value-tag {
+    background: #0f172a;
+    color: #fff;
+    border-radius: 9999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
+.wallet-heatmap__activity-meta {
+    margin: 0.15rem 0 0;
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.wallet-heatmap__badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+}
+
+.wallet-heatmap__chip--soft {
+    background: #e2e8f0;
+    color: #0f172a;
 }
 
 .wallet-heatmap__chip {
@@ -3304,6 +3346,25 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     border-radius: 0.5rem;
     cursor: pointer;
     color: #475569;
+}
+
+.dark .wallet-heatmap__activity-card {
+    background: #0f172a;
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+.dark .wallet-heatmap__value-tag {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.dark .wallet-heatmap__activity-meta {
+    color: #cbd5e1;
+}
+
+.dark .wallet-heatmap__chip--soft {
+    background: rgba(148, 163, 184, 0.2);
+    color: #e2e8f0;
 }
 
 .dark .wallet-heatmap {

@@ -2629,6 +2629,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isDayBased: Boolean((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver),
                 category: medalCategory,
                 legacyCategory: medalCategory,
+                discipline: resolveMedalDiscipline(medal),
                 ...rarityPayload,
             };
 
@@ -14366,6 +14367,102 @@ document.addEventListener('DOMContentLoaded', async () => {
         olympicTriathlons: (context) => countDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.olympicTriathlons),
     };
 
+    const MEDAL_DISCIPLINE_LOOKUP = new Map([
+        ['Run & Ride One Day', 'multi'],
+        ['Run, Ride & Swim One Day', 'multi'],
+        ['Double Run Day', 'run'],
+        ['Double Ride One Day', 'ride'],
+        ['3 Activities One Day', 'multi'],
+        ['2 Days Consecutive of 100 km Ride', 'ride'],
+        ['2 Days Consecutive of 150 km Ride', 'ride'],
+        ['2 Days Consecutive 5h+ Each Day', 'multi'],
+        ['3 Days Consecutive 5h+ Each Day', 'multi'],
+        ['2 Days of 10 km Consecutive Run', 'run'],
+        ['2 Half Marathons Back to Back', 'run'],
+        ['2 Marathons Back to Back', 'run'],
+        ['2 Days Consecutive 1500 m Elevation', 'multi'],
+        ['Olympic Triathlons Completed', 'multi'],
+        ['2 Days Back to Back 3000 m Elevation', 'multi'],
+        ['Christmas Champion', 'multi'],
+        ['New Year’s Hero', 'multi'],
+        ['Valentine’s Victor', 'multi'],
+        ['Easter Enthusiast', 'multi'],
+        ['Independence Day Icon', 'multi'],
+        ['Halloween Hero', 'multi'],
+        ['Thanksgiving Titan', 'multi'],
+        ['Mother’s Day Master', 'multi'],
+        ['Father’s Day Fighter', 'multi'],
+        ['Labor Day Legend', 'multi'],
+        ['Pi Day Pace Setter', 'multi'],
+        ['Global Running Day Star', 'run'],
+        ['Summer Solstice Sprinter', 'multi'],
+        ['Super Nice Day', 'multi'],
+        ['Leap Day Legend', 'multi'],
+        ['Steep Climber', 'multi'],
+        ['Coppa Coppi Protector', 'ride'],
+        ['7-Day Caloric Champion', 'multi'],
+        ['Night Owl', 'multi'],
+        ['Early Riser', 'multi'],
+        ['Summit Strider', 'run'],
+        ['Skyward Cyclist', 'ride'],
+        ['Vertical Velocity', 'run'],
+        ['Alpine Sprinter', 'ride'],
+        ['Urban Ladder', 'run'],
+        ['Coastal Century', 'ride'],
+        ['Ultra Voyager', 'ride'],
+        ['Evergreen Endurance', 'ride'],
+        ['Skyline Charge', 'run'],
+        ['Power Pedaler', 'ride'],
+        ['Tempo Trailblazer', 'run'],
+        ['Mountain Marathoner', 'run'],
+        ['Ridge Explorer', 'ride'],
+        ['Gradient Guru', 'run'],
+        ['Switchback Cyclist', 'ride'],
+        ['Peak Fueler', 'multi'],
+        ['Hefty Haul', 'ride'],
+        ['Volcanic Vertical', 'multi'],
+        ['Marathon Finisher', 'run'],
+        ['Ultra Runner', 'run'],
+        ['Run Streak — 7 Days', 'run'],
+        ['Run Streak — 30 Days', 'run'],
+        ['Ride Streak — 7 Days', 'ride'],
+        ['Ride Streak — 30 Days', 'ride'],
+        ['Swim Streak — 7 Days', 'swim'],
+        ['Training Fortnight', 'multi'],
+        ['Training Month Milestone', 'multi'],
+        ['Season of Consistency', 'multi'],
+        ['Half-Year Sentinel', 'multi'],
+        ['Year of Grit', 'multi'],
+        ['Cycling Streak', 'ride'],
+        ['Crowd Pleaser', 'multi'],
+        ['Community Star', 'multi'],
+        ['Legend of Kudos', 'multi'],
+        ['Ride 10,000 km', 'ride'],
+        ['Ride 100,000 m Elevation', 'ride'],
+        ['Ride 1,000 Hours', 'ride'],
+        ['Run 1,000 km', 'run'],
+        ['Run 20,000 m Elevation', 'run'],
+        ['Run 1,000 Hours', 'run'],
+        ['Swim 500 km', 'swim'],
+        ['Swim 1,000 Hours', 'swim'],
+    ]);
+
+    const resolveMedalDiscipline = (medal = {}) => {
+        const mapped = medal?.name ? MEDAL_DISCIPLINE_LOOKUP.get(medal.name) : null;
+        if (mapped) {
+            return mapped;
+        }
+        if (medal?.discipline) {
+            return medal.discipline;
+        }
+        return inferMedalDiscipline(medal);
+    };
+
+    const addDisciplineToDefinition = (definition = {}) => ({
+        ...definition,
+        discipline: resolveMedalDiscipline(definition),
+    });
+
     const BEST_CLASS_MEDALS = [
         {
             name: 'Run & Ride One Day',
@@ -14942,6 +15039,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 category: definition.category || 'Lifetime Progress',
                 legacyCategory: definition.category || 'Lifetime Progress',
                 milestoneCategory: definition.milestoneCategory || '',
+                discipline: resolveMedalDiscipline(definition),
                 ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
                 progressStatus: createMedalProgressStatus({
                     targetValue: definition.targetValue,
@@ -15018,6 +15116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 category: definition.category || 'Lifetime Progress',
                 legacyCategory: definition.category || 'Lifetime Progress',
                 milestoneCategory: definition.milestoneCategory || '',
+                discipline: resolveMedalDiscipline(definition),
                 ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
                 progressStatus,
             };
@@ -15025,7 +15124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // === Medals Configuration ===
-    const medalsConfig = [
+    const rawMedalDefinitions = [
         ...BEST_CLASS_MEDALS.map(mapBestClassMedalToConfig),
         // Special Days Medals
         {
@@ -15514,6 +15613,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             criteria: (activity) => getActivityLikesCount(activity) >= 200
         }
     ];
+
+    const medalsConfig = rawMedalDefinitions.map(addDisciplineToDefinition);
+
+    const medalDefinitionLookup = new Map([
+        ...medalsConfig.map(medal => [medal.name, medal]),
+        ...PROGRESS_MEDAL_DEFINITIONS.map((definition) => {
+            const hydratedDefinition = addDisciplineToDefinition(definition);
+            return [hydratedDefinition.name, hydratedDefinition];
+        }),
+    ]);
+
+    const hydrateMedalFromDefinition = (medal = {}) => {
+        if (!medal?.name) {
+            return {
+                ...medal,
+                discipline: resolveMedalDiscipline(medal),
+            };
+        }
+
+        const definition = medalDefinitionLookup.get(medal.name);
+        const merged = definition ? { ...definition, ...medal } : { ...medal };
+
+        return {
+            ...merged,
+            discipline: resolveMedalDiscipline(merged),
+            description: merged.description || definition?.description || '',
+            emoji: merged.emoji || definition?.emoji || '',
+        };
+    };
 
     const medalOrderMap = new Map(medalsConfig.map((medal, index) => [medal.name, index]));
 
@@ -16552,11 +16680,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalSummary = lifetimeRewardSummary.medalSummary;
 
         const fullMedalInventory = Array.isArray(lifetimeRewardSummary.medalInventory)
-            ? lifetimeRewardSummary.medalInventory.map(medal => ({
-                ...medal,
-                count: toNonNegativeInteger(medal?.count),
-                discipline: medal?.discipline || inferMedalDiscipline(medal),
-            }))
+            ? lifetimeRewardSummary.medalInventory.map(medal => {
+                const hydratedMedal = hydrateMedalFromDefinition(medal);
+                return {
+                    ...hydratedMedal,
+                    count: toNonNegativeInteger(hydratedMedal?.count),
+                    discipline: hydratedMedal?.discipline || resolveMedalDiscipline(hydratedMedal),
+                };
+            })
             : [];
 
         historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);

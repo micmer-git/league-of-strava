@@ -3946,10 +3946,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const currentGroupIndex = Math.max(rankGroups.findIndex(group => group.rank.emoji === currentRank.emoji), 0);
         const viewingRank = config[Math.max(0, Math.min(viewingRankIndex, config.length - 1))] || currentRank;
-        const viewingGroupIndex = Math.max(
-            rankGroups.findIndex(group => group.rank.emoji === viewingRank?.emoji),
-            currentGroupIndex
-        );
+        const targetGroupIndex = rankGroups.findIndex(group => group.rank.emoji === viewingRank?.emoji);
+        const resolvedGroupIndex = targetGroupIndex >= 0 ? targetGroupIndex : currentGroupIndex;
+        const viewingGroupIndex = Math.max(0, Math.min(resolvedGroupIndex, rankGroups.length - 1));
 
         timelineInner.style.minWidth = '100%';
         timelineInner.style.width = '100%';
@@ -3969,26 +3968,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         fill.className = 'rank-modal__timeline-fill';
         fill.style.width = `${fillPercent}%`;
 
-        const dots = document.createElement('div');
-        dots.className = 'rank-modal__timeline-dots';
-        ['start-a', 'start-b', 'end-a', 'end-b'].forEach((variant) => {
-            const dot = document.createElement('span');
-            dot.className = `rank-modal__timeline-fill-dot rank-modal__timeline-fill-dot--${variant}`;
-            dots.appendChild(dot);
-        });
-        fill.appendChild(dots);
+        const labelPosition = Math.max(8, Math.min(fillPercent, 92));
 
         const markersContainer = document.createElement('div');
         markersContainer.className = 'rank-modal__timeline-markers';
 
         rail.append(fill, markersContainer);
 
-        const label = document.createElement('div');
+        const label = document.createElement('button');
+        label.type = 'button';
         label.className = 'rank-modal__timeline-label';
+        label.style.left = `${labelPosition}%`;
 
         const progressBar = document.createElement('div');
         progressBar.className = 'rank-modal__timeline-bar';
         progressBar.append(rail, label);
+
+        const recenterToCurrentRank = () => {
+            viewingRankIndex = rankProgressState.currentRankIndex;
+            renderRankProgressTimeline(timelineElement, config);
+        };
 
         const updateTimelineLabel = (selectedRank) => {
             const targetHours = Number(selectedRank?.minHours);
@@ -4013,6 +4012,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 label.textContent = `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
             }
         };
+
+        label.addEventListener('click', recenterToCurrentRank);
 
         const renderMarkersForGroup = (centerGroupIndex) => {
             markersContainer.innerHTML = '';

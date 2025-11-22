@@ -1249,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
     let walletHeatmapPopover = document.getElementById('wallet-heatmap-popover');
     let walletHeatmapBackdrop = document.getElementById('wallet-heatmap-backdrop');
+    let walletHeatmapPreview = document.getElementById('wallet-heatmap-preview');
     const walletOverlayElements = {
         container: document.getElementById('wallet-chart-overlay'),
         label: document.getElementById('wallet-overlay-label'),
@@ -1533,6 +1534,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletHeatmapBackdrop = document.getElementById('wallet-heatmap-backdrop');
         walletHeatmapWrapper = walletHeatmapGrid ? walletHeatmapGrid.parentElement : null;
         walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
+        walletHeatmapPreview = document.getElementById('wallet-heatmap-preview');
         if (walletAppearanceSelect) {
             walletAppearanceSelect.value = walletChartAppearancePreference;
         }
@@ -8359,6 +8361,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     let walletHeatmapActiveCell = null;
+    let walletHeatmapSelectedCell = null;
+    const walletHeatmapDefaultPreview = 'Hover a month to see what was collected, click to lock it, and click again for full details.';
 
     const ensureWalletHeatmapBackdrop = () => {
         if (!walletHeatmapBackdrop && walletHeatmapContainer) {
@@ -8396,6 +8400,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletHeatmapContainer.classList.remove('is-popover-open');
         }
         walletHeatmapActiveCell = null;
+    };
+
+    const summarizeHeatmapCounts = (entry = {}) => {
+        const totalCoins = Array.from(entry.coinCounts?.values?.() || []).reduce((sum, count) => sum + (count || 0), 0);
+        const totalMedals = Array.from(entry.medalCounts?.values?.() || []).reduce((sum, medal) => sum + (medal?.count || 0), 0);
+        return { totalCoins, totalMedals };
+    };
+
+    const updateWalletHeatmapPreview = (entry = null, mode = 'idle') => {
+        if (!walletHeatmapPreview) {
+            return;
+        }
+        if (!entry) {
+            walletHeatmapPreview.textContent = walletHeatmapDefaultPreview;
+            return;
+        }
+        const { totalCoins, totalMedals } = summarizeHeatmapCounts(entry);
+        const detailParts = [];
+        if (totalCoins > 0) {
+            detailParts.push(`${totalCoins} coin${totalCoins === 1 ? '' : 's'}`);
+        }
+        if (totalMedals > 0) {
+            detailParts.push(`${totalMedals} medal${totalMedals === 1 ? '' : 's'}`);
+        }
+        const valueLabel = formatWalletCompactValue(entry.totalValue);
+        const interactionHint = mode === 'selected'
+            ? 'Click again to open details.'
+            : 'Click to lock this month.';
+        const detailSuffix = detailParts.length ? ` · ${detailParts.join(' · ')}` : '';
+        walletHeatmapPreview.textContent = `${entry.label || 'Monthly period'} • ${valueLabel}${detailSuffix} — ${interactionHint}`;
+    };
+
+    const clearWalletHeatmapSelection = () => {
+        if (walletHeatmapSelectedCell) {
+            walletHeatmapSelectedCell.classList.remove('is-selected');
+        }
+        walletHeatmapSelectedCell = null;
+    };
+
+    const selectWalletHeatmapCell = (cell, entry) => {
+        if (!cell || !entry) {
+            return;
+        }
+        if (walletHeatmapSelectedCell && walletHeatmapSelectedCell !== cell) {
+            walletHeatmapSelectedCell.classList.remove('is-selected');
+        }
+        walletHeatmapSelectedCell = cell;
+        walletHeatmapSelectedCell.classList.add('is-selected');
+        walletHeatmapActiveCell = cell;
+        updateWalletHeatmapPreview(entry, 'selected');
+    };
+
+    const resetWalletHeatmapPreview = () => {
+        if (walletHeatmapSelectedCell) {
+            updateWalletHeatmapPreview(walletHeatmapEntryMap.get(walletHeatmapSelectedCell), 'selected');
+            return;
+        }
+        updateWalletHeatmapPreview();
     };
 
     const positionWalletHeatmapPopover = (cell) => {
@@ -8445,7 +8507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const buildHeatmapActivityCard = (activity = {}) => {
             const card = document.createElement('div');
-            card.className = 'activity-card wallet-heatmap__activity-card rounded-lg p-3 shadow-sm';
+            card.className = 'activity-card wallet-heatmap__activity-card rounded-lg p-4 flex flex-col gap-3 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
 
             const headerRow = document.createElement('div');
             headerRow.className = 'flex items-start justify-between gap-2';
@@ -8453,8 +8515,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const activityId = activity.id || activity.external_id;
             const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '';
             const titleText = activity.name || activity.type || 'Activity';
-            const leadingEmoji = activity.emoji || activity.type_emoji || '';
-            const readableTitle = leadingEmoji ? `${leadingEmoji} ${titleText}` : titleText;
+            const readableTitle = titleText;
 
             const title = document.createElement('div');
             title.className = 'activity-card__title text-base font-semibold';
@@ -8472,47 +8533,70 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const valueTag = document.createElement('span');
-            valueTag.className = 'activity-card__value-tag wallet-heatmap__value-tag';
+            valueTag.className = 'activity-card__value-tag tooltip-target';
             const valueText = Number.isFinite(activity.totalValue) && activity.totalValue > 0
-                ? walletCompactFormatter.format(activity.totalValue)
+                ? `+${walletCompactFormatter.format(activity.totalValue)}`
                 : '—';
-            valueTag.textContent = valueText === '—' ? valueText : `+${valueText}`;
+            valueTag.textContent = valueText;
+            valueTag.setAttribute('aria-label', `Collected ${valueText}`);
+            const breakdownLines = [];
+            if (Number.isFinite(activity.coinValue) && activity.coinValue > 0) {
+                breakdownLines.push(`Coins · ${walletCompactFormatter.format(activity.coinValue)}`);
+            }
+            if (Number.isFinite(activity.medalValue) && activity.medalValue > 0) {
+                breakdownLines.push(`Medals · ${walletCompactFormatter.format(activity.medalValue)}`);
+            }
+            attachTooltip(valueTag, breakdownLines.length ? breakdownLines.join('\n') : 'No wallet value recorded');
 
             headerRow.appendChild(title);
             headerRow.appendChild(valueTag);
 
             const meta = document.createElement('p');
-            meta.className = 'activity-card__details wallet-heatmap__activity-meta';
+            meta.className = 'activity-card__details text-sm text-gray-600 dark:text-gray-300';
             const metaSummary = formatActivityMetaSummary(activity);
             const typeLabel = formatActivityTypeLabel(activity.type);
             meta.textContent = [metaSummary, typeLabel].filter(Boolean).join(' • ');
 
-            const badgeRow = document.createElement('div');
-            badgeRow.className = 'wallet-heatmap__badge-row';
-            const coinValueLabel = Number.isFinite(activity.coinValue) && activity.coinValue > 0
-                ? walletCompactFormatter.format(activity.coinValue)
-                : null;
-            const medalValueLabel = Number.isFinite(activity.medalValue) && activity.medalValue > 0
-                ? walletCompactFormatter.format(activity.medalValue)
-                : null;
-            if (coinValueLabel) {
-                const coinBadge = document.createElement('span');
-                coinBadge.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill wallet-heatmap__chip--soft';
-                coinBadge.textContent = `Coins · ${coinValueLabel}`;
-                badgeRow.appendChild(coinBadge);
+            const rewardRow = document.createElement('div');
+            rewardRow.className = 'activity-card__reward-row flex flex-wrap items-center gap-2';
+
+            const buildRewardBadge = (text, className, tooltipText) => {
+                const badge = document.createElement('span');
+                badge.className = `tooltip-target inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${className}`;
+                badge.textContent = text;
+                if (tooltipText) {
+                    attachTooltip(badge, tooltipText);
+                }
+                return badge;
+            };
+
+            if (Number.isFinite(activity.coinValue) && activity.coinValue > 0) {
+                rewardRow.appendChild(buildRewardBadge(
+                    `Coins • ${formatWalletCompactValue(activity.coinValue)}`,
+                    'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-100',
+                    'Coin value collected in this activity',
+                ));
             }
-            if (medalValueLabel) {
-                const medalBadge = document.createElement('span');
-                medalBadge.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill wallet-heatmap__chip--soft';
-                medalBadge.textContent = `Medals · ${medalValueLabel}`;
-                badgeRow.appendChild(medalBadge);
+
+            if (Number.isFinite(activity.medalValue) && activity.medalValue > 0) {
+                rewardRow.appendChild(buildRewardBadge(
+                    `Medals • ${formatWalletCompactValue(activity.medalValue)}`,
+                    'bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-100',
+                    'Medal value collected in this activity',
+                ));
+            }
+
+            if (rewardRow.childElementCount === 0) {
+                rewardRow.appendChild(buildRewardBadge(
+                    'No wallet rewards yet',
+                    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200',
+                    null,
+                ));
             }
 
             card.appendChild(headerRow);
             card.appendChild(meta);
-            if (badgeRow.childElementCount > 0) {
-                card.appendChild(badgeRow);
-            }
+            card.appendChild(rewardRow);
 
             return card;
         };
@@ -8537,7 +8621,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         const value = document.createElement('p');
         value.className = 'wallet-heatmap__popover-value';
-        value.textContent = formatWalletCompactValue(entry.totalValue);
+        value.textContent = `+${formatWalletCompactValue(entry.totalValue)}`;
+        value.setAttribute('aria-label', `Collected ${formatWalletCompactValue(entry.totalValue)} this month`);
         titleWrap.appendChild(title);
         titleWrap.appendChild(subtitle);
         titleWrap.appendChild(dateFilterButton);
@@ -8700,6 +8785,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         navigateToActivitiesPanel();
     };
 
+    const handleHeatmapCellHover = (cell) => {
+        if (!cell) {
+            return;
+        }
+        const entry = walletHeatmapEntryMap.get(cell);
+        if (!entry) {
+            return;
+        }
+        const mode = walletHeatmapSelectedCell === cell ? 'selected' : 'hover';
+        updateWalletHeatmapPreview(entry, mode);
+    };
+
     const handleHeatmapCellInteraction = (cell, triggerEvent) => {
         if (!cell) {
             return;
@@ -8708,8 +8805,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!entry) {
             return;
         }
-        walletHeatmapActiveCell = cell;
-        renderWalletHeatmapPopover(entry, cell, triggerEvent);
+
+        const popoverOpen = walletHeatmapPopover && !walletHeatmapPopover.classList.contains('hidden');
+        if (popoverOpen && walletHeatmapActiveCell && walletHeatmapActiveCell !== cell) {
+            hideWalletHeatmapPopover();
+        }
+
+        if (walletHeatmapSelectedCell === cell && (!popoverOpen || walletHeatmapActiveCell === cell)) {
+            walletHeatmapActiveCell = cell;
+            renderWalletHeatmapPopover(entry, cell, triggerEvent);
+            return;
+        }
+
+        selectWalletHeatmapCell(cell, entry);
     };
 
     const renderWalletHeatmap = (metrics = []) => {
@@ -8721,6 +8829,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletHeatmapGrid.classList.remove('is-empty');
         walletHeatmapEmptyState.classList.add('hidden');
         hideWalletHeatmapPopover();
+        clearWalletHeatmapSelection();
+        updateWalletHeatmapPreview();
 
         const { rows, maxValue } = buildMonthlyHeatmapMatrix(metrics);
         if (!rows.length) {
@@ -8782,6 +8892,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cell.setAttribute('aria-label', accessibilityLabel);
 
                 walletHeatmapEntryMap.set(cell, entry);
+                cell.addEventListener('mouseenter', () => handleHeatmapCellHover(cell));
+                cell.addEventListener('focus', () => handleHeatmapCellHover(cell));
+                cell.addEventListener('mouseleave', resetWalletHeatmapPreview);
+                cell.addEventListener('blur', resetWalletHeatmapPreview);
                 cell.addEventListener('click', (event) => handleHeatmapCellInteraction(cell, event));
                 cell.addEventListener('keydown', (event) => {
                     if (event.key === 'Enter' || event.key === ' ') {

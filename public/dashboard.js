@@ -3968,80 +3968,100 @@ document.addEventListener('DOMContentLoaded', async () => {
         const fill = document.createElement('div');
         fill.className = 'rank-modal__timeline-fill';
         fill.style.width = `${fillPercent}%`;
-        rail.appendChild(fill);
+
+        const dots = document.createElement('div');
+        dots.className = 'rank-modal__timeline-dots';
+        ['start-a', 'start-b', 'end-a', 'end-b'].forEach((variant) => {
+            const dot = document.createElement('span');
+            dot.className = `rank-modal__timeline-fill-dot rank-modal__timeline-fill-dot--${variant}`;
+            dots.appendChild(dot);
+        });
+        fill.appendChild(dots);
+
+        const markersContainer = document.createElement('div');
+        markersContainer.className = 'rank-modal__timeline-markers';
+
+        rail.append(fill, markersContainer);
 
         const label = document.createElement('div');
         label.className = 'rank-modal__timeline-label';
-        label.textContent = `${formatHoursDisplay(safeTotalHours)} h logged`;
 
         const progressBar = document.createElement('div');
         progressBar.className = 'rank-modal__timeline-bar';
         progressBar.append(rail, label);
 
-        const carouselContainerId = 'rank-carousel-container';
-        let carouselContainer = document.getElementById(carouselContainerId);
-        if (!carouselContainer) {
-            carouselContainer = document.createElement('div');
-            carouselContainer.id = carouselContainerId;
-        }
-        carouselContainer.className = 'rank-carousel';
-        carouselContainer.innerHTML = '';
+        const updateTimelineLabel = (selectedRank) => {
+            const targetHours = Number(selectedRank?.minHours);
+            const hasTargetHours = Number.isFinite(targetHours) && targetHours >= 0;
 
-        const renderCarouselForGroup = (centerGroupIndex) => {
-            carouselContainer.innerHTML = '';
-            const carouselTrack = document.createElement('div');
-            carouselTrack.className = 'rank-carousel__track';
+            if (!hasTargetHours) {
+                label.textContent = `${formatHoursDisplay(safeTotalHours)} h logged`;
+                return;
+            }
 
-            const renderItem = (offset) => {
+            if (selectedRank === currentRank) {
+                label.textContent = `${formatHoursDisplay(targetHours)} h logged`;
+                return;
+            }
+
+            const remaining = targetHours - safeTotalHours;
+            if (remaining > 0) {
+                const ratio = targetHours === 0 ? 1 : Math.max(0, Math.min(1, safeTotalHours / targetHours));
+                label.textContent = `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
+            } else {
+                const ratio = targetHours === 0 ? 1 : Math.max(0, Math.min(1, safeTotalHours / targetHours));
+                label.textContent = `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
+            }
+        };
+
+        const renderMarkersForGroup = (centerGroupIndex) => {
+            markersContainer.innerHTML = '';
+
+            const buildMarker = (offset) => {
                 const targetGroupIndex = centerGroupIndex + offset;
                 const group = rankGroups[targetGroupIndex];
-
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = `rank-carousel__item rank-carousel__item--${offset === 0 ? 'center' : 'side'}`;
+                const marker = document.createElement('button');
+                marker.type = 'button';
+                marker.className = `rank-modal__timeline-marker rank-carousel__item rank-carousel__item--${offset === 0 ? 'center' : 'side'}`;
 
                 if (!group) {
-                    item.style.visibility = 'hidden';
-                    item.disabled = true;
-                    carouselTrack.appendChild(item);
+                    marker.style.visibility = 'hidden';
+                    marker.disabled = true;
+                    markersContainer.appendChild(marker);
                     return;
                 }
 
                 const { rank, index } = group;
                 const isCenter = offset === 0;
 
+                marker.innerHTML = `
+                    <span class="rank-modal__timeline-emoji" aria-hidden="true">${rank.emoji}</span>
+                    <span class="rank-modal__timeline-dot"></span>
+                `;
+
                 if (isCenter) {
-                    item.innerHTML = `
-                    <div class="rank-carousel__main-emoji">${rank.emoji}</div>
-                    <div class="rank-carousel__info">
-                        <div class="rank-carousel__title">${rank.name}</div>
-                        <div class="rank-carousel__hours">${formatHoursDisplay(rank.minHours)} h logged</div>
-                    </div>
-                `;
-                    item.setAttribute('aria-current', 'true');
-                    item.disabled = true;
+                    marker.setAttribute('aria-current', 'true');
+                    marker.disabled = true;
                 } else {
-                    item.innerHTML = `
-                    <div class="rank-carousel__side-emoji">${rank.emoji}</div>
-                `;
-                    item.setAttribute('aria-label', `${rank.name} crest tier`);
-                    item.addEventListener('click', () => {
+                    marker.setAttribute('aria-label', `${rank.name} crest tier`);
+                    marker.addEventListener('click', () => {
                         viewingRankIndex = index;
                         renderRankProgressTimeline(timelineElement, config);
                     });
                 }
 
-                carouselTrack.appendChild(item);
+                markersContainer.appendChild(marker);
             };
 
-            [-2, -1, 0, 1, 2].forEach((offset) => renderItem(offset));
+            [-2, -1, 0, 1, 2].forEach((offset) => buildMarker(offset));
 
-            carouselContainer.appendChild(carouselTrack);
+            const centerGroup = rankGroups[centerGroupIndex] || { rank: viewingRank };
+            updateTimelineLabel(centerGroup.rank);
         };
 
-        renderCarouselForGroup(viewingGroupIndex);
+        renderMarkersForGroup(viewingGroupIndex);
 
-        track.append(progressBar, carouselContainer);
+        track.append(progressBar);
 
         timelineInner.append(track);
         scrollArea.appendChild(timelineInner);

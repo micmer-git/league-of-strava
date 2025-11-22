@@ -1209,7 +1209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activitiesMedalInfoDescription = document.getElementById('activities-medal-info-description');
     let activitiesMedalInfoClearButton = document.getElementById('activities-medal-info-clear');
     let topAchievementsCarousel = document.getElementById('top-achievements-carousel');
-    let profileActivityHistoryElement = document.getElementById('profile-activity-history');
+    let profileActivityHistoryElement = document.getElementById('profile-activity-history-body');
     let topAchievementsInterval = null;
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
@@ -1502,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadMoreButton = document.getElementById('load-more-btn');
         activityFetchWarning = document.getElementById('activities-fetch-warning');
         topAchievementsCarousel = document.getElementById('top-achievements-carousel');
-        profileActivityHistoryElement = document.getElementById('profile-activity-history');
+        profileActivityHistoryElement = document.getElementById('profile-activity-history-body');
         if (topAchievementsInterval) {
             clearInterval(topAchievementsInterval);
             topAchievementsInterval = null;
@@ -8449,9 +8449,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             const headerRow = document.createElement('div');
             headerRow.className = 'flex items-start justify-between gap-2';
 
+            const activityId = activity.id || activity.external_id;
+            const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '';
+            const titleText = activity.name || activity.type || 'Activity';
+            const leadingEmoji = activity.emoji || activity.type_emoji || '';
+            const readableTitle = leadingEmoji ? `${leadingEmoji} ${titleText}` : titleText;
+
             const title = document.createElement('div');
             title.className = 'activity-card__title text-base font-semibold';
-            title.textContent = activity.name || 'Activity';
+            if (activityUrl) {
+                const titleLink = document.createElement('a');
+                titleLink.className = 'activity-card__title-link';
+                titleLink.href = activityUrl;
+                titleLink.target = '_blank';
+                titleLink.rel = 'noopener noreferrer';
+                titleLink.textContent = readableTitle;
+                titleLink.setAttribute('aria-label', `Open ${titleText} on Strava`);
+                title.appendChild(titleLink);
+            } else {
+                title.textContent = readableTitle;
+            }
 
             const valueTag = document.createElement('span');
             valueTag.className = 'activity-card__value-tag wallet-heatmap__value-tag';
@@ -8464,25 +8481,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             headerRow.appendChild(valueTag);
 
             const meta = document.createElement('p');
-            meta.className = 'wallet-heatmap__activity-meta';
-            const metaParts = [];
-            if (activity.date instanceof Date && !Number.isNaN(activity.date.getTime())) {
-                metaParts.push(activity.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }));
-            }
-            if (Number.isFinite(activity.distanceKm) && activity.distanceKm > 0) {
-                const distanceLabel = activity.distanceKm >= 100
-                    ? activity.distanceKm.toFixed(0)
-                    : activity.distanceKm.toFixed(1);
-                metaParts.push(`${distanceLabel} km`);
-            }
-            if (Number.isFinite(activity.elevationGain) && activity.elevationGain > 0) {
-                metaParts.push(`${Math.round(activity.elevationGain)} m`);
-            }
+            meta.className = 'activity-card__details wallet-heatmap__activity-meta';
+            const metaSummary = formatActivityMetaSummary(activity);
             const typeLabel = formatActivityTypeLabel(activity.type);
-            if (typeLabel) {
-                metaParts.push(typeLabel);
-            }
-            meta.textContent = metaParts.join(' • ');
+            meta.textContent = [metaSummary, typeLabel].filter(Boolean).join(' • ');
 
             const badgeRow = document.createElement('div');
             badgeRow.className = 'wallet-heatmap__badge-row';
@@ -8752,18 +8754,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     cell.classList.add('is-empty');
                 }
 
-                const outlines = [];
                 if (entry?.hasHistoricalMedals) {
                     cell.classList.add('wallet-heatmap__cell--historical');
                 }
                 if (entry?.hasDiamondCoin) {
-                    outlines.push('0 0 0 3px rgba(37, 99, 235, 0.75)');
+                    cell.classList.add('wallet-heatmap__cell--diamond');
                 }
                 if (entry?.hasCrowdCoin) {
-                    outlines.push('0 0 0 5px rgba(234, 179, 8, 0.8)');
-                }
-                if (outlines.length > 0) {
-                    cell.style.boxShadow = outlines.join(', ');
+                    cell.classList.add('wallet-heatmap__cell--crowd');
                 }
 
                 const detailParts = [];

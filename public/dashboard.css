@@ -1481,6 +1481,7 @@ to { opacity: 1; transform: translateY(0); }
     margin-top: 1rem;
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 0.75rem;
 }
 
@@ -3418,12 +3419,12 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .profile-top-achievements {
     margin-top: 1.25rem;
-    padding: 0.85rem 1rem;
-    background: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
-    color: #0b1224;
-    border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    box-shadow: 0 18px 40px rgba(14, 165, 233, 0.16);
+    padding: 0.75rem 0.9rem;
+    background: #f8fafc;
+    color: #0f172a;
+    border-radius: 0.85rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .profile-top-achievements__header {
@@ -3437,15 +3438,15 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     margin: 0;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    color: rgba(11, 18, 36, 0.7);
+    color: #475569;
 }
 
 .profile-top-achievements__title {
     margin: 0.15rem 0 0;
-    font-size: clamp(1.05rem, 2.6vw, 1.25rem);
-    color: rgba(255, 255, 255, 0.95);
+    font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+    color: #0f172a;
     font-weight: 750;
 }
 
@@ -3463,24 +3464,23 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .profile-top-achievements__slide {
     flex: 0 0 100%;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.15);
+    padding: 0.9rem;
+    background: #ffffff;
     border-radius: 0.75rem;
-    backdrop-filter: blur(2px);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: #0b1224;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    opacity: 0.45;
-    transform: scale(0.96);
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    opacity: 0.9;
+    transform: scale(0.98);
     transition: transform 0.4s ease, opacity 0.4s ease, box-shadow 0.4s ease;
-    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    font-size: clamp(1rem, 2.6vw, 1.25rem);
     line-height: 1.5;
 }
 
 .profile-top-achievements__slide.is-active {
     opacity: 1;
     transform: scale(1);
-    box-shadow: 0 16px 38px rgba(14, 165, 233, 0.25);
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
 }
 
 .profile-top-achievements__slide-emoji {
@@ -3492,25 +3492,22 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 .profile-top-achievements__slide-title {
     display: block;
     font-weight: 800;
+    font-size: 1.05rem;
 }
 
 .profile-top-achievements__slide-description {
     display: block;
-    font-size: 1rem;
-    color: rgba(11, 18, 36, 0.75);
+    font-size: 0.95rem;
+    color: #334155;
     margin-top: 0.35rem;
 }
 
 .profile-activity-history {
     margin-top: 0.85rem;
-    background: #0f172a;
-    color: #e2e8f0;
-    border-radius: 0.9rem;
-    padding: 0.9rem 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #0f172a;
+    padding: 0.4rem 0;
     display: grid;
-    gap: 0.55rem;
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+    gap: 0.45rem;
 }
 
 .profile-activity-history__header {
@@ -3523,15 +3520,15 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-size: 0.75rem;
-    color: #a5f3fc;
+    font-size: 0.68rem;
+    color: #475569;
 }
 
 .profile-activity-history__title {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: #0f172a;
 }
 
 .profile-activity-history__body {
@@ -3543,13 +3540,13 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     display: flex;
     align-items: baseline;
     gap: 0.4rem;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1.45;
 }
 
 .profile-activity-history__label {
     font-weight: 700;
-    color: #a5f3fc;
+    color: #475569;
 }
 
 .profile-activity-history__value {

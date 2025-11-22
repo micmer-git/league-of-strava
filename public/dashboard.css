@@ -5350,7 +5350,7 @@ body.dark .medals-category__description {
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(226, 232, 240, 0.9), rgba(226, 232, 240, 0.55));
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.12);
-    overflow: hidden;
+    overflow: visible;
 }
 
 .rank-modal__timeline-fill {
@@ -5363,6 +5363,25 @@ body.dark .medals-category__description {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
+.rank-modal__timeline-dots {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    pointer-events: none;
+}
+
+.rank-modal__timeline-fill-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.55), 0 6px 12px rgba(37, 99, 235, 0.35);
+    opacity: 0.9;
+}
+
 .rank-modal__timeline-label {
     position: relative;
     padding: 0.35rem 0.9rem;
@@ -5372,11 +5391,56 @@ body.dark .medals-category__description {
     font-weight: 700;
     font-size: 0.95rem;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
-    pointer-events: none;
+    text-align: center;
 }
 
 .rank-modal__timeline-markers {
-    display: none;
+    position: absolute;
+    inset: -2.1rem 0 -0.35rem;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: flex-end;
+    gap: 0.4rem;
+    pointer-events: none;
+}
+
+.rank-modal__timeline-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    padding: 0;
+    pointer-events: auto;
+}
+
+.rank-modal__timeline-marker[disabled] {
+    cursor: default;
+}
+
+.rank-modal__timeline-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+    font-size: 1.5rem;
+}
+
+.rank-modal__timeline-marker .rank-modal__timeline-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: 2px solid #e2e8f0;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
 }
 
 .rank-modal__timeline .rank-carousel {
@@ -5494,10 +5558,27 @@ body.dark .medals-category__description {
     box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35);
 }
 
+.dark .rank-modal__timeline-fill-dot {
+    background: rgba(226, 232, 240, 0.95);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.6), 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
 .dark .rank-modal__timeline-label {
     background: #0f172a;
     color: #e2e8f0;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.dark .rank-modal__timeline-emoji {
+    background: rgba(15, 23, 42, 0.96);
+    border-color: rgba(148, 163, 184, 0.45);
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+}
+
+.dark .rank-modal__timeline-marker .rank-modal__timeline-dot {
+    background: #93c5fd;
+    border-color: #1f2937;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
 }
 
 .dark .rank-modal__timeline .rank-carousel__item--side {

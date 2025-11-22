@@ -3932,7 +3932,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? rankProgressState.currentRankIndex
             : 0;
         const currentRank = config[currentIndex] || config[0] || {};
-        const nextRank = config[currentIndex + 1] || null;
 
         const rankGroups = [];
         const seenGroupEmoji = new Set();
@@ -3944,39 +3943,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const currentGroupIndex = Math.max(rankGroups.findIndex(group => group.rank.emoji === currentRank.emoji), 0);
-        let focusedGroupIndex = currentGroupIndex;
-
-        const getGroupIndexForRank = (rank = {}) => rankGroups.findIndex(group => group.rank.emoji === rank.emoji);
-
-        const buildMarkerSet = (focusGroupIndex) => {
-            const markerPriorityMap = { group: 1, detail: 2, current: 3 };
-            const markerMap = new Map();
-
-            const addMarker = (rank, type) => {
-                if (!rank || typeof rank.minHours !== 'number') {
-                    return;
-                }
-                const priority = markerPriorityMap[type] || 0;
-                const key = rank.minHours;
-                const existing = markerMap.get(key);
-                if (!existing || priority > existing.priority) {
-                    markerMap.set(key, { rank, type, priority });
-                }
-            };
-
-            addMarker(currentRank, 'current');
-            addMarker(nextRank, 'detail');
-
-            const sliceStart = Math.max(0, focusGroupIndex - 2);
-            const sliceEnd = Math.min(rankGroups.length, focusGroupIndex + 3);
-
-            rankGroups
-                .slice(sliceStart, sliceEnd)
-                .forEach((group) => addMarker(group?.rank, 'group'));
-
-            return Array.from(markerMap.values())
-                .sort((a, b) => a.rank.minHours - b.rank.minHours);
-        };
+        const viewingRank = config[Math.max(0, Math.min(viewingRankIndex, config.length - 1))] || currentRank;
+        const viewingGroupIndex = Math.max(
+            rankGroups.findIndex(group => group.rank.emoji === viewingRank?.emoji),
+            currentGroupIndex
+        );
 
         timelineInner.style.minWidth = '100%';
         timelineInner.style.width = '100%';
@@ -4001,136 +3972,76 @@ document.addEventListener('DOMContentLoaded', async () => {
         label.className = 'rank-modal__timeline-label';
         label.textContent = `${formatHoursDisplay(safeTotalHours)} h logged`;
 
-        track.append(rail, label);
+        const progressBar = document.createElement('div');
+        progressBar.className = 'rank-modal__timeline-bar';
+        progressBar.append(rail, label);
 
-        const markers = document.createElement('div');
-        markers.className = 'rank-modal__timeline-markers';
-        markers.setAttribute('role', 'list');
+        const carouselContainerId = 'rank-carousel-container';
+        let carouselContainer = document.getElementById(carouselContainerId);
+        if (!carouselContainer) {
+            carouselContainer = document.createElement('div');
+            carouselContainer.id = carouselContainerId;
+        }
+        carouselContainer.className = 'rank-carousel';
+        carouselContainer.innerHTML = '';
 
-        const renderMarkersForGroup = (groupIndex, { centerOnMarker = false } = {}) => {
-            const resolvedGroupIndex = Math.max(0, Math.min(groupIndex, rankGroups.length - 1));
-            focusedGroupIndex = resolvedGroupIndex;
-            const sliceStart = Math.max(0, resolvedGroupIndex - 2);
-            const sliceEnd = Math.min(rankGroups.length - 1, resolvedGroupIndex + 2);
-            const markerEntries = buildMarkerSet(resolvedGroupIndex)
-                .filter(({ rank, type }) => {
-                    const groupIndexValue = getGroupIndexForRank(rank);
-                    const isDuplicateCurrentGroupMarker = type !== 'current' && rank?.emoji === currentRank?.emoji;
-                    return groupIndexValue >= sliceStart && groupIndexValue <= sliceEnd && !isDuplicateCurrentGroupMarker;
-                });
+        const renderCarouselForGroup = (centerGroupIndex) => {
+            carouselContainer.innerHTML = '';
+            const carouselTrack = document.createElement('div');
+            carouselTrack.className = 'rank-carousel__track';
 
-            markers.innerHTML = '';
+            const renderItem = (offset) => {
+                const targetGroupIndex = centerGroupIndex + offset;
+                const group = rankGroups[targetGroupIndex];
 
-            markerEntries.forEach(({ rank, type }) => {
-                const marker = document.createElement('div');
-                marker.className = 'rank-modal__timeline-marker';
-                marker.dataset.markerType = type;
-                marker.setAttribute('role', 'listitem');
-                marker.setAttribute('tabindex', '0');
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = `rank-carousel__item rank-carousel__item--${offset === 0 ? 'center' : 'side'}`;
 
-                const markerPercent = maxHours > 0
-                    ? Math.min(100, Math.max(0, (rank.minHours / maxHours) * 100))
-                    : 0;
-                marker.style.left = `${markerPercent}%`;
-
-                const isCurrent = type === 'current';
-                const isComplete = rank.minHours <= safeTotalHours;
-                const markerGroupIndex = getGroupIndexForRank(rank);
-
-                if (isCurrent) {
-                    marker.classList.add('is-current');
-                    marker.setAttribute('aria-current', 'true');
-                }
-                if (isComplete && !isCurrent) {
-                    marker.classList.add('is-complete');
-                }
-                if (type === 'group' && !isCurrent) {
-                    marker.classList.add('rank-modal__timeline-marker--group');
+                if (!group) {
+                    item.style.visibility = 'hidden';
+                    item.disabled = true;
+                    carouselTrack.appendChild(item);
+                    return;
                 }
 
-                const ariaSuffix = isCurrent ? ', current rank' : '';
-                const ariaTypeLabel = type === 'group'
-                    ? 'crest tier overview'
-                    : 'rank milestone';
-                marker.setAttribute(
-                    'aria-label',
-                    `${rank.emoji} ${rank.name || 'Rank'} ${ariaTypeLabel} — available at ${formatHoursDisplay(rank.minHours)} hours${ariaSuffix}`
-                );
+                const { rank, index } = group;
+                const isCenter = offset === 0;
 
-                const markerDot = document.createElement('span');
-                markerDot.className = 'rank-modal__timeline-dot';
-
-                const emoji = document.createElement('span');
-                emoji.className = 'rank-modal__timeline-emoji';
-                emoji.textContent = rank.emoji || '🏅';
-
-                const name = document.createElement('span');
-                name.className = 'rank-modal__timeline-name';
-                name.textContent = rank.name || 'Rank milestone';
-
-                const hours = document.createElement('span');
-                hours.className = 'rank-modal__timeline-hours';
-                hours.textContent = `≥ ${formatHoursDisplay(rank.minHours)} h`;
-
-                if (type === 'group' && !isCurrent) {
-                    marker.append(markerDot, emoji);
-                } else {
-                    marker.append(markerDot, emoji, name, hours);
-                }
-
-                const popover = document.createElement('div');
-                popover.className = 'rank-modal__timeline-popover';
-                popover.innerHTML = `
-                    <span class="rank-modal__timeline-popover-emoji" aria-hidden="true">${rank.emoji}</span>
-                    <div class="rank-modal__timeline-popover-text">
-                        <span class="rank-modal__timeline-popover-name">${rank.name || 'Rank milestone'}</span>
-                        <span class="rank-modal__timeline-popover-hours">≥ ${formatHoursDisplay(rank.minHours)} h</span>
+                if (isCenter) {
+                    item.innerHTML = `
+                    <div class="rank-carousel__main-emoji">${rank.emoji}</div>
+                    <div class="rank-carousel__info">
+                        <div class="rank-carousel__title">${rank.name}</div>
+                        <div class="rank-carousel__hours">${formatHoursDisplay(rank.minHours)} h logged</div>
                     </div>
                 `;
-                marker.appendChild(popover);
-
-                const showPopover = () => popover.classList.add('is-visible');
-                const hidePopover = () => popover.classList.remove('is-visible');
-
-                marker.addEventListener('mouseenter', showPopover);
-                marker.addEventListener('mouseleave', hidePopover);
-                marker.addEventListener('focus', showPopover);
-                marker.addEventListener('blur', hidePopover);
-
-                marker.dataset.groupIndex = markerGroupIndex;
-
-                if (Number.isInteger(markerGroupIndex)) {
-                    const handleMarkerActivate = (event) => {
-                        if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') {
-                            return;
-                        }
-                        event.preventDefault();
-                        renderMarkersForGroup(markerGroupIndex, { centerOnMarker: true });
-                    };
-
-                    marker.addEventListener('click', handleMarkerActivate);
-                    marker.addEventListener('keydown', handleMarkerActivate);
+                    item.setAttribute('aria-current', 'true');
+                    item.disabled = true;
+                } else {
+                    item.innerHTML = `
+                    <div class="rank-carousel__side-emoji">${rank.emoji}</div>
+                `;
+                    item.setAttribute('aria-label', `${rank.name} crest tier`);
+                    item.addEventListener('click', () => {
+                        viewingRankIndex = index;
+                        renderRankProgressTimeline(timelineElement, config);
+                    });
                 }
 
-                markers.appendChild(marker);
-            });
+                carouselTrack.appendChild(item);
+            };
 
-            if (centerOnMarker) {
-                requestAnimationFrame(() => {
-                    const focusMarker = markers.querySelector(`[data-group-index="${resolvedGroupIndex}"]`);
-                    if (!focusMarker) {
-                        return;
-                    }
-                    const markerOffset = focusMarker.offsetLeft + (focusMarker.offsetWidth / 2);
-                    const scrollTarget = Math.max(0, markerOffset - (scrollArea.clientWidth / 2));
-                    scrollArea.scrollTo({ left: scrollTarget, behavior: 'smooth' });
-                });
-            }
+            [-2, -1, 0, 1, 2].forEach((offset) => renderItem(offset));
+
+            carouselContainer.appendChild(carouselTrack);
         };
 
-        renderMarkersForGroup(currentGroupIndex);
+        renderCarouselForGroup(viewingGroupIndex);
 
-        timelineInner.append(track, markers);
+        track.append(progressBar, carouselContainer);
+
+        timelineInner.append(track);
         scrollArea.appendChild(timelineInner);
         timelineElement.append(scrollArea);
         timelineElement.hidden = false;
@@ -5260,78 +5171,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             timelineElement: rankModalTimelineElement,
             idPrefix: 'rank-modal',
         });
-
-        renderRankCarousel();
-    };
-
-    const renderRankCarousel = () => {
-        const containerId = 'rank-carousel-container';
-        let container = document.getElementById(containerId);
-
-        if (!container) {
-            container = document.createElement('div');
-            container.id = containerId;
-            container.className = 'rank-carousel';
-            const dialogBody = rankModalElement?.querySelector('.rank-modal__body') || rankModalContentElement;
-            if (dialogBody) {
-                dialogBody.insertBefore(container, dialogBody.firstChild);
-            }
-        }
-
-        container.innerHTML = '';
-
-        const config = Array.isArray(activeRankConfig) ? activeRankConfig : RANK_CONFIG;
-        if (!config.length) {
-            return;
-        }
-
-        const maxIndex = config.length - 1;
-        const centerIndex = Math.max(0, Math.min(viewingRankIndex, maxIndex));
-
-        const carouselTrack = document.createElement('div');
-        carouselTrack.className = 'rank-carousel__track';
-
-        const renderItem = (offset) => {
-            const targetIndex = centerIndex + offset;
-            const rank = config[targetIndex];
-
-            const item = document.createElement('button');
-            item.type = 'button';
-            item.className = `rank-carousel__item rank-carousel__item--${offset === 0 ? 'center' : 'side'}`;
-
-            if (!rank) {
-                item.style.visibility = 'hidden';
-                item.disabled = true;
-                carouselTrack.appendChild(item);
-                return;
-            }
-
-            if (offset === 0) {
-                item.innerHTML = `
-                    <div class="rank-carousel__main-emoji">${rank.emoji}</div>
-                    <div class="rank-carousel__info">
-                        <div class="rank-carousel__title">${rank.name}</div>
-                        <div class="rank-carousel__hours">${formatHoursDisplay(rank.minHours)} h logged</div>
-                    </div>
-                `;
-                item.setAttribute('aria-current', 'true');
-                item.disabled = true;
-            } else {
-                item.innerHTML = `
-                    <div class="rank-carousel__side-emoji">${rank.emoji}</div>
-                `;
-                item.onclick = () => {
-                    viewingRankIndex = targetIndex;
-                    renderRankCarousel();
-                };
-            }
-
-            carouselTrack.appendChild(item);
-        };
-
-        [-2, -1, 0, 1, 2].forEach((offset) => renderItem(offset));
-
-        container.appendChild(carouselTrack);
     };
 
     const clearRankSnapshotHighlight = () => {

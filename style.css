@@ -1488,7 +1488,7 @@ button,
 
 .rank-carousel {
   width: 100%;
-  padding: 1rem 0 2rem;
+  padding: 0.25rem 0 0.5rem;
   display: flex;
   justify-content: center;
 }
@@ -1497,7 +1497,7 @@ button,
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.9rem;
 }
 
 .rank-carousel__item {
@@ -1512,8 +1512,8 @@ button,
 }
 
 .rank-carousel__item--side {
-  opacity: 0.5;
-  transform: scale(0.8);
+  opacity: 0.65;
+  transform: scale(0.9);
 }
 
 .rank-carousel__item--side:hover {

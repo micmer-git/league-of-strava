@@ -2519,10 +2519,10 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .wallet-table {
     overflow-x: auto;
-    overflow-y: auto;
+    overflow-y: visible;
     width: 100%;
     max-width: 100%;
-    max-height: 18rem;
+    max-height: none;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 0.25rem;
 }

@@ -5324,20 +5324,17 @@ body.dark .medals-category__description {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.25rem;
     align-items: center;
     justify-content: center;
-    padding: 0.25rem 0 0.5rem;
+    padding: 3.5rem 0 1.25rem;
     width: 100%;
     max-width: 100%;
 }
 
 .rank-modal__timeline-bar {
+    position: relative;
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
 }
 
 .rank-modal__timeline-rail {
@@ -5360,27 +5357,11 @@ body.dark .medals-category__description {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
-.rank-modal__timeline-dots {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 10px;
-    pointer-events: none;
-}
-
-.rank-modal__timeline-fill-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.85);
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.55), 0 6px 12px rgba(37, 99, 235, 0.35);
-    opacity: 0.9;
-}
-
 .rank-modal__timeline-label {
-    position: relative;
+    position: absolute;
+    top: -1.85rem;
+    left: 50%;
+    transform: translate(-50%, -50%);
     padding: 0.35rem 0.9rem;
     border-radius: 999px;
     background: #ffffff;
@@ -5389,15 +5370,28 @@ body.dark .medals-category__description {
     font-size: 0.95rem;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
     text-align: center;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    pointer-events: auto;
+}
+
+.rank-modal__timeline-label:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
 }
 
 .rank-modal__timeline-markers {
     position: absolute;
-    inset: -2.1rem 0 -0.35rem;
+    left: 0;
+    right: 0;
+    top: -3.65rem;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    align-items: flex-end;
-    gap: 0.4rem;
+    align-items: flex-start;
+    justify-items: center;
+    gap: 0.5rem;
+    padding: 0 0.35rem;
     pointer-events: none;
 }
 
@@ -5553,11 +5547,6 @@ body.dark .medals-category__description {
 .dark .rank-modal__timeline-fill {
     background: linear-gradient(90deg, #93c5fd, #3b82f6);
     box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35);
-}
-
-.dark .rank-modal__timeline-fill-dot {
-    background: rgba(226, 232, 240, 0.95);
-    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.6), 0 6px 12px rgba(0, 0, 0, 0.4);
 }
 
 .dark .rank-modal__timeline-label {

@@ -7799,12 +7799,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 name: activityName,
                 type: activityType,
                 date,
+                start_date: activity.start_date || null,
+                distance: activity.distance || 0,
+                moving_time: activity.moving_time || 0,
+                total_elevation_gain: activity.total_elevation_gain || 0,
                 totalValue: coinValue + medalValue,
                 coinValue,
                 medalValue,
                 distanceKm: stats.distanceKm,
                 elevationGain: stats.elevationGain,
                 calories: stats.calories,
+                kilojoules: activity.kilojoules || 0,
+                average_heartrate: activity.average_heartrate || 0,
             };
 
             return {
@@ -8056,6 +8062,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             type: activityInfo.type || metric.activityType || 'Activity',
             date,
             monthKey,
+            start_date: activityInfo.start_date || null,
+            distance: activityInfo.distance || 0,
+            moving_time: activityInfo.moving_time || 0,
+            total_elevation_gain: activityInfo.total_elevation_gain || 0,
+            calories: activityInfo.calories || 0,
+            kilojoules: activityInfo.kilojoules || 0,
+            average_heartrate: activityInfo.average_heartrate || 0,
             totalValue: Number.isFinite(totalValue) ? totalValue : 0,
             coinValue: Number(metric.coinValue) || 0,
             medalValue: Number(metric.medalValue) || 0,
@@ -8377,11 +8390,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '';
             const titleText = activity.name || activity.type || 'Activity';
 
+            const infoWrapper = document.createElement('div');
+            infoWrapper.className = 'flex-1 space-y-3';
+
             const headerRow = document.createElement('div');
             headerRow.className = 'flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between';
 
-            const title = document.createElement('div');
-            title.className = 'activity-card__title text-base font-semibold';
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'activity-card__title text-lg font-semibold';
             if (activityUrl) {
                 const titleLink = document.createElement('a');
                 titleLink.className = 'activity-card__title-link';
@@ -8390,96 +8406,186 @@ document.addEventListener('DOMContentLoaded', async () => {
                 titleLink.rel = 'noopener noreferrer';
                 titleLink.textContent = titleText;
                 titleLink.setAttribute('aria-label', `Open ${titleText} on Strava`);
-                title.appendChild(titleLink);
+                titleContainer.appendChild(titleLink);
             } else {
-                title.textContent = titleText;
+                titleContainer.textContent = titleText;
             }
 
-            const valueTag = document.createElement('span');
-            valueTag.className = 'activity-card__value-tag tooltip-target';
-            const valueText = Number.isFinite(activity.totalValue) && activity.totalValue > 0
-                ? `+${walletCompactFormatter.format(activity.totalValue)}`
-                : '—';
-            valueTag.textContent = valueText;
-            valueTag.setAttribute('aria-label', `Collected ${valueText}`);
-            const breakdownLines = [];
-            if (Number.isFinite(activity.coinValue) && activity.coinValue > 0) {
-                breakdownLines.push(`Coins · ${walletCompactFormatter.format(activity.coinValue)}`);
-            }
-            if (Number.isFinite(activity.medalValue) && activity.medalValue > 0) {
-                breakdownLines.push(`Medals · ${walletCompactFormatter.format(activity.medalValue)}`);
-            }
-            attachTooltip(valueTag, breakdownLines.length ? breakdownLines.join('\\n') : 'No wallet value recorded');
+            const stats = computeActivitySmallStats(activity);
+            const coinRewards = getActivityCoinRewards(activity, stats);
+            const medalRewards = getActivityMedals(activity);
+            const coinCounts = coinRewards.reduce((acc, emoji) => {
+                acc[emoji] = (acc[emoji] || 0) + 1;
+                return acc;
+            }, {});
+            const totalCoinValueDollars = Object.entries(coinCounts).reduce((sum, [emoji, count]) => {
+                return sum + count * (COIN_VALUE_MAP[emoji] || 0);
+            }, 0);
+            const medalValue = calculateMedalDollarValue(medalRewards);
+            const totalValueDollars = totalCoinValueDollars + medalValue;
 
-            headerRow.appendChild(title);
-            headerRow.appendChild(valueTag);
+            if (totalValueDollars > 0) {
+                const breakdownLines = Object.entries(coinCounts)
+                    .filter(([, count]) => count > 0)
+                    .map(([emoji, count]) => `${count.toLocaleString()}× ${emoji} = ${usdCodeFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
+                const tooltipLines = [];
 
-            const meta = document.createElement('p');
-            meta.className = 'activity-card__details text-sm text-gray-600 dark:text-gray-300';
+                if (breakdownLines.length > 0) {
+                    tooltipLines.push(...breakdownLines);
+                } else {
+                    tooltipLines.push('No coins minted in this activity.');
+                }
+
+                if (medalRewards.length > 0) {
+                    tooltipLines.push(`${medalRewards.length.toLocaleString()} 🏅 = ${usdCodeFormatter.format(medalValue)}`);
+                }
+
+                tooltipLines.push(`Total haul: ${usdCodeFormatter.format(totalValueDollars)}.`);
+
+                const valueTag = document.createElement('span');
+                valueTag.className = 'activity-card__value-tag tooltip-target';
+                valueTag.textContent = `+${usdCodeFormatter.format(totalValueDollars)}`;
+                valueTag.setAttribute('aria-label', `Value collected ${usdCodeFormatter.format(totalValueDollars)}`);
+                attachTooltip(valueTag, tooltipLines.join('\\n'));
+                titleContainer.appendChild(valueTag);
+            }
+
+            const details = document.createElement('div');
+            details.className = 'activity-card__details text-sm text-gray-600 dark:text-gray-300 sm:leading-5';
             const metaSummary = formatActivityMetaSummary(activity);
             const typeLabel = formatActivityTypeLabel(activity.type);
-            meta.textContent = [metaSummary, typeLabel].filter(Boolean).join(' • ');
+            const metaText = document.createElement('span');
+            metaText.className = 'activity-card__details-text';
+            metaText.textContent = [metaSummary, typeLabel].filter(Boolean).join(' • ');
+            details.appendChild(metaText);
 
-            const rewardRow = document.createElement('div');
-            rewardRow.className = 'activity-card__reward-row flex flex-wrap items-center gap-2';
+            headerRow.appendChild(titleContainer);
+            headerRow.appendChild(details);
+            infoWrapper.appendChild(headerRow);
 
-            const buildRewardBadge = (text, className, tooltipText) => {
-                const badge = document.createElement('span');
-                badge.className = `tooltip-target inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold${className}`;
-                badge.textContent = text;
-                if (tooltipText) {
-                    attachTooltip(badge, tooltipText);
+            const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className, ariaLabel = null }) => {
+                const badge = document.createElement('button');
+                badge.type = 'button';
+                badge.className = `tooltip-target inline-flex flex-col items-center justify-center px-2.5 py-1.5 rounded-full font-semibold text-xs sm:text-sm text-center gap-0.5 ${className}`;
+
+                const topRow = document.createElement('div');
+                topRow.className = icon ? 'flex items-center gap-1 leading-none' : 'flex items-center leading-none';
+                if (icon) {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.textContent = icon;
+                    topRow.appendChild(iconSpan);
                 }
+                const valueSpan = document.createElement('span');
+                valueSpan.textContent = valueText;
+                topRow.appendChild(valueSpan);
+                badge.appendChild(topRow);
+
+                if (subtitleText) {
+                    const subtitle = document.createElement('span');
+                    subtitle.className = 'text-[10px] font-medium opacity-80';
+                    subtitle.textContent = subtitleText;
+                    badge.appendChild(subtitle);
+                }
+
+                if (ariaLabel) {
+                    badge.setAttribute('aria-label', ariaLabel);
+                }
+
+                attachTooltip(badge, tooltipText);
                 return badge;
             };
 
-            if (Number.isFinite(activity.coinValue) && activity.coinValue > 0) {
-                rewardRow.appendChild(buildRewardBadge(
-                    `Coins • ${formatWalletCompactValue(activity.coinValue)}`,
-                    'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-100',
-                    'Coin value collected in this activity',
-                ));
-            }
-
-            if (Number.isFinite(activity.medalValue) && activity.medalValue > 0) {
-                rewardRow.appendChild(buildRewardBadge(
-                    `Medals • ${formatWalletCompactValue(activity.medalValue)}`,
-                    'bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-100',
-                    'Medal value collected in this activity',
-                ));
-            }
-
-            if (rewardRow.childElementCount === 0) {
-                rewardRow.appendChild(buildRewardBadge(
-                    'No wallet rewards yet',
-                    'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200',
-                    null,
-                ));
-            }
-
-            const medalRow = document.createElement('div');
-            medalRow.className = 'wallet-heatmap__badge-row';
-            const medals = Array.isArray(activity.medals) ? activity.medals : [];
-            medals.forEach((medal) => {
-                const medalChip = document.createElement('span');
-                medalChip.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill';
-                const emoji = medal?.emoji || '🏅';
-                const name = medal?.name || 'Medal';
-                medalChip.textContent = `${emoji} ${name}`;
-                if (medal?.description) {
-                    attachTooltip(medalChip, medal.description);
-                    medalChip.setAttribute('aria-label', `${name} • ${medal.description}`);
-                }
-                medalRow.appendChild(medalChip);
-            });
-
-            const openActivity = () => {
-                if (activityUrl) {
-                    window.open(activityUrl, '_blank', 'noopener,noreferrer');
-                }
+            const createEmojiSpan = (emoji, extraClass = '') => {
+                const span = document.createElement('span');
+                span.className = ['activity-card__emoji', extraClass].filter(Boolean).join(' ');
+                span.textContent = emoji;
+                return span;
             };
 
+            const statsRow = document.createElement('div');
+            statsRow.className = 'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center';
+
+            const smallStatsGroup = document.createElement('div');
+            smallStatsGroup.className = 'activity-card__stats-group flex flex-wrap items-center gap-2';
+
+            const appendBadgeBreak = () => {
+                if (smallStatsGroup.childElementCount === 0) {
+                    return;
+                }
+                const lastChild = smallStatsGroup.lastElementChild;
+                if (lastChild instanceof HTMLElement && lastChild.classList.contains('activity-card__badge-break')) {
+                    return;
+                }
+                const breakElement = document.createElement('span');
+                breakElement.className = 'activity-card__badge-break';
+                smallStatsGroup.appendChild(breakElement);
+            };
+
+            smallStatsGroup.appendChild(createBadge({
+                icon: '🏔️',
+                valueText: formatStatValue(stats.everestSummits),
+                tooltipText: `Elevation gain of ${formatElevation(stats.elevationGain)} — ${formatStatValue(stats.everestSummits)} Everest climbs`,
+                className: 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200'
+            }));
+            smallStatsGroup.appendChild(createBadge({
+                icon: '🍕',
+                valueText: formatStatValue(stats.pizzaCount),
+                tooltipText: `Energy burned: ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzaCount)}`,
+                className: 'bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200'
+            }));
+
+            const achievementHighlights = getActivityAchievementHighlights(activity, stats);
+            if (achievementHighlights.length > 0) {
+                appendBadgeBreak();
+                const emojiCounts = new Map();
+                const emojiDescriptions = new Map();
+
+                achievementHighlights.forEach(highlight => {
+                    const { emoji, description } = highlight;
+                    emojiCounts.set(emoji, (emojiCounts.get(emoji) || 0) + 1);
+                    const existingDescriptions = emojiDescriptions.get(emoji) || new Set();
+                    if (description) {
+                        existingDescriptions.add(description);
+                    }
+                    emojiDescriptions.set(emoji, existingDescriptions);
+                });
+
+                emojiCounts.forEach((count, emoji) => {
+                    const badge = document.createElement('button');
+                    badge.type = 'button';
+                    badge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-slate-200/80 px-2.5 py-1 text-base font-semibold text-slate-800 shadow-sm dark:bg-slate-800/60 dark:text-slate-100';
+                    const emojiSpan = createEmojiSpan(emoji);
+
+                    const countSpan = document.createElement('span');
+                    countSpan.className = 'text-[10px] font-semibold';
+                    countSpan.textContent = count.toLocaleString();
+
+                    badge.appendChild(countSpan);
+                    badge.appendChild(emojiSpan);
+                    const tooltipLines = Array.from(emojiDescriptions.get(emoji) || []);
+                    const tooltipText = tooltipLines.length > 0
+                        ? tooltipLines.join('\\n')
+                        : 'Achievement unlocked';
+                    const ariaLabelText = tooltipLines.length > 0
+                        ? tooltipLines.join(' ')
+                        : 'Achievement unlocked';
+                    badge.setAttribute('aria-label', ariaLabelText);
+                    attachTooltip(badge, tooltipText);
+                    smallStatsGroup.appendChild(badge);
+                });
+            }
+
+            statsRow.appendChild(smallStatsGroup);
+            infoWrapper.appendChild(statsRow);
+            card.appendChild(infoWrapper);
+
             if (activityUrl) {
+                const openActivity = () => {
+                    if (activityUrl) {
+                        window.open(activityUrl, '_blank', 'noopener,noreferrer');
+                    }
+                };
+
                 card.setAttribute('role', 'link');
                 card.tabIndex = 0;
                 card.addEventListener('click', (event) => {
@@ -8494,13 +8600,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         openActivity();
                     }
                 });
-            }
-
-            card.appendChild(headerRow);
-            card.appendChild(meta);
-            card.appendChild(rewardRow);
-            if (medalRow.childElementCount > 0) {
-                card.appendChild(medalRow);
             }
 
             return card;

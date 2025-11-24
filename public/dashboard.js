@@ -4144,8 +4144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         label.setAttribute('aria-live', 'polite');
 
         fill.style.width = `${fillPercent}%`;
-        const labelPosition = Math.max(8, Math.min(fillPercent, 92));
-        label.style.left = `${labelPosition}%`;
+        label.style.left = '50%';
         track.setAttribute('aria-valuemax', maxHours.toFixed(0));
         track.setAttribute('aria-valuenow', clampedHours.toFixed(1));
 
@@ -4163,6 +4162,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 0;
             let primaryLabel = `${formatHoursDisplay(safeTotalHours)} h logged`;
 
+            const totalLevels = Math.max(1, TOTAL_RANK_LEVELS || config.length || 0);
+            const rankIndex = Math.max(
+                0,
+                config.findIndex((rankConfig) => rankConfig === selectedRank
+                    || (rankConfig?.emoji === selectedRank?.emoji && rankConfig?.name === selectedRank?.name))
+            );
+            const levelNumber = Math.min(
+                totalLevels,
+                (rankIndex || rankIndex === 0)
+                    ? rankIndex + 1
+                    : Math.max(1, (rankProgressState.currentRankIndex || 0) + 1),
+            );
+            const levelLabel = `${levelNumber}/${totalLevels}`;
+
             if (hasTargetHours) {
                 if (selectedRank === currentRank) {
                     primaryLabel = `${formatHoursDisplay(targetHours)} h logged`;
@@ -4178,6 +4191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <span class="rank-modal__timeline-label-meta">
                     ${achieved ? '<span class="rank-modal__timeline-achieved" aria-hidden="true">✔</span>' : ''}
                     <span class="rank-modal__timeline-rank">${rankName}</span>
+                    <span class="rank-modal__timeline-level" aria-label="Level ${levelNumber} of ${totalLevels}">(${levelLabel})</span>
                     ${achieved ? '<span class="sr-only">Rank achieved</span>' : ''}
                 </span>
             `;
@@ -5063,8 +5077,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const countSpan = document.createElement('span');
             countSpan.className = 'rank-modal__progress-count';
             countSpan.textContent = medalCount > 0
-                ? `${medalCount.toLocaleString()}× earned`
-                : 'Not yet earned';
+                ? `${medalCount.toLocaleString()}×`
+                : 'Not yet';
 
             const nameGroup = document.createElement('div');
             nameGroup.className = 'rank-modal__progress-name';
@@ -15988,7 +16002,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Ride 10,000 km',
             emoji: '🚴‍♂️',
-            description: 'Accumulate 10,000 km of lifetime riding.',
+            description: 'Accumulate 10,000 km over time.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Ride',
@@ -16001,7 +16015,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Ride 100,000 m Elevation',
             emoji: '⛰️',
-            description: 'Climb 100,000 m while riding.',
+            description: 'Climb 100,000 m in total elevation.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Ride',
@@ -16014,7 +16028,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Ride 1,000 Hours',
             emoji: '⏱️',
-            description: 'Log 1,000 hours on the bike.',
+            description: 'Log 1,000 hours of effort.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Ride',
@@ -16027,7 +16041,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Run 1,000 km',
             emoji: '🏃',
-            description: 'Cover 1,000 km of lifetime running.',
+            description: 'Cover 1,000 km over time.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Run',
@@ -16040,7 +16054,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Run 20,000 m Elevation',
             emoji: '🧗',
-            description: 'Climb 20,000 m while running.',
+            description: 'Climb 20,000 m in elevation.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Run',
@@ -16053,7 +16067,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Run 1,000 Hours',
             emoji: '⌛',
-            description: 'Spend 1,000 hours running.',
+            description: 'Spend 1,000 hours in motion.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Run',
@@ -16066,7 +16080,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Swim 500 km',
             emoji: '🏊',
-            description: 'Swim a total of 500 km.',
+            description: 'Reach a total of 500 km in the water.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Swim',
@@ -16079,7 +16093,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         {
             name: 'Swim 1,000 Hours',
             emoji: '🌊',
-            description: 'Dedicate 1,000 hours to the water.',
+            description: 'Dedicate 1,000 hours immersed in training.',
             rarityKey: 'obsidian',
             category: 'Milestones',
             milestoneCategory: 'Swim',
@@ -16137,7 +16151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const statusParts = [];
         if (completedSets > 0) {
-            statusParts.push(`${completedSets.toLocaleString()}× earned`);
+            statusParts.push(`${completedSets.toLocaleString()}×`);
         }
         if (percentLabel) {
             statusParts.push(`${percentLabel} to next`);

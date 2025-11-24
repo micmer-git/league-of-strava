@@ -6861,140 +6861,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { percentChange, changeValue };
     };
 
-    const updateWalletInteractionOverlay = (elements = [], pointerPosition = null) => {
-        if (!walletOverlayElements.container) {
-            return;
-        }
-        if (!walletChartInstance || !Array.isArray(elements) || elements.length === 0) {
-            applyWalletOverlayState(null);
-            return;
-        }
-
-        const target = elements[0];
-        if (!target || !Number.isInteger(target.datasetIndex) || !Number.isInteger(target.index)) {
-            applyWalletOverlayState(null);
-            return;
-        }
-
-        const dataset = walletChartInstance.data?.datasets?.[target.datasetIndex];
-        if (!dataset) {
-            applyWalletOverlayState(null);
-            return;
-        }
-
-        const getDatasetSnapshot = (role) => {
-            if (!walletChartInstance?.data?.datasets?.length) {
-                return { dataset: null, value: null, meta: null };
-            }
-            const candidates = walletChartInstance.data.datasets
-                .map((entry, index) => ({ entry, index }))
-                .filter(({ entry }) => entry.overlayRole === role);
-            if (candidates.length === 0) {
-                return { dataset: null, value: null, meta: null };
-            }
-            const preferred = candidates.find(candidate => candidate.index === target.datasetIndex)
-                || candidates[0];
-            const entry = preferred.entry;
-            const valueArray = Array.isArray(entry.data) ? entry.data : [];
-            const raw = valueArray[target.index];
-            const value = Number.isFinite(raw) ? raw : null;
-            const meta = Array.isArray(entry.periodMeta) ? entry.periodMeta[target.index] : null;
-            return { dataset: entry, value, meta };
-        };
-
-        const cumulativeSnapshot = getDatasetSnapshot('cumulative');
-        const perPeriodSnapshot = getDatasetSnapshot('per-period');
-        const values = Array.isArray(dataset.data) ? dataset.data : [];
-        const rawValue = values[target.index];
-        const hasAnyValue = Number.isFinite(rawValue)
-            || Number.isFinite(cumulativeSnapshot.value)
-            || Number.isFinite(perPeriodSnapshot.value);
-        if (!hasAnyValue) {
-            applyWalletOverlayState(null);
-            return;
-        }
-
-        const periodMeta = cumulativeSnapshot.meta
-            || (Array.isArray(dataset.periodMeta) ? dataset.periodMeta[target.index] : null);
-        const label = periodMeta?.label
-            || walletChartInstance.data?.labels?.[target.index]
-            || dataset.label
-            || 'Wallet insight';
-        const overlayRole = dataset.overlayRole || dataset.yAxisID || 'per-period';
-        const baseDataset = cumulativeSnapshot.dataset || dataset;
-        const baseOverlayRole = baseDataset?.overlayRole || overlayRole;
-        const baseValue = Number.isFinite(cumulativeSnapshot.value)
-            ? cumulativeSnapshot.value
-            : Number.isFinite(rawValue)
-                ? rawValue
-                : null;
-        const formattedValue = Number.isFinite(baseValue)
-            ? (baseOverlayRole === 'cumulative'
-                ? formatWalletValueLabel(baseValue)
-                : usdCodeFormatter.format(baseValue))
-            : 'Wallet insight';
-
-        const { percentChange, changeValue } = getWalletOverlayChangeDetails({
-            dataset: baseDataset || dataset,
-            rawValue: Number.isFinite(baseValue) ? baseValue : rawValue,
-            index: target.index,
-            periodMeta,
-            overlayRole: baseOverlayRole,
-        });
-
-        const percentLabel = Number.isFinite(percentChange)
-            ? `${percentChange > 0 ? '+' : percentChange < 0 ? '-' : ''}${Math.abs(Math.round(percentChange))}%`
-            : '';
-        const percentDirection = percentLabel
-            ? percentChange > 0
-                ? 'positive'
-                : percentChange < 0
-                    ? 'negative'
-                    : null
-            : null;
-        const balanceText = Number.isFinite(cumulativeSnapshot.value)
-            ? formatWalletValueLabel(cumulativeSnapshot.value)
-            : formattedValue;
-        const deltaValue = Number.isFinite(perPeriodSnapshot.value)
-            ? perPeriodSnapshot.value
-            : Number.isFinite(changeValue)
-                ? changeValue
-                : null;
-        const valueDirection = percentDirection
-            || (Number.isFinite(deltaValue)
-                ? deltaValue > 0
-                    ? 'positive'
-                    : deltaValue < 0
-                        ? 'negative'
-                        : null
-                : null);
-        const combinedValue = percentLabel
-            ? `${balanceText} (${percentLabel})`
-            : balanceText;
-
-        const pointKey = `${target.datasetIndex}-${target.index}`;
-        if (walletOverlayLastPointKey !== pointKey) {
-            walletOverlayLastPointKey = pointKey;
-            if (window.navigator?.vibrate) {
-                try {
-                    window.navigator.vibrate(8);
-                } catch (vibrateError) {
-                    // ignore
-                }
-            }
-        }
-
-        applyWalletOverlayState({
-            visible: true,
-            label,
-            balance: walletOverlayDefaults.balance,
-            value: combinedValue,
-            valueDirection,
-            position: pointerPosition,
-        });
-    };
-
-    const updateWalletChartActiveElements = (elements, eventPosition = { x: 0, y: 0 }, overlayTarget = null) => {
+    const updateWalletChartActiveElements = (elements, eventPosition = { x: 0, y: 0 }) => {
         if (!walletChartInstance) {
             return;
         }
@@ -7003,28 +6870,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletChartInstance.setActiveElements(elements);
         }
 
-        if (typeof walletChartInstance.update === 'function') {
-            walletChartInstance.update('none');
+        if (walletChartInstance.tooltip?.setActiveElements) {
+            walletChartInstance.tooltip.setActiveElements(elements, eventPosition);
         }
 
-        if (overlayTarget && typeof overlayTarget.datasetIndex === 'number') {
-            const meta = walletChartInstance.getDatasetMeta(overlayTarget.datasetIndex);
-            const metaPoint = meta?.data?.[overlayTarget.index];
-            walletChartCrosshairPosition = metaPoint
-                ? { x: metaPoint.x, y: metaPoint.y }
-                : null;
-        } else if (!overlayTarget || !elements.length) {
-            walletChartCrosshairPosition = null;
-        }
-
-        const targetElements = overlayTarget ? [overlayTarget] : elements;
         if (walletChartClickSelection && eventPosition && Number.isFinite(eventPosition.x) && Number.isFinite(eventPosition.y)) {
             walletChartClickSelection.position = { x: eventPosition.x, y: eventPosition.y };
         }
-        if (targetElements && targetElements.length > 0) {
-            updateWalletInteractionOverlay(targetElements, eventPosition);
-        } else {
-            updateWalletInteractionOverlay([]);
+
+        if (typeof walletChartInstance.update === 'function') {
+            walletChartInstance.update('none');
         }
     };
 
@@ -7210,14 +7065,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 clearWalletChartActiveElements({ preserveSelection: true });
                 return;
             }
-            const nearest = walletChartInstance.getElementsAtEventForMode(
-                chartEvent,
-                'nearest',
-                { intersect: false },
-                true,
-            ) || [];
-            const overlayTarget = nearest[0] || elements[0];
-            updateWalletChartActiveElements(elements, eventData.position, overlayTarget);
+            updateWalletChartActiveElements(elements, eventData.position);
         };
 
         const scheduleHighlight = (eventData, { allowEmpty = false, throttle = false } = {}) => {
@@ -7308,7 +7156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const position = getRelativeEventPosition(event);
             walletChartClickSelection = { datasetIndex: primary.datasetIndex, index: primary.index, position };
-            updateWalletChartActiveElements(elements, position, primary);
+            updateWalletChartActiveElements(elements, position);
         });
 
         walletChartCanvas.addEventListener('pointerenter', (event) => {
@@ -7389,7 +7237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (Number.isInteger(datasetIndex) && Number.isInteger(index)) {
                     updateWalletChartActiveElements([
                         { datasetIndex, index },
-                    ], position || { x: 0, y: 0 }, { datasetIndex, index });
+                    ], position || { x: 0, y: 0 });
                     return;
                 }
             }
@@ -7906,7 +7754,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }] : []),
             ];
 
-        const chartPlugins = [walletBarOverlayPlugin, walletCrosshairPlugin];
+        const chartPlugins = [walletBarOverlayPlugin];
         const lineValueCount = Array.isArray(dataset.values) ? dataset.values.length : 0;
         const shouldDecimate = lineValueCount > 100;
         const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -7952,7 +7800,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     },
                     tooltip: {
-                        enabled: false,
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: (context) => {
+                                const [first] = context || [];
+                                const dataIndex = Number.isInteger(first?.dataIndex)
+                                    ? first.dataIndex
+                                    : null;
+                                const datasetMeta = first?.dataset?.periodMeta;
+                                if (Array.isArray(datasetMeta) && Number.isInteger(dataIndex) && datasetMeta[dataIndex]?.label) {
+                                    return datasetMeta[dataIndex].label;
+                                }
+                                if (Number.isInteger(dataIndex) && walletChartInstance?.data?.labels?.[dataIndex]) {
+                                    return walletChartInstance.data.labels[dataIndex];
+                                }
+                                return 'Wallet insight';
+                            },
+                            label: (context) => {
+                                const rawValue = context.parsed?.y;
+                                const dataset = context.dataset || {};
+                                const label = dataset.label || 'Value';
+                                const formatter = dataset.overlayRole === 'cumulative'
+                                    ? formatWalletValueLabel
+                                    : formatSignedUsdValue;
+                                if (!Number.isFinite(rawValue)) {
+                                    return label;
+                                }
+                                return `${label}: ${formatter(rawValue)}`;
+                            }
+                        }
                     },
                     decimation: {
                         enabled: shouldDecimate,
@@ -19624,6 +19502,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindWalletBottomSheet();
         bindWalletExportShare();
         reapplyAchievementSummaries();
+        updateEnduranceChart(enduranceChartSource);
     });
 
     onPanelReady('achievements', () => {

@@ -282,12 +282,8 @@
             </div>
             <div class="profile-card__progress-detail" id="rank-details"></div>
         </div>
-<div class="profile-card__meta">
-<div class="profile-card__badges profile-card__badges--premium" id="premium-achievements"></div>
-</div>
 <section aria-label="Top achievements" class="profile-top-achievements" id="profile-top-achievements">
   <div class="profile-top-achievements__header">
-    <p class="profile-top-achievements__eyebrow">Highlight reel</p>
     <h3 class="profile-top-achievements__title">Top achievements</h3>
   </div>
   <div class="profile-top-achievements__carousel" id="top-achievements-carousel">
@@ -364,6 +360,21 @@
   <p class="wallet-chart__overlay-balance" id="wallet-overlay-balance">Balance</p>
   <p class="wallet-chart__overlay-value" id="wallet-overlay-value">Hover or tap a point to inspect it.</p>
 </div>
+</div>
+<div class="wallet-chart wallet-chart--secondary" id="endurance-chart">
+  <div class="wallet-chart__secondary-header">
+    <p class="wallet-chart__eyebrow">Endurance trends</p>
+    <h4 class="wallet-chart__subtitle">50 vs 100 day moving averages</h4>
+    <p class="wallet-chart__description">Elevation gain, moving time, and distance momentum.</p>
+  </div>
+  <div class="wallet-chart__body">
+    <div aria-hidden="true" class="wallet-chart__skeleton" id="endurance-chart-skeleton">
+      <div class="wallet-chart__skeleton-line"></div>
+      <div class="wallet-chart__skeleton-line wallet-chart__skeleton-line--short"></div>
+    </div>
+    <p class="wallet-chart__empty hidden" id="endurance-chart-empty">Add more activities to unlock endurance trendlines.</p>
+    <canvas class="w-full h-full" id="endurance-ma-chart" role="img" aria-label="Moving average chart for elevation, moving time, and distance"></canvas>
+  </div>
 </div>
 </div>
 </section>

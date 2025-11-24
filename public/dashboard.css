@@ -3042,6 +3042,9 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .wallet-chart__skeleton.hidden {
     opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    display: none;
 }
 
 .wallet-chart__skeleton-line {

@@ -4343,6 +4343,11 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     gap: 0.35rem;
 }
 
+.endurance-multiplot__plot canvas {
+    height: 12.5rem;
+    max-height: 12.5rem;
+}
+
 .endurance-multiplot__title {
     font-size: 0.95rem;
     font-weight: 700;

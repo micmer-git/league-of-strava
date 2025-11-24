@@ -1217,6 +1217,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let topAchievementsCarousel = document.getElementById('top-achievements-carousel');
     let profileActivityHistoryElement = document.getElementById('profile-activity-history-body');
     let topAchievementsInterval = null;
+    let enduranceChartCanvas = document.getElementById('endurance-ma-chart');
+    let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
+    let enduranceChartEmptyState = document.getElementById('endurance-chart-empty');
+    let enduranceChartInstance = null;
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
@@ -1340,6 +1344,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         walletChartSkeletonElement.classList.toggle('hidden', !visible);
+    };
+
+    const setEnduranceChartSkeletonVisible = (visible = false) => {
+        if (!enduranceChartSkeletonElement) {
+            return;
+        }
+
+        enduranceChartSkeletonElement.classList.toggle('hidden', !visible);
     };
 
     const positionWalletOverlay = (position) => {
@@ -1514,6 +1526,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(topAchievementsInterval);
             topAchievementsInterval = null;
         }
+        enduranceChartCanvas = document.getElementById('endurance-ma-chart');
+        enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
+        enduranceChartEmptyState = document.getElementById('endurance-chart-empty');
+        setEnduranceChartSkeletonVisible(isShellLoading());
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
         setWalletChartSkeletonVisible(isShellLoading());
@@ -11341,9 +11357,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const description = document.createElement('span');
             description.className = 'profile-top-achievements__slide-description';
-            const normalizedCount = toNonNegativeInteger(achievement.count);
-            const timesEarned = normalizedCount > 0 ? `${normalizedCount.toLocaleString()}× earned` : 'Unlocked';
-            description.textContent = `${achievement.description || 'Unlocked milestone.'} · ${timesEarned}`;
+            description.textContent = achievement.description || 'Unlocked milestone.';
 
             slide.append(title, description);
             track.appendChild(slide);
@@ -11421,6 +11435,229 @@ document.addEventListener('DOMContentLoaded', async () => {
             coinMixChartInstance.destroy();
             coinMixChartInstance = null;
         }
+    };
+
+    const destroyEnduranceChart = () => {
+        if (enduranceChartInstance) {
+            enduranceChartInstance.destroy();
+            enduranceChartInstance = null;
+        }
+    };
+
+    const buildDailyEnduranceSeries = (activities = []) => {
+        const buckets = new Map();
+
+        activities.forEach((activity) => {
+            const parsedDate = new Date(activity?.start_date || activity?.start_date_local);
+            if (Number.isNaN(parsedDate.getTime())) {
+                return;
+            }
+
+            const key = parsedDate.toISOString().slice(0, 10);
+            const bucket = buckets.get(key) || {
+                date: parsedDate,
+                distanceKm: 0,
+                elevationGain: 0,
+                movingHours: 0,
+            };
+
+            const distanceMeters = Number(activity?.distance) || 0;
+            const elevationGain = Number(activity?.total_elevation_gain ?? activity?.elev_gain) || 0;
+            const movingSeconds = Number(activity?.moving_time) || 0;
+
+            bucket.distanceKm += distanceMeters / 1000;
+            bucket.elevationGain += elevationGain;
+            bucket.movingHours += movingSeconds / 3600;
+
+            buckets.set(key, bucket);
+        });
+
+        return Array.from(buckets.values())
+            .sort((a, b) => a.date - b.date)
+            .map((entry) => ({
+                ...entry,
+                label: entry.date.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: '2-digit',
+                }),
+            }));
+    };
+
+    const computeMovingAverageSeries = (values = [], windowSize = 1) => {
+        if (!Array.isArray(values) || values.length === 0) {
+            return [];
+        }
+
+        if (windowSize <= 1) {
+            return [...values];
+        }
+
+        const averages = [];
+        let runningSum = 0;
+
+        values.forEach((value, index) => {
+            const numericValue = Number.isFinite(value) ? value : 0;
+            runningSum += numericValue;
+
+            if (index >= windowSize) {
+                const exitValue = Number.isFinite(values[index - windowSize]) ? values[index - windowSize] : 0;
+                runningSum -= exitValue;
+            }
+
+            if (index >= windowSize - 1) {
+                averages.push(Number((runningSum / windowSize).toFixed(2)));
+            } else {
+                averages.push(null);
+            }
+        });
+
+        return averages;
+    };
+
+    const updateEnduranceChart = (activities = []) => {
+        if (!enduranceChartCanvas) {
+            return;
+        }
+
+        const hasChartLibrary = typeof Chart !== 'undefined';
+        const dailySeries = buildDailyEnduranceSeries(Array.isArray(activities) ? activities : []);
+        const hasData = dailySeries.length >= 5;
+
+        if (!hasChartLibrary || !hasData) {
+            destroyEnduranceChart();
+            setEnduranceChartSkeletonVisible(false);
+            if (enduranceChartCanvas) {
+                enduranceChartCanvas.classList.add('hidden');
+            }
+            if (enduranceChartEmptyState) {
+                enduranceChartEmptyState.textContent = hasChartLibrary
+                    ? 'Add more activities to unlock endurance trendlines.'
+                    : 'Charts unavailable.';
+                enduranceChartEmptyState.classList.remove('hidden');
+            }
+            return;
+        }
+
+        if (enduranceChartEmptyState) {
+            enduranceChartEmptyState.classList.add('hidden');
+        }
+        setEnduranceChartSkeletonVisible(false);
+        enduranceChartCanvas.classList.remove('hidden');
+
+        const labels = dailySeries.map((entry) => entry.label);
+        const metricValues = {
+            distance: dailySeries.map((entry) => Number(entry.distanceKm.toFixed(2))),
+            elevation: dailySeries.map((entry) => Number(entry.elevationGain.toFixed(0))),
+            movingTime: dailySeries.map((entry) => Number(entry.movingHours.toFixed(2))),
+        };
+
+        const palette = {
+            distance: { fast: '#0ea5e9', slow: '#0369a1', label: 'Distance (km)' },
+            elevation: { fast: '#f97316', slow: '#c2410c', label: 'Elevation (m)' },
+            movingTime: { fast: '#22c55e', slow: '#15803d', label: 'Moving time (hrs)' },
+        };
+
+        const datasets = Object.entries(palette).flatMap(([key, config]) => {
+            const values = metricValues[key] || [];
+            const ma50 = computeMovingAverageSeries(values, 50);
+            const ma100 = computeMovingAverageSeries(values, 100);
+
+            return [
+                {
+                    label: `${config.label} · 50d`,
+                    data: ma50,
+                    borderColor: config.fast,
+                    backgroundColor: config.fast,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.32,
+                    spanGaps: true,
+                },
+                {
+                    label: `${config.label} · 100d`,
+                    data: ma100,
+                    borderColor: config.slow,
+                    backgroundColor: config.slow,
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointRadius: 0,
+                    tension: 0.32,
+                    spanGaps: true,
+                },
+            ];
+        });
+
+        const isDarkMode = document.body.classList.contains('dark');
+        const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
+        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.35)';
+
+        destroyEnduranceChart();
+        enduranceChartInstance = new Chart(enduranceChartCanvas, {
+            type: 'line',
+            data: {
+                labels,
+                datasets,
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: axisColor,
+                            boxWidth: 14,
+                        },
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.dataset?.label || '';
+                                const value = Number.isFinite(context.parsed?.y)
+                                    ? context.parsed.y
+                                    : 0;
+                                return `${label}: ${value.toLocaleString(undefined, {
+                                    maximumFractionDigits: 2,
+                                })}`;
+                            },
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: axisColor,
+                        },
+                        grid: {
+                            color: gridColor,
+                            drawOnChartArea: false,
+                        },
+                    },
+                    y: {
+                        ticks: {
+                            color: axisColor,
+                            callback: (value) => {
+                                if (!Number.isFinite(value)) {
+                                    return '0';
+                                }
+                                return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+                            },
+                        },
+                        grid: {
+                            color: gridColor,
+                        },
+                        beginAtZero: true,
+                    },
+                },
+            },
+        });
     };
 
     const destroyMedalMixChart = () => {
@@ -17385,6 +17622,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletTimeframe: walletSelectedTimeframe,
             precomputedLifetimeMetrics: data.totals?.precomputedWalletMetrics
         });
+
+        const enduranceSource = Array.isArray(activities) && activities.length > 0
+            ? activities
+            : lifetimeActivities;
+        updateEnduranceChart(enduranceSource);
 
         // === Achievement Wallet ===
 

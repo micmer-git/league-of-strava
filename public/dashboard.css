@@ -4339,14 +4339,17 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     border-radius: 0.9rem;
     padding: 0.75rem 0.9rem;
     min-height: 10rem;
+    height: 14rem;
+    overflow: hidden;
     display: grid;
     grid-template-rows: auto 1fr;
     gap: 0.35rem;
 }
 
 .endurance-multiplot__plot canvas {
-    height: 12.5rem;
-    max-height: 12.5rem;
+    display: block;
+    height: 100%;
+    max-height: none;
 }
 
 .endurance-multiplot__title {

@@ -11635,8 +11635,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             : getEnduranceActivitiesFromTimeline(enduranceChartSource);
         const dailySeries = buildDailyEnduranceSeries(activitySource);
         const seriesLength = dailySeries.length;
-        const visibleStart = Math.max(seriesLength - 100, 0);
-        const labels = dailySeries.slice(visibleStart).map((entry) => entry.label);
+        const visibleStart = 0;
+        const labels = dailySeries.map((entry) => entry.label);
         const hasData = labels.length >= 8;
 
         if (!hasCompleteHistory && hasMoreActivities) {
@@ -11796,9 +11796,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ticks: {
                             color: axisColor,
                             font: tickFont,
-                            maxTicksLimit: Math.min(8, labels.length),
+                            maxTicksLimit: Math.min(12, labels.length),
                             maxRotation: 0,
                             minRotation: 0,
+                            callback: (value, index) => {
+                                const entry = dailySeries[index];
+                                if (!entry?.date) {
+                                    return labels[index] || value;
+                                }
+                                const currentYear = entry.date.getFullYear();
+                                const previousYear = index > 0 && dailySeries[index - 1]?.date
+                                    ? dailySeries[index - 1].date.getFullYear()
+                                    : null;
+                                const isNewYear = previousYear === null || currentYear !== previousYear;
+                                return isNewYear ? currentYear.toString() : '';
+                            },
                         },
                         grid: {
                             color: gridColor,

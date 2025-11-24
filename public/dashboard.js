@@ -11589,7 +11589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const seriesLength = dailySeries.length;
         const visibleStart = 0;
         const labels = dailySeries.map((entry) => entry.label);
-        const hasData = labels.length >= 8;
+        const hasData = labels.length > 0;
 
         if (!hasCompleteHistory && hasMoreActivities) {
             destroyEnduranceChart();
@@ -11611,7 +11611,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             if (enduranceChartEmptyState) {
                 enduranceChartEmptyState.textContent = hasChartLibrary
-                    ? 'Add more activities to unlock endurance trendlines.'
+                    ? 'Endurance trendlines are still loading.'
                     : 'Charts unavailable.';
                 enduranceChartEmptyState.classList.remove('hidden');
             }

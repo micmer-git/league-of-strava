@@ -4703,26 +4703,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalValueElement.className = 'rank-modal__snapshot-total-value';
         totalValueElement.textContent = usdCodeFormatter.format(safeTotalValue);
 
-        const totalBreakdown = [];
-        if (safeCoinValue > 0) {
-            totalBreakdown.push(`Coins ${usdCodeFormatter.format(safeCoinValue)}`);
-        }
-        if (safeMedalValue > 0) {
-            totalBreakdown.push(`Medals ${usdCodeFormatter.format(safeMedalValue)}`);
-        }
-
-        const totalDetailElement = document.createElement('p');
-        totalDetailElement.className = 'rank-modal__snapshot-total-breakdown';
-        if (totalBreakdown.length > 0) {
-            totalDetailElement.textContent = totalBreakdown.join(' • ');
-        } else {
-            totalDetailElement.textContent = '—';
-            totalDetailElement.classList.add('is-muted');
-        }
-
-        totalGroup.append(totalValueElement, totalDetailElement);
+        totalGroup.append(totalValueElement);
         header.append(headerMeta, totalGroup);
         slide.appendChild(header);
+
+        const coinBreakdownText = safeCoinValue > 0
+            ? `Coins ${usdCodeFormatter.format(safeCoinValue)}`
+            : '—';
+        const medalBreakdownText = safeMedalValue > 0
+            ? `Medals ${usdCodeFormatter.format(safeMedalValue)}`
+            : '—';
 
         const metricsGrid = document.createElement('div');
         metricsGrid.className = 'rank-modal__snapshot-metrics';
@@ -4910,17 +4900,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalItems.push(moreItem);
         }
 
-        const buildSnapshotSection = (title, total, items, emptyLabel) => {
+        const buildBreakdownElement = (text, isMuted = false) => {
+            const element = document.createElement('p');
+            element.className = 'rank-modal__snapshot-total-breakdown';
+            element.textContent = text;
+            if (isMuted) {
+                element.classList.add('is-muted');
+            }
+            return element;
+        };
+
+        const buildSnapshotSection = (title, total, items, emptyLabel, breakdownElement) => {
             const section = document.createElement('section');
             section.className = 'rank-modal__snapshot-section';
 
             const sectionHeader = document.createElement('header');
             sectionHeader.className = 'rank-modal__snapshot-section-header';
 
-            const titleElement = document.createElement('p');
-            titleElement.className = 'rank-modal__snapshot-section-title';
-            titleElement.textContent = title;
-            sectionHeader.appendChild(titleElement);
+            const totalBox = document.createElement('div');
+            totalBox.className = 'rank-modal__snapshot-section-totalbox';
+            totalBox.textContent = `${title}: ${total}`;
+
+            if (breakdownElement) {
+                totalBox.appendChild(breakdownElement);
+            }
+
+            sectionHeader.appendChild(totalBox);
             section.appendChild(sectionHeader);
 
             const list = document.createElement('ul');
@@ -4936,11 +4941,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             section.appendChild(list);
-
-            const totalBox = document.createElement('div');
-            totalBox.className = 'rank-modal__snapshot-section-totalbox';
-            totalBox.textContent = `${title} total: ${total}`;
-            section.appendChild(totalBox);
             return section;
         };
 
@@ -4949,13 +4949,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 'Coins',
                 formatCount(snapshot.coinsTotal),
                 coinItems,
-                'No coins minted'
+                'No coins minted',
+                buildBreakdownElement(
+                    coinBreakdownText,
+                    safeCoinValue <= 0
+                )
             ),
             buildSnapshotSection(
                 'Medals',
                 formatCount(snapshot.medalCount),
                 medalItems,
-                'No medals unlocked'
+                'No medals unlocked',
+                buildBreakdownElement(
+                    medalBreakdownText,
+                    safeMedalValue <= 0
+                )
             ),
         );
 

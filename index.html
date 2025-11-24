@@ -163,6 +163,57 @@
             </div>
           </div>
         </section>
+
+        <section class="card timeline-card" aria-labelledby="timeline-heading" id="section-timeline" data-section="weekly">
+          <div class="card-header">
+            <h2 class="card-title" id="timeline-heading">Season Timeline</h2>
+            <p class="card-subtitle">Progress cinematografico per anno, con animazioni fluide e highlight top.</p>
+          </div>
+          <div class="timeline-card__grid">
+            <div class="yearly-timeline" id="yearly-timeline" role="list" aria-label="Progressione annuale"></div>
+            <div class="yearly-detail" aria-live="polite">
+              <div class="yearly-detail__meta">
+                <p class="yearly-detail__eyebrow" id="year-detail-year">—</p>
+                <h3 class="yearly-detail__title" id="year-detail-headline">Timeline highlight</h3>
+                <p class="yearly-detail__subtitle" id="year-detail-subtitle">Seleziona un anno per vedere i numeri.</p>
+              </div>
+              <div class="yearly-detail__bars" role="group" aria-label="Totali per anno">
+                <div class="detail-bar" data-metric="hours">
+                  <div class="detail-bar__header">
+                    <span>Ore totali</span>
+                    <span class="detail-bar__value" id="year-hours-value">—</span>
+                  </div>
+                  <div class="detail-bar__track" aria-hidden="true">
+                    <div class="detail-bar__fill" id="year-hours-fill"></div>
+                  </div>
+                </div>
+                <div class="detail-bar" data-metric="distance">
+                  <div class="detail-bar__header">
+                    <span>Distanza</span>
+                    <span class="detail-bar__value" id="year-distance-value">—</span>
+                  </div>
+                  <div class="detail-bar__track" aria-hidden="true">
+                    <div class="detail-bar__fill" id="year-distance-fill"></div>
+                  </div>
+                </div>
+                <div class="detail-bar" data-metric="elevation">
+                  <div class="detail-bar__header">
+                    <span>Dislivello</span>
+                    <span class="detail-bar__value" id="year-elevation-value">—</span>
+                  </div>
+                  <div class="detail-bar__track" aria-hidden="true">
+                    <div class="detail-bar__fill" id="year-elevation-fill"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="yearly-detail__highlight" id="year-detail-highlight">
+                <p class="yearly-detail__highlight-label">Top performance</p>
+                <p class="yearly-detail__highlight-text" id="year-detail-highlight-text">—</p>
+              </div>
+            </div>
+          </div>
+          <div class="performance-reels" id="performance-reels" aria-label="Highlight per anno"></div>
+        </section>
       </div>
 
       <!-- Lifetime Stats -->
@@ -322,6 +373,45 @@
         { icon: '🚴‍♀️', title: '1000 km Ride Month', detail: '1.084 km pedalati nel mese più intenso' },
         { icon: '⛰️', title: 'Everesting', detail: '9.050 m di dislivello in una singola avventura' },
         { icon: '🌊', title: 'Ultra Swim Expedition', detail: 'Cinque giorni di nuoto open water consecutivi' },
+      ];
+
+      const yearlyTrends = [
+        {
+          year: 2021,
+          hours: 912,
+          distanceKm: 4680,
+          elevationM: 70500,
+          headline: 'Ritorno sui passi alpini',
+          subtitle: 'Ripartenza post-inverno con volumi consistenti e prime ultra trail.',
+          topPerformance: 'Ultra Trail delle Dolomiti · 120 km e 5.200 m D+',
+        },
+        {
+          year: 2022,
+          hours: 1024,
+          distanceKm: 5150,
+          elevationM: 74200,
+          headline: 'Anno delle grandi salite',
+          subtitle: 'Più dislivello e due gare a tappe concluse senza cali.',
+          topPerformance: 'Everesting sul Colle delle Finestre in 18h',
+        },
+        {
+          year: 2023,
+          hours: 1156,
+          distanceKm: 5380,
+          elevationM: 81200,
+          headline: 'Stagione multipla epica',
+          subtitle: 'Triathlon lungo, viaggi gravel e settimane sopra le 12 ore.',
+          topPerformance: 'Ironman Nice con PB sulle transizioni',
+        },
+        {
+          year: 2024,
+          hours: 1285,
+          distanceKm: 5640,
+          elevationM: 84200,
+          headline: 'Annata cinematografica',
+          subtitle: 'Focus intensità e tecnica, con heat training e open water progressivi.',
+          topPerformance: 'Stage race Appennini · maglia regolarità e KOM notturno',
+        },
       ];
 
       const BASE_HOURS_PER_LEVEL = 100;
@@ -1231,6 +1321,130 @@
         container.appendChild(fragment);
       };
 
+      const animateFill = (element, percent = 0) => {
+        if (!element) return;
+        const clamped = Math.max(0, Math.min(100, percent));
+        element.style.setProperty('--fill-target', `${clamped}%`);
+        element.classList.remove('is-animated');
+        void element.offsetWidth;
+        element.classList.add('is-animated');
+      };
+
+      const renderPerformanceReels = (entries = []) => {
+        const container = document.getElementById('performance-reels');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!entries.length) {
+          const placeholder = document.createElement('p');
+          placeholder.className = 'achievement-pill__meta';
+          placeholder.textContent = 'Nessun highlight registrato.';
+          container.appendChild(placeholder);
+          return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        entries.forEach(({ year, headline, topPerformance, subtitle }) => {
+          const reel = document.createElement('article');
+          reel.className = 'performance-reel';
+          reel.dataset.year = `${year}`;
+          reel.setAttribute('role', 'article');
+          reel.innerHTML = `
+            <div class="performance-reel__glow" aria-hidden="true"></div>
+            <div class="performance-reel__frame">
+              <div class="performance-reel__badge">${year}</div>
+              <div class="performance-reel__play" aria-hidden="true">▶</div>
+              <p class="performance-reel__headline">${headline}</p>
+              <p class="performance-reel__meta">${topPerformance}</p>
+              <p class="performance-reel__caption">${subtitle}</p>
+            </div>
+          `;
+          fragment.appendChild(reel);
+        });
+        container.appendChild(fragment);
+      };
+
+      const renderYearlyTimeline = (entries = []) => {
+        const timeline = document.getElementById('yearly-timeline');
+        const detailYear = document.getElementById('year-detail-year');
+        const detailHeadline = document.getElementById('year-detail-headline');
+        const detailSubtitle = document.getElementById('year-detail-subtitle');
+        const detailHighlight = document.getElementById('year-detail-highlight-text');
+        const hoursFill = document.getElementById('year-hours-fill');
+        const distanceFill = document.getElementById('year-distance-fill');
+        const elevationFill = document.getElementById('year-elevation-fill');
+
+        if (!timeline || !entries.length) return;
+
+        const maxHours = Math.max(...entries.map((entry) => entry.hours || 0));
+        const maxDistance = Math.max(...entries.map((entry) => entry.distanceKm || 0));
+        const maxElevation = Math.max(...entries.map((entry) => entry.elevationM || 0));
+
+        const setDetail = (entry) => {
+          if (!entry) return;
+          setText('year-hours-value', formatMetric(entry.hours, { decimals: 0, suffix: ' h' }));
+          setText('year-distance-value', formatMetric(entry.distanceKm, { decimals: 0, suffix: ' km' }));
+          setText('year-elevation-value', formatMetric(entry.elevationM, { decimals: 0, suffix: ' m' }));
+          detailYear.textContent = `Season ${entry.year}`;
+          detailHeadline.textContent = entry.headline || 'Annata memorabile';
+          detailSubtitle.textContent = entry.subtitle || 'Totali annuali';
+          detailHighlight.textContent = entry.topPerformance || 'Highlight non disponibile';
+
+          const hoursRatio = maxHours ? (entry.hours / maxHours) * 100 : 0;
+          const distanceRatio = maxDistance ? (entry.distanceKm / maxDistance) * 100 : 0;
+          const elevationRatio = maxElevation ? (entry.elevationM / maxElevation) * 100 : 0;
+
+          animateFill(hoursFill, hoursRatio);
+          animateFill(distanceFill, distanceRatio);
+          animateFill(elevationFill, elevationRatio);
+
+          const reels = document.querySelectorAll('.performance-reel');
+          reels.forEach((reel) => {
+            reel.classList.toggle('is-active', reel.dataset.year === `${entry.year}`);
+          });
+        };
+
+        const nodes = [];
+        timeline.innerHTML = '';
+
+        const fragment = document.createDocumentFragment();
+        entries.forEach((entry, index) => {
+          const node = document.createElement('button');
+          node.type = 'button';
+          node.className = 'year-node';
+          node.dataset.yearIndex = `${index}`;
+          node.dataset.year = `${entry.year}`;
+
+          const progress = document.createElement('span');
+          progress.className = 'year-node__progress';
+          const hoursRatio = maxHours ? Math.round((entry.hours / maxHours) * 100) : 0;
+          progress.style.setProperty('--fill-target', `${hoursRatio}%`);
+
+          node.innerHTML = `
+            <span class="year-node__year">${entry.year}</span>
+            <span class="year-node__rail" aria-hidden="true"></span>
+            <span class="year-node__meta">${formatMetric(entry.hours, { decimals: 0, suffix: ' h' })}</span>
+          `;
+          node.querySelector('.year-node__rail')?.appendChild(progress);
+
+          node.addEventListener('click', () => {
+            nodes.forEach((button) => button.classList.remove('is-active'));
+            node.classList.add('is-active');
+            setDetail(entry);
+          });
+
+          if (index === entries.length - 1) {
+            node.classList.add('is-active');
+            setTimeout(() => setDetail(entry), 50);
+          }
+
+          nodes.push(node);
+          fragment.appendChild(node);
+        });
+
+        timeline.appendChild(fragment);
+      };
+
       const baseMedalDefinitions = [
         {
           title: 'Consistenza · Generale',
@@ -1836,6 +2050,8 @@
 
       const classAssignment = renderProfile();
       renderTopAchievements(topAchievements);
+      renderPerformanceReels(yearlyTrends);
+      renderYearlyTimeline(yearlyTrends);
       renderRank();
       initRankModal();
       renderMedals(athleteProfile, classAssignment);

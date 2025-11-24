@@ -2277,9 +2277,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const MIN_WALLET_CHART_POINTS = 6;
     let walletSelectedTimeframe = WALLET_TIMEFRAME_ALL;
     let walletChartAppearancePreference = 'auto';
-    const walletChartLayerPrefs = { grid: true, legend: true, labels: true };
+    const walletChartLayerPrefs = { grid: true, legend: true, labels: false };
     let walletChartLegendAvailable = false;
-    let walletChartPointLabelsAvailable = true;
+    let walletChartPointLabelsAvailable = false;
     const walletChartData = {
         balance: {
             labels: [],
@@ -7832,12 +7832,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }] : []),
             ];
 
-        const chartPlugins = [];
-        if (!useComparison) {
-            chartPlugins.push(walletPointLabelPlugin);
-        }
-        chartPlugins.push(walletBarOverlayPlugin);
-        chartPlugins.push(walletCrosshairPlugin);
+        const chartPlugins = [walletBarOverlayPlugin, walletCrosshairPlugin];
         const lineValueCount = Array.isArray(dataset.values) ? dataset.values.length : 0;
         const shouldDecimate = lineValueCount > 100;
         const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -7849,7 +7844,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const animationDuration = prefersReducedMotion || isLowEndDevice ? 0 : 800;
         const chartHasBars = chartDatasets.some(datasetEntry => datasetEntry.type === 'bar' && !datasetEntry.hidden);
         walletChartLegendAvailable = useComparison;
-        walletChartPointLabelsAvailable = !useComparison;
+        walletChartPointLabelsAvailable = false;
 
         walletChartInstance = new Chart(walletChartCanvas, {
             type: 'line',
@@ -11633,10 +11628,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         enduranceChartSource = Array.isArray(activities) ? activities : [];
         const hasChartLibrary = typeof Chart !== 'undefined';
-        const activitySource = getEnduranceActivitiesFromTimeline(enduranceChartSource);
+        const historicalActivities = Array.isArray(allData?.activities) ? allData.activities : [];
+        const hasCompleteHistory = historicalActivities.length > 0 && !hasMoreActivities;
+        const activitySource = hasCompleteHistory
+            ? historicalActivities
+            : getEnduranceActivitiesFromTimeline(enduranceChartSource);
         const dailySeries = buildDailyEnduranceSeries(activitySource);
-        const trimmedSeries = dailySeries.slice(-100);
-        const hasData = trimmedSeries.length >= 8;
+        const seriesLength = dailySeries.length;
+        const visibleStart = Math.max(seriesLength - 100, 0);
+        const labels = dailySeries.slice(visibleStart).map((entry) => entry.label);
+        const hasData = labels.length >= 8;
+
+        if (!hasCompleteHistory && hasMoreActivities) {
+            destroyEnduranceChart();
+            setEnduranceChartSkeletonVisible(true);
+            if (enduranceChartCanvas) {
+                enduranceChartCanvas.classList.add('hidden');
+            }
+            if (enduranceChartEmptyState) {
+                enduranceChartEmptyState.classList.add('hidden');
+            }
+            return;
+        }
 
         if (!hasChartLibrary || !hasData) {
             destroyEnduranceChart();
@@ -11664,11 +11677,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceChartCanvas.classList.remove('hidden');
         syncEnduranceMetricButtons();
 
-        const labels = trimmedSeries.map((entry) => entry.label);
         const metricValues = {
-            distance: trimmedSeries.map((entry) => Number(entry.distanceKm.toFixed(2))),
-            elevation: trimmedSeries.map((entry) => Number(entry.elevationGain.toFixed(0))),
-            movingTime: trimmedSeries.map((entry) => Number(entry.movingHours.toFixed(2))),
+            distance: dailySeries.map((entry) => Number(entry.distanceKm.toFixed(2))),
+            elevation: dailySeries.map((entry) => Number(entry.elevationGain.toFixed(0))),
+            movingTime: dailySeries.map((entry) => Number(entry.movingHours.toFixed(2))),
         };
 
         const palette = {
@@ -11680,11 +11692,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const activeValues = metricValues[activeMetric] || [];
         const fastWindow = Math.min(50, activeValues.length);
         const slowWindow = Math.min(100, activeValues.length);
+        const fastSeries = computeMovingAverageSeries(activeValues, Math.max(fastWindow, 1));
+        const slowSeries = computeMovingAverageSeries(activeValues, Math.max(slowWindow, 1));
+        const visibleRawValues = activeValues.slice(visibleStart);
+        const visibleFastSeries = fastSeries.slice(visibleStart);
+        const visibleSlowSeries = slowSeries.slice(visibleStart);
 
         const datasets = [
             {
                 label: `${palette[activeMetric].label} · ${Math.max(fastWindow, 1)}pt MA`,
-                data: computeMovingAverageSeries(activeValues, Math.max(fastWindow, 1)),
+                data: visibleFastSeries,
                 borderColor: palette[activeMetric].fast,
                 backgroundColor: palette[activeMetric].fast,
                 borderWidth: 2,
@@ -11694,7 +11711,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             {
                 label: `${palette[activeMetric].label} · ${Math.max(slowWindow, 1)}pt MA`,
-                data: computeMovingAverageSeries(activeValues, Math.max(slowWindow, 1)),
+                data: visibleSlowSeries,
                 borderColor: palette[activeMetric].slow,
                 backgroundColor: palette[activeMetric].slow,
                 borderWidth: 2,
@@ -11737,6 +11754,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         titleFont: tickFont,
                         bodyFont: tickFont,
                         callbacks: {
+                            title: (context) => {
+                                const [first] = context || [];
+                                const sourceIndex = visibleStart + (first?.dataIndex ?? 0);
+                                const seriesEntry = dailySeries[sourceIndex];
+                                return seriesEntry?.label || 'Daily total';
+                            },
                             label: (context) => {
                                 const label = context.dataset?.label || '';
                                 const value = Number.isFinite(context.parsed?.y)
@@ -11745,6 +11768,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 return `${label}: ${value.toLocaleString(undefined, {
                                     maximumFractionDigits: 2,
                                 })}`;
+                            },
+                            footer: (context) => {
+                                const [first] = context || [];
+                                const dataIndex = Number.isInteger(first?.dataIndex)
+                                    ? first.dataIndex
+                                    : null;
+                                const rawValue = Number.isInteger(dataIndex)
+                                    && Number.isFinite(visibleRawValues[dataIndex])
+                                    ? visibleRawValues[dataIndex]
+                                    : 0;
+                                const unit = activeMetric === 'distance'
+                                    ? ' km'
+                                    : activeMetric === 'elevation'
+                                        ? ' m'
+                                        : ' hrs';
+                                const formatted = rawValue.toLocaleString(undefined, {
+                                    maximumFractionDigits: activeMetric === 'elevation' ? 0 : 2,
+                                });
+                                return `Daily total: ${formatted}${unit}`;
                             },
                         },
                     },

@@ -1221,6 +1221,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
     let enduranceChartEmptyState = document.getElementById('endurance-chart-empty');
     let enduranceChartInstance = null;
+    let enduranceMetricButtons = Array.from(document.querySelectorAll('[data-endurance-metric]'));
+    const DEFAULT_ENDURANCE_METRIC = 'distance';
+    let selectedEnduranceMetric = DEFAULT_ENDURANCE_METRIC;
+    let enduranceChartSource = [];
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
@@ -1352,6 +1356,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         enduranceChartSkeletonElement.classList.toggle('hidden', !visible);
+    };
+
+    const syncEnduranceMetricButtons = () => {
+        enduranceMetricButtons.forEach((button) => {
+            if (!button) {
+                return;
+            }
+
+            const metric = button.dataset.enduranceMetric || '';
+            const isActive = metric === selectedEnduranceMetric;
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            button.classList.toggle('is-active', isActive);
+        });
+    };
+
+    const setEnduranceMetric = (metric) => {
+        if (!metric || typeof metric !== 'string') {
+            return;
+        }
+
+        const normalized = ['distance', 'elevation', 'movingTime'].includes(metric)
+            ? metric
+            : DEFAULT_ENDURANCE_METRIC;
+        selectedEnduranceMetric = normalized;
+        syncEnduranceMetricButtons();
+        updateEnduranceChart(enduranceChartSource);
+    };
+
+    const bindEnduranceMetricButtons = () => {
+        enduranceMetricButtons.forEach((button) => {
+            if (!button || button.dataset.enduranceMetricInitialized === 'true') {
+                return;
+            }
+
+            button.dataset.enduranceMetricInitialized = 'true';
+            button.addEventListener('click', () => {
+                setEnduranceMetric(button.dataset.enduranceMetric);
+            });
+        });
+
+        syncEnduranceMetricButtons();
     };
 
     const positionWalletOverlay = (position) => {
@@ -1529,6 +1574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceChartCanvas = document.getElementById('endurance-ma-chart');
         enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
         enduranceChartEmptyState = document.getElementById('endurance-chart-empty');
+        enduranceMetricButtons = Array.from(document.querySelectorAll('[data-endurance-metric]'));
         setEnduranceChartSkeletonVisible(isShellLoading());
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
@@ -1584,6 +1630,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindWalletLayerToggles();
         bindWalletExportShare();
         bindCountryStatButton();
+        bindEnduranceMetricButtons();
     };
 
     const onPanelReady = (panelName, callback) => {
@@ -11484,6 +11531,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             }));
     };
 
+    const getEnduranceActivitiesFromTimeline = (activities = []) => {
+        const timelineMetrics = filterMetricsForWalletTimeframe(latestWalletMetrics, walletSelectedTimeframe);
+        const timelineActivities = Array.isArray(timelineMetrics)
+            ? timelineMetrics
+                .map((metric) => metric?.balanceActivity)
+                .filter((activity) => activity && (activity.start_date || activity.start_date_local))
+            : [];
+
+        if (timelineActivities.length > 0) {
+            return timelineActivities;
+        }
+
+        return activities;
+    };
+
     const computeMovingAverageSeries = (values = [], windowSize = 1) => {
         if (!Array.isArray(values) || values.length === 0) {
             return [];
@@ -11520,9 +11582,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        enduranceChartSource = Array.isArray(activities) ? activities : [];
         const hasChartLibrary = typeof Chart !== 'undefined';
-        const dailySeries = buildDailyEnduranceSeries(Array.isArray(activities) ? activities : []);
-        const hasData = dailySeries.length >= 5;
+        const activitySource = getEnduranceActivitiesFromTimeline(enduranceChartSource);
+        const dailySeries = buildDailyEnduranceSeries(activitySource);
+        const trimmedSeries = dailySeries.slice(-100);
+        const hasData = trimmedSeries.length >= 8;
 
         if (!hasChartLibrary || !hasData) {
             destroyEnduranceChart();
@@ -11539,17 +11604,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const activeMetric = ['distance', 'elevation', 'movingTime'].includes(selectedEnduranceMetric)
+            ? selectedEnduranceMetric
+            : DEFAULT_ENDURANCE_METRIC;
+
         if (enduranceChartEmptyState) {
             enduranceChartEmptyState.classList.add('hidden');
         }
         setEnduranceChartSkeletonVisible(false);
         enduranceChartCanvas.classList.remove('hidden');
+        syncEnduranceMetricButtons();
 
-        const labels = dailySeries.map((entry) => entry.label);
+        const labels = trimmedSeries.map((entry) => entry.label);
         const metricValues = {
-            distance: dailySeries.map((entry) => Number(entry.distanceKm.toFixed(2))),
-            elevation: dailySeries.map((entry) => Number(entry.elevationGain.toFixed(0))),
-            movingTime: dailySeries.map((entry) => Number(entry.movingHours.toFixed(2))),
+            distance: trimmedSeries.map((entry) => Number(entry.distanceKm.toFixed(2))),
+            elevation: trimmedSeries.map((entry) => Number(entry.elevationGain.toFixed(0))),
+            movingTime: trimmedSeries.map((entry) => Number(entry.movingHours.toFixed(2))),
         };
 
         const palette = {
@@ -11558,39 +11628,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             movingTime: { fast: '#22c55e', slow: '#15803d', label: 'Moving time (hrs)' },
         };
 
-        const datasets = Object.entries(palette).flatMap(([key, config]) => {
-            const values = metricValues[key] || [];
-            const ma50 = computeMovingAverageSeries(values, 50);
-            const ma100 = computeMovingAverageSeries(values, 100);
+        const activeValues = metricValues[activeMetric] || [];
+        const fastWindow = Math.min(50, activeValues.length);
+        const slowWindow = Math.min(100, activeValues.length);
 
-            return [
-                {
-                    label: `${config.label} · 50d`,
-                    data: ma50,
-                    borderColor: config.fast,
-                    backgroundColor: config.fast,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0.32,
-                    spanGaps: true,
-                },
-                {
-                    label: `${config.label} · 100d`,
-                    data: ma100,
-                    borderColor: config.slow,
-                    backgroundColor: config.slow,
-                    borderWidth: 2,
-                    borderDash: [6, 4],
-                    pointRadius: 0,
-                    tension: 0.32,
-                    spanGaps: true,
-                },
-            ];
-        });
+        const datasets = [
+            {
+                label: `${palette[activeMetric].label} · ${Math.max(fastWindow, 1)}pt MA`,
+                data: computeMovingAverageSeries(activeValues, Math.max(fastWindow, 1)),
+                borderColor: palette[activeMetric].fast,
+                backgroundColor: palette[activeMetric].fast,
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.32,
+                spanGaps: true,
+            },
+            {
+                label: `${palette[activeMetric].label} · ${Math.max(slowWindow, 1)}pt MA`,
+                data: computeMovingAverageSeries(activeValues, Math.max(slowWindow, 1)),
+                borderColor: palette[activeMetric].slow,
+                backgroundColor: palette[activeMetric].slow,
+                borderWidth: 2,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                tension: 0.32,
+                spanGaps: true,
+            },
+        ];
 
         const isDarkMode = document.body.classList.contains('dark');
         const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.35)';
+        const tickFont = { family: 'Rubik, system-ui, -apple-system, sans-serif', size: 12, weight: '600' };
 
         destroyEnduranceChart();
         enduranceChartInstance = new Chart(enduranceChartCanvas, {
@@ -11606,17 +11675,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     mode: 'index',
                     intersect: false,
                 },
+                layout: {
+                    padding: { top: 10, right: 12, bottom: 10, left: 8 },
+                },
                 plugins: {
                     legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: axisColor,
-                            boxWidth: 14,
-                        },
+                        display: false,
                     },
                     tooltip: {
                         mode: 'index',
                         intersect: false,
+                        titleFont: tickFont,
+                        bodyFont: tickFont,
                         callbacks: {
                             label: (context) => {
                                 const label = context.dataset?.label || '';
@@ -11634,6 +11704,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     x: {
                         ticks: {
                             color: axisColor,
+                            font: tickFont,
+                            maxTicksLimit: Math.min(8, labels.length),
+                            maxRotation: 0,
+                            minRotation: 0,
                         },
                         grid: {
                             color: gridColor,
@@ -11643,6 +11717,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     y: {
                         ticks: {
                             color: axisColor,
+                            font: tickFont,
                             callback: (value) => {
                                 if (!Number.isFinite(value)) {
                                     return '0';
@@ -19085,6 +19160,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 walletTimeframe: walletSelectedTimeframe,
                 precomputedLifetimeMetrics: allData?.totals?.precomputedWalletMetrics,
             });
+
+            updateEnduranceChart(enduranceChartSource);
         });
     }
 

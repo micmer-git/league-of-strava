@@ -7681,6 +7681,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         walletChartLegendAvailable = useComparison;
         walletChartPointLabelsAvailable = false;
 
+        const buildWalletYearTicks = (scale) => {
+            if (useComparison || !Array.isArray(periodMeta) || periodMeta.length === 0) {
+                return scale.ticks;
+            }
+            const yearTicks = [];
+            scale.ticks.forEach((tick) => {
+                const meta = periodMeta[tick.value];
+                const previousMeta = tick.value > 0 ? periodMeta[tick.value - 1] : null;
+                const isNewYear = meta && Number.isInteger(meta.year)
+                    && (!previousMeta || previousMeta?.year !== meta.year);
+                if (isNewYear) {
+                    yearTicks.push({ ...tick, label: String(meta.year) });
+                }
+            });
+            return yearTicks.length > 0 ? yearTicks : scale.ticks;
+        };
+
         walletChartInstance = new Chart(walletChartCanvas, {
             type: 'line',
             data: {
@@ -7783,7 +7800,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 scales: {
                     x: {
+                        afterBuildTicks: (scale) => {
+                            const yearTicks = buildWalletYearTicks(scale);
+                            // eslint-disable-next-line no-param-reassign
+                            scale.ticks = yearTicks;
+                            return yearTicks;
+                        },
                         ticks: {
+                            autoSkip: false,
                             color: axisColor,
                             font: tickFont,
                             padding: 8,
@@ -7791,15 +7815,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                             minRotation: 0,
                             align: 'center',
                             crossAlign: 'center',
-                            callback: (value, index) => {
+                            callback: (value, index, ticks) => {
                                 if (useComparison) {
                                     return chartLabels[index] || value;
                                 }
-                                const meta = periodMeta[index];
+                                const tick = ticks?.[index];
+                                if (tick?.label) {
+                                    return tick.label;
+                                }
+                                const dataIndex = Number.isFinite(tick?.value) ? tick.value : index;
+                                const meta = periodMeta[dataIndex];
                                 if (!meta) {
                                     return chartLabels[index] || value;
                                 }
-                                const previousMeta = index > 0 ? periodMeta[index - 1] : null;
+                                const previousMeta = dataIndex > 0 ? periodMeta[dataIndex - 1] : null;
                                 if (isAllTimeRange && Number.isInteger(meta.year)) {
                                     if (!previousMeta || previousMeta.year !== meta.year) {
                                         return String(meta.year);
@@ -7809,7 +7838,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 if (Object.prototype.hasOwnProperty.call(meta, 'tickLabel')) {
                                     return meta.tickLabel || '';
                                 }
-                                if (meta.shouldDisplayTickLabel || index === 0) {
+                                if (meta.shouldDisplayTickLabel || dataIndex === 0) {
                                     return meta.year ?? chartLabels[index] ?? value;
                                 }
                                 return chartLabels[index] || '';
@@ -11641,6 +11670,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         destroyEnduranceChart();
         setEnduranceChartSkeletonVisible(false);
 
+        const buildEnduranceYearTicks = (scale) => {
+            const yearTicks = [];
+            scale.ticks.forEach((tick) => {
+                const sourceIndex = visibleStart + tick.value;
+                const entry = dailySeries[sourceIndex];
+                const currentYear = entry?.date?.getFullYear?.();
+                const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
+                    ? dailySeries[sourceIndex - 1].date.getFullYear()
+                    : null;
+                const isNewYear = Number.isInteger(currentYear)
+                    && (previousYear === null || previousYear !== currentYear);
+                if (isNewYear) {
+                    yearTicks.push({ ...tick, label: String(currentYear) });
+                }
+            });
+            return yearTicks.length > 0 ? yearTicks : scale.ticks;
+        };
+
         metricConfig.forEach((config) => {
             const canvas = enduranceChartCanvases?.[config.key];
             if (!canvas) {
@@ -11762,33 +11809,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                     },
                     scales: {
                         x: {
+                            afterBuildTicks: (scale) => {
+                                const yearTicks = buildEnduranceYearTicks(scale);
+                                // eslint-disable-next-line no-param-reassign
+                                scale.ticks = yearTicks;
+                                return yearTicks;
+                            },
                             ticks: {
+                                autoSkip: false,
                                 color: axisColor,
                                 font: tickFont,
-                                maxTicksLimit: Math.min(12, visibleLabels.length),
                                 maxRotation: 0,
                                 minRotation: 0,
-                                callback: (value, index) => {
-                                    const sourceIndex = visibleStart + index;
+                                callback: (value, index, ticks) => {
+                                    const tick = ticks?.[index];
+                                    if (tick?.label) {
+                                        return tick.label;
+                                    }
+                                    const sourceIndex = visibleStart + (Number.isFinite(tick?.value) ? tick.value : index);
                                     const entry = dailySeries[sourceIndex];
-                                    if (!entry?.date) {
-                                        return visibleLabels[index] || value;
+                                    if (entry?.date && !isAllTimeRange) {
+                                        const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
+                                            ? dailySeries[sourceIndex - 1].date.getFullYear()
+                                            : null;
+                                        if (previousYear !== entry.date.getFullYear()) {
+                                            return entry.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                                        }
                                     }
-                                    const currentYear = entry.date.getFullYear();
-                                    const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
-                                        ? dailySeries[sourceIndex - 1].date.getFullYear()
-                                        : null;
-                                    if (isAllTimeRange) {
-                                        const isNewYear = previousYear === null || currentYear !== previousYear;
-                                        return isNewYear ? currentYear.toString() : '';
-                                    }
-                                    if (previousYear !== currentYear) {
-                                        return entry.date.toLocaleDateString(undefined, {
-                                            month: 'short',
-                                            year: 'numeric',
-                                        });
-                                    }
-                                    return '';
+                                    return visibleLabels[index] || value;
                                 },
                             },
                             grid: {

@@ -2967,13 +2967,13 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     border: 1px solid rgba(20, 28, 48, 0.08);
     box-shadow: var(--shadow-soft);
     min-height: 18rem;
-    height: clamp(18rem, 34vw, 26rem);
-    max-height: 26rem;
+    height: auto;
+    max-height: none;
 }
 
 .wallet-chart--secondary .wallet-chart__body {
     min-height: 18rem;
-    height: clamp(18rem, 34vw, 26rem);
+    height: auto;
 }
 
 .wallet-chart__secondary-header {

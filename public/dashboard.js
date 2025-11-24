@@ -16724,6 +16724,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         }),
     ]);
 
+    const ensureCompleteMedalInventory = (inventory = []) => {
+        const normalized = Array.isArray(inventory)
+            ? inventory.filter(Boolean).map(entry => ({ ...entry }))
+            : [];
+        const existingNames = new Set(normalized
+            .map(entry => entry?.name)
+            .filter(Boolean));
+
+        medalDefinitionLookup.forEach((definition, name) => {
+            if (!name || existingNames.has(name)) {
+                return;
+            }
+
+            normalized.push({
+                name,
+                count: 0,
+                emoji: definition?.emoji,
+                description: definition?.description,
+                rarityKey: definition?.rarityKey,
+                rarityLabel: definition?.rarityLabel,
+                category: definition?.category,
+                legacyCategory: definition?.legacyCategory || definition?.category,
+                discipline: definition?.discipline,
+            });
+        });
+
+        return normalized;
+    };
+
     const hydrateMedalFromDefinition = (medal = {}) => {
         if (!medal?.name) {
             return {
@@ -17789,16 +17818,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalsEarned = lifetimeRewardSummary.medalsEarned;
         const medalSummary = lifetimeRewardSummary.medalSummary;
 
-        const fullMedalInventory = Array.isArray(lifetimeRewardSummary.medalInventory)
-            ? lifetimeRewardSummary.medalInventory.map(medal => {
-                const hydratedMedal = hydrateMedalFromDefinition(medal);
-                return {
-                    ...hydratedMedal,
-                    count: toNonNegativeInteger(hydratedMedal?.count),
-                    discipline: hydratedMedal?.discipline || resolveMedalDiscipline(hydratedMedal),
-                };
-            })
-            : [];
+        const completeMedalInventory = ensureCompleteMedalInventory(lifetimeRewardSummary.medalInventory);
+        const fullMedalInventory = completeMedalInventory.map(medal => {
+            const hydratedMedal = hydrateMedalFromDefinition(medal);
+            return {
+                ...hydratedMedal,
+                count: toNonNegativeInteger(hydratedMedal?.count),
+                discipline: hydratedMedal?.discipline || resolveMedalDiscipline(hydratedMedal),
+            };
+        });
 
         historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);
         medalInventory = fullMedalInventory.filter(medal => !isHistoricalMedal(medal));

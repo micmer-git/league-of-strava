@@ -11650,6 +11650,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const visibleFastSeries = fastSeries.slice(visibleStart);
         const visibleSlowSeries = slowSeries.slice(visibleStart);
 
+        const buildPointStyle = (color) => ({
+            pointRadius: 3,
+            pointHoverRadius: 7,
+            pointHitRadius: 16,
+            pointBackgroundColor: color,
+            pointBorderColor: color,
+            pointBorderWidth: 0,
+        });
+
         const datasets = [
             {
                 label: `${palette[activeMetric].label} · ${Math.max(fastWindow, 1)}pt MA`,
@@ -11657,9 +11666,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 borderColor: palette[activeMetric].fast,
                 backgroundColor: palette[activeMetric].fast,
                 borderWidth: 2,
-                pointRadius: 0,
                 tension: 0.32,
                 spanGaps: true,
+                ...buildPointStyle(palette[activeMetric].fast),
             },
             {
                 label: `${palette[activeMetric].label} · ${Math.max(slowWindow, 1)}pt MA`,
@@ -11668,9 +11677,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 backgroundColor: palette[activeMetric].slow,
                 borderWidth: 2,
                 borderDash: [6, 4],
-                pointRadius: 0,
                 tension: 0.32,
                 spanGaps: true,
+                ...buildPointStyle(palette[activeMetric].slow),
             },
         ];
 
@@ -11690,6 +11699,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
                     mode: 'index',
                     intersect: false,
                 },

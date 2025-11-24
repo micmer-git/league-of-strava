@@ -646,7 +646,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     let cacheStorage;
+    let cacheStorageDisabled = false;
+    const inMemoryCache = new Map();
     const resolveCacheStorage = () => {
+        if (cacheStorageDisabled) {
+            return cacheStorage || null;
+        }
         if (cacheStorage) {
             return cacheStorage;
         }
@@ -669,6 +674,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.warn('Session storage unavailable; caching disabled.', error);
         }
 
+        cacheStorageDisabled = true;
         cacheStorage = null;
         return cacheStorage;
     };
@@ -777,16 +783,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const readCacheEntry = (key, ttl) => {
-        const storage = resolveCacheStorage();
-        if (!storage || !key) {
+        if (!key) {
             return null;
         }
 
+        const storage = resolveCacheStorage();
+
         let raw;
-        try {
-            raw = storage.getItem(key);
-        } catch (error) {
-            console.warn('Cache read failed:', error);
+        if (storage) {
+            try {
+                raw = storage.getItem(key);
+            } catch (error) {
+                console.warn('Cache read failed:', error);
+                return null;
+            }
+        } else if (inMemoryCache.has(key)) {
+            raw = inMemoryCache.get(key);
+        } else {
             return null;
         }
 
@@ -796,33 +809,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let entry;
         try {
-            entry = JSON.parse(raw);
+            entry = typeof raw === 'string' ? JSON.parse(raw) : raw;
         } catch (error) {
             console.warn('Unable to parse cache entry; clearing.', error);
             try {
-                storage.removeItem(key);
+                storage?.removeItem?.(key);
             } catch (removeError) {
                 console.warn('Unable to remove corrupt cache entry:', removeError);
             }
+            inMemoryCache.delete(key);
             return null;
         }
 
         if (!entry || entry.version !== DASHBOARD_CACHE_VERSION) {
             try {
-                storage.removeItem(key);
+                storage?.removeItem?.(key);
             } catch (removeError) {
                 console.warn('Unable to purge outdated cache entry:', removeError);
             }
+            inMemoryCache.delete(key);
             return null;
         }
 
         const timestamp = Number(entry.timestamp);
         if (!Number.isFinite(timestamp)) {
             try {
-                storage.removeItem(key);
+                storage?.removeItem?.(key);
             } catch (removeError) {
                 console.warn('Unable to purge invalid cache entry:', removeError);
             }
+            inMemoryCache.delete(key);
             return null;
         }
 
@@ -830,10 +846,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ttlLimit = Number.isFinite(ttl) ? ttl : 0;
         if (ttlLimit > 0 && age > ttlLimit) {
             try {
-                storage.removeItem(key);
+                storage?.removeItem?.(key);
             } catch (removeError) {
                 console.warn('Unable to purge expired cache entry:', removeError);
             }
+            inMemoryCache.delete(key);
             return null;
         }
 
@@ -842,7 +859,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const writeCacheEntry = (key, entry) => {
         const storage = resolveCacheStorage();
-        if (!storage || !key || !entry) {
+        if (!key || !entry) {
+            return;
+        }
+
+        if (cacheStorageDisabled) {
+            inMemoryCache.set(key, entry);
             return;
         }
 
@@ -851,6 +873,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             serialized = JSON.stringify(entry);
         } catch (serializationError) {
             console.warn('Unable to serialize cache entry:', serializationError);
+            return;
+        }
+
+        if (!storage) {
+            inMemoryCache.set(key, entry);
             return;
         }
 
@@ -880,26 +907,33 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 if (!fallbackApplied) {
-                    cacheStorage = null;
+                    cacheStorageDisabled = true;
+                    cacheStorage = storage || cacheStorage;
+                    inMemoryCache.set(key, entry);
                 }
                 return;
             }
 
             console.warn('Cache write failed:', error);
+            cacheStorageDisabled = true;
+            cacheStorage = storage || cacheStorage;
+            inMemoryCache.set(key, entry);
         }
     };
 
     const removeCacheEntry = (key) => {
         const storage = resolveCacheStorage();
-        if (!storage || !key) {
+        if (!key) {
             return;
         }
 
         try {
-            storage.removeItem(key);
+            storage?.removeItem?.(key);
         } catch (error) {
             console.warn('Cache removal failed:', error);
         }
+
+        inMemoryCache.delete(key);
     };
 
     // === DOM Elements ===
@@ -1187,6 +1221,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let achievementWallet = document.getElementById('achievement-wallet');
     let medalsSection = document.getElementById('medals-section');
+    let hasLoggedMissingAchievementWallet = false;
+    let hasLoggedMissingMedalsSection = false;
+    const refreshAchievementTargets = () => {
+        if (!achievementWallet) {
+            achievementWallet = document.getElementById('achievement-wallet');
+        } else {
+            hasLoggedMissingAchievementWallet = false;
+        }
+        if (!medalsSection) {
+            medalsSection = document.getElementById('medals-section');
+        } else {
+            hasLoggedMissingMedalsSection = false;
+        }
+    };
     let medalDisciplineButtons = Array.from(document.querySelectorAll('[data-medal-discipline]'));
     const segmentContainer = document.querySelector('#segment-completions .grid');
     const segmentSection = document.getElementById('segment-completions');
@@ -2227,7 +2275,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 mode: zoomMode,
                 modifierKey: allowWheelZoom ? 'shift' : undefined,
                 threshold: mobileZoom ? 12 : 0,
-                overScaleMode: zoomMode,
+                scaleMode: zoomMode,
                 onPanComplete: handleWalletZoomComplete,
             },
             zoom: {
@@ -2249,9 +2297,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     : {
                         enabled: false,
-                    },
+                },
                 mode: zoomMode,
-                overScaleMode: zoomMode,
+                scaleMode: zoomMode,
                 onZoomComplete: handleWalletZoomComplete,
             },
         };
@@ -6358,8 +6406,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const renderMedalsGrid = () => {
+        refreshAchievementTargets();
         if (!medalsSection) {
-            console.warn("'medals-section' element not found in the DOM.");
+            if (!hasLoggedMissingMedalsSection) {
+                console.warn("'medals-section' element not found in the DOM.");
+                hasLoggedMissingMedalsSection = true;
+            }
             return;
         }
 
@@ -17657,6 +17709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const selectedYear = yearSelect ? yearSelect.value : 'all';
 
         // === Reset Existing Displays ===
+        refreshAchievementTargets();
         if (achievementWallet) achievementWallet.innerHTML = '';
         if (medalsSection) medalsSection.innerHTML = '';
         if (segmentContainer) segmentContainer.innerHTML = '';
@@ -17895,7 +17948,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
 
         // === Update Achievement Wallet ===
-        if (achievementWallet) {
+        refreshAchievementTargets();
+        if (!achievementWallet) {
+            if (!hasLoggedMissingAchievementWallet) {
+                console.warn("'achievement-wallet' element not found in the DOM.");
+                hasLoggedMissingAchievementWallet = true;
+            }
+        } else {
             achievementWallet.innerHTML = '';
 
             const tableContainer = document.createElement('div');
@@ -18095,8 +18154,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             tableContainer.appendChild(table);
             achievementWallet.appendChild(tableContainer);
             achievementWallet.appendChild(cardsContainer);
-        } else {
-            console.warn("'achievement-wallet' element not found in the DOM.");
         }
 
         const sortedMedals = Array.isArray(medalInventory) ? medalInventory : [];

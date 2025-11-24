@@ -2952,7 +2952,8 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 .wallet-chart {
     position: relative;
     min-height: 18rem;
-    height: min(40vh, 420px);
+    height: clamp(18rem, 34vw, 26rem);
+    max-height: 26rem;
     width: 100%;
     margin-inline: 0;
     padding: 0;
@@ -2971,6 +2972,7 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .wallet-chart--secondary .wallet-chart__body {
     min-height: 10rem;
+    height: clamp(14rem, 40vw, 18rem);
 }
 
 .wallet-chart__secondary-header {

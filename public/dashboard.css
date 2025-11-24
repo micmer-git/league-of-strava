@@ -2965,12 +2965,12 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     background: linear-gradient(180deg, #ffffff, #f8fafc);
     border: 1px solid rgba(148, 163, 184, 0.25);
     box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
-    height: min(20vh, 210px);
-    min-height: 9rem;
+    height: auto;
+    min-height: 12rem;
 }
 
 .wallet-chart--secondary .wallet-chart__body {
-    min-height: 8rem;
+    min-height: 10rem;
 }
 
 .wallet-chart__secondary-header {

@@ -18101,16 +18101,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const shouldRenderTopPerformances = Boolean(topFilterShortcutActive);
-        setTopPerformancesVisibility(shouldRenderTopPerformances);
+        let hasTopPerformanceContent = false;
 
         // === Update Best Activities Highlights ===
         if (shouldRenderTopPerformances) {
             if (bestActivitiesContainer) {
                 bestActivitiesContainer.innerHTML = '';
-            }
-
-            if (topPerformancesEmptyState) {
-                topPerformancesEmptyState.classList.toggle('hidden', hasActivities);
             }
 
             if (hasActivities) {
@@ -18575,16 +18571,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 });
 
-                if (cardsCreated === 0 && topPerformancesEmptyState) {
-                    bestActivitiesContainer.innerHTML = '';
-                    topPerformancesEmptyState.classList.remove('hidden');
-                }
-            } else if (topPerformancesEmptyState) {
-                topPerformancesEmptyState.classList.remove('hidden');
+                hasTopPerformanceContent = cardsCreated > 0;
+            } else {
+                hasTopPerformanceContent = false;
+            }
+
+            if (topPerformancesEmptyState) {
+                topPerformancesEmptyState.classList.add('hidden');
             }
         } else if (shouldRenderTopPerformances && !bestActivitiesContainer) {
             console.warn("'best-activities' element not found in the DOM.");
         }
+
+        setTopPerformancesVisibility(shouldRenderTopPerformances && hasTopPerformanceContent);
 
         const topPerformanceActivities = topFilterShortcutActive && topPerformanceActivityOrder.length > 0
             ? Array.from(new Map(topPerformanceActivityOrder.map(entry => [entry.key, entry.activity])).values())

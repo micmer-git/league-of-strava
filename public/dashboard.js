@@ -11399,7 +11399,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const destroyEnduranceChart = () => {
+    function destroyEnduranceChart() {
         if (enduranceChartInstances && enduranceChartInstances.size > 0) {
             enduranceChartInstances.forEach((chart) => {
                 if (chart?.destroy) {
@@ -11408,7 +11408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         enduranceChartInstances = new Map();
-    };
+    }
 
     const resolveActivityDiscipline = (activity = {}) => {
         const typeText = `${activity.sport_type || ''} ${activity.type || ''}`.toLowerCase();

@@ -4986,11 +4986,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const header = document.createElement('div');
         header.className = 'rank-modal__progress-header';
 
-        const title = document.createElement('p');
-        title.className = 'rank-modal__progress-title';
-        title.textContent = 'Historical medals';
-        header.appendChild(title);
-
         const toggle = document.createElement('div');
         toggle.className = 'rank-modal__progress-toggle';
 
@@ -5012,6 +5007,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         header.appendChild(toggle);
+
+        const title = document.createElement('p');
+        title.className = 'rank-modal__progress-title';
+        title.textContent = 'Historical medals';
+        header.appendChild(title);
         progressElement.appendChild(header);
 
         if (progressMedals.length === 0) {
@@ -5059,6 +5059,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const itemHeader = document.createElement('div');
             itemHeader.className = 'rank-modal__progress-item-header';
 
+            const medalCount = Math.max(0, toNonNegativeInteger(medal?.count));
+            const countSpan = document.createElement('span');
+            countSpan.className = 'rank-modal__progress-count';
+            countSpan.textContent = medalCount > 0
+                ? `${medalCount.toLocaleString()}× earned`
+                : 'Not yet earned';
+
             const nameGroup = document.createElement('div');
             nameGroup.className = 'rank-modal__progress-name';
 
@@ -5067,16 +5074,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const nameSpan = document.createElement('span');
             nameSpan.textContent = medal.name || 'Progress medal';
-            nameGroup.append(emojiSpan, nameSpan);
+            nameGroup.append(countSpan, emojiSpan, nameSpan);
 
-            const medalCount = Math.max(0, toNonNegativeInteger(medal?.count));
-            const countSpan = document.createElement('span');
-            countSpan.className = 'rank-modal__progress-count';
-            countSpan.textContent = medalCount > 0
-                ? `${medalCount.toLocaleString()}× earned`
-                : 'Not yet earned';
-
-            itemHeader.append(nameGroup, countSpan);
+            itemHeader.appendChild(nameGroup);
 
             const progressBar = document.createElement('div');
             progressBar.className = 'rank-modal__progress-bar';
@@ -5093,13 +5093,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             progressBar.setAttribute('aria-valuemax', '100');
             progressBar.setAttribute('aria-valuenow', percentComplete.toFixed(1));
             progressBar.setAttribute('aria-label', `${medal.name || 'Progress medal'} progress`);
-            progressBar.appendChild(progressFill);
 
-            const status = document.createElement('p');
-            status.className = 'rank-modal__progress-status';
-            status.textContent = formatMedalProgressText(medal.progressStatus) || 'Progress tracking unavailable';
+            const progressLabel = document.createElement('span');
+            progressLabel.className = 'rank-modal__progress-bar-label';
+            const roundedPercent = Math.round(percentComplete);
+            progressLabel.textContent = `${roundedPercent}%`;
+            progressBar.setAttribute('aria-valuetext', progressLabel.textContent);
 
-            item.append(itemHeader, progressBar, status);
+            progressBar.append(progressFill, progressLabel);
+
+            item.append(itemHeader, progressBar);
             list.appendChild(item);
         });
 

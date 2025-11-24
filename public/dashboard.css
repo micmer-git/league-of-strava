@@ -3008,21 +3008,6 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     min-height: 16rem;
 }
 
-.wallet-chart__empty {
-    margin: 0;
-    color: #475569;
-    font-weight: 600;
-    position: absolute;
-    inset: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px dashed rgba(148, 163, 184, 0.45);
-    border-radius: 0.85rem;
-}
-
 .wallet-chart canvas {
     width: 100% !important;
     height: 100% !important;

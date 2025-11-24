@@ -5335,6 +5335,7 @@ body.dark .medals-category__description {
 .rank-modal__timeline-bar {
     position: relative;
     width: 100%;
+    padding: 0.35rem 0;
 }
 
 .rank-modal__timeline-rail {
@@ -5345,6 +5346,9 @@ body.dark .medals-category__description {
     background: linear-gradient(90deg, rgba(226, 232, 240, 0.9), rgba(226, 232, 240, 0.55));
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.12);
     overflow: visible;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .rank-modal__timeline-fill {
@@ -5355,15 +5359,16 @@ body.dark .medals-category__description {
     border-radius: inherit;
     background: linear-gradient(90deg, #60a5fa, #2563eb);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    transition: width 0.45s ease;
 }
 
 .rank-modal__timeline-label {
     position: absolute;
-    top: -1.85rem;
+    top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    padding: 0.35rem 0.9rem;
-    border-radius: 999px;
+    padding: 0.5rem 1.1rem;
+    border-radius: 14px;
     background: #ffffff;
     color: #0f172a;
     font-weight: 700;
@@ -5374,11 +5379,50 @@ body.dark .medals-category__description {
     cursor: pointer;
     font-family: inherit;
     pointer-events: auto;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    align-items: center;
+    justify-content: center;
+    min-width: 180px;
+    transition: left 0.45s ease, transform 0.2s ease;
+    z-index: 1;
 }
 
 .rank-modal__timeline-label:focus-visible {
     outline: 2px solid #2563eb;
     outline-offset: 2px;
+}
+
+.rank-modal__timeline-label-main {
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
+.rank-modal__timeline-label-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+.rank-modal__timeline-rank {
+    font-weight: 600;
+}
+
+.rank-modal__timeline-achieved {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.45rem;
+    height: 1.45rem;
+    border-radius: 50%;
+    background: rgba(37, 99, 235, 0.14);
+    color: #1d4ed8;
+    font-size: 0.95rem;
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.25);
 }
 
 .rank-modal__timeline-markers {

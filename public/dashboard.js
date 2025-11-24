@@ -3963,16 +3963,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        timelineElement.innerHTML = '';
-
         const hasConfig = Array.isArray(config) && config.length > 0;
         if (!hasConfig) {
+            timelineElement.innerHTML = '';
+            timelineElement.dataset.timelineEmpty = 'true';
+
             const emptyState = document.createElement('p');
             emptyState.className = 'rank-modal__empty';
             emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
             timelineElement.appendChild(emptyState);
             return;
         }
+
+        timelineElement.dataset.timelineEmpty = 'false';
 
         const maxHours = getRankTimelineMaxHours(config);
         const safeTotalHours = Number.isFinite(rankProgressState.totalHours)
@@ -3985,11 +3988,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? Math.min(100, Math.max(0, (clampedHours / maxHours) * 100))
             : 0;
 
-        const scrollArea = document.createElement('div');
-        scrollArea.className = 'rank-modal__timeline-scroll';
-
-        const timelineInner = document.createElement('div');
-        timelineInner.className = 'rank-modal__timeline-inner';
+        let scrollArea = timelineElement.querySelector('.rank-modal__timeline-scroll');
+        let timelineInner = timelineElement.querySelector('.rank-modal__timeline-inner');
 
         const currentIndex = Number.isInteger(rankProgressState.currentRankIndex)
             ? rankProgressState.currentRankIndex
@@ -4011,39 +4011,80 @@ document.addEventListener('DOMContentLoaded', async () => {
         const resolvedGroupIndex = targetGroupIndex >= 0 ? targetGroupIndex : currentGroupIndex;
         const viewingGroupIndex = Math.max(0, Math.min(resolvedGroupIndex, rankGroups.length - 1));
 
+        let track = timelineElement.querySelector('.rank-modal__timeline-track');
+        let rail = timelineElement.querySelector('.rank-modal__timeline-rail');
+        let fill = timelineElement.querySelector('.rank-modal__timeline-fill');
+        let markersContainer = timelineElement.querySelector('.rank-modal__timeline-markers');
+        let label = timelineElement.querySelector('.rank-modal__timeline-label');
+        let progressBar = timelineElement.querySelector('.rank-modal__timeline-bar');
+
+        const needsBuild = !(
+            scrollArea &&
+            timelineInner &&
+            track &&
+            rail &&
+            fill &&
+            markersContainer &&
+            label &&
+            progressBar
+        );
+
+        if (needsBuild) {
+            timelineElement.innerHTML = '';
+
+            scrollArea = document.createElement('div');
+            scrollArea.className = 'rank-modal__timeline-scroll';
+
+            timelineInner = document.createElement('div');
+            timelineInner.className = 'rank-modal__timeline-inner';
+
+            track = document.createElement('div');
+            track.className = 'rank-modal__timeline-track';
+            track.setAttribute('role', 'progressbar');
+            track.setAttribute('aria-valuemin', '0');
+            track.setAttribute('aria-valuemax', maxHours.toFixed(0));
+            track.setAttribute('aria-valuenow', clampedHours.toFixed(1));
+            track.setAttribute('aria-label', 'Lifetime hours across all rank levels');
+
+            rail = document.createElement('div');
+            rail.className = 'rank-modal__timeline-rail';
+
+            fill = document.createElement('div');
+            fill.className = 'rank-modal__timeline-fill';
+
+            markersContainer = document.createElement('div');
+            markersContainer.className = 'rank-modal__timeline-markers';
+
+            label = document.createElement('button');
+            label.type = 'button';
+            label.className = 'rank-modal__timeline-label';
+            label.setAttribute('aria-live', 'polite');
+
+            progressBar = document.createElement('div');
+            progressBar.className = 'rank-modal__timeline-bar';
+
+            rail.append(fill, markersContainer, label);
+            progressBar.append(rail);
+
+            track.append(progressBar);
+
+            timelineInner.append(track);
+            scrollArea.appendChild(timelineInner);
+            timelineElement.append(scrollArea);
+        } else {
+            markersContainer.innerHTML = '';
+        }
+
         timelineInner.style.minWidth = '100%';
         timelineInner.style.width = '100%';
 
-        const track = document.createElement('div');
-        track.className = 'rank-modal__timeline-track';
-        track.setAttribute('role', 'progressbar');
-        track.setAttribute('aria-valuemin', '0');
+        label.setAttribute('aria-live', 'polite');
+
+        fill.style.width = `${fillPercent}%`;
+        const labelPosition = Math.max(8, Math.min(fillPercent, 92));
+        label.style.left = `${labelPosition}%`;
         track.setAttribute('aria-valuemax', maxHours.toFixed(0));
         track.setAttribute('aria-valuenow', clampedHours.toFixed(1));
-        track.setAttribute('aria-label', 'Lifetime hours across all rank levels');
-
-        const rail = document.createElement('div');
-        rail.className = 'rank-modal__timeline-rail';
-
-        const fill = document.createElement('div');
-        fill.className = 'rank-modal__timeline-fill';
-        fill.style.width = `${fillPercent}%`;
-
-        const labelPosition = Math.max(8, Math.min(fillPercent, 92));
-
-        const markersContainer = document.createElement('div');
-        markersContainer.className = 'rank-modal__timeline-markers';
-
-        rail.append(fill, markersContainer);
-
-        const label = document.createElement('button');
-        label.type = 'button';
-        label.className = 'rank-modal__timeline-label';
-        label.style.left = `${labelPosition}%`;
-
-        const progressBar = document.createElement('div');
-        progressBar.className = 'rank-modal__timeline-bar';
-        progressBar.append(rail, label);
 
         const recenterToCurrentRank = () => {
             viewingRankIndex = rankProgressState.currentRankIndex;
@@ -4053,28 +4094,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         const updateTimelineLabel = (selectedRank) => {
             const targetHours = Number(selectedRank?.minHours);
             const hasTargetHours = Number.isFinite(targetHours) && targetHours >= 0;
+            const rankName = selectedRank?.name || 'Rank milestone';
+            const ratio = hasTargetHours && targetHours !== 0
+                ? Math.max(0, Math.min(1, safeTotalHours / targetHours))
+                : 0;
+            let primaryLabel = `${formatHoursDisplay(safeTotalHours)} h logged`;
 
-            if (!hasTargetHours) {
-                label.textContent = `${formatHoursDisplay(safeTotalHours)} h logged`;
-                return;
+            if (hasTargetHours) {
+                if (selectedRank === currentRank) {
+                    primaryLabel = `${formatHoursDisplay(targetHours)} h logged`;
+                } else {
+                    primaryLabel = `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
+                }
             }
 
-            if (selectedRank === currentRank) {
-                label.textContent = `${formatHoursDisplay(targetHours)} h logged`;
-                return;
-            }
+            const achieved = hasTargetHours && safeTotalHours >= targetHours;
 
-            const remaining = targetHours - safeTotalHours;
-            if (remaining > 0) {
-                const ratio = targetHours === 0 ? 1 : Math.max(0, Math.min(1, safeTotalHours / targetHours));
-                label.textContent = `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
-            } else {
-                const ratio = targetHours === 0 ? 1 : Math.max(0, Math.min(1, safeTotalHours / targetHours));
-                label.textContent = `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
-            }
+            label.innerHTML = `
+                <span class="rank-modal__timeline-label-main">${primaryLabel}</span>
+                <span class="rank-modal__timeline-label-meta">
+                    ${achieved ? '<span class="rank-modal__timeline-achieved" aria-hidden="true">✔</span>' : ''}
+                    <span class="rank-modal__timeline-rank">${rankName}</span>
+                    ${achieved ? '<span class="sr-only">Rank achieved</span>' : ''}
+                </span>
+            `;
         };
 
-        label.addEventListener('click', recenterToCurrentRank);
+        label.onclick = recenterToCurrentRank;
 
         const renderMarkersForGroup = (centerGroupIndex) => {
             markersContainer.innerHTML = '';
@@ -4122,12 +4168,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         renderMarkersForGroup(viewingGroupIndex);
-
-        track.append(progressBar);
-
-        timelineInner.append(track);
-        scrollArea.appendChild(timelineInner);
-        timelineElement.append(scrollArea);
         timelineElement.hidden = false;
     };
 
@@ -5179,7 +5219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (listElement) {
             listElement.innerHTML = '';
         }
-        if (timelineElement) {
+        if (timelineElement?.dataset.timelineEmpty === 'true') {
             timelineElement.innerHTML = '';
         }
 
@@ -5234,7 +5274,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderHistoricalMedalProgress(progressElement);
         }
 
-        if (snapshotsElement) {
+        const shouldRenderSnapshots = snapshotsElement && idPrefix !== 'rank-modal';
+
+        if (shouldRenderSnapshots) {
             snapshotsElement.innerHTML = '';
 
             const snapshots = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
@@ -5252,6 +5294,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 'rank-modal__snapshots--empty',
                 !snapshotsElement.hasChildNodes()
             );
+            snapshotsElement.hidden = false;
+        } else if (snapshotsElement) {
+            snapshotsElement.innerHTML = '';
+            snapshotsElement.hidden = true;
         }
 
         if (config.length === 0) {

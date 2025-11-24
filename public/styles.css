@@ -1649,7 +1649,7 @@ body.rank-modal-open .site-header__inner {
 }
 
 .rank-modal__snapshot-section-totalbox {
-  margin-top: 0.25rem;
+  margin: 0;
   padding: 0.5rem 0.65rem;
   border-radius: 10px;
   background: #eef2ff;
@@ -1657,6 +1657,13 @@ body.rank-modal-open .site-header__inner {
   font-weight: 700;
   text-align: center;
   border: 1px solid #dbeafe;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.rank-modal__snapshot-total-breakdown {
+  text-align: center;
 }
 
 .rank-modal__snapshot-total-value,

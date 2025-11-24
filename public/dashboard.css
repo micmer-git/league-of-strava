@@ -5161,7 +5161,7 @@ body.dark .medals-category__description {
 .rank-modal__snapshot-total-breakdown {
     font-size: 0.75rem;
     color: rgba(37, 99, 235, 0.8);
-    text-align: right;
+    text-align: center;
 }
 
 .rank-modal__snapshot-total-breakdown.is-muted {
@@ -5228,9 +5228,9 @@ body.dark .medals-category__description {
 
 .rank-modal__snapshot-section-header {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
 }
 
 .rank-modal__snapshot-section-title {
@@ -5287,7 +5287,7 @@ body.dark .medals-category__description {
 }
 
 .rank-modal__snapshot-section-totalbox {
-    margin-top: 0.25rem;
+    margin: 0;
     padding: 0.55rem 0.65rem;
     border-radius: 12px;
     background: rgba(224, 231, 255, 0.6);
@@ -5295,6 +5295,9 @@ body.dark .medals-category__description {
     font-weight: 700;
     text-align: center;
     border: 1px solid #dbeafe;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
 }
 
 .rank-modal__summary-item {

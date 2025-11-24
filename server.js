@@ -2,8 +2,10 @@
 
 require('dotenv').config(); // Load environment variables
 
+const crypto = require('crypto');
 const express = require('express');
 const axios = require('axios');
+const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const {
@@ -33,7 +35,10 @@ const {
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(compression());
+
+const STATIC_MAX_AGE = process.env.STATIC_MAX_AGE || '1h';
+app.use(express.static('public', { maxAge: STATIC_MAX_AGE, etag: true }));
 
 const PORT = process.env.PORT || 3000;
 
@@ -169,6 +174,18 @@ const segmentCache = new PersistentCache({
   namespace: 'strava:segment-efforts',
   ttlMs: SEGMENT_CACHE_TTL_MS,
   maxEntries: 400,
+  storageDir: CACHE_STORAGE_DIR,
+});
+
+const STRAVA_RESPONSE_CACHE_TTL_MS = Number.parseInt(process.env.STRAVA_RESPONSE_CACHE_TTL_MS, 10)
+  || 5 * 60 * 1000;
+const STRAVA_RESPONSE_CACHE_MAX_ENTRIES = Number.parseInt(process.env.STRAVA_RESPONSE_CACHE_MAX_ENTRIES, 10)
+  || 500;
+
+const stravaResponseCache = new PersistentCache({
+  namespace: 'strava:http-cache',
+  ttlMs: STRAVA_RESPONSE_CACHE_TTL_MS,
+  maxEntries: STRAVA_RESPONSE_CACHE_MAX_ENTRIES,
   storageDir: CACHE_STORAGE_DIR,
 });
 
@@ -376,6 +393,22 @@ function parseFloatOrNull(value) {
   const parsed = typeof value === 'string' ? value.replace(',', '.') : value;
   const numberValue = Number(parsed);
   return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function buildStravaCacheKey(path, params, accessToken) {
+  if (!accessToken || !path) {
+    return null;
+  }
+
+  const normalizedParams = params && typeof params === 'object'
+    ? Object.keys(params)
+      .filter((key) => params[key] !== undefined)
+      .sort()
+      .reduce((acc, key) => ({ ...acc, [key]: params[key] }), {})
+    : {};
+
+  const tokenHash = crypto.createHash('sha1').update(String(accessToken)).digest('hex').slice(0, 16);
+  return `${tokenHash}:${path}?${JSON.stringify(normalizedParams)}`;
 }
 
 function buildRaceRange(value, tolerance) {
@@ -2137,15 +2170,42 @@ app.get('/api/sync-progress/:userId', async (req, res) => {
 // Helper functions
 
 async function stravaGet(path, accessToken, params = {}, retries = 2) {
+  const { _cache = true, ...requestParams } = params || {};
+  const cacheKey = _cache
+    ? buildStravaCacheKey(path, requestParams, accessToken)
+    : null;
+
+  if (_cache && cacheKey) {
+    const cached = stravaResponseCache.get(cacheKey);
+    if (cached) {
+      return {
+        data: cached.data,
+        status: cached.status,
+        headers: cached.headers,
+        cached: true,
+      };
+    }
+  }
+
   let attempt = 0;
   let delayMs = 1000;
 
   while (attempt <= retries) {
     try {
-      return await stravaApi.get(path, {
+      const response = await stravaApi.get(path, {
         headers: { Authorization: `Bearer ${accessToken}` },
-        params,
+        params: requestParams,
       });
+
+      if (cacheKey) {
+        stravaResponseCache.set(cacheKey, {
+          data: response.data,
+          status: response.status,
+          headers: response.headers,
+        });
+      }
+
+      return response;
     } catch (error) {
       const status = error.response?.status;
       const shouldRetry = attempt < retries && (status === 429 || status === 503 || status >= 500);
@@ -2158,6 +2218,19 @@ async function stravaGet(path, accessToken, params = {}, retries = 2) {
         attempt += 1;
         delayMs *= 2;
         continue;
+      }
+
+      if (cacheKey) {
+        const cached = stravaResponseCache.get(cacheKey);
+        if (cached) {
+          console.warn(`Strava request to ${path} failed with status ${status}. Serving cached response.`);
+          return {
+            data: cached.data,
+            status: cached.status,
+            headers: cached.headers,
+            cached: true,
+          };
+        }
       }
 
       if (status === 429 || status === 503) {

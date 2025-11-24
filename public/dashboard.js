@@ -6338,7 +6338,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         medalsSection.innerHTML = '';
 
-        const filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
+        let filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
+
+        if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
+            const fallbackInventory = ensureCompleteMedalInventory([])
+                .map(hydrateMedalFromDefinition)
+                .filter(medal => medal && !isHistoricalMedal(medal))
+                .map(medal => ({
+                    ...medal,
+                    count: toNonNegativeInteger(medal?.count),
+                    discipline: medal?.discipline || resolveMedalDiscipline(medal),
+                }));
+
+            medalInventory = fallbackInventory;
+            filteredInventory = fallbackInventory;
+        }
 
         if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
             medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals available yet.</p>';

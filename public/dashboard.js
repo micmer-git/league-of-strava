@@ -6327,6 +6327,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const renderMedalsGrid = () => {
         refreshAchievementTargets();
         if (!medalsSection) {
+            ensurePanel('medals');
+            refreshAchievementTargets();
             if (!hasLoggedMissingMedalsSection) {
                 console.warn("'medals-section' element not found in the DOM.");
                 hasLoggedMissingMedalsSection = true;
@@ -17893,6 +17895,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // === Update Achievement Wallet ===
         refreshAchievementTargets();
+        if (!achievementWallet) {
+            ensurePanel('achievements');
+            refreshAchievementTargets();
+        }
         if (!achievementWallet) {
             if (!hasLoggedMissingAchievementWallet) {
                 console.warn("'achievement-wallet' element not found in the DOM.");

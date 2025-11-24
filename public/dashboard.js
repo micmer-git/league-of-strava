@@ -1265,12 +1265,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     let topAchievementsCarousel = document.getElementById('top-achievements-carousel');
     let profileActivityHistoryElement = document.getElementById('profile-activity-history-body');
     let topAchievementsInterval = null;
-    let enduranceChartCanvas = document.getElementById('endurance-ma-chart');
+    let enduranceChartCanvases = {
+        distance: document.getElementById('endurance-ma-chart-distance'),
+        elevation: document.getElementById('endurance-ma-chart-elevation'),
+        movingTime: document.getElementById('endurance-ma-chart-moving-time'),
+    };
     let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
-    let enduranceChartInstance = null;
-    let enduranceMetricButtons = Array.from(document.querySelectorAll('[data-endurance-metric]'));
-    const DEFAULT_ENDURANCE_METRIC = 'distance';
-    let selectedEnduranceMetric = DEFAULT_ENDURANCE_METRIC;
+    let enduranceChartInstances = new Map();
+    let enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
+    const DEFAULT_ENDURANCE_DISCIPLINE = 'all';
+    let selectedEnduranceDiscipline = DEFAULT_ENDURANCE_DISCIPLINE;
     let enduranceChartSource = [];
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
@@ -1405,45 +1409,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceChartSkeletonElement.classList.toggle('hidden', !visible);
     };
 
-    const syncEnduranceMetricButtons = () => {
-        enduranceMetricButtons.forEach((button) => {
+    const syncEnduranceDisciplineButtons = () => {
+        enduranceDisciplineButtons.forEach((button) => {
             if (!button) {
                 return;
             }
 
-            const metric = button.dataset.enduranceMetric || '';
-            const isActive = metric === selectedEnduranceMetric;
+            const discipline = (button.dataset.enduranceDiscipline || '').toLowerCase();
+            const isActive = discipline === selectedEnduranceDiscipline;
             button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             button.classList.toggle('is-active', isActive);
         });
     };
 
-    const setEnduranceMetric = (metric) => {
-        if (!metric || typeof metric !== 'string') {
+    const setEnduranceDiscipline = (discipline) => {
+        if (!discipline || typeof discipline !== 'string') {
             return;
         }
 
-        const normalized = ['distance', 'elevation', 'movingTime'].includes(metric)
-            ? metric
-            : DEFAULT_ENDURANCE_METRIC;
-        selectedEnduranceMetric = normalized;
-        syncEnduranceMetricButtons();
+        const normalized = ['run', 'ride', 'swim', 'all'].includes(discipline.toLowerCase())
+            ? discipline.toLowerCase()
+            : DEFAULT_ENDURANCE_DISCIPLINE;
+        selectedEnduranceDiscipline = normalized;
+        syncEnduranceDisciplineButtons();
         updateEnduranceChart(enduranceChartSource);
     };
 
-    const bindEnduranceMetricButtons = () => {
-        enduranceMetricButtons.forEach((button) => {
-            if (!button || button.dataset.enduranceMetricInitialized === 'true') {
+    const bindEnduranceDisciplineButtons = () => {
+        enduranceDisciplineButtons.forEach((button) => {
+            if (!button || button.dataset.enduranceDisciplineInitialized === 'true') {
                 return;
             }
 
-            button.dataset.enduranceMetricInitialized = 'true';
+            button.dataset.enduranceDisciplineInitialized = 'true';
             button.addEventListener('click', () => {
-                setEnduranceMetric(button.dataset.enduranceMetric);
+                setEnduranceDiscipline(button.dataset.enduranceDiscipline);
             });
         });
 
-        syncEnduranceMetricButtons();
+        syncEnduranceDisciplineButtons();
     };
 
     const positionWalletOverlay = (position) => {
@@ -1618,9 +1622,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(topAchievementsInterval);
             topAchievementsInterval = null;
         }
-        enduranceChartCanvas = document.getElementById('endurance-ma-chart');
+        destroyEnduranceChart();
+        enduranceChartCanvases = {
+            distance: document.getElementById('endurance-ma-chart-distance'),
+            elevation: document.getElementById('endurance-ma-chart-elevation'),
+            movingTime: document.getElementById('endurance-ma-chart-moving-time'),
+        };
         enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
-        enduranceMetricButtons = Array.from(document.querySelectorAll('[data-endurance-metric]'));
+        enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
         setEnduranceChartSkeletonVisible(isShellLoading());
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
@@ -1676,7 +1685,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindWalletLayerToggles();
         bindWalletExportShare();
         bindCountryStatButton();
-        bindEnduranceMetricButtons();
+        bindEnduranceDisciplineButtons();
     };
 
     const onPanelReady = (panelName, callback) => {
@@ -11402,7 +11411,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const title = document.createElement('span');
             title.className = 'profile-top-achievements__slide-title';
-            title.innerHTML = `<span class="profile-top-achievements__slide-emoji">${achievement.emoji || '⭐️'}</span>${achievement.label}`;
+            const countValue = Number.isFinite(achievement.count) && achievement.count > 0
+                ? achievement.count
+                : 1;
+            title.innerHTML = `<span class="profile-top-achievements__slide-count">${countValue}x</span><span class="profile-top-achievements__slide-emoji">${achievement.emoji || '⭐️'}</span>${achievement.label}`;
 
             const description = document.createElement('span');
             description.className = 'profile-top-achievements__slide-description';
@@ -11487,10 +11499,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const destroyEnduranceChart = () => {
-        if (enduranceChartInstance) {
-            enduranceChartInstance.destroy();
-            enduranceChartInstance = null;
+        if (enduranceChartInstances && enduranceChartInstances.size > 0) {
+            enduranceChartInstances.forEach((chart) => {
+                if (chart?.destroy) {
+                    chart.destroy();
+                }
+            });
         }
+        enduranceChartInstances = new Map();
+    };
+
+    const resolveActivityDiscipline = (activity = {}) => {
+        const typeText = `${activity.sport_type || ''} ${activity.type || ''}`.toLowerCase();
+
+        if (typeText.includes('swim')) {
+            return 'swim';
+        }
+
+        if (typeText.includes('ride') || typeText.includes('bike') || typeText.includes('cycle') || typeText.includes('velo')) {
+            return 'ride';
+        }
+
+        if (typeText.includes('run')) {
+            return 'run';
+        }
+
+        return 'multi';
+    };
+
+    const filterActivitiesByDiscipline = (activities = [], discipline = 'all') => {
+        if (!Array.isArray(activities)) {
+            return [];
+        }
+
+        if (!discipline || discipline === 'all') {
+            return activities;
+        }
+
+        return activities.filter((activity) => {
+            const resolved = resolveActivityDiscipline(activity);
+            if (resolved === 'multi') {
+                return true;
+            }
+            return resolved === discipline;
+        });
     };
 
     const buildDailyEnduranceSeries = (activities = []) => {
@@ -11580,7 +11632,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const updateEnduranceChart = (activities = []) => {
-        if (!enduranceChartCanvas) {
+        const canvases = enduranceChartCanvases ? Object.values(enduranceChartCanvases) : [];
+        const hideEnduranceCanvases = () => {
+            canvases.forEach((canvas) => {
+                if (canvas) {
+                    canvas.classList.add('hidden');
+                }
+            });
+        };
+
+        if (!canvases.some(Boolean)) {
             return;
         }
 
@@ -11591,43 +11652,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         const activitySource = hasCompleteHistory
             ? historicalActivities
             : getEnduranceActivitiesFromTimeline(enduranceChartSource);
-        const dailySeries = buildDailyEnduranceSeries(activitySource);
+        const filteredActivities = filterActivitiesByDiscipline(activitySource, selectedEnduranceDiscipline);
+        const dailySeries = buildDailyEnduranceSeries(filteredActivities);
         const labels = dailySeries.map((entry) => entry.label);
         const hasData = labels.length > 0;
+        const isAllTimeRange = walletSelectedTimeframe === WALLET_TIMEFRAME_ALL;
+
+        syncEnduranceDisciplineButtons();
 
         if (!hasCompleteHistory && hasMoreActivities) {
             destroyEnduranceChart();
             setEnduranceChartSkeletonVisible(true);
-            if (enduranceChartCanvas) {
-                enduranceChartCanvas.classList.add('hidden');
-            }
+            hideEnduranceCanvases();
             return;
         }
 
         if (!hasChartLibrary || !hasData) {
             destroyEnduranceChart();
             setEnduranceChartSkeletonVisible(false);
-            if (enduranceChartCanvas) {
-                enduranceChartCanvas.classList.add('hidden');
-            }
+            hideEnduranceCanvases();
             return;
         }
-
-        const activeMetric = ['distance', 'elevation', 'movingTime'].includes(selectedEnduranceMetric)
-            ? selectedEnduranceMetric
-            : DEFAULT_ENDURANCE_METRIC;
-        const isAllTimeRange = walletSelectedTimeframe === WALLET_TIMEFRAME_ALL;
-
-        setEnduranceChartSkeletonVisible(false);
-        enduranceChartCanvas.classList.remove('hidden');
-        syncEnduranceMetricButtons();
 
         const metricConfig = [
             {
                 key: 'distance',
                 label: 'Distance',
                 unit: ' km',
-                axisId: 'yDistance',
                 palette: { fast: '#0ea5e9', slow: '#0369a1' },
                 tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 1 }),
             },
@@ -11635,7 +11686,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 key: 'elevation',
                 label: 'Elevation',
                 unit: ' m',
-                axisId: 'yElevation',
                 palette: { fast: '#f97316', slow: '#c2410c' },
                 tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 0 }),
             },
@@ -11643,18 +11693,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 key: 'movingTime',
                 label: 'Moving time',
                 unit: ' hrs',
-                axisId: 'yMovingTime',
                 palette: { fast: '#22c55e', slow: '#15803d' },
-                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 1 }),
-            }
+                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+            },
         ];
-        const metricConfigMap = new Map(metricConfig.map((entry) => [entry.key, entry]));
 
-        const metricValues = {
-            distance: dailySeries.map((entry) => Number(entry.distanceKm.toFixed(2))),
-            elevation: dailySeries.map((entry) => Number(entry.elevationGain.toFixed(0))),
-            movingTime: dailySeries.map((entry) => Number(entry.movingHours.toFixed(2))),
-        };
+        const metricConfigMap = new Map(metricConfig.map((config) => [config.key, config]));
+
+        const metricValues = metricConfig.reduce((acc, config) => ({
+            ...acc,
+            [config.key]: dailySeries.map((entry) => {
+                if (config.key === 'distance') {
+                    return Number((entry?.distanceKm ?? 0).toFixed(2));
+                }
+
+                if (config.key === 'elevation') {
+                    return Number((entry?.elevationGain ?? 0).toFixed(0));
+                }
+
+                if (config.key === 'movingTime') {
+                    return Number((entry?.movingHours ?? 0).toFixed(2));
+                }
+
+                return 0;
+            })
+        }), {});
 
         const fastWindow = 50;
         const slowWindow = 100;
@@ -11673,60 +11736,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const slowIndex = movingAverageSeries[config.key].slow.findIndex(Number.isFinite);
                 return [fastIndex, slowIndex].filter((index) => index >= 0);
             });
+
         if (firstValidIndices.length === 0) {
             destroyEnduranceChart();
             setEnduranceChartSkeletonVisible(false);
-            if (enduranceChartCanvas) {
-                enduranceChartCanvas.classList.add('hidden');
-            }
+            hideEnduranceCanvases();
             return;
         }
-        const visibleStart = firstValidIndices.length > 0 ? Math.min(...firstValidIndices) : 0;
+
+        const visibleStart = Math.min(...firstValidIndices);
         const visibleLabels = labels.slice(visibleStart);
         const visibleRawValues = Object.fromEntries(metricConfig
             .map((config) => [config.key, metricValues[config.key].slice(visibleStart)]));
-
-        const buildPointStyle = (color, emphasize) => ({
-            pointRadius: emphasize ? 3 : 2,
-            pointHoverRadius: emphasize ? 8 : 6,
-            pointHitRadius: 16,
-            pointBackgroundColor: color,
-            pointBorderColor: color,
-            pointBorderWidth: 0,
-        });
-
-        const datasets = metricConfig.flatMap((config) => {
-            const isActive = config.key === activeMetric;
-            const fastSeries = movingAverageSeries[config.key].fast.slice(visibleStart);
-            const slowSeries = movingAverageSeries[config.key].slow.slice(visibleStart);
-            return [
-                {
-                    label: `${config.label} · ${fastWindow}pt MA`,
-                    data: fastSeries,
-                    borderColor: config.palette.fast,
-                    backgroundColor: config.palette.fast,
-                    borderWidth: isActive ? 2.5 : 1.75,
-                    tension: 0.32,
-                    spanGaps: true,
-                    yAxisID: config.axisId,
-                    metricKey: config.key,
-                    ...buildPointStyle(config.palette.fast, isActive),
-                },
-                {
-                    label: `${config.label} · ${slowWindow}pt MA`,
-                    data: slowSeries,
-                    borderColor: config.palette.slow,
-                    backgroundColor: config.palette.slow,
-                    borderWidth: isActive ? 2.25 : 1.5,
-                    borderDash: [6, 4],
-                    tension: 0.32,
-                    spanGaps: true,
-                    yAxisID: config.axisId,
-                    metricKey: config.key,
-                    ...buildPointStyle(config.palette.slow, isActive),
-                },
-            ];
-        });
 
         const isDarkMode = document.body.classList.contains('dark');
         const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
@@ -11734,183 +11755,187 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tickFont = { family: 'Rubik, system-ui, -apple-system, sans-serif', size: 12, weight: '600' };
 
         destroyEnduranceChart();
-        enduranceChartInstance = new Chart(enduranceChartCanvas, {
-            type: 'line',
-            data: {
-                labels: visibleLabels,
-                datasets,
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
+        setEnduranceChartSkeletonVisible(false);
+
+        metricConfig.forEach((config) => {
+            const canvas = enduranceChartCanvases?.[config.key];
+            if (!canvas) {
+                return;
+            }
+
+            const fastSeries = movingAverageSeries[config.key].fast.slice(visibleStart);
+            const slowSeries = movingAverageSeries[config.key].slow.slice(visibleStart);
+            const rawSeries = visibleRawValues[config.key];
+            const hasMetricData = fastSeries.some(Number.isFinite) || slowSeries.some(Number.isFinite);
+
+            if (!hasMetricData) {
+                canvas.classList.add('hidden');
+                return;
+            }
+
+            canvas.classList.remove('hidden');
+
+            const datasets = [
+                {
+                    label: `${config.label} · ${fastWindow}pt MA`,
+                    data: fastSeries,
+                    borderColor: config.palette.fast,
+                    backgroundColor: config.palette.fast,
+                    borderWidth: 2.1,
+                    tension: 0.32,
+                    spanGaps: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 7,
+                    pointHitRadius: 16,
+                    pointBackgroundColor: config.palette.fast,
+                    pointBorderColor: config.palette.fast,
+                    pointBorderWidth: 0,
                 },
-                hover: {
-                    mode: 'index',
-                    intersect: false,
+                {
+                    label: `${config.label} · ${slowWindow}pt MA`,
+                    data: slowSeries,
+                    borderColor: config.palette.slow,
+                    backgroundColor: config.palette.slow,
+                    borderWidth: 1.6,
+                    borderDash: [6, 4],
+                    tension: 0.32,
+                    spanGaps: true,
+                    pointRadius: 2,
+                    pointHoverRadius: 6,
+                    pointHitRadius: 14,
+                    pointBackgroundColor: config.palette.slow,
+                    pointBorderColor: config.palette.slow,
+                    pointBorderWidth: 0,
                 },
-                layout: {
-                    padding: { top: 12, right: 18, bottom: 12, left: 12 },
+            ];
+
+            const tooltipCallbacks = {
+                title: (context) => {
+                    const [first] = context || [];
+                    const sourceIndex = visibleStart + (first?.dataIndex ?? 0);
+                    const seriesEntry = dailySeries[sourceIndex];
+                    return seriesEntry?.label || 'Daily total';
                 },
-                plugins: {
-                    legend: {
-                        display: false,
-                    },
-                    tooltip: {
+                label: (context) => {
+                    const label = context.dataset?.label || '';
+                    const value = Number.isFinite(context.parsed?.y)
+                        ? context.parsed.y
+                        : 0;
+                    return `${label}: ${value.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                    })}`;
+                },
+                footer: (context) => {
+                    const [first] = context || [];
+                    const dataIndex = Number.isInteger(first?.dataIndex)
+                        ? first.dataIndex
+                        : null;
+                    const rawValue = Number.isInteger(dataIndex)
+                        && Array.isArray(rawSeries)
+                        && Number.isFinite(rawSeries[dataIndex])
+                        ? rawSeries[dataIndex]
+                        : 0;
+                    const formatted = rawValue.toLocaleString(undefined, {
+                        maximumFractionDigits: config.key === 'elevation' ? 0 : 2,
+                    });
+                    const unit = config?.unit || '';
+                    const labelText = config?.label || 'Daily total';
+                    return `${labelText}: ${formatted}${unit}`;
+                },
+            };
+
+            enduranceChartInstances.set(config.key, new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: visibleLabels,
+                    datasets,
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
                         mode: 'index',
                         intersect: false,
-                        titleFont: tickFont,
-                        bodyFont: tickFont,
-                        callbacks: {
-                            title: (context) => {
-                                const [first] = context || [];
-                                const sourceIndex = visibleStart + (first?.dataIndex ?? 0);
-                                const seriesEntry = dailySeries[sourceIndex];
-                                return seriesEntry?.label || 'Daily total';
+                    },
+                    hover: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    layout: {
+                        padding: { top: 8, right: 14, bottom: 6, left: 8 },
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            titleFont: tickFont,
+                            bodyFont: tickFont,
+                            callbacks: tooltipCallbacks,
+                        },
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: axisColor,
+                                font: tickFont,
+                                maxTicksLimit: Math.min(12, visibleLabels.length),
+                                maxRotation: 0,
+                                minRotation: 0,
+                                callback: (value, index) => {
+                                    const sourceIndex = visibleStart + index;
+                                    const entry = dailySeries[sourceIndex];
+                                    if (!entry?.date) {
+                                        return visibleLabels[index] || value;
+                                    }
+                                    const currentYear = entry.date.getFullYear();
+                                    const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
+                                        ? dailySeries[sourceIndex - 1].date.getFullYear()
+                                        : null;
+                                    if (isAllTimeRange) {
+                                        const isNewYear = previousYear === null || currentYear !== previousYear;
+                                        return isNewYear ? currentYear.toString() : '';
+                                    }
+                                    if (previousYear !== currentYear) {
+                                        return entry.date.toLocaleDateString(undefined, {
+                                            month: 'short',
+                                            year: 'numeric',
+                                        });
+                                    }
+                                    return '';
+                                },
                             },
-                            label: (context) => {
-                                const label = context.dataset?.label || '';
-                                const value = Number.isFinite(context.parsed?.y)
-                                    ? context.parsed.y
-                                    : 0;
-                                return `${label}: ${value.toLocaleString(undefined, {
-                                    maximumFractionDigits: 2,
-                                })}`;
+                            grid: {
+                                color: gridColor,
+                                drawOnChartArea: false,
                             },
-                            footer: (context) => {
-                                const [first] = context || [];
-                                const dataIndex = Number.isInteger(first?.dataIndex)
-                                    ? first.dataIndex
-                                    : null;
-                                const metricKey = typeof first?.dataset?.metricKey === 'string'
-                                    ? first.dataset.metricKey
-                                    : activeMetric;
-                                const config = metricConfigMap.get(metricKey);
-                                const rawSeries = config ? visibleRawValues[metricKey] : null;
-                                const rawValue = Number.isInteger(dataIndex)
-                                    && Array.isArray(rawSeries)
-                                    && Number.isFinite(rawSeries[dataIndex])
-                                    ? rawSeries[dataIndex]
-                                    : 0;
-                                const formatted = rawValue.toLocaleString(undefined, {
-                                    maximumFractionDigits: metricKey === 'elevation' ? 0 : 2,
-                                });
-                                const unit = config?.unit || '';
-                                const label = config?.label || 'Daily total';
-                                return `${label}: ${formatted}${unit}`;
+                        },
+                        y: {
+                            ticks: {
+                                color: axisColor,
+                                font: tickFont,
+                                callback: (value) => {
+                                    if (!Number.isFinite(value)) {
+                                        return '0';
+                                    }
+                                    return metricConfigMap.get(config.key)?.tickFormatter(value) ?? value;
+                                },
+                            },
+                            grid: {
+                                color: gridColor,
+                            },
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: `${config.label} (${config.unit.trim()})`,
+                                color: axisColor,
                             },
                         },
                     },
                 },
-                scales: {
-                    x: {
-                        ticks: {
-                            color: axisColor,
-                            font: tickFont,
-                            maxTicksLimit: Math.min(12, visibleLabels.length),
-                            maxRotation: 0,
-                            minRotation: 0,
-                            callback: (value, index) => {
-                                const sourceIndex = visibleStart + index;
-                                const entry = dailySeries[sourceIndex];
-                                if (!entry?.date) {
-                                    return visibleLabels[index] || value;
-                                }
-                                const currentYear = entry.date.getFullYear();
-                                const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
-                                    ? dailySeries[sourceIndex - 1].date.getFullYear()
-                                    : null;
-                                if (isAllTimeRange) {
-                                    const isNewYear = previousYear === null || currentYear !== previousYear;
-                                    return isNewYear ? currentYear.toString() : '';
-                                }
-                                if (previousYear !== currentYear) {
-                                    return entry.date.toLocaleDateString(undefined, {
-                                        month: 'short',
-                                        year: 'numeric',
-                                    });
-                                }
-                                return '';
-                            },
-                        },
-                        grid: {
-                            color: gridColor,
-                            drawOnChartArea: false,
-                        },
-                    },
-                    yDistance: {
-                        ticks: {
-                            color: axisColor,
-                            font: tickFont,
-                            callback: (value) => {
-                                if (!Number.isFinite(value)) {
-                                    return '0';
-                                }
-                                return metricConfigMap.get('distance')?.tickFormatter(value) ?? value;
-                            },
-                        },
-                        grid: {
-                            color: gridColor,
-                        },
-                        beginAtZero: true,
-                        position: 'left',
-                        title: {
-                            display: true,
-                            text: 'Distance (km)',
-                            color: axisColor,
-                        },
-                    },
-                    yElevation: {
-                        ticks: {
-                            color: axisColor,
-                            font: tickFont,
-                            callback: (value) => {
-                                if (!Number.isFinite(value)) {
-                                    return '0';
-                                }
-                                return metricConfigMap.get('elevation')?.tickFormatter(value) ?? value;
-                            },
-                        },
-                        grid: {
-                            color: gridColor,
-                            drawOnChartArea: false,
-                        },
-                        beginAtZero: true,
-                        position: 'right',
-                        title: {
-                            display: true,
-                            text: 'Elevation (m)',
-                            color: axisColor,
-                        },
-                    },
-                    yMovingTime: {
-                        ticks: {
-                            color: axisColor,
-                            font: tickFont,
-                            callback: (value) => {
-                                if (!Number.isFinite(value)) {
-                                    return '0';
-                                }
-                                return metricConfigMap.get('movingTime')?.tickFormatter(value) ?? value;
-                            },
-                        },
-                        grid: {
-                            color: gridColor,
-                            drawOnChartArea: false,
-                        },
-                        beginAtZero: true,
-                        position: 'right',
-                        offset: true,
-                        title: {
-                            display: true,
-                            text: 'Moving time (hrs)',
-                            color: axisColor,
-                        },
-                    },
-                },
-            },
+            }));
         });
     };
 

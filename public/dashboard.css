@@ -3552,6 +3552,13 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     margin-right: 0.35rem;
 }
 
+.profile-top-achievements__slide-count {
+    display: inline-block;
+    margin-right: 0.35rem;
+    font-weight: 800;
+    color: #0ea5e9;
+}
+
 .profile-top-achievements__slide-title {
     display: block;
     font-weight: 800;
@@ -4311,6 +4318,49 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 .medal-discipline-slider__button:focus-visible {
     outline: 2px solid #f59e0b;
     outline-offset: 2px;
+}
+
+.endurance-discipline-slider {
+    margin: 0;
+    background: rgba(14, 165, 233, 0.06);
+}
+
+.endurance-multiplot {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    width: 100%;
+}
+
+.endurance-multiplot__plot {
+    background: rgba(15, 23, 42, 0.025);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 0.9rem;
+    padding: 0.75rem 0.9rem;
+    min-height: 10rem;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 0.35rem;
+}
+
+.endurance-multiplot__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-text-secondary, #475569);
+    letter-spacing: 0.01em;
+}
+
+.dark .endurance-multiplot__plot {
+    background: rgba(226, 232, 240, 0.03);
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+.dark .endurance-multiplot__title {
+    color: #e2e8f0;
+}
+
+.dark .endurance-discipline-slider {
+    background: rgba(14, 165, 233, 0.18);
 }
 
 .medals-section::-webkit-scrollbar {

@@ -1235,7 +1235,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             hasLoggedMissingMedalsSection = false;
         }
     };
-    let medalDisciplineButtons = Array.from(document.querySelectorAll('[data-medal-discipline]'));
     const segmentContainer = document.querySelector('#segment-completions .grid');
     const segmentSection = document.getElementById('segment-completions');
     if (segmentSection) {
@@ -1272,9 +1271,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
     let enduranceChartInstances = new Map();
-    let enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
-    const DEFAULT_ENDURANCE_DISCIPLINE = 'all';
-    let selectedEnduranceDiscipline = DEFAULT_ENDURANCE_DISCIPLINE;
     let enduranceChartSource = [];
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
@@ -1407,47 +1403,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         enduranceChartSkeletonElement.classList.toggle('hidden', !visible);
-    };
-
-    const syncEnduranceDisciplineButtons = () => {
-        enduranceDisciplineButtons.forEach((button) => {
-            if (!button) {
-                return;
-            }
-
-            const discipline = (button.dataset.enduranceDiscipline || '').toLowerCase();
-            const isActive = discipline === selectedEnduranceDiscipline;
-            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-            button.classList.toggle('is-active', isActive);
-        });
-    };
-
-    const setEnduranceDiscipline = (discipline) => {
-        if (!discipline || typeof discipline !== 'string') {
-            return;
-        }
-
-        const normalized = ['run', 'ride', 'swim', 'all'].includes(discipline.toLowerCase())
-            ? discipline.toLowerCase()
-            : DEFAULT_ENDURANCE_DISCIPLINE;
-        selectedEnduranceDiscipline = normalized;
-        syncEnduranceDisciplineButtons();
-        updateEnduranceChart(enduranceChartSource);
-    };
-
-    const bindEnduranceDisciplineButtons = () => {
-        enduranceDisciplineButtons.forEach((button) => {
-            if (!button || button.dataset.enduranceDisciplineInitialized === 'true') {
-                return;
-            }
-
-            button.dataset.enduranceDisciplineInitialized = 'true';
-            button.addEventListener('click', () => {
-                setEnduranceDiscipline(button.dataset.enduranceDiscipline);
-            });
-        });
-
-        syncEnduranceDisciplineButtons();
     };
 
     const positionWalletOverlay = (position) => {
@@ -1597,7 +1552,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         activitiesContainer = document.getElementById('activities-container');
         activitiesEmptyState = document.getElementById('activities-empty');
         medalsSection = document.getElementById('medals-section');
-        medalDisciplineButtons = Array.from(document.querySelectorAll('[data-medal-discipline]'));
         medalFilterBanner = document.getElementById('medal-filter-banner');
         medalFilterLabel = document.getElementById('medal-filter-label');
         medalFilterDescription = document.getElementById('medal-filter-description');
@@ -1685,7 +1639,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         bindWalletLayerToggles();
         bindWalletExportShare();
         bindCountryStatButton();
-        bindEnduranceDisciplineButtons();
     };
 
     const onPanelReady = (panelName, callback) => {
@@ -1817,7 +1770,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let filterApplyTimeout = null;
     let medalInventory = [];
     let historicalMedalInventory = [];
-    let activeMedalDiscipline = 'all';
     let milestoneCarouselIndex = 0;
     const progressDisciplineTabs = [
         { key: 'Run', emoji: '🏃', label: 'Run progression' },
@@ -6370,56 +6322,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 'multi';
     };
 
-    const matchesMedalDiscipline = (medal = {}, discipline = 'all') => {
-        if (!discipline || discipline === 'all') {
-            return true;
-        }
-
-        const medalDiscipline = (medal.discipline || inferMedalDiscipline(medal) || 'multi').toLowerCase();
-        if (medalDiscipline === 'multi') {
-            return true;
-        }
-
-        return medalDiscipline === discipline.toLowerCase();
-    };
-
-    const getFilteredMedalInventory = () => {
-        const inventory = Array.isArray(medalInventory) ? medalInventory : [];
-        if (!inventory.length) {
-            return [];
-        }
-
-        return inventory.filter(medal => matchesMedalDiscipline(medal, activeMedalDiscipline));
-    };
-
-    const updateMedalDisciplineButtons = () => {
-        medalDisciplineButtons.forEach((button) => {
-            if (!button) {
-                return;
-            }
-
-            const discipline = (button.dataset.medalDiscipline || 'all').toLowerCase();
-            const isActive = discipline === activeMedalDiscipline;
-            button.classList.toggle('is-active', isActive);
-            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        });
-    };
-
-    const setActiveMedalDiscipline = (nextDiscipline = 'all') => {
-        const normalized = ['run', 'ride', 'swim', 'all'].includes(nextDiscipline.toLowerCase())
-            ? nextDiscipline.toLowerCase()
-            : 'all';
-        if (normalized === activeMedalDiscipline) {
-            updateMedalDisciplineButtons();
-            return;
-        }
-
-        activeMedalDiscipline = normalized;
-        visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, getFilteredMedalInventory().length || MEDALS_PAGE_SIZE);
-        updateMedalDisciplineButtons();
-        renderMedalsGrid();
-    };
-
     const renderMedalsGrid = () => {
         refreshAchievementTargets();
         if (!medalsSection) {
@@ -6430,13 +6332,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        updateMedalDisciplineButtons();
         medalsSection.innerHTML = '';
 
-        const filteredInventory = getFilteredMedalInventory();
+        const filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
 
         if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
-            medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals available for this sport focus yet. Switch to “All” to view the full collection.</p>';
+            medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals available yet.</p>';
             if (medalsLoadMoreButton) {
                 medalsLoadMoreButton.classList.add('hidden');
                 medalsLoadMoreButton.disabled = true;
@@ -11527,24 +11428,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 'multi';
     };
 
-    const filterActivitiesByDiscipline = (activities = [], discipline = 'all') => {
-        if (!Array.isArray(activities)) {
-            return [];
-        }
-
-        if (!discipline || discipline === 'all') {
-            return activities;
-        }
-
-        return activities.filter((activity) => {
-            const resolved = resolveActivityDiscipline(activity);
-            if (resolved === 'multi') {
-                return true;
-            }
-            return resolved === discipline;
-        });
-    };
-
     const buildDailyEnduranceSeries = (activities = []) => {
         const buckets = new Map();
 
@@ -11652,13 +11535,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const activitySource = hasCompleteHistory
             ? historicalActivities
             : getEnduranceActivitiesFromTimeline(enduranceChartSource);
-        const filteredActivities = filterActivitiesByDiscipline(activitySource, selectedEnduranceDiscipline);
-        const dailySeries = buildDailyEnduranceSeries(filteredActivities);
+        const dailySeries = buildDailyEnduranceSeries(activitySource);
         const labels = dailySeries.map((entry) => entry.label);
         const hasData = labels.length > 0;
         const isAllTimeRange = walletSelectedTimeframe === WALLET_TIMEFRAME_ALL;
-
-        syncEnduranceDisciplineButtons();
 
         if (!hasCompleteHistory && hasMoreActivities) {
             destroyEnduranceChart();
@@ -17966,7 +17846,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);
         medalInventory = fullMedalInventory.filter(medal => !isHistoricalMedal(medal));
-        activeMedalDiscipline = 'all';
         milestoneCarouselIndex = 0;
 
         medalContributionMap = new Map();
@@ -19585,28 +19464,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
-    const handleMedalDisciplineClick = (event) => {
-        const button = event?.currentTarget;
-        const nextDiscipline = button?.dataset?.medalDiscipline || 'all';
-        setActiveMedalDiscipline(nextDiscipline);
-    };
-
-    const bindMedalDisciplineButtons = () => {
-        if (!Array.isArray(medalDisciplineButtons) || medalDisciplineButtons.length === 0) {
-            return;
-        }
-
-        medalDisciplineButtons.forEach((button) => {
-            if (!button || button.dataset.medalDisciplineBound === 'true') {
-                return;
-            }
-            button.dataset.medalDisciplineBound = 'true';
-            button.addEventListener('click', handleMedalDisciplineClick);
-        });
-
-        updateMedalDisciplineButtons();
-    };
-
     function bindWalletChangeSnapshotTriggers() {
         const elements = Array.from(document.querySelectorAll('[data-wallet-snapshot-key]')).filter(Boolean);
 
@@ -19696,7 +19553,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     onPanelReady('medals', () => {
         refreshPanelReferences();
         bindMedalsLoadMoreButton();
-        bindMedalDisciplineButtons();
         if (Array.isArray(allData.activities)) {
             applyFilters(lastActivitiesRenderOptions);
         }

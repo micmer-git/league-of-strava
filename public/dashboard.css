@@ -5452,9 +5452,9 @@ body.dark .medals-category__description {
 
 .rank-modal__timeline-label {
     position: absolute;
-    top: 50%;
+    top: 60%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -40%);
     padding: 0.5rem 1.1rem;
     border-radius: 14px;
     background: #ffffff;

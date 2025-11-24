@@ -970,6 +970,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const levelProgressElement = document.getElementById('level-progress');
     const levelProgressWeeklyFillElement = document.getElementById('level-progress-weekly-fill');
     const rankInfoButton = document.getElementById('rank-info-button');
+    const leagueClassSummaryElement = document.getElementById('league-class-summary');
+    const leagueClassEmojiElement = document.getElementById('league-class-emoji');
+    const leagueClassNameElement = document.getElementById('league-class-name');
+    const leagueClassDescriptionElement = document.getElementById('league-class-description');
+    const leagueClassReasonsElement = document.getElementById('league-class-reasons');
     let globeStatButton = document.getElementById('globe-stat');
     let everestStatButton = document.getElementById('everest-stat');
     let pizzaStatButton = document.getElementById('pizza-stat');
@@ -1141,6 +1146,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalSummaryElement = document.getElementById('rank-modal-summary');
     const rankModalProgressElement = document.getElementById('rank-modal-progress');
     const rankModalContentElement = document.getElementById('rank-modal-content');
+    const rankModalClassElement = document.getElementById('rank-modal-class');
     const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
@@ -2871,6 +2877,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         previousMonthHours: 0,
         lastWeekHours: 0,
     };
+    let currentLeagueClass = null;
     let viewingRankIndex = 0;
     const RANK_REWARD_PERIODS = [
         { key: 'weekly', label: 'Last 7 days', days: 7 },
@@ -2952,6 +2959,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const RANK_CONFIG = buildRankConfig();
     const TOTAL_RANK_LEVELS = RANK_CONFIG.length;
+
+    const LEAGUE_CLASS_THRESHOLDS = {
+        tier1_duration_hours: 8.0,
+        tier1_streak_days: 30,
+        tier1_suffer_score: 250,
+        tier2_elev_single: 1800,
+        tier2_dist_bike_single: 130.0,
+        tier2_dist_run_single: 28.0,
+        tier2_dist_swim_single: 3000,
+        tier2_kcal_single: 2200,
+        tier3_elev_week: 3500,
+        tier3_dist_bike_week: 250.0,
+        tier3_run_count_week: 5,
+        tier3_avg_kcal_intensity: 700,
+        tier4_activity_count: 12,
+        tier4_night_hour: 21,
+        tier4_morning_hour: 5,
+        tier4_pace_threshold: 4.15,
+    };
+
+    const LEAGUE_CLASS_FUSIONS = new Map([
+        [new Set(['mountain_king', 'distance_run']), {
+            name: 'Il Guardiano delle Alte Vie',
+            description: "Domini sia la distanza che l'altitudine a piedi.",
+        }],
+        [new Set(['bike_lord', 'kcal_tank']), {
+            name: 'Il Juggernaut Corazzato',
+            description: 'Un mostro di potenza in sella: chilometri e calorie distrutti.',
+        }],
+        [new Set(['bike_lord', 'distance_run']), {
+            name: 'Il Ramingo d\'Acciaio',
+            description: 'Maestro delle due strade: inarrestabile a piedi e in sella.',
+        }],
+        [new Set(['water_lord', 'distance_run']), {
+            name: "L'Anfibio Reale",
+            description: 'Nessun confine tra terra e acqua ti può fermare.',
+        }],
+        [new Set(['mountain_king', 'kcal_tank']), {
+            name: 'Il Titano delle Rocce',
+            description: 'Bruci energie come una fornace mentre scalale vette.',
+        }],
+        [new Set(['mountain_king', 'bike_lord']), {
+            name: 'Il Re dei Valichi',
+            description: 'Hai conquistato le vette più alte in sella al tuo destriero.',
+        }],
+    ]);
+
+    const LEAGUE_CLASS_EMOJIS = {
+        tier1: '👑',
+        tier2: '🛡️',
+        tier3: '⚔️',
+        tier4: '🧭',
+        tier5: '🌱',
+    };
 
     const rankTriggerElements = [
         currentRankElement,
@@ -4738,6 +4799,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         return slide;
     };
 
+    const createLeagueClassSlide = (leagueClass, options = {}) => {
+        if (!leagueClass) {
+            return null;
+        }
+
+        const idPrefix = typeof options.idPrefix === 'string' && options.idPrefix.trim()
+            ? options.idPrefix.trim()
+            : 'rank-modal';
+
+        const slide = document.createElement('section');
+        slide.className = 'rank-modal__snapshot rank-modal__snapshot--class';
+        slide.id = `${idPrefix}-class-panel`;
+        slide.setAttribute('role', 'region');
+
+        const header = document.createElement('header');
+        header.className = 'rank-modal__snapshot-header';
+
+        const headerMeta = document.createElement('div');
+        headerMeta.className = 'rank-modal__snapshot-meta';
+
+        const labelElement = document.createElement('p');
+        labelElement.className = 'rank-modal__snapshot-label';
+        labelElement.textContent = 'Classe della Compagnia';
+        const headingId = `${slide.id}-heading`;
+        labelElement.id = headingId;
+        slide.setAttribute('aria-labelledby', headingId);
+
+        const titleElement = document.createElement('h3');
+        titleElement.className = 'rank-modal__snapshot-title';
+        titleElement.textContent = `${leagueClass.emoji ? `${leagueClass.emoji} ` : ''}${leagueClass.name}`;
+
+        headerMeta.append(labelElement, titleElement);
+
+        const crestElement = document.createElement('span');
+        crestElement.className = 'rank-modal__snapshot-crest';
+        crestElement.textContent = leagueClass.emoji || LEAGUE_CLASS_EMOJIS.tier5;
+        crestElement.setAttribute('aria-hidden', 'true');
+
+        header.append(headerMeta, crestElement);
+
+        const body = document.createElement('div');
+        body.className = 'rank-modal__snapshot-body';
+
+        const description = document.createElement('p');
+        description.className = 'rank-modal__snapshot-description';
+        description.textContent = leagueClass.description || '';
+
+        body.appendChild(description);
+
+        if (Array.isArray(leagueClass.reasons) && leagueClass.reasons.length > 0) {
+            const reasonsList = document.createElement('ul');
+            reasonsList.className = 'rank-modal__snapshot-list';
+            leagueClass.reasons.forEach((reason) => {
+                const item = document.createElement('li');
+                item.textContent = reason;
+                reasonsList.appendChild(item);
+            });
+            body.appendChild(reasonsList);
+        }
+
+        slide.append(header, body);
+        return slide;
+    };
+
     const renderHistoricalMedalProgress = (progressElement) => {
         if (!progressElement) {
             return;
@@ -5181,12 +5306,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const renderLeagueClassPanels = (leagueClass) => {
+        if (!rankModalClassElement) {
+            return;
+        }
+
+        rankModalClassElement.innerHTML = '';
+
+        const slide = createLeagueClassSlide(leagueClass, { idPrefix: 'rank-modal' });
+        if (slide) {
+            rankModalClassElement.appendChild(slide);
+            rankModalClassElement.classList.remove('rank-modal__snapshots--empty');
+        } else {
+            rankModalClassElement.classList.add('rank-modal__snapshots--empty');
+        }
+    };
+
     const renderRankModal = () => {
         if (rankModalSummaryElement) {
             rankModalSummaryElement.innerHTML = '';
             rankModalSummaryElement.style.display = 'none';
         }
 
+        renderLeagueClassPanels(currentLeagueClass);
         renderRankRewardModalContent({
             summaryElement: null,
             progressElement: rankModalProgressElement,
@@ -5194,6 +5336,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             timelineElement: rankModalTimelineElement,
             idPrefix: 'rank-modal',
         });
+    };
+
+    const renderLeagueClassSummary = (leagueClass) => {
+        if (!leagueClassSummaryElement) {
+            return;
+        }
+
+        if (!leagueClass) {
+            leagueClassSummaryElement.hidden = true;
+            return;
+        }
+
+        leagueClassSummaryElement.hidden = false;
+        if (leagueClassEmojiElement) {
+            leagueClassEmojiElement.textContent = leagueClass.emoji || LEAGUE_CLASS_EMOJIS.tier5;
+        }
+        if (leagueClassNameElement) {
+            leagueClassNameElement.textContent = leagueClass.name || 'Classe della Compagnia';
+        }
+        if (leagueClassDescriptionElement) {
+            leagueClassDescriptionElement.textContent = leagueClass.description || '';
+        }
+        if (leagueClassReasonsElement) {
+            leagueClassReasonsElement.innerHTML = '';
+            (leagueClass.reasons || []).forEach((reason) => {
+                const item = document.createElement('li');
+                item.textContent = reason;
+                leagueClassReasonsElement.appendChild(item);
+            });
+            leagueClassReasonsElement.hidden = !(leagueClass.reasons || []).length;
+        }
     };
 
     const clearRankSnapshotHighlight = () => {
@@ -13586,6 +13759,164 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
     };
 
+    const normalizeActivityType = (activity) => {
+        const type = (activity?.sport_type || activity?.type || '').trim();
+        if (!type) {
+            return '';
+        }
+
+        if (type.toLowerCase().includes('run')) {
+            return activity?.sport_type || activity?.type || 'Run';
+        }
+
+        if (type.toLowerCase().includes('ride') || type.toLowerCase().includes('bike')) {
+            return 'Ride';
+        }
+
+        if (type.toLowerCase().includes('swim')) {
+            return 'Swim';
+        }
+
+        return activity?.sport_type || activity?.type || type;
+    };
+
+    const calculateLongestActivityStreak = (activities = []) => {
+        const dateKeys = activities
+            .map(getActivityDateKey)
+            .filter(Boolean);
+
+        return calculateConsecutiveStreakLength(dateKeys);
+    };
+
+    const buildLeagueClassStats = (activities = []) => {
+        const stats = {
+            is_league_leader: false,
+            max_single_dist_run: 0,
+            max_single_dist_ride: 0,
+            max_single_dist_swim: 0,
+            max_single_elev: 0,
+            max_single_kcal: 0,
+            max_single_suffer: 0,
+            max_single_duration: 0,
+            total_dist_ride: 0,
+            total_elev: 0,
+            total_kcal: 0,
+            activity_count: activities.length,
+            streak_days: 0,
+            workout_types: [],
+            avg_start_hour: 0,
+            avg_pace_run: 0,
+            active_locations: 0,
+            tier3_run_count_week: 0,
+        };
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return stats;
+        }
+
+        const weekCutoff = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+        const workoutTypes = [];
+        const startHours = [];
+        const runPaces = [];
+        const locationKeys = new Set();
+        let weekActivityCounter = 0;
+
+        activities.forEach((activity) => {
+            const normalizedType = normalizeActivityType(activity);
+            if (normalizedType) {
+                workoutTypes.push(normalizedType);
+            }
+
+            const distanceMeters = Number(activity?.distance || 0);
+            const elevation = Number(activity?.total_elevation_gain || 0);
+            const kcal = calculateActivityCalories(activity);
+            const sufferScore = Number(activity?.suffer_score || 0);
+            const movingHours = Number(activity?.moving_time || 0) / 3600;
+            const startDate = getActivityDate(activity);
+            const isWeekActivity = startDate && startDate >= weekCutoff;
+
+            if (startDate) {
+                startHours.push(startDate.getHours());
+                if (activity?.location_country) {
+                    locationKeys.add(String(activity.location_country));
+                } else if (activity?.location_state) {
+                    locationKeys.add(String(activity.location_state));
+                } else if (activity?.location_city) {
+                    locationKeys.add(String(activity.location_city));
+                }
+            }
+
+            if (movingHours > stats.max_single_duration) {
+                stats.max_single_duration = movingHours;
+            }
+
+            if (sufferScore > stats.max_single_suffer) {
+                stats.max_single_suffer = sufferScore;
+            }
+
+            if (elevation > stats.max_single_elev) {
+                stats.max_single_elev = elevation;
+            }
+
+            if (kcal > stats.max_single_kcal) {
+                stats.max_single_kcal = kcal;
+            }
+
+            if (normalizedType.toLowerCase().includes('run')) {
+                const distanceKm = distanceMeters / 1000;
+                if (distanceKm > stats.max_single_dist_run) {
+                    stats.max_single_dist_run = distanceKm;
+                }
+                if (distanceKm > 0 && movingHours > 0) {
+                    const paceMinPerKm = (movingHours * 60) / distanceKm;
+                    runPaces.push(paceMinPerKm);
+                }
+                if (isWeekActivity) {
+                    stats.tier3_run_count_week += 1;
+                }
+            }
+
+            if (normalizedType.toLowerCase().includes('ride')) {
+                const distanceKm = distanceMeters / 1000;
+                stats.total_dist_ride += distanceKm;
+                if (distanceKm > stats.max_single_dist_ride) {
+                    stats.max_single_dist_ride = distanceKm;
+                }
+            }
+
+            if (normalizedType.toLowerCase().includes('swim')) {
+                if (distanceMeters > stats.max_single_dist_swim) {
+                    stats.max_single_dist_swim = distanceMeters;
+                }
+            }
+
+            stats.total_elev += elevation;
+            stats.total_kcal += kcal;
+
+            if (isWeekActivity) {
+                weekActivityCounter += 1;
+                stats.total_elev_week = (stats.total_elev_week || 0) + elevation;
+                stats.total_dist_ride_week = (stats.total_dist_ride_week || 0) + (normalizedType.toLowerCase().includes('ride')
+                    ? distanceMeters / 1000
+                    : 0);
+                stats.total_kcal_week = (stats.total_kcal_week || 0) + kcal;
+            }
+        });
+
+        stats.workout_types = workoutTypes;
+        stats.avg_start_hour = startHours.length > 0
+            ? startHours.reduce((acc, val) => acc + val, 0) / startHours.length
+            : 0;
+        stats.avg_pace_run = runPaces.length > 0
+            ? runPaces.reduce((acc, val) => acc + val, 0) / runPaces.length
+            : 0;
+        stats.active_locations = locationKeys.size;
+        stats.streak_days = calculateLongestActivityStreak(activities);
+        stats.week_activity_count = weekActivityCounter;
+
+        return stats;
+    };
+
     const calculateRecentMonthlyHours = (activities = [], referenceDate = new Date()) => {
         if (!Array.isArray(activities) || activities.length === 0) {
             return { currentMonth: 0, previousMonth: 0 };
@@ -13642,6 +13973,284 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         return total;
+    };
+
+    const resolveLeagueClass = (stats = {}) => {
+        const reasons = [];
+
+        if (stats.is_league_leader) {
+            return {
+                name: 'Il Re Ritornato',
+                description: 'Hai ottenuto il punteggio globale più alto della Lega.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Leader assoluto della Lega.'],
+                tier: 'tier1',
+            };
+        }
+
+        if (stats.max_single_duration > LEAGUE_CLASS_THRESHOLDS.tier1_duration_hours) {
+            return {
+                name: "L'Immortale",
+                description: `Hai completato un'attività epica > ${LEAGUE_CLASS_THRESHOLDS.tier1_duration_hours} ore.`,
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Sessione ultra estesa.'],
+                tier: 'tier1',
+            };
+        }
+
+        if (stats.streak_days >= LEAGUE_CLASS_THRESHOLDS.tier1_streak_days) {
+            return {
+                name: 'Il Viaggiatore Scalzo',
+                description: `Sei attivo da ${LEAGUE_CLASS_THRESHOLDS.tier1_streak_days} giorni consecutivi.`,
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Streak epica mantenuta.'],
+                tier: 'tier1',
+            };
+        }
+
+        if (stats.max_single_suffer > LEAGUE_CLASS_THRESHOLDS.tier1_suffer_score) {
+            return {
+                name: 'Il Portatore del Fardello',
+                description: 'Hai sopportato una sofferenza cardiaca estremamente alta.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Sforzo cardiaco oltre soglia.'],
+                tier: 'tier1',
+            };
+        }
+
+        const tier2Matches = [];
+
+        if (stats.max_single_elev > LEAGUE_CLASS_THRESHOLDS.tier2_elev_single) {
+            tier2Matches.push({ id: 'mountain_king', name: 'Il Guardiano della Montagna', reason: `D+ > ${LEAGUE_CLASS_THRESHOLDS.tier2_elev_single}m` });
+        }
+        if (stats.max_single_dist_ride > LEAGUE_CLASS_THRESHOLDS.tier2_dist_bike_single) {
+            tier2Matches.push({ id: 'bike_lord', name: 'Il Cavaliere del Marchio', reason: `Bici > ${LEAGUE_CLASS_THRESHOLDS.tier2_dist_bike_single}km` });
+        }
+        if (stats.max_single_dist_run > LEAGUE_CLASS_THRESHOLDS.tier2_dist_run_single) {
+            tier2Matches.push({ id: 'distance_run', name: 'Il Ramingo del Nord', reason: `Corsa > ${LEAGUE_CLASS_THRESHOLDS.tier2_dist_run_single}km` });
+        }
+        if (stats.max_single_kcal > LEAGUE_CLASS_THRESHOLDS.tier2_kcal_single) {
+            tier2Matches.push({ id: 'kcal_tank', name: 'Il Berserker della Fossa', reason: `Kcal > ${LEAGUE_CLASS_THRESHOLDS.tier2_kcal_single}` });
+        }
+        if (stats.max_single_dist_swim > LEAGUE_CLASS_THRESHOLDS.tier2_dist_swim_single
+            && (stats.workout_types || []).some(type => type.toLowerCase().includes('swim'))) {
+            tier2Matches.push({ id: 'water_lord', name: 'Il Navigatore dei Porti', reason: 'Nuoto elite' });
+        }
+
+        if (tier2Matches.length === 1) {
+            const match = tier2Matches[0];
+            return {
+                name: match.name,
+                description: match.reason,
+                emoji: LEAGUE_CLASS_EMOJIS.tier2,
+                reasons: [match.reason],
+                tier: 'tier2',
+            };
+        }
+
+        if (tier2Matches.length > 1) {
+            const ids = new Set(tier2Matches.slice(0, 2).map(match => match.id));
+            const fusionEntry = Array.from(LEAGUE_CLASS_FUSIONS.entries())
+                .find(([key]) => key.size === ids.size && Array.from(key).every(value => ids.has(value)));
+
+            if (fusionEntry) {
+                const fusion = fusionEntry[1];
+                return {
+                    name: fusion.name,
+                    description: fusion.description,
+                    emoji: LEAGUE_CLASS_EMOJIS.tier2,
+                    reasons: tier2Matches.map(match => match.reason),
+                    tier: 'tier2',
+                };
+            }
+
+            const n1 = tier2Matches[0].name.replace(/^Il\s+/i, '').replace(/^Lo\s+/i, '');
+            const n2 = tier2Matches[1].name.replace(/^Il\s+/i, '').replace(/^Lo\s+/i, '');
+            return {
+                name: `Il Signore ${n1} e ${n2}`,
+                description: 'Una doppia specializzazione rara.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier2,
+                reasons: tier2Matches.map(match => match.reason),
+                tier: 'tier2',
+            };
+        }
+
+        const tier3Matches = [];
+        const weekElev = stats.total_elev_week ?? stats.total_elev;
+        const weekRideDist = stats.total_dist_ride_week ?? stats.total_dist_ride;
+        const weekActivityCount = (stats.week_activity_count ?? stats.activity_count) || 0;
+        const weekKcalAvg = weekActivityCount > 0
+            ? (stats.total_kcal_week ?? stats.total_kcal) / weekActivityCount
+            : 0;
+
+        if (weekElev > LEAGUE_CLASS_THRESHOLDS.tier3_elev_week) {
+            tier3Matches.push('Scavatore di Abissi');
+        }
+        if (weekRideDist > LEAGUE_CLASS_THRESHOLDS.tier3_dist_bike_week) {
+            tier3Matches.push('Scudiero delle Praterie');
+        }
+        if (stats.tier3_run_count_week >= LEAGUE_CLASS_THRESHOLDS.tier3_run_count_week) {
+            tier3Matches.push('Inseguitore Instancabile');
+        }
+        if (weekKcalAvg > LEAGUE_CLASS_THRESHOLDS.tier3_avg_kcal_intensity) {
+            tier3Matches.push('Devastatore');
+        }
+
+        if ((stats.workout_types || []).some(type => type.toLowerCase() === 'trail run')
+            && weekElev > 1000) {
+            tier3Matches.push('Esploratore delle Selve');
+        }
+
+        if (tier3Matches.length === 1) {
+            const name = tier3Matches[0];
+            return {
+                name: `Lo ${name}`,
+                description: 'Ottimo volume settimanale.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier3,
+                reasons: ['Alti volumi nelle ultime uscite.'],
+                tier: 'tier3',
+            };
+        }
+
+        if (tier3Matches.length > 1) {
+            return {
+                name: `Lo ${tier3Matches[0]} & ${tier3Matches[1]}`,
+                description: 'Hai mantenuto alti volumi in più discipline.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier3,
+                reasons: tier3Matches,
+                tier: 'tier3',
+            };
+        }
+
+        if (stats.activity_count >= LEAGUE_CLASS_THRESHOLDS.tier4_activity_count) {
+            return {
+                name: 'La Sentinella dei Confini',
+                description: 'Alta frequenza di attività recente.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Attività frequenti registrate.'],
+                tier: 'tier4',
+            };
+        }
+
+        const isNightOwl = stats.avg_start_hour >= LEAGUE_CLASS_THRESHOLDS.tier4_night_hour
+            || stats.avg_start_hour <= LEAGUE_CLASS_THRESHOLDS.tier4_morning_hour;
+        if (isNightOwl) {
+            return {
+                name: 'Il Cacciatore Notturno',
+                description: 'Ti alleni quando il mondo dorme.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Allenamenti alle ore estreme.'],
+                tier: 'tier4',
+            };
+        }
+
+        if ((stats.workout_types || []).some(type => type.toLowerCase() === 'yoga')) {
+            return {
+                name: 'Il Danzatore della Lama',
+                description: 'Dedizione all’equilibrio e alla flessibilità.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Sessioni di Yoga registrate.'],
+                tier: 'tier4',
+            };
+        }
+
+        if (stats.active_locations >= 3) {
+            return {
+                name: 'Il Grigio Pellegrino',
+                description: 'Hai viaggiato registrando attività in luoghi diversi.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Attività in almeno tre luoghi.'],
+                tier: 'tier4',
+            };
+        }
+
+        if (stats.avg_pace_run > 0 && stats.avg_pace_run < LEAGUE_CLASS_THRESHOLDS.tier4_pace_threshold) {
+            return {
+                name: 'Il Messaggero Reale',
+                description: 'Passo di corsa rapido e costante.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Passo medio sotto soglia.'],
+                tier: 'tier4',
+            };
+        }
+
+        if (!(stats.workout_types || []).length) {
+            return {
+                name: "L'Ospite della Locanda",
+                description: 'Nessuna attività registrata.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: [],
+                tier: 'tier5',
+            };
+        }
+
+        const primary = (() => {
+            const counter = (stats.workout_types || []).reduce((map, type) => {
+                const normalized = (type || '').trim();
+                if (!normalized) { return map; }
+                map.set(normalized, (map.get(normalized) || 0) + 1);
+                return map;
+            }, new Map());
+            const [top] = Array.from(counter.entries()).sort((a, b) => b[1] - a[1]);
+            return top?.[0] || '';
+        })();
+
+        if (primary === 'Ride') {
+            return {
+                name: "Il Guerriero d'Ascia",
+                description: 'Ciclista resistente (Livello Base).',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['La maggior parte delle attività è in bici.'],
+                tier: 'tier5',
+            };
+        }
+
+        if (primary === 'Run') {
+            return {
+                name: "L'Hobbit Giardiniere",
+                description: 'Corridore che si gode il viaggio (Livello Base).',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['La maggior parte delle attività è di corsa.'],
+                tier: 'tier5',
+            };
+        }
+
+        if (['Hike', 'Walk'].includes(primary)) {
+            if (stats.total_elev > 500) {
+                return {
+                    name: 'Il Fabbro delle Cime',
+                    description: 'Camminatore che non teme le salite.',
+                    emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                    reasons: ['Camminate con dislivello marcato.'],
+                    tier: 'tier5',
+                };
+            }
+            return {
+                name: "L'Hobbit Giardiniere",
+                description: 'Ami le lunghe passeggiate nella natura.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['Passeggiate costanti registrate.'],
+                tier: 'tier5',
+            };
+        }
+
+        if (stats.total_kcal > 1000) {
+            return {
+                name: 'Il Signore della Torre Nera',
+                description: 'Buon volume di lavoro generale.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['Calorie totali oltre soglia.'],
+                tier: 'tier5',
+            };
+        }
+
+        return {
+            name: 'Il Cittadino della Contea',
+            description: 'L’inizio del tuo viaggio.',
+            emoji: LEAGUE_CLASS_EMOJIS.tier5,
+            reasons: [],
+            tier: 'tier5',
+        };
     };
 
     let activeRankConfig = null;
@@ -16667,6 +17276,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         latestFunStatsContext = { hasActivities };
         renderFunStats(aggregatedSmallStats, latestFunStatsContext);
 
+        currentLeagueClass = resolveLeagueClass(buildLeagueClassStats(lifetimeActivitiesForStats));
+        renderLeagueClassSummary(currentLeagueClass);
+
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
             const firstName = data.athlete?.firstname || '';
@@ -16720,7 +17332,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Update the ranking progress bar
         if (currentRankElement) {
-            currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
+            const classEmoji = currentLeagueClass?.emoji ? ` ${currentLeagueClass.emoji}` : '';
+            currentRankElement.textContent = `${currentRank.emoji}${classEmoji} ${currentRank.name}`;
         } else {
             console.warn("'current-rank' element not found in the DOM.");
         }

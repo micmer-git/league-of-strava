@@ -1267,7 +1267,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let topAchievementsInterval = null;
     let enduranceChartCanvas = document.getElementById('endurance-ma-chart');
     let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
-    let enduranceChartEmptyState = document.getElementById('endurance-chart-empty');
     let enduranceChartInstance = null;
     let enduranceMetricButtons = Array.from(document.querySelectorAll('[data-endurance-metric]'));
     const DEFAULT_ENDURANCE_METRIC = 'distance';
@@ -1621,7 +1620,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         enduranceChartCanvas = document.getElementById('endurance-ma-chart');
         enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
-        enduranceChartEmptyState = document.getElementById('endurance-chart-empty');
         enduranceMetricButtons = Array.from(document.querySelectorAll('[data-endurance-metric]'));
         setEnduranceChartSkeletonVisible(isShellLoading());
         walletChartCanvas = document.getElementById('wallet-chart');
@@ -11603,9 +11601,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (enduranceChartCanvas) {
                 enduranceChartCanvas.classList.add('hidden');
             }
-            if (enduranceChartEmptyState) {
-                enduranceChartEmptyState.classList.add('hidden');
-            }
             return;
         }
 
@@ -11615,12 +11610,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (enduranceChartCanvas) {
                 enduranceChartCanvas.classList.add('hidden');
             }
-            if (enduranceChartEmptyState) {
-                enduranceChartEmptyState.textContent = hasChartLibrary
-                    ? 'Endurance trendlines are still loading.'
-                    : 'Charts unavailable.';
-                enduranceChartEmptyState.classList.remove('hidden');
-            }
             return;
         }
 
@@ -11629,9 +11618,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             : DEFAULT_ENDURANCE_METRIC;
         const isAllTimeRange = walletSelectedTimeframe === WALLET_TIMEFRAME_ALL;
 
-        if (enduranceChartEmptyState) {
-            enduranceChartEmptyState.classList.add('hidden');
-        }
         setEnduranceChartSkeletonVisible(false);
         enduranceChartCanvas.classList.remove('hidden');
         syncEnduranceMetricButtons();
@@ -11692,10 +11678,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             setEnduranceChartSkeletonVisible(false);
             if (enduranceChartCanvas) {
                 enduranceChartCanvas.classList.add('hidden');
-            }
-            if (enduranceChartEmptyState) {
-                enduranceChartEmptyState.textContent = 'Keep adding activities to unlock 50 & 100 point moving averages.';
-                enduranceChartEmptyState.classList.remove('hidden');
             }
             return;
         }

@@ -370,15 +370,14 @@
     </div>
     <p class="wallet-chart__hint wallet-chart__hint--compact">50 &amp; 100 point moving averages</p>
   </div>
-  <div class="wallet-chart__body">
-    <div aria-hidden="true" class="wallet-chart__skeleton" id="endurance-chart-skeleton">
-      <div class="wallet-chart__skeleton-line"></div>
-      <div class="wallet-chart__skeleton-line wallet-chart__skeleton-line--short"></div>
+    <div class="wallet-chart__body">
+      <div aria-hidden="true" class="wallet-chart__skeleton" id="endurance-chart-skeleton">
+        <div class="wallet-chart__skeleton-line"></div>
+        <div class="wallet-chart__skeleton-line wallet-chart__skeleton-line--short"></div>
+      </div>
+      <canvas class="w-full h-full" id="endurance-ma-chart" role="img" aria-label="Moving average chart for elevation, moving time, and distance"></canvas>
     </div>
-    <p class="wallet-chart__empty" id="endurance-chart-empty">Endurance trendlines are loading.</p>
-    <canvas class="w-full h-full" id="endurance-ma-chart" role="img" aria-label="Moving average chart for elevation, moving time, and distance"></canvas>
   </div>
-</div>
 </div>
 </section>
 </template>

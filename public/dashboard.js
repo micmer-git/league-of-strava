@@ -1576,7 +1576,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(topAchievementsInterval);
             topAchievementsInterval = null;
         }
-        destroyEnduranceChart();
+        if (typeof destroyEnduranceChart === 'function') {
+            destroyEnduranceChart();
+        }
         enduranceChartCanvases = {
             distance: document.getElementById('endurance-ma-chart-distance'),
             elevation: document.getElementById('endurance-ma-chart-elevation'),

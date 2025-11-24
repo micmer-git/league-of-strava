@@ -3183,14 +3183,14 @@
             align-items: center;
             justify-content: center;
             gap: 1.25rem;
-            padding: 3.5rem 0 1.25rem;
+            padding: 3.5rem 0 2.35rem;
             width: 100%;
         }
 
         .rank-modal__timeline-bar {
             position: relative;
             width: 100%;
-            padding: 0.35rem 0;
+            padding: 0.35rem 0 2.5rem;
         }
 
         .rank-modal__timeline-rail {
@@ -3219,9 +3219,9 @@
 
         .rank-modal__timeline-label {
             position: absolute;
-            top: 60%;
+            top: 100%;
             left: 50%;
-            transform: translate(-50%, -40%);
+            transform: translate(-50%, 0);
             padding: 0.5rem 1.1rem;
             border-radius: 14px;
             background: #ffffff;
@@ -3239,6 +3239,8 @@
             align-items: center;
             justify-content: center;
             min-width: 180px;
+            max-width: min(360px, 90%);
+            padding-bottom: 0.6rem;
             transition: left 0.45s ease, transform 0.2s ease;
             z-index: 1;
         }
@@ -3264,6 +3266,11 @@
 
         .rank-modal__timeline-rank {
             font-weight: 600;
+        }
+
+        .rank-modal__timeline-level {
+            font-weight: 600;
+            color: #0f172a;
         }
 
         .rank-modal__timeline-achieved {
@@ -3452,11 +3459,15 @@
     box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35);
 }
 
-.dark .rank-modal__timeline-label {
-    background: #0f172a;
-    color: #e2e8f0;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-}
+        .dark .rank-modal__timeline-label {
+            background: #0f172a;
+            color: #e2e8f0;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+        }
+
+        .dark .rank-modal__timeline-level {
+            color: #e2e8f0;
+        }
 
 .dark .rank-modal__timeline-marker {
     color: #e2e8f0;

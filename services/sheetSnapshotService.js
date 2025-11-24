@@ -71,7 +71,7 @@ async function buildSheetFirstSnapshotResponse({
       ...normalizedPayload,
       rewardDefinitionDigest,
       loadingInfo,
-      cached: true,
+      cached: false,
       stale: false,
       stored: true,
       storedTimestamp: snapshot.timestamp,

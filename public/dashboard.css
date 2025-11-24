@@ -2670,6 +2670,12 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     justify-content: space-between;
 }
 
+.wallet-chart__top-bar--metrics {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
 .wallet-chart__time-chips {
     display: flex;
     align-items: center;
@@ -2678,6 +2684,11 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     overflow-x: auto;
     padding-bottom: 0.35rem;
     scrollbar-width: thin;
+}
+
+.wallet-chart__metric-chips {
+    flex: 1 1 100%;
+    padding-bottom: 0;
 }
 
 .wallet-chart__time-chips::-webkit-scrollbar {
@@ -2891,6 +2902,24 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 .wallet-chart__hint::before {
     content: '👆';
     font-size: 1rem;
+}
+
+.wallet-chart__hint--compact {
+    margin: 0;
+    padding: 0.15rem 0.35rem;
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 999px;
+    font-weight: 600;
+    gap: 0.3rem;
+}
+
+.wallet-chart__hint--compact::before {
+    content: none;
+}
+
+.dark .wallet-chart__hint--compact {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
 }
 
 .wallet-control--sr-only {

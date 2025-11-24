@@ -362,10 +362,13 @@
 </div>
 </div>
 <div class="wallet-chart wallet-chart--secondary" id="endurance-chart">
-  <div class="wallet-chart__secondary-header">
-    <p class="wallet-chart__eyebrow">Endurance trends</p>
-    <h4 class="wallet-chart__subtitle">50 vs 100 day moving averages</h4>
-    <p class="wallet-chart__description">Elevation gain, moving time, and distance momentum.</p>
+  <div class="wallet-chart__top-bar wallet-chart__top-bar--metrics" role="toolbar" aria-label="Endurance metric selector">
+    <div class="wallet-chart__time-chips wallet-chart__metric-chips" role="group" aria-label="Endurance metrics">
+      <button aria-pressed="true" class="wallet-chart__chip" data-endurance-metric="distance" type="button">Distance</button>
+      <button aria-pressed="false" class="wallet-chart__chip" data-endurance-metric="elevation" type="button">Elevation</button>
+      <button aria-pressed="false" class="wallet-chart__chip" data-endurance-metric="movingTime" type="button">Moving time</button>
+    </div>
+    <p class="wallet-chart__hint wallet-chart__hint--compact">50 &amp; 100 point moving averages</p>
   </div>
   <div class="wallet-chart__body">
     <div aria-hidden="true" class="wallet-chart__skeleton" id="endurance-chart-skeleton">

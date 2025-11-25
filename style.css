@@ -205,7 +205,9 @@ button,
   position: sticky;
   top: clamp(1rem, 6vh, 3rem);
   align-self: start;
-  height: max-content;
+  height: calc(100vh - clamp(1rem, 6vh, 3rem));
+  display: grid;
+  grid-template-rows: auto 1fr;
 }
 
 .card {
@@ -783,10 +785,69 @@ button,
 .medals-card {
   gap: 1.75rem;
   min-height: 100vh;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
+}
+
+.medal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.medal-rarity-toggle {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.rarity-toggle__button {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.45);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
+}
+
+.rarity-toggle__button.is-active {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(14, 165, 233, 0.06));
+  box-shadow: 0 10px 30px rgba(56, 189, 248, 0.12);
+}
+
+.rarity-toggle__button:hover,
+.rarity-toggle__button:focus-visible {
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+  outline: none;
+}
+
+.rarity-toggle__icon {
+  font-size: 1rem;
+}
+
+.rarity-toggle__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.rarity-toggle__count {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .medal-categories {
@@ -891,6 +952,14 @@ button,
   color: var(--color-muted);
   line-height: 1.45;
   margin-top: 0.15rem;
+}
+
+.medal__rarity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.9);
 }
 
 .medal--achieved {
@@ -1380,6 +1449,8 @@ button,
 
   .secondary-column {
     position: static;
+    height: auto;
+    grid-template-rows: none;
   }
 
   .mobile-bottom-nav {
@@ -1401,6 +1472,14 @@ button,
 
   .medal-list {
     grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .medal-rarity-toggle {
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  }
+
+  .rarity-toggle__button {
+    padding: 0.55rem 0.65rem;
   }
 
   .primary-column,

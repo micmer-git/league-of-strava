@@ -856,6 +856,7 @@ button,
   gap: 0.85rem;
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   overflow-y: auto;
   padding-right: 0.25rem;
   padding-bottom: 0.5rem;
@@ -871,6 +872,12 @@ button,
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
 }
 
 .medal-category__title {
@@ -893,6 +900,20 @@ button,
   color: var(--color-muted);
   font-size: 0.95rem;
   line-height: 1.4;
+}
+
+.medal-category__chevron {
+  margin-left: auto;
+  transition: transform var(--transition-fast);
+}
+
+.medal-category--expanded .medal-category__chevron {
+  transform: rotate(90deg);
+}
+
+.medal-category__body {
+  overflow: hidden;
+  transition: height 0.35s ease;
 }
 
 

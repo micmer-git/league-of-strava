@@ -36,14 +36,166 @@
 
     <main class="landing-shell">
         <section class="landing-hero">
-            <h2>Welcome to League of Strava</h2>
-            <p>Plug in your Strava profile and watch every medal, coin and lifetime stat settle into a tactile neuromorphic hub.</p>
-            <p>Our refreshed interface keeps the familiar building blocks—weekly stats, medals and wallet—while giving them clearer hierarchy and quicker access on any device.</p>
-            <ul>
-                <li>See lifetime medals, rank progress and coins with instant context.</li>
-                <li>Navigate wallet insights, activities and medals with mobile-optimised tabs.</li>
-                <li>Stay focused with soft-depth surfaces, legible Rubik typography and an orange accent glow.</li>
-            </ul>
+            <div class="landing-hero__grid">
+                <div class="landing-hero__copy">
+                    <p class="eyebrow">Season intelligence for your Strava story</p>
+                    <h1>Turn every activity into a cinematic, gamified dashboard.</h1>
+                    <p class="lead">League of Strava reshapes your feed into a compact, mobile-first control room with ranks, medals, and wallet insights that glow with clarity.</p>
+                    <div class="landing-hero__actions">
+                        <a href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh" class="strava-connect-btn">
+                            <i class="fab fa-strava" aria-hidden="true"></i>
+                            <span>Connect with Strava</span>
+                        </a>
+                        <a class="ghost-btn" href="/dashboard">Preview dashboard</a>
+                    </div>
+                    <div class="landing-hero__tags" role="list">
+                        <span role="listitem">Ranks + medals</span>
+                        <span role="listitem">Weekly pacing</span>
+                        <span role="listitem">Wallet & coins</span>
+                        <span role="listitem">Season timelines</span>
+                    </div>
+                </div>
+                <div class="landing-hero__panel" aria-hidden="true">
+                    <div class="preview-card">
+                        <header>
+                            <p class="preview-label">Live snapshot</p>
+                            <p class="preview-pill">Updated hourly</p>
+                        </header>
+                        <div class="preview-metrics">
+                            <div>
+                                <p class="preview-figure">18.4h</p>
+                                <p class="preview-meta">Weekly load</p>
+                            </div>
+                            <div>
+                                <p class="preview-figure">+12%</p>
+                                <p class="preview-meta">Vs last week</p>
+                            </div>
+                            <div>
+                                <p class="preview-figure">82</p>
+                                <p class="preview-meta">Medals earned</p>
+                            </div>
+                        </div>
+                        <div class="preview-bars">
+                            <div class="preview-bar">
+                                <span>Rank progression</span>
+                                <div class="preview-bar__track"><span style="width: 68%"></span></div>
+                            </div>
+                            <div class="preview-bar">
+                                <span>Consistency streak</span>
+                                <div class="preview-bar__track"><span style="width: 92%"></span></div>
+                            </div>
+                        </div>
+                        <p class="preview-footnote">Slide through highlights to explore what else you can surface.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="landing-outcomes">
+            <div class="section-heading">
+                <h2>See more, tap less.</h2>
+                <p>Compact cards, cinematic gradients, and tactile buttons keep you focused on the next activity rather than fighting your data.</p>
+            </div>
+            <div class="outcome-grid">
+                <article class="outcome-card">
+                    <div class="outcome-icon" aria-hidden="true">🎯</div>
+                    <div>
+                        <h3>Guided weekly targets</h3>
+                        <p>Understand hours, distance, elevation and calories at a glance with a weekly stack that resizes fluidly.</p>
+                    </div>
+                </article>
+                <article class="outcome-card">
+                    <div class="outcome-icon" aria-hidden="true">🏅</div>
+                    <div>
+                        <h3>Ranks, medals & coins</h3>
+                        <p>Track your ladder position, unlocks, and wallet totals with warm glows and frictionless drill-downs.</p>
+                    </div>
+                </article>
+                <article class="outcome-card">
+                    <div class="outcome-icon" aria-hidden="true">🗺️</div>
+                    <div>
+                        <h3>Season timelines</h3>
+                        <p>Hover or tap to browse your cinematic yearly arc, complete with hours, distance, and elevation bars.</p>
+                    </div>
+                </article>
+                <article class="outcome-card">
+                    <div class="outcome-icon" aria-hidden="true">🤝</div>
+                    <div>
+                        <h3>Friendly competition</h3>
+                        <p>Jump into the leaderboard to compare streaks with your crew and celebrate top-performing seasons.</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="landing-carousel" aria-label="Feature slideshow">
+            <div class="carousel-top">
+                <div>
+                    <p class="eyebrow">Feature spotlight</p>
+                    <h2>Explore the dashboard before you connect.</h2>
+                    <p class="lead">Swipe or tap to preview the modules built for training diaries, collectors, and completionists.</p>
+                </div>
+                <div class="carousel-controls">
+                    <button class="carousel-nav" id="carousel-prev" type="button" aria-label="Previous slide">‹</button>
+                    <button class="carousel-nav" id="carousel-next" type="button" aria-label="Next slide">›</button>
+                </div>
+            </div>
+            <div class="carousel-window">
+                <div class="carousel-track">
+                    <article class="carousel-slide is-active" data-index="0">
+                        <h3>Adaptive training rank</h3>
+                        <p>Watch your class crest animate as you log more hours. The progress bar blends your latest push with the road to your next milestone.</p>
+                        <ul>
+                            <li>See current and upcoming ranks side by side.</li>
+                            <li>Hover to reveal the full ladder for planning.</li>
+                            <li>Soft gradients keep focus on the progress fill.</li>
+                        </ul>
+                    </article>
+                    <article class="carousel-slide" data-index="1">
+                        <h3>Weekly pulseboard</h3>
+                        <p>Stacked cards condense hours, distance, elevation, and calories with typography tuned for legibility on phones.</p>
+                        <ul>
+                            <li>Compact stats snap into a responsive grid.</li>
+                            <li>Microcopy clarifies how each metric updates.</li>
+                            <li>Edge shadows help separate cards when scrolling.</li>
+                        </ul>
+                    </article>
+                    <article class="carousel-slide" data-index="2">
+                        <h3>Timeline time travel</h3>
+                        <p>Jump between years to inspect seasonal arcs—bars animate to highlight where you climbed most and how your distance stacks up.</p>
+                        <ul>
+                            <li>Tap a year to recenter charts instantly.</li>
+                            <li>Hoverable bars reveal exact totals.</li>
+                            <li>A hero headline summarizes each season.</li>
+                        </ul>
+                    </article>
+                    <article class="carousel-slide" data-index="3">
+                        <h3>Wallet with purpose</h3>
+                        <p>Coins, medals, and achievements stay together in a glowing wallet panel that celebrates new unlocks.</p>
+                        <ul>
+                            <li>Quick filters to jump from medals to coins.</li>
+                            <li>Pill tabs keep navigation tight and tappable.</li>
+                            <li>Color accents spotlight the newest win.</li>
+                        </ul>
+                    </article>
+                    <article class="carousel-slide" data-index="4">
+                        <h3>Leaderboards for the fellowship</h3>
+                        <p>Compare streaks with teammates, celebrate podiums, and share highlights—everything stays responsive from desktop to trailhead.</p>
+                        <ul>
+                            <li>Precision columns with subtle separators.</li>
+                            <li>Row glow for the top performers.</li>
+                            <li>Compact layout keeps names untruncated.</li>
+                        </ul>
+                    </article>
+                </div>
+            </div>
+            <div class="carousel-dots" role="tablist" aria-label="Feature slides">
+                <button class="carousel-dot is-active" data-target="0" role="tab" aria-label="Adaptive training rank" aria-selected="true"></button>
+                <button class="carousel-dot" data-target="1" role="tab" aria-label="Weekly pulseboard" aria-selected="false"></button>
+                <button class="carousel-dot" data-target="2" role="tab" aria-label="Timeline time travel" aria-selected="false"></button>
+                <button class="carousel-dot" data-target="3" role="tab" aria-label="Wallet with purpose" aria-selected="false"></button>
+                <button class="carousel-dot" data-target="4" role="tab" aria-label="Leaderboards for the fellowship" aria-selected="false"></button>
+            </div>
         </section>
 
         <section class="landing-grid">
@@ -56,9 +208,13 @@
                 </a>
             </article>
             <article class="landing-card">
-                <h3>What you get</h3>
-                <p>Responsive charts, best-activity highlights, medal filters and wallet insights styled for clarity from desktop to phone.</p>
+                <h3>Compact, guided layout</h3>
+                <p>All essentials surface above the fold—hero stats, recent streaks, timeline, wallet, and leaderboard—so you can explore without hunting for tabs.</p>
                 <p>Neuromorphic cards keep attention on the numbers you chase while gentle orange glows guide key actions.</p>
+            </article>
+            <article class="landing-card">
+                <h3>Built for motion</h3>
+                <p>Animations stay subtle: cards lift on hover, gradients sweep progress bars, and carousel slides glide for instant context.</p>
             </article>
         </section>
     </main>
@@ -68,5 +224,7 @@
             <img src="static/powered-by-strava.png" alt="Powered by Strava" class="powered-by-strava-logo" loading="lazy" decoding="async">
         </a>
     </footer>
+
+    <script src="/landing.js" defer></script>
 </body>
 </html>

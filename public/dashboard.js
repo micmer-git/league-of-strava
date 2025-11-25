@@ -7139,6 +7139,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
+            const dataset = walletChartInstance.data?.datasets?.[primary.datasetIndex];
+            const periodMeta = Array.isArray(dataset?.periodMeta)
+                ? dataset.periodMeta[primary.index]
+                : null;
+            if (dataset?.isTopActivityHighlight && periodMeta?.hasTopActivity) {
+                applyWalletPeriodFilterToActivities(periodMeta);
+                return;
+            }
+
             const position = getRelativeEventPosition(event);
             walletChartClickSelection = { datasetIndex: primary.datasetIndex, index: primary.index, position };
             updateWalletChartActiveElements(elements, position);
@@ -7577,6 +7586,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const walletRankUnlockPlugin = {
+        id: 'walletRankUnlock',
+        afterDatasetsDraw(chart) {
+            const options = chart?.options?.plugins?.walletRankUnlock;
+            if (!options || !options.enabled) {
+                return;
+            }
+
+            const ctx = chart.ctx;
+            const font = options.font || {};
+            const fontWeight = font.weight || '700';
+            const fontSize = font.size || 14;
+            const fontFamily = font.family || 'sans-serif';
+            const offset = options.offset ?? 14;
+
+            ctx.save();
+            ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            chart.data.datasets.forEach((dataset, datasetIndex) => {
+                if (!dataset || dataset.type !== 'line') {
+                    return;
+                }
+                const meta = chart.getDatasetMeta(datasetIndex);
+                if (!meta || meta.hidden) {
+                    return;
+                }
+                const elements = meta.data || [];
+                elements.forEach((element, index) => {
+                    const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta[index] : null;
+                    const unlocks = Array.isArray(periodMeta?.rankUnlocks) ? periodMeta.rankUnlocks : [];
+                    const latestUnlock = unlocks[unlocks.length - 1];
+                    const emoji = latestUnlock?.rank?.emoji;
+                    if (!emoji) {
+                        return;
+                    }
+                    const position = typeof element.tooltipPosition === 'function'
+                        ? element.tooltipPosition()
+                        : element;
+                    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) {
+                        return;
+                    }
+
+                    ctx.fillText(emoji, position.x, position.y - offset);
+                });
+            });
+
+            ctx.restore();
+        }
+    };
+
     const renderWalletChart = () => {
         if (!walletChartCanvas) {
             return;
@@ -7740,7 +7801,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }] : []),
             ];
 
-        const chartPlugins = [walletBarOverlayPlugin];
+        const highlightValues = !useComparison
+            && showLineSeries
+            && Array.isArray(dataset.values)
+            && Array.isArray(periodMeta)
+            ? dataset.values.map((value, index) => (
+                periodMeta[index]?.hasTopActivity && periodMeta[index]?.bucketType === 'quarter'
+                    ? value
+                    : null
+            ))
+            : [];
+        const hasHighlights = highlightValues.some(value => Number.isFinite(value));
+        if (hasHighlights) {
+            chartDatasets.push({
+                type: 'line',
+                label: 'Featured activity',
+                data: highlightValues,
+                borderColor: 'transparent',
+                backgroundColor: 'transparent',
+                pointBackgroundColor: '#ef4444',
+                pointBorderColor: '#b91c1c',
+                pointRadius: 8,
+                pointHoverRadius: 11,
+                showLine: false,
+                pointStyle: 'circle',
+                yAxisID: 'y',
+                overlayRole: 'cumulative',
+                periodMeta,
+                isTopActivityHighlight: true,
+            });
+        }
+
+        const chartPlugins = [walletBarOverlayPlugin, walletRankUnlockPlugin];
         const lineValueCount = Array.isArray(dataset.values) ? dataset.values.length : 0;
         const shouldDecimate = lineValueCount > 100;
         const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -7850,6 +7942,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         paddingY: 6,
                         offset: 16,
                         minLabelSpacing: 72,
+                    },
+                    walletRankUnlock: {
+                        enabled: true,
+                        font: { family: fontFamily, size: 16, weight: '700' },
+                        offset: 18,
                     },
                     walletBarOverlay: {
                         enabled: chartHasBars,
@@ -8243,6 +8340,84 @@ document.addEventListener('DOMContentLoaded', async () => {
             return 'month';
         }
         return 'quarter';
+    };
+
+    const getWalletBucketDateRange = (bucket = {}, bucketType = 'quarter') => {
+        const start = bucket.rangeStart
+            || bucket.weekStart
+            || (Number.isInteger(bucket.monthIndex) && Number.isInteger(bucket.year)
+                ? new Date(bucket.year, bucket.monthIndex, 1)
+                : null);
+        if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+            return { start: null, end: null };
+        }
+
+        const end = bucket.rangeEnd
+            || (() => {
+                if (bucketType === 'week') {
+                    const weekEnd = new Date(start.getTime());
+                    weekEnd.setDate(weekEnd.getDate() + 6);
+                    return weekEnd;
+                }
+                if (bucketType === 'two-week') {
+                    const periodEnd = new Date(start.getTime());
+                    periodEnd.setDate(periodEnd.getDate() + 13);
+                    return periodEnd;
+                }
+                if (bucketType === 'two-month') {
+                    const periodEnd = new Date(start.getTime());
+                    periodEnd.setMonth(periodEnd.getMonth() + 2);
+                    periodEnd.setDate(0);
+                    return periodEnd;
+                }
+                if (bucketType === 'month') {
+                    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+                    return monthEnd;
+                }
+                const quarterEnd = new Date(start.getFullYear(), start.getMonth() + 3, 0);
+                return quarterEnd;
+            })();
+
+        return { start, end };
+    };
+
+    const buildRankUnlockMoments = (activities = [], rankConfig = []) => {
+        if (!Array.isArray(activities) || activities.length === 0 || !Array.isArray(rankConfig)) {
+            return [];
+        }
+
+        const sortedActivities = [...activities]
+            .filter(activity => activity && (activity.start_date || activity.start_date_local))
+            .sort((a, b) => new Date(a.start_date || a.start_date_local) - new Date(b.start_date || b.start_date_local));
+
+        if (sortedActivities.length === 0) {
+            return [];
+        }
+
+        const unlocks = [];
+        let cumulativeHours = 0;
+        let nextRankIndex = 0;
+        const ranks = [...rankConfig].sort((a, b) => (a.minHours || 0) - (b.minHours || 0));
+
+        sortedActivities.forEach((activity) => {
+            const activityDate = new Date(activity.start_date || activity.start_date_local);
+            if (Number.isNaN(activityDate.getTime())) {
+                return;
+            }
+
+            const movingSeconds = Number(activity.moving_time) || 0;
+            cumulativeHours += movingSeconds / 3600;
+
+            while (nextRankIndex < ranks.length && cumulativeHours >= (ranks[nextRankIndex]?.minHours ?? Infinity)) {
+                unlocks.push({
+                    date: activityDate,
+                    rank: ranks[nextRankIndex],
+                });
+                nextRankIndex += 1;
+            }
+        });
+
+        return unlocks;
     };
 
 
@@ -9044,6 +9219,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         navigateToActivitiesPanel();
     };
 
+    const applyWalletPeriodFilterToActivities = (periodMeta = {}) => {
+        if (!periodMeta) {
+            return;
+        }
+
+        const bucketType = periodMeta.bucketType || getWalletBucketTypeForTimeframe(walletSelectedTimeframe);
+        const { start, end } = getWalletBucketDateRange(periodMeta, bucketType);
+
+        if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+            return;
+        }
+
+        const rangeEnd = end instanceof Date && !Number.isNaN(end.getTime()) ? end : start;
+
+        currentActivityFilters.startDate = normalizeFilterDate(start);
+        currentActivityFilters.endDate = normalizeFilterDate(rangeEnd, { endOfDay: true });
+        currentActivityFilters.sortBy = 'balance-desc';
+        currentActivityFilters.topShortcut = false;
+
+        if (activitySortSelect) {
+            setSelectValue(activitySortSelect, 'balance-desc');
+        }
+        if (yearSelect && periodMeta.year) {
+            yearSelect.value = String(periodMeta.year);
+        }
+
+        clearFilterShortcutSelection();
+        clearQuickFilterSelection();
+        requestActivitiesRender({ preserveVisibleCount: false });
+        navigateToActivitiesPanel();
+    };
+
     const handleHeatmapCellHover = (cell) => {
         if (!cell) {
             return;
@@ -9179,7 +9386,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    const buildWalletChartSeries = (metrics = [], { timeframe = WALLET_TIMEFRAME_ALL, yearColorAssignments = new Map() } = {}) => {
+    const buildWalletChartSeries = (
+        metrics = [],
+        {
+            timeframe = WALLET_TIMEFRAME_ALL,
+            yearColorAssignments = new Map(),
+            topActivityIds = new Set(),
+            rankUnlocks = [],
+        } = {},
+    ) => {
         if (!Array.isArray(metrics) || metrics.length === 0) {
             return {
                 labels: [],
@@ -9202,8 +9417,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             const value = Number(metric.coinValue) + Number(metric.medalValue);
             const numericValue = Number.isFinite(value) ? value : 0;
-            const existing = bucketTotals.get(bucket.key) || { ...bucket, total: 0 };
+            const existing = bucketTotals.get(bucket.key) || {
+                ...bucket,
+                total: 0,
+                activities: [],
+                topActivities: [],
+            };
             existing.total += numericValue;
+
+            const activityId = metric.activityId
+                || metric.balanceActivity?.id
+                || metric.balanceActivity?.external_id
+                || null;
+            const snapshot = buildHeatmapActivitySnapshot(metric);
+            if (snapshot) {
+                existing.activities.push(snapshot);
+                const isFeaturedActivity = topActivityIds instanceof Set
+                    && topActivityIds.size > 0
+                    && activityId
+                    && topActivityIds.has(String(activityId));
+                if (isFeaturedActivity) {
+                    existing.topActivities.push(snapshot);
+                }
+            }
             bucketTotals.set(bucket.key, existing);
         });
 
@@ -9293,6 +9529,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 month: Number.isInteger(bucket.monthIndex) ? bucket.monthIndex + 1 : null,
                 quarter: bucket.quarter,
                 weekStart: bucket.weekStart,
+                bucketType,
                 colors,
                 value: bucket.total,
                 cumulative: runningTotal,
@@ -9304,6 +9541,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 periodChangeValue: Number.isFinite(previousPeriodValue) ? bucket.total - previousPeriodValue : null,
                 periodChangePercent: Number.isFinite(previousPeriodValue) ? calculatePercentChange(bucket.total, previousPeriodValue) : null,
             };
+
+            const { start: periodStart, end: periodEnd } = getWalletBucketDateRange(bucket, bucketType);
+            meta.dateRangeStart = periodStart;
+            meta.dateRangeEnd = periodEnd;
+            const bucketActivities = Array.isArray(bucket.activities) ? [...bucket.activities] : [];
+            bucketActivities.sort((a, b) => (Number(b?.totalValue) || 0) - (Number(a?.totalValue) || 0));
+            const featuredActivities = bucket.topActivities && bucket.topActivities.length > 0
+                ? bucket.topActivities
+                : bucketActivities.slice(0, 1);
+            meta.topActivities = featuredActivities;
+            meta.hasTopActivity = featuredActivities.length > 0;
+
+            const unlocksForBucket = Array.isArray(rankUnlocks)
+                ? rankUnlocks.filter((unlock) => (
+                    unlock?.date instanceof Date
+                    && !Number.isNaN(unlock.date.getTime())
+                    && periodStart instanceof Date
+                    && periodEnd instanceof Date
+                    && unlock.date >= periodStart
+                    && unlock.date <= periodEnd
+                ))
+                : [];
+            meta.rankUnlocks = unlocksForBucket;
 
             const priorYearKey = getPriorYearKey(bucket);
             if (priorYearKey && bucketTotals.has(priorYearKey)) {
@@ -9652,9 +9912,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             quarterChangeValue,
             yearChangeValue
         };
+        const topActivityIds = topPerformanceActivityHighlights instanceof Map
+            ? new Set(Array.from(topPerformanceActivityHighlights.keys()).map(key => key.toString()))
+            : new Set();
+        const rankUnlocks = buildRankUnlockMoments(lifetimeActivities, activeRankConfig);
+
         const chartSeries = buildWalletChartSeries(metricsForAggregation, {
             timeframe: walletSelectedTimeframe,
             yearColorAssignments,
+            topActivityIds,
+            rankUnlocks,
         });
 
         walletChartData.balance = {
@@ -11730,7 +11997,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const visibleStart = Math.min(...firstValidIndices);
+        let visibleStart = Math.min(...firstValidIndices);
+        if (!isAllTimeRange && dailySeries.length > 0) {
+            const latestDate = dailySeries[dailySeries.length - 1]?.date;
+            if (latestDate instanceof Date && !Number.isNaN(latestDate.getTime())) {
+                const cutoff = new Date(latestDate);
+                if (walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH) {
+                    cutoff.setMonth(cutoff.getMonth() - 3);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_6_MONTH) {
+                    cutoff.setMonth(cutoff.getMonth() - 6);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_LAST_12_MONTHS) {
+                    cutoff.setMonth(cutoff.getMonth() - 12);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_2_YEAR) {
+                    cutoff.setMonth(cutoff.getMonth() - 24);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_WEEK) {
+                    cutoff.setDate(cutoff.getDate() - 7);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_DAY) {
+                    cutoff.setDate(cutoff.getDate() - 1);
+                }
+
+                const timeframeStartIndex = dailySeries.findIndex((entry) => entry?.date >= cutoff);
+                if (timeframeStartIndex >= 0) {
+                    visibleStart = Math.max(visibleStart, timeframeStartIndex);
+                }
+            }
+        }
         const visibleLabels = labels.slice(visibleStart);
         const visibleRawValues = Object.fromEntries(metricConfig
             .map((config) => [config.key, metricValues[config.key].slice(visibleStart)]));

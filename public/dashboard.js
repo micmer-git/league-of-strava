@@ -4170,6 +4170,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const ratio = hasTargetHours && targetHours !== 0
                 ? Math.max(0, Math.min(1, safeTotalHours / targetHours))
                 : 0;
+            const isCurrentRank = Boolean(selectedRank
+                && currentRank
+                && selectedRank.name === currentRank.name
+                && selectedRank.emoji === currentRank.emoji
+                && selectedRank.minHours === currentRank.minHours);
+            const nextRank = rankProgressState.nextRank;
+            const nextTargetHours = Number(nextRank?.minHours);
             let primaryLabel = `${formatHoursDisplay(safeTotalHours)} h logged`;
 
             const totalLevels = Math.max(1, TOTAL_RANK_LEVELS || config.length || 0);
@@ -4186,12 +4193,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
             const levelLabel = `${levelNumber}/${totalLevels}`;
 
-            if (hasTargetHours) {
-                if (selectedRank === currentRank) {
-                    primaryLabel = `${formatHoursDisplay(targetHours)} h logged`;
-                } else {
-                    primaryLabel = `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
-                }
+            if (isCurrentRank && Number.isFinite(nextTargetHours)) {
+                const hoursRemaining = Math.max(0, nextTargetHours - safeTotalHours);
+                primaryLabel = hoursRemaining <= 0.05
+                    ? `Ready for ${nextRank.name}`
+                    : `${formatHoursDisplay(hoursRemaining)} h to ${nextRank.name}`;
+            } else if (hasTargetHours) {
+                primaryLabel = selectedRank === currentRank
+                    ? `${formatHoursDisplay(targetHours)} h logged`
+                    : `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
             }
 
             const achieved = hasTargetHours && safeTotalHours >= targetHours;
@@ -4251,7 +4261,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             [-2, -1, 0, 1, 2].forEach((offset) => buildMarker(offset));
 
             const centerGroup = rankGroups[centerGroupIndex] || { rank: viewingRank };
-            updateTimelineLabel(centerGroup.rank);
+            const labelRank = (centerGroup?.rank?.emoji === viewingRank?.emoji)
+                ? viewingRank
+                : (viewingRank || centerGroup.rank);
+            updateTimelineLabel(labelRank);
         };
 
         renderMarkersForGroup(viewingGroupIndex);

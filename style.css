@@ -126,6 +126,32 @@ button,
   line-height: 1.5;
 }
 
+.hero-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-full);
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  white-space: normal;
+}
+
+.hero-pill:hover,
+.hero-pill:focus-visible {
+  border-color: rgba(125, 211, 252, 0.5);
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.15);
+}
+
 .header-divider {
   height: 1px;
   background: linear-gradient(90deg, rgba(148, 163, 184, 0) 0%, rgba(148, 163, 184, 0.4) 50%, rgba(148, 163, 184, 0) 100%);

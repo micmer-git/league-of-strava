@@ -4338,8 +4338,8 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 0.9rem;
     padding: 0.75rem 0.9rem;
-    min-height: 10rem;
-    height: 14rem;
+    min-height: 12rem;
+    height: 16rem;
     overflow: hidden;
     display: grid;
     grid-template-rows: auto 1fr;

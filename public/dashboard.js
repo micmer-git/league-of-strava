@@ -7613,6 +7613,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const fontSize = font.size || 14;
             const fontFamily = font.family || 'sans-serif';
             const offset = options.offset ?? 14;
+            const seenRankEmojis = new Set();
 
             ctx.save();
             ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
@@ -7631,11 +7632,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 elements.forEach((element, index) => {
                     const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta[index] : null;
                     const unlocks = Array.isArray(periodMeta?.rankUnlocks) ? periodMeta.rankUnlocks : [];
-                    const latestUnlock = unlocks[unlocks.length - 1];
-                    const emoji = latestUnlock?.rank?.emoji;
+                    const unlockToShow = unlocks.find((unlock) => {
+                        const emoji = unlock?.rank?.emoji;
+                        return emoji && !seenRankEmojis.has(emoji);
+                    });
+                    const emoji = unlockToShow?.rank?.emoji;
                     if (!emoji) {
                         return;
                     }
+                    seenRankEmojis.add(emoji);
+
                     const position = typeof element.tooltipPosition === 'function'
                         ? element.tooltipPosition()
                         : element;
@@ -7814,16 +7820,45 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }] : []),
             ];
 
-        const highlightValues = !useComparison
-            && showLineSeries
-            && Array.isArray(dataset.values)
-            && Array.isArray(periodMeta)
-            ? dataset.values.map((value, index) => (
-                periodMeta[index]?.hasTopActivity && periodMeta[index]?.bucketType === 'quarter'
+        let highlightValues = [];
+        if (!useComparison && showLineSeries && Array.isArray(dataset.values) && Array.isArray(periodMeta)) {
+            const topMetricIndexes = {};
+
+            periodMeta.forEach((meta, index) => {
+                const topActivity = Array.isArray(meta?.topActivities) ? meta.topActivities[0] : null;
+                if (!topActivity) {
+                    return;
+                }
+
+                const comparisons = [
+                    { key: 'distance', value: Number(topActivity.distance) || 0 },
+                    { key: 'elevation', value: Number(topActivity.total_elevation_gain) || 0 },
+                    { key: 'movingTime', value: Number(topActivity.moving_time) || 0 },
+                ];
+
+                comparisons.forEach(({ key, value }) => {
+                    if (!Number.isFinite(value)) {
+                        return;
+                    }
+                    const current = topMetricIndexes[key];
+                    if (!current || value > current.value) {
+                        topMetricIndexes[key] = { value, index };
+                    }
+                });
+            });
+
+            const highlightIndexes = new Set(
+                Object.values(topMetricIndexes)
+                    .filter(Boolean)
+                    .map(entry => entry.index),
+            );
+
+            highlightValues = dataset.values.map((value, index) => (
+                highlightIndexes.has(index)
                     ? value
                     : null
-            ))
-            : [];
+            ));
+        }
         const hasHighlights = highlightValues.some(value => Number.isFinite(value));
         if (hasHighlights) {
             chartDatasets.push({
@@ -12075,6 +12110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const slowSeries = movingAverageSeries[config.key].slow.slice(visibleStart);
             const rawSeries = visibleRawValues[config.key];
             const hasMetricData = fastSeries.some(Number.isFinite) || slowSeries.some(Number.isFinite);
+            const shouldUseSparseTicks = walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH
+                || walletSelectedTimeframe === WALLET_TIMEFRAME_6_MONTH;
 
             if (!hasMetricData) {
                 canvas.classList.add('hidden');
@@ -12187,13 +12224,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     scales: {
                         x: {
                             afterBuildTicks: (scale) => {
+                                if (shouldUseSparseTicks) {
+                                    return scale.ticks;
+                                }
                                 const yearTicks = buildEnduranceYearTicks(scale);
                                 // eslint-disable-next-line no-param-reassign
                                 scale.ticks = yearTicks;
                                 return yearTicks;
                             },
                             ticks: {
-                                autoSkip: false,
+                                autoSkip: shouldUseSparseTicks,
+                                maxTicksLimit: shouldUseSparseTicks ? 8 : undefined,
                                 color: axisColor,
                                 font: tickFont,
                                 maxRotation: 0,
@@ -12205,6 +12246,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     }
                                     const sourceIndex = visibleStart + (Number.isFinite(tick?.value) ? tick.value : index);
                                     const entry = dailySeries[sourceIndex];
+                                    if (shouldUseSparseTicks && entry?.date instanceof Date) {
+                                        const isStartOfMonth = entry.date.getDate() === 1;
+                                        const isFirstPoint = sourceIndex === visibleStart;
+                                        if (isStartOfMonth || isFirstPoint) {
+                                            return entry.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                        }
+                                        return '';
+                                    }
                                     if (entry?.date && !isAllTimeRange) {
                                         const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
                                             ? dailySeries[sourceIndex - 1].date.getFullYear()
@@ -12222,6 +12271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             },
                         },
                         y: {
+                            position: 'right',
                             ticks: {
                                 color: axisColor,
                                 font: tickFont,
@@ -12237,9 +12287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             },
                             beginAtZero: true,
                             title: {
-                                display: true,
-                                text: `${config.label} (${config.unit.trim()})`,
-                                color: axisColor,
+                                display: false,
                             },
                         },
                     },

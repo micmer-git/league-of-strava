@@ -253,6 +253,9 @@
             <h2 class="card-title" id="medals-heading">Signature Medals</h2>
             <p class="card-subtitle">Track every themed challenge — earned medals glow, future targets stay in view.</p>
           </div>
+          <div class="medal-toolbar">
+            <div class="medal-rarity-toggle" id="medal-rarity-toggle" role="tablist" aria-label="Filtra per rarità delle medaglie"></div>
+          </div>
           <div class="medal-categories" id="medal-categories" role="list">
             <!-- Medals will be populated here -->
           </div>
@@ -1791,6 +1794,34 @@
         },
       ];
 
+      const medalRarityOrder = ['mythic', 'legendary', 'masterwork', 'elite', 'rare', 'uncommon', 'common'];
+      const medalRarityMeta = {
+        mythic: { label: 'Mythic', emoji: '⚫️' },
+        legendary: { label: 'Legendary', emoji: '🔴' },
+        masterwork: { label: 'Masterwork', emoji: '🟠' },
+        elite: { label: 'Elite', emoji: '🟡' },
+        rare: { label: 'Rare', emoji: '🟣' },
+        uncommon: { label: 'Uncommon', emoji: '🔵' },
+        common: { label: 'Common', emoji: '🟢' },
+      };
+      const medalRarityLookup = new Map(
+        Object.entries(medalRarityMeta).map(([key, value]) => [value.emoji, { ...value, key }])
+      );
+
+      const resolveMedalRarity = (medal = {}) => {
+        const { rarity } = medal;
+        if (rarity && medalRarityMeta[rarity]) {
+          return { ...medalRarityMeta[rarity], key: rarity };
+        }
+        const icon = typeof medal.icon === 'string' ? medal.icon : '';
+        for (const char of Array.from(icon)) {
+          if (medalRarityLookup.has(char)) {
+            return medalRarityLookup.get(char);
+          }
+        }
+        return { ...medalRarityMeta.common, key: 'common' };
+      };
+
 
       const buildBestClassMedals = (profile = {}, classAssignment = {}) => {
         const primaryDiscipline = profile.primaryDiscipline || '';
@@ -1935,64 +1966,127 @@
 
       const renderMedals = (profile, classAssignment) => {
         const container = document.getElementById('medal-categories');
+        const rarityToggleContainer = document.getElementById('medal-rarity-toggle');
         if (!container) return;
         container.innerHTML = '';
-        const fragment = document.createDocumentFragment();
-        const medalDefinitions = createMedalDefinitions(profile, classAssignment);
-        medalDefinitions.forEach(({ title, description, emoji, medals }) => {
-          const categorySection = document.createElement('section');
-          categorySection.className = 'medal-category';
-          categorySection.setAttribute('role', 'listitem');
+        if (rarityToggleContainer) {
+          rarityToggleContainer.innerHTML = '';
+        }
 
-          const header = document.createElement('header');
-          header.className = 'medal-category__header';
-          header.innerHTML = `
-            <div class="medal-category__title">
-              <span class="medal-category__emoji" aria-hidden="true">${emoji}</span>
-              <h3>${title}</h3>
-            </div>
-            <p>${description}</p>
-          `;
-          categorySection.appendChild(header);
+        const medalDefinitions = createMedalDefinitions(profile, classAssignment).map((definition) => ({
+          ...definition,
+          medals: definition.medals.map((medal) => ({
+            ...medal,
+            rarity: resolveMedalRarity(medal),
+          })),
+        }));
 
-          const medalList = document.createElement('ul');
-          medalList.className = 'medal-list';
-          medalList.setAttribute('role', 'list');
-
-          medals.forEach(({ name, detail, achieved, icon }) => {
-            const listItem = document.createElement('li');
-            listItem.className = `medal ${achieved ? 'medal--achieved' : 'medal--locked'}`;
-            listItem.setAttribute('role', 'listitem');
-            listItem.setAttribute('data-achieved', achieved ? 'true' : 'false');
-            const detailContent = typeof detail === 'string' ? detail.trim() : '';
-            const detailMarkup = detailContent
-              ? `<span class="medal__detail">${detailContent}</span>`
-              : '';
-            const resolvedIcon = (() => {
-              if (typeof icon === 'string' && icon.trim()) {
-                return icon.trim();
-              }
-              return achieved ? '🏅' : '🔒';
-            })();
-            listItem.innerHTML = `
-              <div class="medal__icon" aria-hidden="true">${resolvedIcon}</div>
-              <div class="medal__copy">
-                <span class="medal__name">${name}</span>
-                ${detailMarkup}
-              </div>
-            `;
-            medalList.appendChild(listItem);
+        const rarityBuckets = new Map();
+        medalDefinitions.forEach(({ medals }) => {
+          medals.forEach((medal) => {
+            const existing = rarityBuckets.get(medal.rarity.key) || { ...medal.rarity, medals: [] };
+            existing.medals.push(medal);
+            rarityBuckets.set(medal.rarity.key, existing);
           });
-
-          Array.from(medalList.children).forEach((medalItem) => {
-            medalItem.removeAttribute('hidden');
-            medalItem.style.display = '';
-          });
-
-          categorySection.appendChild(medalList);
-          fragment.appendChild(categorySection);
         });
-        container.appendChild(fragment);
+
+        const sortedRarities = medalRarityOrder.filter((key) => rarityBuckets.has(key));
+        let activeRarity = sortedRarities[0] || null;
+
+        const renderCategorySections = () => {
+          container.innerHTML = '';
+          const fragment = document.createDocumentFragment();
+          medalDefinitions.forEach(({ title, description, emoji, medals }) => {
+            const filteredMedals = medals
+              .filter((medal) => !activeRarity || medal.rarity.key === activeRarity)
+              .sort((a, b) => medalRarityOrder.indexOf(a.rarity.key) - medalRarityOrder.indexOf(b.rarity.key));
+            if (!filteredMedals.length) return;
+
+            const categorySection = document.createElement('section');
+            categorySection.className = 'medal-category';
+            categorySection.setAttribute('role', 'listitem');
+
+            const header = document.createElement('header');
+            header.className = 'medal-category__header';
+            header.innerHTML = `
+              <div class="medal-category__title">
+                <span class="medal-category__emoji" aria-hidden="true">${emoji}</span>
+                <h3>${title}</h3>
+              </div>
+              <p>${description}</p>
+            `;
+            categorySection.appendChild(header);
+
+            const medalList = document.createElement('ul');
+            medalList.className = 'medal-list';
+            medalList.setAttribute('role', 'list');
+
+            filteredMedals.forEach(({ name, detail, achieved, icon, rarity }) => {
+              const listItem = document.createElement('li');
+              listItem.className = `medal ${achieved ? 'medal--achieved' : 'medal--locked'}`;
+              listItem.setAttribute('role', 'listitem');
+              listItem.setAttribute('data-achieved', achieved ? 'true' : 'false');
+              listItem.setAttribute('data-rarity', rarity.key);
+              const detailContent = typeof detail === 'string' ? detail.trim() : '';
+              const detailMarkup = detailContent
+                ? `<span class="medal__detail">${detailContent}</span>`
+                : '';
+              const resolvedIcon = (() => {
+                if (typeof icon === 'string' && icon.trim()) {
+                  return icon.trim();
+                }
+                return achieved ? '🏅' : '🔒';
+              })();
+              listItem.innerHTML = `
+                <div class="medal__icon" aria-hidden="true">${resolvedIcon}</div>
+                <div class="medal__copy">
+                  <span class="medal__name">${name}</span>
+                  ${detailMarkup}
+                  <span class="medal__rarity">${rarity.emoji} ${rarity.label}</span>
+                </div>
+              `;
+              medalList.appendChild(listItem);
+            });
+
+            Array.from(medalList.children).forEach((medalItem) => {
+              medalItem.removeAttribute('hidden');
+              medalItem.style.display = '';
+            });
+
+            categorySection.appendChild(medalList);
+            fragment.appendChild(categorySection);
+          });
+          container.appendChild(fragment);
+        };
+
+        const renderRarityButtons = () => {
+          if (!rarityToggleContainer) return;
+          rarityToggleContainer.innerHTML = '';
+          sortedRarities.forEach((rarityKey) => {
+            const rarity = rarityBuckets.get(rarityKey);
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `rarity-toggle__button ${activeRarity === rarityKey ? 'is-active' : ''}`;
+            button.setAttribute('role', 'tab');
+            button.setAttribute('data-rarity', rarityKey);
+            button.setAttribute('aria-selected', activeRarity === rarityKey ? 'true' : 'false');
+            button.setAttribute('tabindex', activeRarity === rarityKey ? '0' : '-1');
+            button.innerHTML = `
+              <span class="rarity-toggle__icon" aria-hidden="true">${rarity.emoji}</span>
+              <span class="rarity-toggle__label">${rarity.label}</span>
+              <span class="rarity-toggle__count">${rarity.medals.length}</span>
+            `;
+            button.addEventListener('click', () => {
+              activeRarity = rarityKey;
+              renderRarityButtons();
+              renderCategorySections();
+            });
+            rarityToggleContainer.appendChild(button);
+          });
+        };
+
+        renderRarityButtons();
+        renderCategorySections();
       };
 
       const initNavigation = () => {

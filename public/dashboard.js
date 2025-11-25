@@ -6057,6 +6057,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!Number.isFinite(meters)) return '0 m';
         return `${meters.toFixed(0)} m`;
     };
+    const formatActivitySummary = (activity = {}) => {
+        const name = activity.name || activity.type;
+        const distanceKm = Number(activity.distance) / 1000;
+        const elevation = Number(activity.total_elevation_gain);
+        const movingSeconds = Number(activity.moving_time);
+        const parts = [];
+
+        if (Number.isFinite(distanceKm) && distanceKm > 0) {
+            parts.push(`${distanceKm.toFixed(1)} km`);
+        }
+        if (Number.isFinite(elevation) && elevation > 0) {
+            parts.push(`${Math.round(elevation)} m gain`);
+        }
+        if (Number.isFinite(movingSeconds) && movingSeconds > 0) {
+            const hours = movingSeconds / 3600;
+            parts.push(`${hours.toFixed(hours >= 10 ? 0 : 1)} h moving`);
+        }
+
+        if (!name && parts.length === 0) {
+            return '';
+        }
+
+        const label = name || 'Activity';
+        return parts.length > 0 ? `${label} — ${parts.join(' · ')}` : label;
+    };
+    const calculateMonthsBetween = (startDate, endDate) => {
+        if (!(startDate instanceof Date) || !(endDate instanceof Date)) {
+            return null;
+        }
+
+        const start = new Date(startDate.getTime());
+        const end = new Date(endDate.getTime());
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return null;
+        }
+
+        const years = end.getFullYear() - start.getFullYear();
+        const months = end.getMonth() - start.getMonth();
+        const days = end.getDate() - start.getDate();
+        const totalMonths = (years * 12) + months + (days / 30.5);
+
+        return totalMonths >= 0 ? totalMonths : null;
+    };
     const formatCalories = (calories) => {
         if (!Number.isFinite(calories)) return '0 kcal';
         return `${calories.toFixed(0)} kcal`;
@@ -6859,6 +6902,96 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { percentChange, changeValue };
     };
 
+    const formatRankUnlockTooltip = (unlock = {}) => {
+        if (!unlock?.rank) {
+            return '';
+        }
+
+        const rankName = unlock.rank.name || 'Rank unlocked';
+        const emoji = unlock.rank.emoji || '';
+        const hours = Number.isFinite(unlock.cumulativeHours)
+            ? `${unlock.cumulativeHours.toFixed(unlock.cumulativeHours >= 10 ? 0 : 1)}h total`
+            : null;
+        const months = Number.isFinite(unlock.monthsFromStart)
+            ? `${unlock.monthsFromStart.toFixed(1)} mo from first activity`
+            : null;
+        const suffixParts = [hours, months].filter(Boolean);
+        const suffix = suffixParts.length ? ` — ${suffixParts.join(' · ')}` : '';
+
+        return `${emoji} ${rankName}${suffix}`.trim();
+    };
+
+    const updateWalletOverlayFromElements = (elements, eventPosition = { x: 0, y: 0 }) => {
+        if (!walletChartInstance) {
+            return;
+        }
+
+        const primary = Array.isArray(elements) && elements.length > 0 ? elements[0] : null;
+        if (!primary || !Number.isInteger(primary.datasetIndex) || !Number.isInteger(primary.index)) {
+            applyWalletOverlayState(null);
+            return;
+        }
+
+        const dataset = walletChartInstance.data?.datasets?.[primary.datasetIndex];
+        const dataIndex = primary.index;
+        const rawValue = Array.isArray(dataset?.data) ? dataset.data[dataIndex] : null;
+        const periodMeta = Array.isArray(dataset?.periodMeta) ? dataset.periodMeta[dataIndex] : null;
+
+        const pointKey = `${primary.datasetIndex}-${dataIndex}`;
+        if (walletOverlayLastPointKey === pointKey) {
+            positionWalletOverlay(eventPosition);
+            return;
+        }
+        walletOverlayLastPointKey = pointKey;
+
+        const { percentChange } = getWalletOverlayChangeDetails({
+            dataset,
+            rawValue,
+            index: dataIndex,
+            periodMeta,
+            overlayRole: dataset?.overlayRole,
+        });
+
+        const percentLabel = formatPercentLabel(percentChange);
+        const valueLabel = formatWalletValueLabel(rawValue) || '—';
+        const balanceText = percentLabel
+            ? `Balance ${valueLabel} (${percentLabel})`
+            : `Balance ${valueLabel}`;
+
+        const detailParts = [];
+        if (dataset?.isTopActivityHighlight && Array.isArray(periodMeta?.highlightReasons)) {
+            detailParts.push(...periodMeta.highlightReasons);
+            const highlightActivity = Array.isArray(periodMeta?.highlightActivities)
+                ? periodMeta.highlightActivities[0]
+                : null;
+            const topActivity = Array.isArray(periodMeta?.topActivities) ? periodMeta.topActivities[0] : null;
+            const activitySummary = formatActivitySummary(highlightActivity || topActivity || {});
+            if (activitySummary) {
+                detailParts.push(activitySummary);
+            }
+        }
+
+        if (Array.isArray(periodMeta?.rankUnlocks) && periodMeta.rankUnlocks.length > 0) {
+            periodMeta.rankUnlocks
+                .map(formatRankUnlockTooltip)
+                .filter(Boolean)
+                .forEach(entry => detailParts.push(entry));
+        }
+
+        const valueText = detailParts.length > 0
+            ? detailParts.join(' • ')
+            : (dataset?.label || walletOverlayDefaults.value);
+
+        applyWalletOverlayState({
+            visible: true,
+            label: periodMeta?.label || dataset?.label || 'Wallet insight',
+            balance: balanceText,
+            value: valueText,
+            valueDirection: percentChange > 0 ? 'positive' : percentChange < 0 ? 'negative' : null,
+            position: eventPosition,
+        });
+    };
+
     const updateWalletChartActiveElements = (elements, eventPosition = { x: 0, y: 0 }) => {
         if (!walletChartInstance) {
             return;
@@ -6876,6 +7009,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             walletChartClickSelection.position = { x: eventPosition.x, y: eventPosition.y };
         }
 
+        updateWalletOverlayFromElements(elements, eventPosition);
+
         if (typeof walletChartInstance.update === 'function') {
             walletChartInstance.update('none');
         }
@@ -6887,6 +7022,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         walletOverlayLastPointKey = null;
         walletChartCrosshairPosition = null;
+        applyWalletOverlayState(null);
         if (!walletChartInstance) {
             return;
         }
@@ -7822,42 +7958,59 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let highlightValues = [];
         if (!useComparison && showLineSeries && Array.isArray(dataset.values) && Array.isArray(periodMeta)) {
-            const topMetricIndexes = {};
+            const highlightWinners = new Map();
+            const highlightDetailsByIndex = new Map();
 
             periodMeta.forEach((meta, index) => {
-                const topActivity = Array.isArray(meta?.topActivities) ? meta.topActivities[0] : null;
-                if (!topActivity) {
-                    return;
-                }
-
-                const comparisons = [
-                    { key: 'distance', value: Number(topActivity.distance) || 0 },
-                    { key: 'elevation', value: Number(topActivity.total_elevation_gain) || 0 },
-                    { key: 'movingTime', value: Number(topActivity.moving_time) || 0 },
-                ];
-
-                comparisons.forEach(({ key, value }) => {
-                    if (!Number.isFinite(value)) {
+                (meta?.highlightMetrics || []).forEach((metric) => {
+                    if (!metric || !Number.isFinite(metric.value)) {
                         return;
                     }
-                    const current = topMetricIndexes[key];
-                    if (!current || value > current.value) {
-                        topMetricIndexes[key] = { value, index };
+                    const current = highlightWinners.get(metric.key);
+                    if (!current || metric.value > current.value) {
+                        highlightWinners.set(metric.key, { ...metric, index });
                     }
                 });
             });
 
-            const highlightIndexes = new Set(
-                Object.values(topMetricIndexes)
-                    .filter(Boolean)
-                    .map(entry => entry.index),
-            );
+            const buildHighlightLabel = (metricKey, fallbackLabel) => {
+                if (fallbackLabel) {
+                    return fallbackLabel;
+                }
+                switch (metricKey) {
+                    case 'longestRun':
+                        return 'Longest run';
+                    case 'runElevation':
+                        return 'Most elevation on a run';
+                    case 'elevation':
+                        return 'Biggest vert day';
+                    case 'movingTime':
+                        return 'Longest moving time';
+                    case 'distance':
+                    default:
+                        return 'Featured activity';
+                }
+            };
 
-            highlightValues = dataset.values.map((value, index) => (
-                highlightIndexes.has(index)
-                    ? value
-                    : null
-            ));
+            highlightWinners.forEach((entry) => {
+                const reasons = highlightDetailsByIndex.get(entry.index) || [];
+                reasons.push({
+                    label: buildHighlightLabel(entry.key, entry.label),
+                    activity: entry.activity,
+                });
+                highlightDetailsByIndex.set(entry.index, reasons);
+            });
+
+            highlightValues = dataset.values.map((value, index) => {
+                const reasons = highlightDetailsByIndex.get(index);
+                if (reasons && periodMeta[index]) {
+                    periodMeta[index].highlightReasons = reasons.map(reason => reason.label).filter(Boolean);
+                    periodMeta[index].highlightActivities = reasons
+                        .map(reason => reason.activity)
+                        .filter(Boolean);
+                }
+                return reasons ? value : null;
+            });
         }
         const hasHighlights = highlightValues.some(value => Number.isFinite(value));
         if (hasHighlights) {
@@ -7968,10 +8121,58 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 const formatter = dataset.overlayRole === 'cumulative'
                                     ? formatWalletValueLabel
                                     : formatSignedUsdValue;
+                                const dataIndex = Number.isInteger(context.dataIndex) ? context.dataIndex : null;
+                                const periodMetaEntry = Array.isArray(dataset.periodMeta) && Number.isInteger(dataIndex)
+                                    ? dataset.periodMeta[dataIndex]
+                                    : null;
                                 if (!Number.isFinite(rawValue)) {
                                     return label;
                                 }
-                                return `${label}: ${formatter(rawValue)}`;
+                                const { percentChange } = getWalletOverlayChangeDetails({
+                                    dataset,
+                                    rawValue,
+                                    index: dataIndex,
+                                    periodMeta: periodMetaEntry,
+                                    overlayRole: dataset.overlayRole,
+                                });
+                                const percentLabel = formatPercentLabel(percentChange);
+                                const formattedValue = formatter(rawValue);
+                                if (percentLabel) {
+                                    return `${label}: ${formattedValue} (${percentLabel})`;
+                                }
+                                return `${label}: ${formattedValue}`;
+                            },
+                            afterBody: (context) => {
+                                const [first] = context || [];
+                                if (!first) {
+                                    return [];
+                                }
+                                const dataset = first.dataset || {};
+                                const dataIndex = Number.isInteger(first.dataIndex) ? first.dataIndex : null;
+                                const periodMetaEntry = Array.isArray(dataset.periodMeta) && Number.isInteger(dataIndex)
+                                    ? dataset.periodMeta[dataIndex]
+                                    : null;
+
+                                const lines = [];
+                                if (dataset.isTopActivityHighlight && Array.isArray(periodMetaEntry?.highlightReasons)) {
+                                    lines.push(...periodMetaEntry.highlightReasons.map(reason => `• ${reason}`));
+                                    const topActivity = Array.isArray(periodMetaEntry?.highlightActivities)
+                                        ? periodMetaEntry.highlightActivities[0]
+                                        : null;
+                                    const activitySummary = formatActivitySummary(topActivity || {});
+                                    if (activitySummary) {
+                                        lines.push(activitySummary);
+                                    }
+                                }
+
+                                if (Array.isArray(periodMetaEntry?.rankUnlocks) && periodMetaEntry.rankUnlocks.length > 0) {
+                                    periodMetaEntry.rankUnlocks
+                                        .map(formatRankUnlockTooltip)
+                                        .filter(Boolean)
+                                        .forEach((entry) => lines.push(entry));
+                                }
+
+                                return lines;
                             }
                         }
                     },
@@ -8442,6 +8643,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return [];
         }
 
+        const firstActivityDate = new Date(sortedActivities[0].start_date || sortedActivities[0].start_date_local);
         const unlocks = [];
         let cumulativeHours = 0;
         let nextRankIndex = 0;
@@ -8457,9 +8659,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             cumulativeHours += movingSeconds / 3600;
 
             while (nextRankIndex < ranks.length && cumulativeHours >= (ranks[nextRankIndex]?.minHours ?? Infinity)) {
+                const monthsFromStart = calculateMonthsBetween(firstActivityDate, activityDate);
                 unlocks.push({
                     date: activityDate,
                     rank: ranks[nextRankIndex],
+                    cumulativeHours,
+                    monthsFromStart,
                 });
                 nextRankIndex += 1;
             }
@@ -9600,6 +9805,70 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : bucketActivities.slice(0, 1);
             meta.topActivities = featuredActivities;
             meta.hasTopActivity = featuredActivities.length > 0;
+
+            const selectTopActivity = (activities, metricAccessor) => activities.reduce((best, activity) => {
+                const value = metricAccessor(activity);
+                if (!Number.isFinite(value)) {
+                    return best;
+                }
+                if (!best || value > best.value) {
+                    return { activity, value };
+                }
+                return best;
+            }, null);
+
+            const highlightMetrics = [];
+            const topDistance = selectTopActivity(bucketActivities, activity => Number(activity.distance) || 0);
+            const topElevation = selectTopActivity(bucketActivities, activity => Number(activity.total_elevation_gain) || 0);
+            const topMovingTime = selectTopActivity(bucketActivities, activity => Number(activity.moving_time) || 0);
+            const runActivities = bucketActivities.filter(activity => typeof activity?.type === 'string'
+                && activity.type.toLowerCase().includes('run'));
+            const topRunDistance = selectTopActivity(runActivities, activity => Number(activity.distance) || 0);
+            const topRunElevation = selectTopActivity(runActivities, activity => Number(activity.total_elevation_gain) || 0);
+
+            if (topDistance?.value) {
+                highlightMetrics.push({
+                    key: 'distance',
+                    value: topDistance.value,
+                    label: 'Farthest day',
+                    activity: topDistance.activity,
+                });
+            }
+            if (topElevation?.value) {
+                highlightMetrics.push({
+                    key: 'elevation',
+                    value: topElevation.value,
+                    label: 'Biggest vert day',
+                    activity: topElevation.activity,
+                });
+            }
+            if (topMovingTime?.value) {
+                highlightMetrics.push({
+                    key: 'movingTime',
+                    value: topMovingTime.value,
+                    label: 'Longest moving time',
+                    activity: topMovingTime.activity,
+                });
+            }
+            if (topRunDistance?.value) {
+                highlightMetrics.push({
+                    key: 'longestRun',
+                    value: topRunDistance.value,
+                    label: 'Longest run',
+                    activity: topRunDistance.activity,
+                });
+            }
+            if (topRunElevation?.value) {
+                highlightMetrics.push({
+                    key: 'runElevation',
+                    value: topRunElevation.value,
+                    label: 'Most elevation on a run',
+                    activity: topRunElevation.activity,
+                });
+            }
+
+            meta.highlightMetrics = highlightMetrics;
+            meta.highlightReasons = [];
 
             const unlocksForBucket = Array.isArray(rankUnlocks)
                 ? rankUnlocks.filter((unlock) => (

@@ -1781,6 +1781,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activeProgressDiscipline = progressDisciplineTabs[0].key;
     let medalContributionMap = new Map();
     let medalContributionHighlightsByDate = new Map();
+    let medalActivityCounts = new Map();
     const walletMetricsCache = { key: null, metrics: [] };
     const rewardSummaryCache = { key: null, summary: null };
     let visibleMedalCount = 0;
@@ -6467,7 +6468,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const medalButton = document.createElement('button');
                 medalButton.type = 'button';
                 medalButton.className = 'tooltip-target medals-list__button';
-                const medalCount = toNonNegativeInteger(medal?.count);
+                const activityCount = toNonNegativeInteger(medalActivityCounts.get(medal.name));
+                const medalCount = Number.isFinite(activityCount)
+                    ? activityCount
+                    : toNonNegativeInteger(medal?.count);
                 if (medalCount === 0) {
                     medalButton.classList.add('medals-list__button--unearned');
                 }
@@ -6585,6 +6589,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             return contributionMeta.dates.has(dateKey);
         });
+    };
+
+    const buildMedalActivityCounts = (activities = []) => {
+        const counts = new Map();
+
+        activities.forEach((activity) => {
+            const seenNames = new Set();
+            const medalsForActivity = getActivityMedals(activity);
+
+            medalsForActivity.forEach((medal) => {
+                if (!medal?.name || seenNames.has(medal.name)) {
+                    return;
+                }
+                counts.set(medal.name, (counts.get(medal.name) || 0) + 1);
+                seenNames.add(medal.name);
+            });
+
+            const dateKey = getActivityDateKey(activity);
+            if (!dateKey || !medalContributionHighlightsByDate.has(dateKey)) {
+                return;
+            }
+
+            medalContributionHighlightsByDate.get(dateKey).forEach(({ medalName }) => {
+                if (!medalName || seenNames.has(medalName)) {
+                    return;
+                }
+                counts.set(medalName, (counts.get(medalName) || 0) + 1);
+                seenNames.add(medalName);
+            });
+        });
+
+        return counts;
     };
 
     const resetMedalFilterState = () => {
@@ -9573,7 +9609,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        const lifetimeQuarterly = buildQuarterlyValueSeries(metricsForAggregation);
+        const lifetimeQuarterly = buildQuarterlyValueSeries(availableMetrics);
 
         const lifetimeLatest = lifetimeQuarterly.latestEntry;
         const lifetimePrevious = lifetimeQuarterly.previousEntry;
@@ -11807,7 +11843,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         intersect: false,
                     },
                     layout: {
-                        padding: { top: 8, right: 14, bottom: 6, left: 8 },
+                        padding: { top: 8, right: 14, bottom: 16, left: 8 },
                     },
                     plugins: {
                         legend: {
@@ -17768,8 +17804,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         latestFunStatsContext = { hasActivities };
         renderFunStats(aggregatedSmallStats, latestFunStatsContext);
 
-        currentLeagueClass = resolveLeagueClass(buildLeagueClassStats(lifetimeActivitiesForStats));
-        renderLeagueClassSummary(currentLeagueClass);
+        currentLeagueClass = null;
+        renderLeagueClassSummary(null);
 
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
@@ -17824,8 +17860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Update the ranking progress bar
         if (currentRankElement) {
-            const classEmoji = currentLeagueClass?.emoji ? ` ${currentLeagueClass.emoji}` : '';
-            currentRankElement.textContent = `${currentRank.emoji}${classEmoji} ${currentRank.name}`;
+            currentRankElement.textContent = `${currentRank.emoji} ${currentRank.name}`;
         } else {
             console.warn("'current-rank' element not found in the DOM.");
         }
@@ -18769,6 +18804,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
         rebuildMedalFilteredActivities();
+        medalActivityCounts = buildMedalActivityCounts(sortedActivities);
 
         if (sortedActivities.length === 0) {
             visibleActivitiesCount = 0;

@@ -4821,12 +4821,12 @@ body.dark .medals-category__description {
     flex-direction: column;
     align-items: flex-end;
     gap: 0.25rem;
-    padding: 0.45rem 0.85rem;
-    border-radius: 14px;
-    background: rgba(224, 231, 255, 0.65);
-    border: 1px solid #dbeafe;
+    padding: 0.25rem 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
     min-width: 180px;
-    box-shadow: 0 10px 20px rgba(148, 163, 184, 0.22);
+    box-shadow: none;
 }
 
 .profile-period-toggle__button {
@@ -5204,17 +5204,23 @@ body.dark .medals-category__description {
 .rank-modal__snapshot-total-value {
     font-size: 1.35rem;
     font-weight: 700;
-    color: #1d4ed8;
+    color: #15803d;
 }
 
 .rank-modal__snapshot-total-breakdown {
     font-size: 0.75rem;
-    color: rgba(37, 99, 235, 0.8);
+    color: #15803d;
     text-align: center;
 }
 
 .rank-modal__snapshot-total-breakdown.is-muted {
-    color: rgba(51, 65, 85, 0.65);
+    color: rgba(21, 128, 61, 0.65);
+}
+
+.rank-modal__snapshot-total-delta {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #166534;
 }
 
 .rank-modal__snapshot-metrics {
@@ -5322,7 +5328,13 @@ body.dark .medals-category__description {
 .rank-modal__snapshot-subvalue {
     margin-left: auto;
     font-size: 0.75rem;
-    color: rgba(37, 99, 235, 0.75);
+    color: #15803d;
+}
+
+.rank-modal__snapshot-list--scrollable {
+    max-height: 7.2rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
 }
 
 .rank-modal__snapshot-empty {
@@ -5836,15 +5848,19 @@ body.dark .medals-category__description {
 }
 
 .dark .rank-modal__snapshot-total-value {
-    color: #60a5fa;
+    color: #22c55e;
 }
 
 .dark .rank-modal__snapshot-total-breakdown {
-    color: rgba(147, 197, 253, 0.85);
+    color: #4ade80;
 }
 
 .dark .rank-modal__snapshot-total-breakdown.is-muted {
-    color: rgba(148, 163, 184, 0.75);
+    color: rgba(74, 222, 128, 0.75);
+}
+
+.dark .rank-modal__snapshot-total-delta {
+    color: #22c55e;
 }
 
 .dark .rank-modal__snapshot-stat {
@@ -5892,7 +5908,7 @@ body.dark .medals-category__description {
 }
 
 .dark .rank-modal__snapshot-subvalue {
-    color: rgba(147, 197, 253, 0.85);
+    color: #4ade80;
 }
 
 .dark .rank-modal__snapshot-empty,
@@ -5909,9 +5925,9 @@ body.dark .medals-category__description {
 }
 
 .dark .profile-period__total {
-    background: rgba(37, 99, 235, 0.2);
-    border-color: rgba(96, 165, 250, 0.35);
-    box-shadow: 0 10px 22px rgba(2, 6, 23, 0.45);
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 .dark .rank-modal__title-group h2 {

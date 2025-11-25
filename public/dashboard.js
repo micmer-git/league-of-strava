@@ -4666,15 +4666,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalValueElement.textContent = usdCodeFormatter.format(safeTotalValue);
 
         totalGroup.append(totalValueElement);
+
+        const baselineTotalValue = Number.isFinite(options.baselineTotalValue)
+            ? options.baselineTotalValue
+            : null;
+        if (baselineTotalValue && baselineTotalValue > 0) {
+            const sharePercent = (safeTotalValue / baselineTotalValue) * 100;
+            const deltaElement = document.createElement('p');
+            deltaElement.className = 'rank-modal__snapshot-total-delta';
+            const baselineLabel = options.baselineLabel || '1Y';
+            const formattedShare = `${sharePercent >= 0 ? '+' : ''}${sharePercent.toFixed(0)}%`;
+            deltaElement.textContent = `${formattedShare} of ${baselineLabel}`;
+            totalGroup.appendChild(deltaElement);
+        }
         header.append(headerMeta, totalGroup);
         slide.appendChild(header);
 
-        const coinBreakdownText = safeCoinValue > 0
-            ? `Coins ${usdCodeFormatter.format(safeCoinValue)}`
-            : '—';
-        const medalBreakdownText = safeMedalValue > 0
-            ? `Medals ${usdCodeFormatter.format(safeMedalValue)}`
-            : '—';
+        const coinBreakdownText = `Coins: ×${formatCount(snapshot.coinsTotal)} · ${usdCodeFormatter.format(safeCoinValue)}`;
+        const medalBreakdownText = `Medals: ×${formatCount(snapshot.medalCount)} · ${usdCodeFormatter.format(safeMedalValue)}`;
 
         const metricsGrid = document.createElement('div');
         metricsGrid.className = 'rank-modal__snapshot-metrics';
@@ -4777,7 +4786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const emojiSpan = document.createElement('span');
             emojiSpan.className = 'rank-modal__snapshot-emoji';
-            emojiSpan.textContent = `+ ${emoji}`;
+            emojiSpan.textContent = emoji;
 
             const countSpan = document.createElement('span');
             countSpan.className = 'rank-modal__snapshot-count';
@@ -4819,21 +4828,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalEntries = Array.from(medalCounts.values())
             .sort((a, b) => b.count - a.count);
 
-        const MAX_MEDAL_ITEMS = 4;
         const medalItems = [];
-        const displayedMedals = medalEntries.slice(0, MAX_MEDAL_ITEMS);
 
-        let remainingMedals = 0;
-        if (medalEntries.length > MAX_MEDAL_ITEMS) {
-            remainingMedals = medalEntries
-                .slice(MAX_MEDAL_ITEMS)
-                .reduce((sum, entry) => sum + entry.count, 0);
-        }
-
-        if (displayedMedals.length === 0 && Number.isFinite(snapshot.medalCount) && snapshot.medalCount > 0) {
-            displayedMedals.push({ emoji: '🏅', label: 'Medals', count: snapshot.medalCount });
-            remainingMedals = 0;
-        }
+        const displayedMedals = medalEntries.length > 0
+            ? medalEntries
+            : (Number.isFinite(snapshot.medalCount) && snapshot.medalCount > 0
+                ? [{ emoji: '🏅', label: 'Medals', count: snapshot.medalCount }]
+                : []);
 
         displayedMedals.forEach((entry) => {
             const item = document.createElement('li');
@@ -4841,7 +4842,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const emojiSpan = document.createElement('span');
             emojiSpan.className = 'rank-modal__snapshot-emoji';
-            emojiSpan.textContent = `+ ${entry.emoji}`;
+            emojiSpan.textContent = entry.emoji;
 
             const nameSpan = document.createElement('span');
             nameSpan.className = 'rank-modal__snapshot-name';
@@ -4855,13 +4856,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalItems.push(item);
         });
 
-        if (remainingMedals > 0) {
-            const moreItem = document.createElement('li');
-            moreItem.className = 'rank-modal__snapshot-more';
-            moreItem.textContent = `+${formatCount(remainingMedals)} more`;
-            medalItems.push(moreItem);
-        }
-
         const buildBreakdownElement = (text, isMuted = false) => {
             const element = document.createElement('p');
             element.className = 'rank-modal__snapshot-total-breakdown';
@@ -4872,7 +4866,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return element;
         };
 
-        const buildSnapshotSection = (title, total, items, emptyLabel, breakdownElement) => {
+        const buildSnapshotSection = (title, total, items, emptyLabel, breakdownElement, options = {}) => {
             const section = document.createElement('section');
             section.className = 'rank-modal__snapshot-section';
 
@@ -4892,6 +4886,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const list = document.createElement('ul');
             list.className = 'rank-modal__snapshot-list';
+            if (options.listClassName) {
+                list.className = `${list.className} ${options.listClassName}`;
+            }
 
             if (items.length > 0) {
                 items.forEach((item) => list.appendChild(item));
@@ -4915,7 +4912,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 buildBreakdownElement(
                     coinBreakdownText,
                     safeCoinValue <= 0
-                )
+                ),
+                { listClassName: 'rank-modal__snapshot-list--scrollable' }
             ),
             buildSnapshotSection(
                 'Medals',
@@ -4925,7 +4923,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 buildBreakdownElement(
                     medalBreakdownText,
                     safeMedalValue <= 0
-                )
+                ),
+                { listClassName: 'rank-modal__snapshot-list--scrollable' }
             ),
         );
 
@@ -5381,8 +5380,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? rankRewardSnapshots
                 : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
 
+            const yearlySnapshot = snapshots.find((entry) => (entry?.key || '').toLowerCase() === 'yearly');
+            const baselineTotalValue = Number.isFinite(yearlySnapshot?.totalValue)
+                ? yearlySnapshot.totalValue
+                : null;
+            const baselineLabel = yearlySnapshot
+                ? (PROFILE_PERIOD_SHORT_LABELS_BY_KEY[(yearlySnapshot.key || '').toLowerCase()] || yearlySnapshot.label || '1Y')
+                : '1Y';
+
             snapshots.forEach((snapshot, snapshotIndex) => {
-                const slide = createRankSnapshotSlide(snapshot, snapshotIndex, { idPrefix });
+                const slide = createRankSnapshotSlide(snapshot, snapshotIndex, {
+                    idPrefix,
+                    baselineTotalValue,
+                    baselineLabel,
+                });
                 if (slide) {
                     snapshotsElement.appendChild(slide);
                 }
@@ -5824,7 +5835,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const slide = createRankSnapshotSlide(snapshot, 0, { idPrefix: 'profile-period' });
+        const yearlySnapshot = getRankSnapshotForPeriodKey('yearly');
+        const baselineTotalValue = Number.isFinite(yearlySnapshot?.totalValue)
+            ? yearlySnapshot.totalValue
+            : null;
+        const baselineLabel = yearlySnapshot
+            ? (PROFILE_PERIOD_SHORT_LABELS_BY_KEY[(yearlySnapshot.key || '').toLowerCase()] || yearlySnapshot.label || '1Y')
+            : '1Y';
+
+        const slide = createRankSnapshotSlide(snapshot, 0, {
+            idPrefix: 'profile-period',
+            baselineTotalValue,
+            baselineLabel,
+        });
         if (slide) {
             const totalGroup = slide.querySelector('.rank-modal__snapshot-total');
             if (profilePeriodToggleElement) {

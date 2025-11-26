@@ -1330,6 +1330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let enduranceCompareSelect = document.getElementById('endurance-compare-select');
     let enduranceCompareStatus = document.getElementById('endurance-compare-status');
     let enduranceFullscreenPlot = null;
+    const enduranceFullscreenMediaQuery = window.matchMedia('(max-width: 768px)');
     const enduranceComparisonProfiles = new Map();
     const leaderboardComparisonOptions = new Map();
     const leaderboardNameToIdMap = new Map();
@@ -13009,9 +13010,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceCompareStatus.textContent = message;
     };
 
+    const isMobileEnduranceViewport = () => Boolean(enduranceFullscreenMediaQuery?.matches);
+
     const setEndurancePlotFullscreen = (plotKey = '', enable = false) => {
         const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
         const shouldEnable = Boolean(enable && normalizedKey);
+        if (shouldEnable && !isMobileEnduranceViewport()) {
+            return;
+        }
         const plots = Array.from(document.querySelectorAll('[data-endurance-plot]'));
 
         plots.forEach((plot) => {
@@ -13036,6 +13042,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const toggleEndurancePlotFullscreen = (plotKey = '') => {
         const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
+        if (!isMobileEnduranceViewport()) {
+            setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+            return;
+        }
         const enable = enduranceFullscreenPlot !== normalizedKey;
         setEndurancePlotFullscreen(normalizedKey, enable);
     };
@@ -13053,6 +13063,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             button.addEventListener('click', () => toggleEndurancePlotFullscreen(target));
         });
+
+        if (typeof enduranceFullscreenMediaQuery?.addEventListener === 'function') {
+            enduranceFullscreenMediaQuery.addEventListener('change', (event) => {
+                if (!event.matches && enduranceFullscreenPlot) {
+                    setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+                }
+            });
+        } else if (typeof enduranceFullscreenMediaQuery?.addListener === 'function') {
+            enduranceFullscreenMediaQuery.addListener((event) => {
+                if (!event.matches && enduranceFullscreenPlot) {
+                    setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+                }
+            });
+        }
     };
 
     const addEnduranceComparison = async (userId, labelHint = '') => {

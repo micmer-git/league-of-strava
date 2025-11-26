@@ -3662,6 +3662,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${minutes}:${seconds.toString().padStart(2, '0')} /km`;
     };
 
+    const formatSwimPace100m = (secondsPerKm) => {
+        const perHundredSeconds = Number(secondsPerKm) / 10;
+        const roundedSeconds = Math.round(perHundredSeconds);
+        if (!Number.isFinite(roundedSeconds) || roundedSeconds <= 0) {
+            return '—';
+        }
+
+        const minutes = Math.floor(roundedSeconds / 60);
+        const seconds = roundedSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')} min/100m`;
+    };
+
     const isRunActivity = (activity) => {
         if (!activity || typeof activity !== 'object') {
             return false;
@@ -5246,6 +5258,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             })
             : [];
 
+        const ratioEntries = buildDisciplineRatioEntries();
+        const ratioEntryMap = new Map(
+            ratioEntries.map((entry) => [(entry.category || '').toLowerCase(), entry])
+        );
+
         progressElement.hidden = false;
         progressElement.setAttribute('aria-hidden', 'false');
 
@@ -5273,6 +5290,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         header.appendChild(toggle);
+
+        const activeEntry = ratioEntryMap.get((activeProgressDiscipline || '').toLowerCase());
+        if (activeEntry) {
+            const pillRow = document.createElement('div');
+            pillRow.className = 'rank-modal__progress-pills';
+
+            const pill = document.createElement('button');
+            pill.type = 'button';
+            pill.className = 'profile-metric-pill profile-ratio-pill rank-modal__progress-pill';
+            pill.classList.add(`profile-ratio-pill--${(activeEntry.category || '').toLowerCase()}`);
+
+            const srLabel = document.createElement('span');
+            srLabel.className = 'sr-only';
+            srLabel.textContent = `${activeEntry.category || 'Discipline'} average`;
+
+            const value = document.createElement('span');
+            value.className = 'profile-ratio-pill__value';
+            value.textContent = activeEntry.valueLabel || '—';
+
+            pill.append(srLabel, value);
+
+            const detailText = activeEntry.detailLabel || activeEntry.countLabel;
+            if (detailText) {
+                const detail = document.createElement('span');
+                detail.className = 'profile-ratio-pill__detail';
+                detail.textContent = detailText;
+                pill.appendChild(detail);
+            }
+
+            const tooltipText = activeEntry.tooltipText || detailText;
+            if (tooltipText) {
+                attachTooltip(pill, tooltipText);
+            }
+
+            pillRow.appendChild(pill);
+            header.appendChild(pillRow);
+        }
 
         const title = document.createElement('p');
         title.className = 'rank-modal__progress-title';
@@ -5470,7 +5524,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🏊',
             metrics: swimMetrics,
             label: 'swims',
-            speedLabel: formatPace(swimMetrics?.avgPaceSecondsPerKm),
+            speedLabel: formatSwimPace100m(swimMetrics?.avgPaceSecondsPerKm),
             climbLabel: Number.isFinite(swimMetrics?.avgPoolsPerActivity) && swimMetrics.avgPoolsPerActivity > 0
                 ? `${swimMetrics.avgPoolsPerActivity.toFixed(1)} × 25m pools / swim`
                 : '—',
@@ -13532,59 +13586,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     renderProfileDisciplineRatios = () => {
-        if (!disciplineRatioRowElement) {
-            return;
+        if (disciplineRatioRowElement) {
+            disciplineRatioRowElement.innerHTML = '';
         }
-
-        disciplineRatioRowElement.innerHTML = '';
-        const entries = buildDisciplineRatioEntries()
-            .filter(entry => entry && (entry.valueLabel || entry.detailLabel));
-
-        if (!entries || entries.length === 0) {
-            if (disciplineRatioEmptyElement) {
-                disciplineRatioEmptyElement.hidden = false;
-                disciplineRatioRowElement.appendChild(disciplineRatioEmptyElement);
-            }
-            if (disciplineRatioSection) {
-                disciplineRatioSection.hidden = false;
-            }
-            return;
-        }
-
-        if (disciplineRatioEmptyElement) {
-            disciplineRatioEmptyElement.hidden = true;
-        }
-
-        entries.forEach((entry) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'profile-metric-pill profile-ratio-pill';
-            button.classList.add(`profile-ratio-pill--${(entry.category || '').toLowerCase()}`);
-
-            const label = document.createElement('span');
-            label.className = 'profile-ratio-pill__label';
-            label.textContent = `${entry.emoji || ''} ${entry.category || 'Discipline'} average`.trim();
-
-            const value = document.createElement('span');
-            value.className = 'profile-ratio-pill__value';
-            value.textContent = entry.valueLabel || '—';
-
-            const detail = document.createElement('span');
-            detail.className = 'profile-ratio-pill__detail';
-            detail.textContent = entry.detailLabel || entry.countLabel || 'Not enough data yet.';
-
-            button.append(label, value, detail);
-
-            const tooltipText = entry.tooltipText || entry.detailLabel || entry.countLabel;
-            if (tooltipText) {
-                attachTooltip(button, tooltipText);
-            }
-
-            disciplineRatioRowElement.appendChild(button);
-        });
 
         if (disciplineRatioSection) {
-            disciplineRatioSection.hidden = false;
+            disciplineRatioSection.hidden = true;
+            disciplineRatioSection.setAttribute('aria-hidden', 'true');
         }
     };
     document.addEventListener('click', (event) => {

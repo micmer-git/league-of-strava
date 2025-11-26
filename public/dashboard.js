@@ -18,8 +18,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         cerulean: 5000,
         amethyst: 10000,
         auric: 20000,
-        ember: 30000,
-        crimson: 40000,
         obsidian: 50000,
     };
     const calculateMedalDollarValue = (countOrMedals = 0) => {
@@ -210,55 +208,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         return parsedDate ? parsedDate.getTime() : null;
     };
 
+    const MEDAL_RARITY_ALIASES = new Map([
+        ['ember', 'auric'],
+        ['crimson', 'obsidian'],
+        ['platinum', 'amethyst'],
+        ['gold', 'cerulean'],
+        ['diamond', 'auric'],
+    ]);
+
     const MEDAL_RARITY_LEVELS = [
         {
             key: 'verdant',
             name: 'Verdant',
-            tier: 'Common',
+            tier: 'Everyday',
             emoji: '🟢',
-            description: '',
+            description: 'Approachable medals for celebrating movement and seasonal moments.',
         },
         {
             key: 'cerulean',
             name: 'Cerulean',
-            tier: 'Uncommon',
+            tier: 'Seasoned',
             emoji: '🔵',
-            description: '',
+            description: 'Reliable consistency, short streaks, and hallmark race efforts.',
         },
         {
             key: 'amethyst',
             name: 'Amethyst',
-            tier: 'Rare',
+            tier: 'Fierce',
             emoji: '🟣',
-            description: '',
+            description: 'Demanding multi-activity days and meaningful milestones.',
         },
         {
             key: 'auric',
             name: 'Auric',
-            tier: 'Epic',
+            tier: 'Elite',
             emoji: '🟡',
-            description: '',
-        },
-        {
-            key: 'ember',
-            name: 'Ember',
-            tier: 'Legendary',
-            emoji: '🟠',
-            description: '',
-        },
-        {
-            key: 'crimson',
-            name: 'Crimson',
-            tier: 'Mythic',
-            emoji: '🔴',
-            description: '',
+            description: 'Serious endurance streaks and heavyweight lifetime pushes.',
         },
         {
             key: 'obsidian',
             name: 'Obsidian',
-            tier: 'Ascendant',
+            tier: 'Apex',
             emoji: '⚫️',
-            description: '',
+            description: 'The pinnacle: legendary feats, massive totals, and relentless grit.',
         },
     ];
 
@@ -273,8 +265,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             return DEFAULT_MEDAL_RARITY_KEY;
         }
         const normalized = key.trim().toLowerCase();
-        return MEDAL_RARITY_META_MAP.has(normalized)
-            ? normalized
+        const resolved = MEDAL_RARITY_ALIASES.get(normalized) || normalized;
+        return MEDAL_RARITY_META_MAP.has(resolved)
+            ? resolved
             : DEFAULT_MEDAL_RARITY_KEY;
     };
 
@@ -373,6 +366,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Super Nice Day',
             'Night Owl',
             'Early Riser',
+            'Double Yoga Day',
         ]);
 
         assign('cerulean', [
@@ -388,12 +382,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Global Running Day Star',
             'Leap Day Legend',
             'Double Run Day',
-            '2 Days of 10 km Consecutive Run',
             'Run Streak — 7 Days',
             'Ride Streak — 7 Days',
             'Swim Streak — 7 Days',
             'Marathon Finisher',
             'Cycling Streak',
+            'Back-to-Back Swim Days',
         ]);
 
         assign('amethyst', [
@@ -407,6 +401,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Peak Fueler',
             'Crowd Pleaser',
             'Training Fortnight',
+            'Century Swim Sessions',
+            'Triple Country Month',
         ]);
 
         assign('auric', [
@@ -421,9 +417,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Run Streak — 30 Days',
             'Ride Streak — 30 Days',
             'Training Month Milestone',
-        ]);
-
-        assign('ember', [
             '2 Days Consecutive of 100 km Ride',
             '2 Days Consecutive 5h+ Each Day',
             '7-Day Caloric Champion',
@@ -432,13 +425,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Hefty Haul',
             'Season of Consistency',
             'Skyward Cyclist',
-        ]);
-
-        assign('crimson', [
-            '2 Days Consecutive of 150 km Ride',
-            '3 Days Consecutive 5h+ Each Day',
             '2 Half Marathons Back to Back',
             '2 Days Consecutive 1500 m Elevation',
+        ]);
+
+        assign('obsidian', [
+            '2 Days Consecutive of 150 km Ride',
+            '3 Days Consecutive 5h+ Each Day',
             'Summit Strider',
             'Ultra Voyager',
             'Mountain Marathoner',
@@ -446,9 +439,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Ultra Runner',
             'Half-Year Sentinel',
             'Community Star',
-        ]);
-
-        assign('obsidian', [
             '2 Marathons Back to Back',
             'Olympic Triathlons Completed',
             '2 Days Back to Back 3000 m Elevation',
@@ -478,18 +468,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return 'obsidian';
             }
             if (minLength >= 182) {
-                return 'crimson';
+                return 'auric';
             }
             if (minLength >= 90) {
-                return 'ember';
+                return 'amethyst';
+            }
+            if (minLength >= 60) {
+                return 'amethyst';
             }
             if (minLength >= 30) {
                 return 'auric';
             }
             if (minLength >= 14) {
-                return 'amethyst';
+                return 'cerulean';
             }
-            if (minLength >= 5) {
+            if (minLength >= 7) {
                 return 'cerulean';
             }
             return DEFAULT_MEDAL_RARITY_KEY;
@@ -498,10 +491,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (medal?.consecutiveConfig && Number.isFinite(Number(medal.consecutiveConfig.requiredLength))) {
             const required = Number(medal.consecutiveConfig.requiredLength);
             if (required >= 3) {
-                return 'crimson';
+                return 'auric';
             }
             if (required >= 2) {
-                return 'ember';
+                return 'amethyst';
             }
         }
 
@@ -16376,6 +16369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🏃‍♂️🚴‍♂️',
             description: 'Completed at least 10 km of running and 40 km of riding on the same day.',
             category: 'Best in Class',
+            rarityKey: 'amethyst',
             aggregateResolver: aggregateBestClassResolvers.runRideOneDay,
             contributionConfig: {
                 type: 'daily',
@@ -16387,6 +16381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🏃‍♂️🚴‍♂️🏊‍♂️',
             description: 'Logged qualifying run, ride and swim sessions within the same day.',
             category: 'Best in Class',
+            rarityKey: 'auric',
             aggregateResolver: aggregateBestClassResolvers.runRideSwimOneDay,
             contributionConfig: {
                 type: 'daily',
@@ -16398,6 +16393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🏃‍♂️2️⃣',
             description: 'Recorded two separate runs on the same day.',
             category: 'Best in Class',
+            rarityKey: 'cerulean',
             aggregateResolver: aggregateBestClassResolvers.doubleRunDay,
             contributionConfig: {
                 type: 'daily',
@@ -16409,6 +16405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🚴‍♂️2️⃣',
             description: 'Completed two distinct rides within a single day.',
             category: 'Best in Class',
+            rarityKey: 'amethyst',
             aggregateResolver: aggregateBestClassResolvers.doubleRideDay,
             contributionConfig: {
                 type: 'daily',
@@ -16420,6 +16417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '3️⃣',
             description: 'Stacked three or more activities into one day.',
             category: 'Best in Class',
+            rarityKey: 'amethyst',
             aggregateResolver: aggregateBestClassResolvers.threeActivitiesOneDay,
             contributionConfig: {
                 type: 'daily',
@@ -16431,6 +16429,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🚴‍♂️💯',
             description: 'Rode at least 100 km on back-to-back days.',
             category: 'Best in Class',
+            rarityKey: 'auric',
             aggregateResolver: aggregateBestClassResolvers.consecutiveRide100,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.consecutiveRide100,
@@ -16447,6 +16446,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🚴‍♂️🔁',
             description: 'Delivered 150 km rides on two consecutive days.',
             category: 'Best in Class',
+            rarityKey: 'obsidian',
             aggregateResolver: aggregateBestClassResolvers.consecutiveRide150,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.consecutiveRide150,
@@ -16463,6 +16463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '⏱️⏱️',
             description: 'Logged more than five hours of training on two straight days.',
             category: 'Best in Class',
+            rarityKey: 'auric',
             aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysTwo,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.fiveHourDay,
@@ -16479,6 +16480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '⏱️⏱️⏱️',
             description: 'Maintained five-hour training days across a three-day stretch.',
             category: 'Best in Class',
+            rarityKey: 'obsidian',
             aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysThree,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.fiveHourDay,
@@ -16495,6 +16497,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🏃‍♂️💨',
             description: 'Ran at least 10 km on two consecutive days.',
             category: 'Best in Class',
+            rarityKey: 'cerulean',
             aggregateResolver: aggregateBestClassResolvers.consecutiveRun10k,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.consecutiveRun10k,
@@ -16511,6 +16514,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🛡️🏃‍♂️',
             description: 'Hit half-marathon distance on consecutive days.',
             category: 'Best in Class',
+            rarityKey: 'auric',
             aggregateResolver: aggregateBestClassResolvers.consecutiveHalfMarathons,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.consecutiveHalfMarathons,
@@ -16527,6 +16531,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🔥🏃‍♂️',
             description: 'Completed marathon-distance runs on consecutive days.',
             category: 'Best in Class',
+            rarityKey: 'obsidian',
             aggregateResolver: aggregateBestClassResolvers.consecutiveMarathons,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.consecutiveMarathons,
@@ -16543,6 +16548,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🧗‍♂️🧗‍♂️',
             description: 'Climbed at least 1,500 m of elevation on two straight days.',
             category: 'Best in Class',
+            rarityKey: 'auric',
             aggregateResolver: aggregateBestClassResolvers.consecutiveElevation1500,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.consecutiveElevation1500,
@@ -16559,6 +16565,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🏅',
             description: 'Pieced together Olympic triathlon distances within a day.',
             category: 'Best in Class',
+            rarityKey: 'obsidian',
             aggregateResolver: aggregateBestClassResolvers.olympicTriathlons,
             contributionConfig: {
                 type: 'daily',
@@ -16570,6 +16577,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             emoji: '🗻🗻',
             description: 'Stacked 3,000 m elevation days consecutively.',
             category: 'Best in Class',
+            rarityKey: 'obsidian',
             aggregateResolver: aggregateBestClassResolvers.consecutiveElevation3000,
             consecutiveConfig: {
                 predicate: BEST_CLASS_PREDICATES.consecutiveElevation3000,
@@ -16800,7 +16808,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Run 1,000 km',
             emoji: '🏃',
             description: 'Cover 1,000 km over time.',
-            rarityKey: 'obsidian',
+            rarityKey: 'amethyst',
             category: 'Milestones',
             milestoneCategory: 'Run',
             targetValue: 1000,
@@ -16813,7 +16821,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Run 20,000 m Elevation',
             emoji: '🧗',
             description: 'Climb 20,000 m in elevation.',
-            rarityKey: 'obsidian',
+            rarityKey: 'auric',
             category: 'Milestones',
             milestoneCategory: 'Run',
             targetValue: 20000,
@@ -16839,7 +16847,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Swim 500 km',
             emoji: '🏊',
             description: 'Reach a total of 500 km in the water.',
-            rarityKey: 'obsidian',
+            rarityKey: 'auric',
             category: 'Milestones',
             milestoneCategory: 'Swim',
             targetValue: 500,
@@ -16865,7 +16873,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Century Swim Sessions',
             emoji: '🏊‍♀️💯',
             description: 'Complete 100 recorded swim sessions.',
-            rarityKey: 'platinum',
+            rarityKey: 'amethyst',
             category: 'Milestones',
             milestoneCategory: 'Swim',
             targetValue: 100,
@@ -16878,7 +16886,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Back-to-Back Swim Days',
             emoji: '📆🏊',
             description: 'Log swims on two consecutive days.',
-            rarityKey: 'gold',
+            rarityKey: 'cerulean',
             category: 'Milestones',
             milestoneCategory: 'Swim',
             targetValue: 1,
@@ -16891,7 +16899,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Triple Country Month',
             emoji: '🌍✈️',
             description: 'Train in three different countries within the same month.',
-            rarityKey: 'diamond',
+            rarityKey: 'auric',
             category: 'Milestones',
             milestoneCategory: 'Travel',
             targetValue: 1,
@@ -16904,7 +16912,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             name: 'Double Yoga Day',
             emoji: '🧘‍♀️🧘‍♂️',
             description: 'Complete two yoga sessions in the same day.',
-            rarityKey: 'gold',
+            rarityKey: 'verdant',
             category: 'Consistency',
             milestoneCategory: 'Yoga',
             targetValue: 1,

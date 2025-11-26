@@ -1197,6 +1197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalContentElement = document.getElementById('rank-modal-content');
     const rankModalClassElement = document.getElementById('rank-modal-class');
     const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
+    const rankModalMilestonesElement = document.getElementById('rank-modal-milestones');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletModalElement = document.getElementById('wallet-modal');
@@ -1837,6 +1838,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
     let historicalMedalInventory = [];
     let milestoneCarouselIndex = 0;
+    let milestoneRatioStats = null;
     const progressDisciplineTabs = [
         { key: 'Run', emoji: '🏃', label: 'Run progression' },
         { key: 'Ride', emoji: '🚴', label: 'Ride progression' },
@@ -4111,6 +4113,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         return numeric.toFixed(2);
     };
 
+    const formatMetersPerKilometer = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+        if (numeric >= 1000) {
+            return `${Math.round(numeric).toLocaleString()} m/km`;
+        }
+        if (numeric >= 100) {
+            return `${Math.round(numeric)} m/km`;
+        }
+        return `${numeric.toFixed(1)} m/km`;
+    };
+
+    const formatKilometersPerHour = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+        return `${numeric.toFixed(numeric >= 10 ? 1 : 2)} km/h`;
+    };
+
     const getRankTimelineMaxHours = (config = []) => {
         if (!Array.isArray(config) || config.length === 0) {
             return 0;
@@ -5249,6 +5273,92 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressElement.appendChild(list);
     };
 
+    const buildMilestoneRatioEntries = () => {
+        if (!milestoneRatioStats || typeof milestoneRatioStats !== 'object') {
+            return [];
+        }
+
+        const entries = [];
+
+        const buildDetail = (parts = []) => {
+            const validParts = parts.filter((part) => typeof part === 'string' && part.trim() && part.trim() !== '—');
+            return validParts.length > 0
+                ? validParts.join(' · ')
+                : 'Not enough data yet.';
+        };
+
+        const createCountLabel = (metrics, label) => {
+            if (!metrics || !Number.isFinite(metrics.count)) {
+                return '';
+            }
+            if (metrics.count > 0) {
+                return `${metrics.count.toLocaleString()} ${label}`;
+            }
+            return `No ${label} yet`;
+        };
+
+        const runMetrics = milestoneRatioStats.run;
+        if (runMetrics) {
+            entries.push({
+                category: 'Run',
+                name: 'Run ratios',
+                emoji: '🏃',
+                count: runMetrics.count,
+                countLabel: createCountLabel(runMetrics, 'runs'),
+                progressStatus: {
+                    detail: buildDetail([
+                        Number.isFinite(runMetrics.avgDistanceKm) && runMetrics.avgDistanceKm > 0
+                            ? `Distance ${formatKilometersDisplay(runMetrics.avgDistanceKm)} km`
+                            : null,
+                        formatPace(runMetrics.avgPaceSecondsPerKm),
+                        formatMetersPerKilometer(runMetrics.avgClimbPerKm),
+                    ]),
+                },
+            });
+        }
+
+        const rideMetrics = milestoneRatioStats.ride;
+        if (rideMetrics) {
+            entries.push({
+                category: 'Ride',
+                name: 'Ride ratios',
+                emoji: '🚴',
+                count: rideMetrics.count,
+                countLabel: createCountLabel(rideMetrics, 'rides'),
+                progressStatus: {
+                    detail: buildDetail([
+                        Number.isFinite(rideMetrics.avgDistanceKm) && rideMetrics.avgDistanceKm > 0
+                            ? `Distance ${formatKilometersDisplay(rideMetrics.avgDistanceKm)} km`
+                            : null,
+                        formatKilometersPerHour(rideMetrics.avgSpeedKph),
+                        formatMetersPerKilometer(rideMetrics.avgClimbPerKm),
+                    ]),
+                },
+            });
+        }
+
+        const swimMetrics = milestoneRatioStats.swim;
+        if (swimMetrics) {
+            entries.push({
+                category: 'Swim',
+                name: 'Swim ratios',
+                emoji: '🏊',
+                count: swimMetrics.count,
+                countLabel: createCountLabel(swimMetrics, 'swims'),
+                progressStatus: {
+                    detail: buildDetail([
+                        Number.isFinite(swimMetrics.avgPoolsPerActivity) && swimMetrics.avgPoolsPerActivity > 0
+                            ? `${swimMetrics.avgPoolsPerActivity.toFixed(1)} × 25m pools / activity`
+                            : null,
+                        formatPace(swimMetrics.avgPaceSecondsPerKm),
+                    ]),
+                },
+            });
+        }
+
+        return entries;
+    };
+
     const buildMilestoneCarouselData = () => {
         const progressEntries = Array.isArray(historicalMedalInventory) ? historicalMedalInventory : [];
         const progressByName = new Map(progressEntries.map(entry => [entry.name, entry]));
@@ -5275,6 +5385,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 grouped.set(category, []);
             }
             grouped.get(category).push(entry);
+        });
+
+        buildMilestoneRatioEntries().forEach((entry) => {
+            const category = entry.category || 'Milestones';
+            if (!grouped.has(category)) {
+                grouped.set(category, []);
+            }
+            grouped.get(category).unshift(entry);
         });
 
         const orderedCategories = MILESTONE_CATEGORY_ORDER.length > 0
@@ -5364,7 +5482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const description = document.createElement('p');
         description.className = 'rank-modal__milestones-description';
-        description.textContent = 'Swipe through ride, run, and swim milestones with the grove toggle.';
+        description.textContent = 'Swipe through ride, run, and swim milestones plus training ratios with the grove toggle.';
 
         const list = document.createElement('ul');
         list.className = 'rank-modal__milestones-list';
@@ -5391,9 +5509,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             nameGroup.append(emoji, name);
 
             const count = Math.max(0, toNonNegativeInteger(entry?.count));
+            const countLabel = typeof entry?.countLabel === 'string' ? entry.countLabel.trim() : '';
             const countBadge = document.createElement('span');
             countBadge.className = 'rank-modal__milestones-count';
-            countBadge.textContent = count > 0 ? `${count.toLocaleString()}× earned` : 'In progress';
+            const countText = countLabel || (count > 0 ? `${count.toLocaleString()}× earned` : 'In progress');
+            countBadge.textContent = countText;
+            countBadge.setAttribute('aria-label', countText);
 
             itemHeader.append(nameGroup, countBadge);
 
@@ -5526,6 +5647,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const targetElement = timelineElement || listElement;
             targetElement?.appendChild(emptyState);
             return;
+        }
+
+        if (idPrefix === 'rank-modal') {
+            renderMilestoneCarousel();
         }
 
         if (timelineElement && idPrefix === 'rank-modal') {
@@ -17119,6 +17244,91 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     };
 
+    const buildActivityRatioSummaries = (activities = []) => {
+        const createTotals = () => ({
+            distanceMeters: 0,
+            elevationMeters: 0,
+            movingSeconds: 0,
+            count: 0,
+        });
+
+        const totalsByType = {
+            run: createTotals(),
+            ride: createTotals(),
+            swim: createTotals(),
+        };
+
+        (Array.isArray(activities) ? activities : []).forEach((activity) => {
+            const normalizedType = ((activity?.sport_type || activity?.type || '')).toLowerCase();
+            const distanceMeters = Math.max(0, Number(activity?.distance) || 0);
+            const elevationGain = Math.max(0, Number(activity?.total_elevation_gain) || 0);
+            const movingSeconds = Math.max(0, Number(activity?.moving_time) || 0);
+
+            if (normalizedType.includes('run')) {
+                totalsByType.run.distanceMeters += distanceMeters;
+                totalsByType.run.elevationMeters += elevationGain;
+                totalsByType.run.movingSeconds += movingSeconds;
+                totalsByType.run.count += 1;
+            }
+
+            if (normalizedType.includes('ride')) {
+                totalsByType.ride.distanceMeters += distanceMeters;
+                totalsByType.ride.elevationMeters += elevationGain;
+                totalsByType.ride.movingSeconds += movingSeconds;
+                totalsByType.ride.count += 1;
+            }
+
+            if (normalizedType.includes('swim')) {
+                totalsByType.swim.distanceMeters += distanceMeters;
+                totalsByType.swim.elevationMeters += elevationGain;
+                totalsByType.swim.movingSeconds += movingSeconds;
+                totalsByType.swim.count += 1;
+            }
+        });
+
+        const buildMetrics = (totals) => {
+            const avgDistanceKm = totals.count > 0
+                ? (totals.distanceMeters / totals.count) / METERS_IN_KILOMETER
+                : null;
+            const avgPaceSecondsPerKm = totals.distanceMeters > 0 && totals.movingSeconds > 0
+                ? (totals.movingSeconds / totals.distanceMeters) * METERS_IN_KILOMETER
+                : null;
+            const avgClimbPerKm = totals.distanceMeters > 0
+                ? totals.elevationMeters / (totals.distanceMeters / METERS_IN_KILOMETER)
+                : null;
+
+            return {
+                count: totals.count,
+                avgDistanceKm,
+                avgPaceSecondsPerKm,
+                avgClimbPerKm,
+            };
+        };
+
+        const runMetrics = buildMetrics(totalsByType.run);
+        const rideMetrics = buildMetrics(totalsByType.ride);
+        const swimMetrics = buildMetrics(totalsByType.swim);
+
+        return {
+            run: runMetrics,
+            ride: {
+                ...rideMetrics,
+                avgSpeedKph: rideMetrics.avgPaceSecondsPerKm
+                    ? (METERS_IN_KILOMETER / (rideMetrics.avgPaceSecondsPerKm / 3600))
+                    : (totalsByType.ride.movingSeconds > 0 && totalsByType.ride.distanceMeters > 0
+                        ? (totalsByType.ride.distanceMeters / METERS_IN_KILOMETER)
+                        / (totalsByType.ride.movingSeconds / 3600)
+                        : null),
+            },
+            swim: {
+                ...swimMetrics,
+                avgPoolsPerActivity: swimMetrics.count > 0 && totalsByType.swim.distanceMeters > 0
+                    ? (totalsByType.swim.distanceMeters / 25) / swimMetrics.count
+                    : null,
+            },
+        };
+    };
+
     const buildProgressMedalEntries = (activityList = []) => {
         if (!Array.isArray(activityList) || activityList.length === 0) {
             return PROGRESS_MEDAL_DEFINITIONS.map((definition) => ({
@@ -18855,6 +19065,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? allData.activities
             : activities;
         const lifetimeActivitiesForStats = lifetimeActivities;
+        milestoneRatioStats = buildActivityRatioSummaries(lifetimeActivitiesForStats);
         const lifetimeTotals = (data?.totals && typeof data.totals === 'object')
             ? data.totals
             : (allData?.totals || {});
@@ -19014,6 +19225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);
         medalInventory = fullMedalInventory.filter(medal => !isHistoricalMedal(medal));
         milestoneCarouselIndex = 0;
+        renderMilestoneCarousel();
 
         medalContributionMap = new Map();
         medalContributionHighlightsByDate = new Map();

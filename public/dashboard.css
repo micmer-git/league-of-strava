@@ -4449,6 +4449,70 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     letter-spacing: 0.01em;
 }
 
+.endurance-compare {
+    background: rgba(14, 165, 233, 0.06);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 0.9rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.9rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.endurance-compare__label {
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.01em;
+}
+
+.endurance-compare__controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+}
+
+.endurance-compare__input {
+    border: 1px solid rgba(148, 163, 184, 0.7);
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.95rem;
+    background: #fff;
+}
+
+.endurance-compare__submit {
+    background: #0ea5e9;
+    color: white;
+    border: none;
+    border-radius: 0.75rem;
+    padding: 0.65rem 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.endurance-compare__submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(14, 165, 233, 0.28);
+}
+
+.endurance-compare__submit:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 2px;
+}
+
+.endurance-compare__help {
+    color: rgba(15, 23, 42, 0.65);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.endurance-compare__status {
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+    min-height: 1.2em;
+}
+
 .dark .endurance-multiplot__plot {
     background: rgba(226, 232, 240, 0.03);
     border-color: rgba(148, 163, 184, 0.4);
@@ -4460,6 +4524,26 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .dark .endurance-discipline-slider {
     background: rgba(14, 165, 233, 0.18);
+}
+
+.dark .endurance-compare {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+.dark .endurance-compare__label,
+.dark .endurance-compare__status {
+    color: #e2e8f0;
+}
+
+.dark .endurance-compare__input {
+    background: rgba(15, 23, 42, 0.75);
+    border-color: rgba(148, 163, 184, 0.6);
+    color: #e2e8f0;
+}
+
+.dark .endurance-compare__help {
+    color: rgba(226, 232, 240, 0.7);
 }
 
 .medals-section::-webkit-scrollbar {

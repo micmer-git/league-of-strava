@@ -1287,6 +1287,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
     let enduranceChartInstances = new Map();
     let enduranceChartSource = [];
+    let enduranceCompareForm = document.getElementById('endurance-compare-form');
+    let enduranceCompareInput = document.getElementById('endurance-compare-input');
+    let enduranceCompareStatus = document.getElementById('endurance-compare-status');
+    const enduranceComparisonProfiles = new Map();
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
@@ -1612,8 +1616,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             movingTime: document.getElementById('endurance-ma-chart-moving-time'),
         };
         enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
+        enduranceCompareForm = document.getElementById('endurance-compare-form');
+        enduranceCompareInput = document.getElementById('endurance-compare-input');
+        enduranceCompareStatus = document.getElementById('endurance-compare-status');
         enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
         setEnduranceChartSkeletonVisible(isShellLoading());
+        bindEnduranceCompareForm();
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
         setWalletChartSkeletonVisible(isShellLoading());
@@ -12400,9 +12408,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const activitySource = hasCompleteHistory
             ? historicalActivities
             : getEnduranceActivitiesFromTimeline(enduranceChartSource);
-        const dailySeries = buildDailyEnduranceSeries(activitySource);
-        const labels = dailySeries.map((entry) => entry.label);
-        const hasData = labels.length > 0;
         const isAllTimeRange = walletSelectedTimeframe === WALLET_TIMEFRAME_ALL;
 
         if (!hasCompleteHistory && hasMoreActivities) {
@@ -12412,6 +12417,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const metricConfig = [
+            {
+                key: 'distance',
+                label: 'Distance',
+                unit: ' km',
+                palette: { base: '#0ea5e9', variants: ['#0ea5e9', '#1d4ed8', '#38bdf8'] },
+                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 1 }),
+            },
+            {
+                key: 'elevation',
+                label: 'Elevation',
+                unit: ' m',
+                palette: { base: '#f97316', variants: ['#f97316', '#c2410c', '#fb923c'] },
+                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+            },
+            {
+                key: 'movingTime',
+                label: 'Moving time',
+                unit: ' hrs',
+                palette: { base: '#22c55e', variants: ['#22c55e', '#15803d', '#4ade80'] },
+                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+            },
+        ];
+
+        const metricConfigMap = new Map(metricConfig.map((config) => [config.key, config]));
+        const disciplines = [
+            { key: 'run', label: 'Run', paletteKey: 'run' },
+            { key: 'ride', label: 'Ride', paletteKey: 'ride' },
+        ];
+        const disciplinePalette = {
+            run: ['#0ea5e9', '#1d4ed8', '#38bdf8', '#0ea5e9aa'],
+            ride: ['#f59e0b', '#ea580c', '#d97706', '#f59e0baa'],
+        };
+
+        const allActivities = activitySource
+            .concat(...Array.from(enduranceComparisonProfiles.values()).map((profile) => profile.activities || []));
+        const masterSeries = buildDailyEnduranceSeries(allActivities);
+        const hasData = masterSeries.length > 0;
+        const labels = masterSeries.map((entry) => entry.label);
+        const masterKeys = masterSeries.map((entry) => entry.date.toISOString().slice(0, 10));
+        const movingAverageWindow = 50;
+
         if (!hasChartLibrary || !hasData) {
             destroyEnduranceChart();
             setEnduranceChartSkeletonVisible(false);
@@ -12419,68 +12466,70 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const metricConfig = [
-            {
-                key: 'distance',
-                label: 'Distance',
-                unit: ' km',
-                palette: { fast: '#0ea5e9', slow: '#0369a1' },
-                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 1 }),
-            },
-            {
-                key: 'elevation',
-                label: 'Elevation',
-                unit: ' m',
-                palette: { fast: '#f97316', slow: '#c2410c' },
-                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-            },
-            {
-                key: 'movingTime',
-                label: 'Moving time',
-                unit: ' hrs',
-                palette: { fast: '#22c55e', slow: '#15803d' },
-                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 2 }),
-            },
+        const profiles = [
+            { key: 'self', label: 'You', activities: activitySource },
+            ...Array.from(enduranceComparisonProfiles.values()),
         ];
 
-        const metricConfigMap = new Map(metricConfig.map((config) => [config.key, config]));
+        const movingAverageSeries = new Map();
+        const rawSeriesMap = new Map();
+        const firstValidIndices = [];
 
-        const metricValues = metricConfig.reduce((acc, config) => ({
-            ...acc,
-            [config.key]: dailySeries.map((entry) => {
-                if (config.key === 'distance') {
-                    return Number((entry?.distanceKm ?? 0).toFixed(2));
-                }
-
-                if (config.key === 'elevation') {
-                    return Number((entry?.elevationGain ?? 0).toFixed(0));
-                }
-
-                if (config.key === 'movingTime') {
-                    return Number((entry?.movingHours ?? 0).toFixed(2));
-                }
-
-                return 0;
-            })
-        }), {});
-
-        const fastWindow = 50;
-        const slowWindow = 100;
-
-        const movingAverageSeries = metricConfig.reduce((acc, config) => ({
-            ...acc,
-            [config.key]: {
-                fast: computeMovingAverageSeries(metricValues[config.key], fastWindow),
-                slow: computeMovingAverageSeries(metricValues[config.key], slowWindow),
-            }
-        }), {});
-
-        const firstValidIndices = metricConfig
-            .flatMap((config) => {
-                const fastIndex = movingAverageSeries[config.key].fast.findIndex(Number.isFinite);
-                const slowIndex = movingAverageSeries[config.key].slow.findIndex(Number.isFinite);
-                return [fastIndex, slowIndex].filter((index) => index >= 0);
+        const alignSeriesForDiscipline = (activities, disciplineKey) => {
+            const disciplineActivities = (activities || []).filter((activity) => resolveActivityDiscipline(activity) === disciplineKey);
+            const series = buildDailyEnduranceSeries(disciplineActivities);
+            const seriesMap = new Map(series.map((entry) => [entry.date.toISOString().slice(0, 10), entry]));
+            return masterKeys.map((key) => {
+                const entry = seriesMap.get(key) || {};
+                return {
+                    distanceKm: Number((entry?.distanceKm ?? 0).toFixed(2)),
+                    elevationGain: Number((entry?.elevationGain ?? 0).toFixed(0)),
+                    movingHours: Number((entry?.movingHours ?? 0).toFixed(2)),
+                };
             });
+        };
+
+        profiles.forEach((profile, profileIndex) => {
+            const profileKey = profile?.key || `profile-${profileIndex}`;
+            movingAverageSeries.set(profileKey, new Map());
+            rawSeriesMap.set(profileKey, new Map());
+
+            disciplines.forEach((discipline) => {
+                const alignedSeries = alignSeriesForDiscipline(profile.activities, discipline.key);
+                const disciplineMovingAverage = new Map();
+                const disciplineRaw = new Map();
+
+                metricConfig.forEach((config) => {
+                    const values = alignedSeries.map((entry) => {
+                        if (config.key === 'distance') {
+                            return entry.distanceKm;
+                        }
+
+                        if (config.key === 'elevation') {
+                            return entry.elevationGain;
+                        }
+
+                        if (config.key === 'movingTime') {
+                            return entry.movingHours;
+                        }
+
+                        return 0;
+                    });
+
+                    disciplineRaw.set(config.key, values);
+                    const maSeries = computeMovingAverageSeries(values, movingAverageWindow);
+                    disciplineMovingAverage.set(config.key, maSeries);
+
+                    const validIndex = maSeries.findIndex(Number.isFinite);
+                    if (validIndex >= 0) {
+                        firstValidIndices.push(validIndex);
+                    }
+                });
+
+                movingAverageSeries.get(profileKey).set(discipline.key, disciplineMovingAverage);
+                rawSeriesMap.get(profileKey).set(discipline.key, disciplineRaw);
+            });
+        });
 
         if (firstValidIndices.length === 0) {
             destroyEnduranceChart();
@@ -12490,8 +12539,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         let visibleStart = Math.min(...firstValidIndices);
-        if (!isAllTimeRange && dailySeries.length > 0) {
-            const latestDate = dailySeries[dailySeries.length - 1]?.date;
+        if (!isAllTimeRange && masterSeries.length > 0) {
+            const latestDate = masterSeries[masterSeries.length - 1]?.date;
             if (latestDate instanceof Date && !Number.isNaN(latestDate.getTime())) {
                 const cutoff = new Date(latestDate);
                 if (walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH) {
@@ -12508,15 +12557,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     cutoff.setDate(cutoff.getDate() - 1);
                 }
 
-                const timeframeStartIndex = dailySeries.findIndex((entry) => entry?.date >= cutoff);
+                const timeframeStartIndex = masterSeries.findIndex((entry) => entry?.date >= cutoff);
                 if (timeframeStartIndex >= 0) {
                     visibleStart = Math.max(visibleStart, timeframeStartIndex);
                 }
             }
         }
         const visibleLabels = labels.slice(visibleStart);
-        const visibleRawValues = Object.fromEntries(metricConfig
-            .map((config) => [config.key, metricValues[config.key].slice(visibleStart)]));
 
         const isDarkMode = document.body.classList.contains('dark');
         const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
@@ -12530,10 +12577,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const yearTicks = [];
             scale.ticks.forEach((tick) => {
                 const sourceIndex = visibleStart + tick.value;
-                const entry = dailySeries[sourceIndex];
+                const entry = masterSeries[sourceIndex];
                 const currentYear = entry?.date?.getFullYear?.();
-                const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
-                    ? dailySeries[sourceIndex - 1].date.getFullYear()
+                const previousYear = sourceIndex > 0 && masterSeries[sourceIndex - 1]?.date
+                    ? masterSeries[sourceIndex - 1].date.getFullYear()
                     : null;
                 const isNewYear = Number.isInteger(currentYear)
                     && (previousYear === null || previousYear !== currentYear);
@@ -12550,10 +12597,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            const fastSeries = movingAverageSeries[config.key].fast.slice(visibleStart);
-            const slowSeries = movingAverageSeries[config.key].slow.slice(visibleStart);
-            const rawSeries = visibleRawValues[config.key];
-            const hasMetricData = fastSeries.some(Number.isFinite) || slowSeries.some(Number.isFinite);
+            const datasets = [];
+            profiles.forEach((profile, profileIndex) => {
+                const profileKey = profile?.key || `profile-${profileIndex}`;
+                const profileLabel = profile?.label || `Athlete ${profileIndex + 1}`;
+
+                disciplines.forEach((discipline) => {
+                    const maSeries = movingAverageSeries.get(profileKey)?.get(discipline.key)?.get(config.key) || [];
+                    const rawSeries = rawSeriesMap.get(profileKey)?.get(discipline.key)?.get(config.key) || [];
+                    const slicedSeries = maSeries.slice(visibleStart);
+                    if (!slicedSeries.some(Number.isFinite)) {
+                        return;
+                    }
+
+                    const palette = disciplinePalette[discipline.paletteKey] || [config.palette.base];
+                    const color = palette[profileIndex % palette.length] || config.palette.base;
+
+                    datasets.push({
+                        label: `${config.label} · ${discipline.label} · ${profileLabel} · ${movingAverageWindow}d MA`,
+                        data: slicedSeries,
+                        borderColor: color,
+                        backgroundColor: color,
+                        borderWidth: 2,
+                        tension: 0.32,
+                        spanGaps: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 7,
+                        pointHitRadius: 16,
+                        pointBackgroundColor: color,
+                        pointBorderColor: color,
+                        pointBorderWidth: 0,
+                        rawSeries: rawSeries.slice(visibleStart),
+                    });
+                });
+            });
+
+            const hasMetricData = datasets.some((dataset) => dataset.data.some(Number.isFinite));
             const shouldUseSparseTicks = walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH
                 || walletSelectedTimeframe === WALLET_TIMEFRAME_6_MONTH;
 
@@ -12564,45 +12643,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             canvas.classList.remove('hidden');
 
-            const datasets = [
-                {
-                    label: `${config.label} · ${fastWindow}pt MA`,
-                    data: fastSeries,
-                    borderColor: config.palette.fast,
-                    backgroundColor: config.palette.fast,
-                    borderWidth: 2.1,
-                    tension: 0.32,
-                    spanGaps: true,
-                    pointRadius: 3,
-                    pointHoverRadius: 7,
-                    pointHitRadius: 16,
-                    pointBackgroundColor: config.palette.fast,
-                    pointBorderColor: config.palette.fast,
-                    pointBorderWidth: 0,
-                },
-                {
-                    label: `${config.label} · ${slowWindow}pt MA`,
-                    data: slowSeries,
-                    borderColor: config.palette.slow,
-                    backgroundColor: config.palette.slow,
-                    borderWidth: 1.6,
-                    borderDash: [6, 4],
-                    tension: 0.32,
-                    spanGaps: true,
-                    pointRadius: 2,
-                    pointHoverRadius: 6,
-                    pointHitRadius: 14,
-                    pointBackgroundColor: config.palette.slow,
-                    pointBorderColor: config.palette.slow,
-                    pointBorderWidth: 0,
-                },
-            ];
-
             const tooltipCallbacks = {
                 title: (context) => {
                     const [first] = context || [];
                     const sourceIndex = visibleStart + (first?.dataIndex ?? 0);
-                    const seriesEntry = dailySeries[sourceIndex];
+                    const seriesEntry = masterSeries[sourceIndex];
                     return seriesEntry?.label || 'Daily total';
                 },
                 label: (context) => {
@@ -12619,8 +12664,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const dataIndex = Number.isInteger(first?.dataIndex)
                         ? first.dataIndex
                         : null;
+                    const rawSeries = Array.isArray(first?.dataset?.rawSeries) ? first.dataset.rawSeries : [];
                     const rawValue = Number.isInteger(dataIndex)
-                        && Array.isArray(rawSeries)
                         && Number.isFinite(rawSeries[dataIndex])
                         ? rawSeries[dataIndex]
                         : 0;
@@ -12671,59 +12716,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 if (shouldUseSparseTicks) {
                                     return scale.ticks;
                                 }
-                                const yearTicks = buildEnduranceYearTicks(scale);
-                                // eslint-disable-next-line no-param-reassign
-                                scale.ticks = yearTicks;
-                                return yearTicks;
+
+                                return buildEnduranceYearTicks(scale);
                             },
                             ticks: {
-                                autoSkip: shouldUseSparseTicks,
-                                maxTicksLimit: shouldUseSparseTicks ? 8 : undefined,
-                                color: axisColor,
-                                font: tickFont,
                                 maxRotation: 0,
-                                minRotation: 0,
-                                callback: (value, index, ticks) => {
-                                    const tick = ticks?.[index];
-                                    if (tick?.label) {
-                                        return tick.label;
-                                    }
-                                    const sourceIndex = visibleStart + (Number.isFinite(tick?.value) ? tick.value : index);
-                                    const entry = dailySeries[sourceIndex];
-                                    if (shouldUseSparseTicks && entry?.date instanceof Date) {
-                                        const isStartOfMonth = entry.date.getDate() === 1;
-                                        const isFirstPoint = sourceIndex === visibleStart;
-                                        if (isStartOfMonth || isFirstPoint) {
-                                            return entry.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                                        }
-                                        return '';
-                                    }
-                                    if (entry?.date && !isAllTimeRange) {
-                                        const previousYear = sourceIndex > 0 && dailySeries[sourceIndex - 1]?.date
-                                            ? dailySeries[sourceIndex - 1].date.getFullYear()
-                                            : null;
-                                        if (previousYear !== entry.date.getFullYear()) {
-                                            return entry.date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-                                        }
-                                    }
-                                    return visibleLabels[index] || value;
-                                },
-                            },
-                            grid: {
-                                color: gridColor,
-                                drawOnChartArea: false,
-                            },
-                        },
-                        y: {
-                            position: 'right',
-                            ticks: {
+                                maxTicksLimit: shouldUseSparseTicks ? 6 : 12,
+                                autoSkip: !isAllTimeRange,
                                 color: axisColor,
                                 font: tickFont,
-                                callback: (value) => {
-                                    if (!Number.isFinite(value)) {
-                                        return '0';
+                                callback(value, index, ticks) {
+                                    if (isAllTimeRange) {
+                                        return this.getLabelForValue(value);
                                     }
-                                    return metricConfigMap.get(config.key)?.tickFormatter(value) ?? value;
+
+                                    if (shouldUseSparseTicks && ticks.length > 6) {
+                                        const visibleTicks = Math.max(3, Math.min(7, ticks.length));
+                                        const spacing = Math.max(1, Math.floor(ticks.length / visibleTicks));
+                                        return index % spacing === 0 ? this.getLabelForValue(value) : '';
+                                    }
+
+                                    return index % 2 === 0 ? this.getLabelForValue(value) : '';
                                 },
                             },
                             grid: {
@@ -12738,6 +12751,76 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
             }));
         });
+
+    };
+
+    const setEnduranceCompareStatus = (message = '') => {
+        if (!enduranceCompareStatus) {
+            return;
+        }
+        enduranceCompareStatus.textContent = message;
+    };
+
+    const addEnduranceComparison = async (userId) => {
+        const trimmedId = typeof userId === 'string' ? userId.trim() : '';
+        if (!trimmedId) {
+            setEnduranceCompareStatus('Enter an athlete ID to compare.');
+            return;
+        }
+
+        setEnduranceCompareStatus('Loading athlete snapshot...');
+
+        try {
+            const payload = await fetchAndValidateJson(
+                () => fetch(`/api/user-snapshot/${encodeURIComponent(trimmedId)}`, { cache: 'no-store' }),
+                {
+                    attempts: 2,
+                    retryDelay: 500,
+                    validate: isValidStravaPayload,
+                    allowNotFound: true,
+                }
+            );
+
+            if (!payload) {
+                setEnduranceCompareStatus('No shared snapshot available for that athlete yet.');
+                return;
+            }
+
+            const activities = Array.isArray(payload.activities) ? payload.activities : [];
+            const profileLabel = payload?.athlete?.username
+                || `${payload?.athlete?.firstname || ''} ${payload?.athlete?.lastname || ''}`.trim()
+                || trimmedId;
+
+            enduranceComparisonProfiles.set(trimmedId, {
+                key: trimmedId,
+                label: profileLabel,
+                activities,
+            });
+
+            if (enduranceCompareInput) {
+                enduranceCompareInput.value = '';
+            }
+
+            updateEnduranceChart(enduranceChartSource);
+            setEnduranceCompareStatus(`Added ${profileLabel} to the comparison chart.`);
+        } catch (error) {
+            console.error('Failed to add comparison athlete:', error);
+            setEnduranceCompareStatus('Unable to load that athlete right now. Try again later.');
+        }
+    };
+
+    const bindEnduranceCompareForm = () => {
+        if (!enduranceCompareForm || enduranceCompareForm.dataset.bound === 'true') {
+            return;
+        }
+
+        enduranceCompareForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const value = enduranceCompareInput?.value || '';
+            addEnduranceComparison(value);
+        });
+
+        enduranceCompareForm.dataset.bound = 'true';
     };
 
     const destroyMedalMixChart = () => {

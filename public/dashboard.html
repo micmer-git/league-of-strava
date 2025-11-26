@@ -364,13 +364,22 @@
 </div>
 <div class="wallet-chart wallet-chart--secondary" id="endurance-chart">
   <div class="wallet-chart__top-bar wallet-chart__top-bar--metrics" role="toolbar" aria-label="Endurance metric selector">
-    <p class="wallet-chart__hint wallet-chart__hint--compact">50 &amp; 100 point moving averages</p>
+    <p class="wallet-chart__hint wallet-chart__hint--compact">50-day moving averages for Run &amp; Ride</p>
   </div>
-    <div class="wallet-chart__body">
+  <div class="wallet-chart__body">
       <div aria-hidden="true" class="wallet-chart__skeleton" id="endurance-chart-skeleton">
         <div class="wallet-chart__skeleton-line"></div>
         <div class="wallet-chart__skeleton-line wallet-chart__skeleton-line--short"></div>
       </div>
+      <form class="endurance-compare" id="endurance-compare-form">
+        <label class="endurance-compare__label" for="endurance-compare-input">Add athlete for comparison</label>
+        <div class="endurance-compare__controls">
+          <input aria-describedby="endurance-compare-help" class="endurance-compare__input" id="endurance-compare-input" name="user-id" placeholder="Enter athlete ID" type="search" />
+          <button class="endurance-compare__submit" type="submit">Add</button>
+        </div>
+        <p class="endurance-compare__help" id="endurance-compare-help">Plot a 50-day moving average for Run and Ride side by side.</p>
+        <p class="endurance-compare__status" id="endurance-compare-status" role="status" aria-live="polite"></p>
+      </form>
       <div class="endurance-multiplot" id="endurance-multiplot">
         <div class="endurance-multiplot__plot" data-endurance-plot="distance">
           <div class="endurance-multiplot__title">Distance · km</div>

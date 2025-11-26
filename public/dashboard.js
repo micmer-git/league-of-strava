@@ -1063,12 +1063,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     let pizzaStatButton = document.getElementById('pizza-stat');
     let likesStatButton = document.getElementById('likes-stat');
     let countryStatButton = document.getElementById('country-stat');
+    const disciplineRatioSection = document.getElementById('profile-discipline-ratios');
+    const disciplineRatioRowElement = document.getElementById('profile-discipline-ratio-row');
+    const disciplineRatioEmptyElement = document.getElementById('profile-discipline-ratio-empty');
     let globeTotalElement = document.getElementById('globe-total');
     let everestTotalElement = document.getElementById('everest-total');
     let pizzaTotalElement = document.getElementById('pizza-total');
     let likesTotalElement = document.getElementById('likes-total');
     let countryTotalElement = document.getElementById('country-total');
     let renderFunStats = () => {};
+    let renderProfileDisciplineRatios = () => {};
     let updateCountryMapSummary = () => {};
     let refreshCountryMapIfVisible = () => {};
     const profileWalletTotalElement = document.getElementById('profile-wallet-total');
@@ -1707,6 +1711,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         achievementWallet = document.getElementById('achievement-wallet');
         updateActivitiesMedalInfo();
         renderFunStats();
+        renderProfileDisciplineRatios();
         syncWalletTimeRangeChips();
         updateWalletLayerToggleState();
         bindWalletTimeRangeButtons();
@@ -5377,11 +5382,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const entries = [];
 
-        const buildDetail = (parts = []) => {
+        const buildDetail = (parts = [], fallback = 'Not enough data yet.') => {
             const validParts = parts.filter((part) => typeof part === 'string' && part.trim() && part.trim() !== '—');
             return validParts.length > 0
                 ? validParts.join(' · ')
-                : 'Not enough data yet.';
+                : fallback;
         };
 
         const createCountLabel = (metrics, label) => {
@@ -5394,63 +5399,84 @@ document.addEventListener('DOMContentLoaded', async () => {
             return `No ${label} yet`;
         };
 
+        const buildEntry = ({
+            category,
+            emoji,
+            metrics,
+            label,
+            speedLabel,
+            speedDescriptor = 'pace',
+            climbLabel,
+        }) => {
+            if (!metrics) {
+                return null;
+            }
+
+            const avgDistanceLabel = Number.isFinite(metrics.avgDistanceKm) && metrics.avgDistanceKm > 0
+                ? `${formatKilometersDisplay(metrics.avgDistanceKm)} km avg`
+                : 'No distance yet';
+            const detailLabel = buildDetail([
+                speedLabel,
+                climbLabel,
+            ]);
+            const tooltipParts = [
+                createCountLabel(metrics, label),
+                avgDistanceLabel !== 'No distance yet' ? `Avg distance ${avgDistanceLabel.replace(' avg', '')}.` : null,
+                speedLabel && speedLabel !== '—' ? `${category} ${speedDescriptor} ${speedLabel}.` : null,
+                climbLabel && climbLabel !== '—' ? `${climbLabel} gained per km.` : null,
+            ].filter(Boolean);
+
+            return {
+                category,
+                emoji,
+                count: metrics.count,
+                countLabel: createCountLabel(metrics, label),
+                valueLabel: avgDistanceLabel,
+                detailLabel,
+                tooltipText: tooltipParts.join(' '),
+            };
+        };
+
         const runMetrics = disciplineRatioStats.run;
-        if (runMetrics) {
-            entries.push({
-                category: 'Run',
-                name: 'Run ratios',
-                emoji: '🏃',
-                count: runMetrics.count,
-                countLabel: createCountLabel(runMetrics, 'runs'),
-                progressStatus: {
-                    detail: buildDetail([
-                        Number.isFinite(runMetrics.avgDistanceKm) && runMetrics.avgDistanceKm > 0
-                            ? `Distance ${formatKilometersDisplay(runMetrics.avgDistanceKm)} km`
-                            : null,
-                        formatPace(runMetrics.avgPaceSecondsPerKm),
-                        formatMetersPerKilometer(runMetrics.avgClimbPerKm),
-                    ]),
-                },
-            });
+        const runEntry = buildEntry({
+            category: 'Run',
+            emoji: '🏃',
+            metrics: runMetrics,
+            label: 'runs',
+            speedLabel: formatPace(runMetrics?.avgPaceSecondsPerKm),
+            climbLabel: formatMetersPerKilometer(runMetrics?.avgClimbPerKm),
+        });
+        if (runEntry) {
+            entries.push(runEntry);
         }
 
         const rideMetrics = disciplineRatioStats.ride;
-        if (rideMetrics) {
-            entries.push({
-                category: 'Ride',
-                name: 'Ride ratios',
-                emoji: '🚴',
-                count: rideMetrics.count,
-                countLabel: createCountLabel(rideMetrics, 'rides'),
-                progressStatus: {
-                    detail: buildDetail([
-                        Number.isFinite(rideMetrics.avgDistanceKm) && rideMetrics.avgDistanceKm > 0
-                            ? `Distance ${formatKilometersDisplay(rideMetrics.avgDistanceKm)} km`
-                            : null,
-                        formatKilometersPerHour(rideMetrics.avgSpeedKph),
-                        formatMetersPerKilometer(rideMetrics.avgClimbPerKm),
-                    ]),
-                },
-            });
+        const rideEntry = buildEntry({
+            category: 'Ride',
+            emoji: '🚴',
+            metrics: rideMetrics,
+            label: 'rides',
+            speedLabel: formatKilometersPerHour(rideMetrics?.avgSpeedKph),
+            speedDescriptor: 'speed',
+            climbLabel: formatMetersPerKilometer(rideMetrics?.avgClimbPerKm),
+        });
+        if (rideEntry) {
+            entries.push(rideEntry);
         }
 
         const swimMetrics = disciplineRatioStats.swim;
-        if (swimMetrics) {
-            entries.push({
-                category: 'Swim',
-                name: 'Swim ratios',
-                emoji: '🏊',
-                count: swimMetrics.count,
-                countLabel: createCountLabel(swimMetrics, 'swims'),
-                progressStatus: {
-                    detail: buildDetail([
-                        Number.isFinite(swimMetrics.avgPoolsPerActivity) && swimMetrics.avgPoolsPerActivity > 0
-                            ? `${swimMetrics.avgPoolsPerActivity.toFixed(1)} × 25m pools / activity`
-                            : null,
-                        formatPace(swimMetrics.avgPaceSecondsPerKm),
-                    ]),
-                },
-            });
+        const swimEntry = buildEntry({
+            category: 'Swim',
+            emoji: '🏊',
+            metrics: swimMetrics,
+            label: 'swims',
+            speedLabel: formatPace(swimMetrics?.avgPaceSecondsPerKm),
+            climbLabel: Number.isFinite(swimMetrics?.avgPoolsPerActivity) && swimMetrics.avgPoolsPerActivity > 0
+                ? `${swimMetrics.avgPoolsPerActivity.toFixed(1)} × 25m pools / swim`
+                : '—',
+        });
+        if (swimEntry) {
+            entries.push(swimEntry);
         }
 
         return entries;
@@ -6614,52 +6640,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return wrapper;
     };
 
-    const renderDisciplineRatioPills = (anchorElement) => {
-        const entries = buildDisciplineRatioEntries();
-
-        if (!medalsSection || !Array.isArray(entries) || entries.length === 0) {
-            return;
-        }
-
-        const container = document.createElement('div');
-        container.className = 'discipline-ratio-pills';
-        container.setAttribute('role', 'list');
-        container.setAttribute('aria-label', 'Training ratios by discipline');
-
-        entries.forEach((entry) => {
-            const pill = document.createElement('button');
-            pill.type = 'button';
-            pill.className = 'profile-metric-pill discipline-ratio-pills__pill';
-            pill.classList.add(`discipline-ratio-pills__pill--${(entry.category || '').toLowerCase()}`);
-            pill.setAttribute('role', 'listitem');
-
-            const label = document.createElement('span');
-            label.className = 'discipline-ratio-pills__label';
-            label.textContent = `${entry.emoji || ''} ${entry.category || 'Discipline'}`.trim();
-
-            const detail = document.createElement('span');
-            detail.className = 'discipline-ratio-pills__detail';
-            detail.textContent = entry?.progressStatus?.detail || entry?.progressStatus?.label || 'Not enough data yet.';
-
-            const countText = typeof entry?.countLabel === 'string' && entry.countLabel.trim()
-                ? entry.countLabel.trim()
-                : 'No sessions logged yet';
-            const count = document.createElement('span');
-            count.className = 'discipline-ratio-pills__count';
-            count.textContent = countText;
-
-            pill.append(label, detail, count);
-            pill.setAttribute('aria-label', `${label.textContent} — ${countText}. ${detail.textContent}`);
-            container.appendChild(pill);
-        });
-
-        if (anchorElement?.parentElement === medalsSection) {
-            anchorElement.insertAdjacentElement('afterend', container);
-        } else {
-            medalsSection.appendChild(container);
-        }
-    };
-
     const renderMedalsGrid = () => {
         refreshAchievementTargets();
         if (!medalsSection) {
@@ -6674,7 +6654,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         medalsSection.innerHTML = '';
         const rarityToggleWrapper = renderMedalRarityToggles();
-        renderDisciplineRatioPills(rarityToggleWrapper);
 
         let filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
 
@@ -13311,6 +13290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const reapplyAchievementSummaries = () => {
         renderFunStats();
+        renderProfileDisciplineRatios();
         if (!latestWalletSummaryPayload) {
             return;
         }
@@ -13552,6 +13532,63 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 'No kudos recorded for the selected period.';
             likesStatButton.setAttribute('aria-label', message);
             attachTooltip(likesStatButton, message);
+        }
+    };
+
+    renderProfileDisciplineRatios = () => {
+        if (!disciplineRatioRowElement) {
+            return;
+        }
+
+        disciplineRatioRowElement.innerHTML = '';
+        const entries = buildDisciplineRatioEntries()
+            .filter(entry => entry && (entry.valueLabel || entry.detailLabel));
+
+        if (!entries || entries.length === 0) {
+            if (disciplineRatioEmptyElement) {
+                disciplineRatioEmptyElement.hidden = false;
+                disciplineRatioRowElement.appendChild(disciplineRatioEmptyElement);
+            }
+            if (disciplineRatioSection) {
+                disciplineRatioSection.hidden = false;
+            }
+            return;
+        }
+
+        if (disciplineRatioEmptyElement) {
+            disciplineRatioEmptyElement.hidden = true;
+        }
+
+        entries.forEach((entry) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'profile-metric-pill profile-ratio-pill';
+            button.classList.add(`profile-ratio-pill--${(entry.category || '').toLowerCase()}`);
+
+            const label = document.createElement('span');
+            label.className = 'profile-ratio-pill__label';
+            label.textContent = `${entry.emoji || ''} ${entry.category || 'Discipline'} average`.trim();
+
+            const value = document.createElement('span');
+            value.className = 'profile-ratio-pill__value';
+            value.textContent = entry.valueLabel || '—';
+
+            const detail = document.createElement('span');
+            detail.className = 'profile-ratio-pill__detail';
+            detail.textContent = entry.detailLabel || entry.countLabel || 'Not enough data yet.';
+
+            button.append(label, value, detail);
+
+            const tooltipText = entry.tooltipText || entry.detailLabel || entry.countLabel;
+            if (tooltipText) {
+                attachTooltip(button, tooltipText);
+            }
+
+            disciplineRatioRowElement.appendChild(button);
+        });
+
+        if (disciplineRatioSection) {
+            disciplineRatioSection.hidden = false;
         }
     };
     document.addEventListener('click', (event) => {
@@ -14568,6 +14605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     renderFunStats();
+    renderProfileDisciplineRatios();
 
     const buildShareSummary = () => {
         const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';
@@ -17445,7 +17483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ride: {
                 ...rideMetrics,
                 avgSpeedKph: rideMetrics.avgPaceSecondsPerKm
-                    ? (METERS_IN_KILOMETER / (rideMetrics.avgPaceSecondsPerKm / 3600))
+                    ? (3600 / rideMetrics.avgPaceSecondsPerKm)
                     : (totalsByType.ride.movingSeconds > 0 && totalsByType.ride.distanceMeters > 0
                         ? (totalsByType.ride.distanceMeters / METERS_IN_KILOMETER)
                         / (totalsByType.ride.movingSeconds / 3600)
@@ -19211,6 +19249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         latestFunStats = aggregatedSmallStats;
         latestFunStatsContext = { hasActivities };
         renderFunStats(aggregatedSmallStats, latestFunStatsContext);
+        renderProfileDisciplineRatios();
 
         currentLeagueClass = null;
         renderLeagueClassSummary(null);

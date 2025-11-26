@@ -3892,7 +3892,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (selectableEntries.length === 0) {
-            resetEnduranceCompareSelect('No shared leaderboard names available yet');
+            resetEnduranceCompareSelect('No dashboard users available yet');
             return;
         }
 
@@ -3900,7 +3900,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceCompareSelect.innerHTML = '';
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = 'Select from leaderboard';
+        placeholder.textContent = 'Select a dashboard user';
         enduranceCompareSelect.appendChild(placeholder);
 
         selectableEntries.forEach((entry) => {
@@ -3925,6 +3925,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         enduranceCompareSelect.disabled = false;
+    };
+
+    const normalizeDashboardUserEntries = (entries = []) => entries
+        .map(entry => {
+            const userId = typeof entry?.userId === 'string' ? entry.userId.trim() : '';
+            const displayName = typeof entry?.displayName === 'string' ? entry.displayName.trim() : '';
+
+            return {
+                userId,
+                rawDisplayName: displayName || userId,
+                displayName: displayName || userId,
+            };
+        })
+        .filter(entry => entry.userId.length > 0);
+
+    const loadDashboardComparisonOptions = async (canSyncEnduranceOptions) => {
+        if (!canSyncEnduranceOptions) {
+            return;
+        }
+
+        try {
+            const data = await fetchAndValidateJson(
+                () => fetch('/api/dashboard-users', { cache: 'no-store' }),
+                {
+                    attempts: 3,
+                    retryDelay: 750,
+                    validate: payload => Array.isArray(payload?.dashboards),
+                },
+            );
+
+            const normalizedEntries = normalizeDashboardUserEntries(data?.dashboards || []);
+            syncEnduranceCompareOptions(normalizedEntries);
+        } catch (error) {
+            console.error('Failed to load dashboard users', error);
+            resetEnduranceCompareSelect('Unable to load dashboard users');
+        }
     };
 
     const applyLeaderboardSort = (sortKey = 'rank', direction = null) => {
@@ -3971,6 +4007,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        const comparisonPromise = loadDashboardComparisonOptions(canSyncEnduranceOptions);
+
         try {
             const data = await fetchAndValidateJson(
                 () => fetch('/api/leaderboard', { cache: 'no-store' }),
@@ -3995,13 +4033,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error('Failed to load leaderboard', error);
-            resetEnduranceCompareSelect('Unable to load leaderboard names');
             if (leaderboardStatus) {
                 leaderboardStatus.textContent = error?.message
                     ? `Failed to load the leaderboard: ${error.message}.`
                     : 'Failed to load the leaderboard. Please try again later.';
             }
         }
+
+        await comparisonPromise;
     };
 
     const formatStatValue = (value) => {

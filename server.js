@@ -13,6 +13,7 @@ const {
   getUserEntries,
   appendUserSnapshot,
   getLatestUserSnapshot,
+  listSnapshotUserIds,
   getLatestUserSyncEntry,
   storeUserDataInSheet,
   appendUserSyncProgress,
@@ -938,6 +939,54 @@ app.get('/api/leaderboard', async (req, res) => {
   } catch (error) {
     console.error('Error retrieving leaderboard data:', error.message);
     return res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
+  }
+});
+
+app.get('/api/dashboard-users', async (req, res) => {
+  try {
+    const [dashboardUserIds, leaderboardEntries] = await Promise.all([
+      listSnapshotUserIds(),
+      leaderboardCache.getEntries(),
+    ]);
+
+    const leaderboardNameById = new Map(
+      leaderboardEntries
+        .filter(entry => entry?.userId)
+        .map(entry => [String(entry.userId).trim(), entry.displayName || ''])
+    );
+
+    const dashboards = [];
+
+    // Resolve display labels for every dashboard, preferring leaderboard names when available
+    for (const id of dashboardUserIds) {
+      const userId = typeof id === 'string' || typeof id === 'number' ? String(id).trim() : '';
+
+      if (!userId) {
+        continue;
+      }
+
+      let displayName = leaderboardNameById.get(userId) || '';
+
+      if (!displayName) {
+        try {
+          const snapshot = await getLatestUserSnapshot(userId);
+          const profile = snapshot?.payload?.profile || {};
+          displayName = profile.displayName || profile.name || profile.username || '';
+        } catch (snapshotError) {
+          console.warn(`Unable to resolve display name for dashboard ${userId}:`, snapshotError.message);
+        }
+      }
+
+      dashboards.push({
+        userId,
+        displayName: displayName || userId,
+      });
+    }
+
+    return res.json({ dashboards });
+  } catch (error) {
+    console.error('Error retrieving dashboard users:', error.message);
+    return res.status(500).json({ error: 'Failed to load dashboard users' });
   }
 });
 

@@ -4273,8 +4273,8 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     gap: 1.25rem;
     flex: 1 1 auto;
     min-height: 0;
-    max-height: 22rem;
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
     padding-right: clamp(0rem, 1vw, 0.75rem);
     padding-bottom: clamp(0.5rem, 2vh, 1rem);
     margin-right: calc(-1 * clamp(0rem, 1vw, 0.75rem));
@@ -4393,18 +4393,34 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .medals-category__title {
     display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text-secondary);
+    border: 1px solid transparent;
+    background: var(--panel-ghost-bg, rgba(0, 0, 0, 0.03));
+    border-radius: 0.85rem;
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .dark .medals-category__title,
 body.dark .medals-category__title {
     color: rgba(226, 232, 240, 0.85);
+    background: rgba(30, 41, 59, 0.55);
+    border-color: rgba(148, 163, 184, 0.25);
+}
+
+.medals-category__title:hover,
+.medals-category__title:focus-visible {
+    border-color: rgba(30, 64, 175, 0.35);
+    background: rgba(37, 99, 235, 0.08);
+    outline: none;
 }
 
 .medals-category__emoji {
@@ -4424,6 +4440,16 @@ body.dark .medals-category__title {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgba(100, 116, 139, 0.8);
+}
+
+.medals-category__chevron {
+    margin-left: auto;
+    font-size: 0.8rem;
+    transition: transform 160ms ease;
+}
+
+.medals-category--collapsed .medals-category__chevron {
+    transform: rotate(-90deg);
 }
 
 .medals-category__description {

@@ -1329,6 +1329,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let enduranceCompareForm = document.getElementById('endurance-compare-form');
     let enduranceCompareSelect = document.getElementById('endurance-compare-select');
     let enduranceCompareStatus = document.getElementById('endurance-compare-status');
+    let enduranceFullscreenPlot = null;
     const enduranceComparisonProfiles = new Map();
     const leaderboardComparisonOptions = new Map();
     const leaderboardNameToIdMap = new Map();
@@ -1664,6 +1665,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
         setEnduranceChartSkeletonVisible(isShellLoading());
         bindEnduranceCompareForm();
+        bindEnduranceFullscreenControls();
         walletChartCanvas = document.getElementById('wallet-chart');
         walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
         setWalletChartSkeletonVisible(isShellLoading());
@@ -3919,7 +3921,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const loadLeaderboard = async () => {
-        if (!leaderboardBody || !leaderboardStatus) {
+        const canRenderLeaderboard = Boolean(leaderboardBody && leaderboardStatus);
+        const canSyncEnduranceOptions = Boolean(enduranceCompareSelect);
+
+        if (!canRenderLeaderboard && !canSyncEnduranceOptions) {
             return;
         }
 
@@ -3931,25 +3936,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const entries = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
 
-            if (entries.length === 0) {
-                leaderboardState.rawEntries = [];
-                leaderboardState.entries = [];
-                leaderboardState.sortKey = 'rank';
-                leaderboardState.direction = 'asc';
-                syncEnduranceCompareOptions([]);
-                updateLeaderboardSortButtons();
-                renderLeaderboard();
-                return;
-            }
-
-            const parsedEntries = parseLeaderboardEntries(entries);
+            const parsedEntries = entries.length > 0 ? parseLeaderboardEntries(entries) : [];
             leaderboardState.rawEntries = parsedEntries;
             leaderboardState.entries = parsedEntries.slice();
             leaderboardState.sortKey = 'rank';
             leaderboardState.direction = 'asc';
-            syncEnduranceCompareOptions(parsedEntries);
-            updateLeaderboardSortButtons();
-            renderLeaderboard();
+
+            if (canSyncEnduranceOptions) {
+                syncEnduranceCompareOptions(parsedEntries);
+            }
+
+            if (canRenderLeaderboard) {
+                updateLeaderboardSortButtons();
+                renderLeaderboard();
+            }
         } catch (error) {
             console.error('Failed to load leaderboard', error);
             resetEnduranceCompareSelect('Unable to load leaderboard names');
@@ -12890,6 +12890,52 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         enduranceCompareStatus.textContent = message;
+    };
+
+    const setEndurancePlotFullscreen = (plotKey = '', enable = false) => {
+        const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
+        const shouldEnable = Boolean(enable && normalizedKey);
+        const plots = Array.from(document.querySelectorAll('[data-endurance-plot]'));
+
+        plots.forEach((plot) => {
+            const isTarget = shouldEnable && plot.dataset.endurancePlot === normalizedKey;
+            plot.classList.toggle('endurance-multiplot__plot--fullscreen', isTarget);
+            const toggle = plot.querySelector('[data-endurance-fullscreen-toggle]');
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', isTarget ? 'true' : 'false');
+            }
+        });
+
+        enduranceFullscreenPlot = shouldEnable ? normalizedKey : null;
+        document.body.classList.toggle('endurance-fullscreen-active', shouldEnable);
+
+        const activeChart = shouldEnable ? enduranceChartInstances.get(normalizedKey) : null;
+        if (activeChart) {
+            setTimeout(() => activeChart.resize(), 80);
+        } else if (!shouldEnable) {
+            enduranceChartInstances.forEach((chart) => chart.resize());
+        }
+    };
+
+    const toggleEndurancePlotFullscreen = (plotKey = '') => {
+        const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
+        const enable = enduranceFullscreenPlot !== normalizedKey;
+        setEndurancePlotFullscreen(normalizedKey, enable);
+    };
+
+    const bindEnduranceFullscreenControls = () => {
+        const buttons = Array.from(document.querySelectorAll('[data-endurance-fullscreen-toggle]'));
+        if (!buttons.length) {
+            return;
+        }
+
+        buttons.forEach((button) => {
+            const target = button.dataset.targetPlot
+                || button.closest('[data-endurance-plot]')?.dataset.endurancePlot
+                || '';
+
+            button.addEventListener('click', () => toggleEndurancePlotFullscreen(target));
+        });
     };
 
     const addEnduranceComparison = async (userId, labelHint = '') => {

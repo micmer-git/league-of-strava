@@ -1060,10 +1060,10 @@ to { opacity: 1; transform: translateY(0); }
 }
 
 .panel-card {
-    --panel-card-padding: var(--spacing-lg);
+    --panel-card-padding: clamp(0.9rem, 1vw + 0.65rem, 1.3rem);
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
     padding: var(--panel-card-padding);
     border: none !important;
     box-shadow: none !important;
@@ -4526,13 +4526,14 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     background: rgba(15, 23, 42, 0.025);
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 0.9rem;
-    padding: 0.75rem 0.9rem;
+    padding: 0.65rem 0.75rem;
     min-height: 12rem;
     height: 16rem;
     overflow: hidden;
     display: grid;
     grid-template-rows: auto 1fr;
     gap: 0.35rem;
+    position: relative;
 }
 
 .endurance-multiplot__plot canvas {
@@ -4546,6 +4547,67 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     font-weight: 700;
     color: var(--color-text-secondary, #475569);
     letter-spacing: 0.01em;
+}
+
+.endurance-multiplot__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.endurance-multiplot__fullscreen {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.85);
+    color: #0f172a;
+    border-radius: 999px;
+    width: 2rem;
+    height: 2rem;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    line-height: 1;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.dark .endurance-multiplot__fullscreen {
+    background: rgba(30, 41, 59, 0.9);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.5);
+}
+
+.endurance-multiplot__fullscreen:focus-visible {
+    outline: 2px solid var(--color-accent-primary, #0ea5e9);
+    outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+    .endurance-multiplot__fullscreen {
+        display: inline-flex;
+    }
+}
+
+.endurance-multiplot__plot--fullscreen {
+    position: fixed;
+    inset: 0.5rem;
+    z-index: 60;
+    background: var(--color-surface, #ffffff);
+    border-radius: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 1rem);
+    max-height: none;
+    width: calc(100vw - 1rem);
+    grid-template-rows: auto 1fr;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
+}
+
+.endurance-multiplot__plot--fullscreen canvas {
+    max-height: none;
+}
+
+body.endurance-fullscreen-active {
+    overflow: hidden;
 }
 
 .endurance-compare {
@@ -6656,7 +6718,7 @@ body.dashboard-body {
 .panel-card {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
-    padding: var(--panel-card-padding, var(--spacing-md));
+    padding: var(--panel-card-padding, clamp(0.9rem, 1vw + 0.65rem, 1.3rem));
     box-shadow: var(--shadow-medium);
     border: 1px solid var(--color-border);
     width: 100%;
@@ -6670,7 +6732,7 @@ body.dashboard-body {
 
 @media (min-width: 640px) {
     .panel-card {
-        --panel-card-padding: var(--spacing-lg);
+        --panel-card-padding: clamp(1rem, 1vw + 0.8rem, 1.5rem);
     }
 
     #panel-wallet .panel-card,

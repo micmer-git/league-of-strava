@@ -391,15 +391,30 @@
       </form>
       <div class="endurance-multiplot" id="endurance-multiplot">
         <div class="endurance-multiplot__plot" data-endurance-plot="distance">
-          <div class="endurance-multiplot__title">Distance · km</div>
+          <div class="endurance-multiplot__title-row">
+            <div class="endurance-multiplot__title">Distance · km</div>
+            <button class="endurance-multiplot__fullscreen" type="button" data-endurance-fullscreen-toggle data-target-plot="distance" aria-label="Expand distance chart">
+              ⤢
+            </button>
+          </div>
           <canvas class="w-full h-full" id="endurance-ma-chart-distance" role="img" aria-label="Distance moving average chart"></canvas>
         </div>
         <div class="endurance-multiplot__plot" data-endurance-plot="elevation">
-          <div class="endurance-multiplot__title">Elevation · m</div>
+          <div class="endurance-multiplot__title-row">
+            <div class="endurance-multiplot__title">Elevation · m</div>
+            <button class="endurance-multiplot__fullscreen" type="button" data-endurance-fullscreen-toggle data-target-plot="elevation" aria-label="Expand elevation chart">
+              ⤢
+            </button>
+          </div>
           <canvas class="w-full h-full" id="endurance-ma-chart-elevation" role="img" aria-label="Elevation moving average chart"></canvas>
         </div>
         <div class="endurance-multiplot__plot" data-endurance-plot="movingTime">
-          <div class="endurance-multiplot__title">Moving time · hrs</div>
+          <div class="endurance-multiplot__title-row">
+            <div class="endurance-multiplot__title">Moving time · hrs</div>
+            <button class="endurance-multiplot__fullscreen" type="button" data-endurance-fullscreen-toggle data-target-plot="movingTime" aria-label="Expand moving time chart">
+              ⤢
+            </button>
+          </div>
           <canvas class="w-full h-full" id="endurance-ma-chart-moving-time" role="img" aria-label="Moving time moving average chart"></canvas>
         </div>
       </div>

@@ -926,6 +926,10 @@ button,
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
 }
 
+#profile-discipline-ratios[hidden] {
+    display: none !important;
+}
+
 .profile-ratio-pill__label {
     font-size: 0.85rem;
     font-weight: 700;
@@ -956,6 +960,29 @@ button,
 
 .dark .profile-ratio-pill__detail {
     color: rgba(203, 213, 225, 0.85);
+}
+
+.rank-modal__progress-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.4rem 0 0.25rem;
+}
+
+.rank-modal__progress-pill {
+    align-items: flex-start;
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.14);
+}
+
+.rank-modal__progress-pill .profile-ratio-pill__value {
+    font-size: 1.05rem;
+}
+
+.rank-modal__progress-pill .profile-ratio-pill__detail {
+    font-size: 0.9rem;
 }
 
 .profile-card__stat-empty {

@@ -1740,6 +1740,42 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.documentElement.style.overflowX = 'hidden';
 
+    const isValidPanelName = (name) => typeof name === 'string'
+        && name.trim().length > 0
+        && (dashboardPanels.has(name) || panelTemplates.has(name));
+
+    const readPanelFromUrl = () => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const panelParam = (params.get('panel') || '').trim();
+            return isValidPanelName(panelParam) ? panelParam : null;
+        } catch (error) {
+            console.warn('Unable to parse panel from URL:', error);
+            return null;
+        }
+    };
+
+    const syncPanelUrl = (panelName, { replace = false } = {}) => {
+        if (!isValidPanelName(panelName) || !('history' in window)) {
+            return;
+        }
+
+        const method = replace ? 'replaceState' : 'pushState';
+        if (typeof window.history[method] !== 'function') {
+            return;
+        }
+
+        try {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('panel', panelName);
+            const nextUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+            const nextState = { ...(window.history.state || {}), panel: panelName };
+            window.history[method](nextState, '', nextUrl);
+        } catch (error) {
+            console.warn('Unable to update panel URL state:', error);
+        }
+    };
+
     const readStoredPanelName = () => {
         if (!canPersistPanelState) {
             return null;
@@ -1810,12 +1846,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let activePanelName = null;
     const sharedViewParam = new URLSearchParams(window.location.search).get('userId') || '';
+    const initialPanelFromUrl = readPanelFromUrl();
     const shouldForceProfilePanel = sharedViewParam.trim().length > 0;
     const initialPanelFromMarkup = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab ?? null;
     const storedPanelName = readStoredPanelName();
-    const initialPanelName = (storedPanelName && (dashboardPanels.has(storedPanelName) || panelTemplates.has(storedPanelName)))
-        ? storedPanelName
-        : (initialPanelFromMarkup || (dashboardPanels.keys().next().value ?? null));
+    const initialPanelName = (isValidPanelName(initialPanelFromUrl)
+        ? initialPanelFromUrl
+        : (storedPanelName && isValidPanelName(storedPanelName)
+            ? storedPanelName
+            : (initialPanelFromMarkup || (dashboardPanels.keys().next().value ?? null))));
 
     function updateMobileNavigation(panelName) {
         if (mobileDashboardNavButtons.length === 0) {
@@ -1829,7 +1868,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function mapsTo(panelName, { focusTab = false } = {}) {
+    function mapsTo(panelName, { focusTab = false, skipUrlSync = false } = {}) {
         if (!panelName) {
             return;
         }
@@ -1897,10 +1936,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         notifyPanelChange(panelName);
+
+        if (!skipUrlSync) {
+            syncPanelUrl(panelName);
+        }
     }
 
     const resolvedInitialPanel = shouldForceProfilePanel ? 'profile' : (initialPanelName || 'profile');
-    mapsTo(resolvedInitialPanel);
+    mapsTo(resolvedInitialPanel, { skipUrlSync: true });
+    syncPanelUrl(resolvedInitialPanel, { replace: true });
+
+    window.addEventListener('popstate', (event) => {
+        const panelFromState = event?.state?.panel;
+        const panelFromUrl = readPanelFromUrl();
+        const targetPanel = isValidPanelName(panelFromState) ? panelFromState : panelFromUrl;
+        if (targetPanel && targetPanel !== activePanelName) {
+            mapsTo(targetPanel, { skipUrlSync: true });
+        }
+    });
 
     const moveToRelativePanel = (direction) => {
         if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {

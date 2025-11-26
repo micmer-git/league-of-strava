@@ -3555,6 +3555,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         return type.includes('ride') || sportType.includes('ride');
     };
 
+    const isSwimActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('swim') || sportType.includes('swim');
+    };
+
+    const isYogaActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('yoga') || sportType.includes('yoga');
+    };
+
     const getCoinTotals = (entry) => {
         return COIN_EMOJIS.reduce((acc, emoji) => {
             const value = entry?.coinBreakdown?.[emoji] ?? entry?.[emoji];
@@ -6506,8 +6526,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             wrapper.className = 'medals-category';
             wrapper.dataset.rarity = rarityKey;
 
-            const heading = document.createElement('h4');
-            heading.className = 'medals-category__title';
+            const heading = document.createElement('button');
+            heading.type = 'button';
+            heading.className = 'medals-category__title medals-category__toggle';
+            heading.setAttribute('aria-expanded', 'true');
+            heading.dataset.rarity = rarityKey;
 
             const emojiSpan = document.createElement('span');
             emojiSpan.className = 'medals-category__emoji';
@@ -6526,6 +6549,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 heading.appendChild(tierSpan);
             }
 
+            const chevron = document.createElement('span');
+            chevron.className = 'medals-category__chevron';
+            chevron.setAttribute('aria-hidden', 'true');
+            chevron.textContent = '▾';
+            heading.appendChild(chevron);
+
             wrapper.appendChild(heading);
 
             const descriptionText = meta?.description || '';
@@ -6539,6 +6568,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const list = document.createElement('ol');
             list.className = 'medals-list';
             list.setAttribute('role', 'list');
+
+            const setCollapsedState = (collapsed) => {
+                heading.setAttribute('aria-expanded', String(!collapsed));
+                wrapper.classList.toggle('medals-category--collapsed', collapsed);
+                list.classList.toggle('hidden', collapsed);
+            };
 
             groupedMedals.forEach((medal) => {
                 const listItem = document.createElement('li');
@@ -6623,6 +6658,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 listItem.appendChild(medalButton);
                 list.appendChild(listItem);
+            });
+
+            setCollapsedState(false);
+            heading.addEventListener('click', () => {
+                const isExpanded = heading.getAttribute('aria-expanded') === 'true';
+                setCollapsedState(isExpanded);
             });
 
             wrapper.appendChild(list);
@@ -11663,7 +11704,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 const normalizedType = (activity.type || '').toUpperCase();
-                return targetTypes.some(target => matchesActivityType(normalizedType, target, matchMode));
+                const normalizedSportType = (activity.sport_type || '').toUpperCase();
+                return targetTypes.some(target => {
+                    return matchesActivityType(normalizedType, target, matchMode)
+                        || matchesActivityType(normalizedSportType, target, matchMode);
+                });
             })
             .map(getActivityDateKey)
             .filter(Boolean);
@@ -16816,6 +16861,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             formatter: formatHoursDisplay,
             valueResolver: (totals) => totals.swimHours,
         },
+        {
+            name: 'Century Swim Sessions',
+            emoji: '🏊‍♀️💯',
+            description: 'Complete 100 recorded swim sessions.',
+            rarityKey: 'platinum',
+            category: 'Milestones',
+            milestoneCategory: 'Swim',
+            targetValue: 100,
+            unitLabel: 'sessions',
+            unitDescription: 'swim sessions',
+            formatter: (value) => Math.floor(value).toLocaleString(),
+            valueResolver: (totals) => totals.swimSessionCount,
+        },
+        {
+            name: 'Back-to-Back Swim Days',
+            emoji: '📆🏊',
+            description: 'Log swims on two consecutive days.',
+            rarityKey: 'gold',
+            category: 'Milestones',
+            milestoneCategory: 'Swim',
+            targetValue: 1,
+            unitLabel: 'pairs',
+            unitDescription: 'back-to-back swim days',
+            formatter: (value) => Math.floor(value).toLocaleString(),
+            valueResolver: (totals) => totals.backToBackSwimPairs,
+        },
+        {
+            name: 'Triple Country Month',
+            emoji: '🌍✈️',
+            description: 'Train in three different countries within the same month.',
+            rarityKey: 'diamond',
+            category: 'Milestones',
+            milestoneCategory: 'Travel',
+            targetValue: 1,
+            unitLabel: 'months',
+            unitDescription: 'months with 3+ countries',
+            formatter: (value) => Math.floor(value).toLocaleString(),
+            valueResolver: (totals) => totals.monthsWithThreeCountries,
+        },
+        {
+            name: 'Double Yoga Day',
+            emoji: '🧘‍♀️🧘‍♂️',
+            description: 'Complete two yoga sessions in the same day.',
+            rarityKey: 'gold',
+            category: 'Consistency',
+            milestoneCategory: 'Yoga',
+            targetValue: 1,
+            unitLabel: 'days',
+            unitDescription: 'double-session yoga days',
+            formatter: (value) => Math.floor(value).toLocaleString(),
+            valueResolver: (totals) => totals.doubleYogaDays,
+        },
     ];
     const MILESTONE_CATEGORY_ORDER = ['Ride', 'Run', 'Swim'];
 
@@ -16912,6 +17009,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }));
         }
 
+        const swimDates = new Set();
+        const countryMonths = new Map();
+        const yogaSessionsByDate = new Map();
+
         const totals = activityList.reduce((acc, activity) => {
             const movingTimeSeconds = Number(activity?.moving_time) || 0;
             const hours = movingTimeSeconds > 0 ? movingTimeSeconds / 3600 : 0;
@@ -16919,6 +17020,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const distanceMeters = Number(activity?.distance) || 0;
             const elevationGain = Number(activity?.total_elevation_gain) || 0;
             const normalizedType = ((activity?.sport_type || activity?.type || '')).toUpperCase();
+            const calendarReference = getActivityCalendarReference(activity);
+            const dateKey = calendarReference?.dayKey || null;
+            const monthKey = calendarReference ? calendarReference.dayKey.slice(0, 7) : null;
+            const normalizedCountry = normalizeCountryCode(activity.country_code || activity.countryCode || activity.location_country);
+
             if (normalizedType.includes('RIDE')) {
                 acc.rideDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
                 acc.rideElevationMeters += elevationGain > 0 ? elevationGain : 0;
@@ -16932,7 +17038,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (normalizedType.includes('SWIM')) {
                 acc.swimDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
                 acc.swimHours += hours;
+                acc.swimSessionCount += 1;
+                if (dateKey) {
+                    swimDates.add(dateKey);
+                }
+                if (monthKey && normalizedCountry) {
+                    const monthCountries = countryMonths.get(monthKey) || new Set();
+                    monthCountries.add(normalizedCountry);
+                    countryMonths.set(monthKey, monthCountries);
+                }
             }
+
+            if (isYogaActivity(activity) && dateKey) {
+                yogaSessionsByDate.set(dateKey, (yogaSessionsByDate.get(dateKey) || 0) + 1);
+            }
+
             return acc;
         }, {
             totalHours: 0,
@@ -16944,7 +17064,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             runHours: 0,
             swimDistanceMeters: 0,
             swimHours: 0,
+            swimSessionCount: 0,
         });
+
+        const swimDatePairs = (() => {
+            const sorted = Array.from(swimDates).sort();
+            let previous = null;
+            let streak = 0;
+            let pairs = 0;
+
+            sorted.forEach((dateKey) => {
+                const current = new Date(`${dateKey}T00:00:00Z`);
+                if (Number.isNaN(current.getTime())) {
+                    return;
+                }
+
+                if (previous) {
+                    const diffDays = Math.round((current - previous) / DAY_IN_MS);
+                    streak = diffDays === 1 ? streak + 1 : 1;
+                } else {
+                    streak = 1;
+                }
+
+                if (streak >= 2) {
+                    pairs += 1;
+                }
+
+                previous = current;
+            });
+
+            return pairs;
+        })();
+
+        const tripleCountryMonths = Array.from(countryMonths.values())
+            .filter((countrySet) => countrySet.size >= 3)
+            .length;
+
+        const doubleYogaDays = Array.from(yogaSessionsByDate.values())
+            .filter(count => count >= 2)
+            .length;
 
         const contextTotals = {
             totalHours: totals.totalHours,
@@ -16956,6 +17114,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             runHours: totals.runHours,
             swimDistanceKm: totals.swimDistanceMeters / METERS_IN_KILOMETER,
             swimHours: totals.swimHours,
+            swimSessionCount: totals.swimSessionCount,
+            backToBackSwimPairs: swimDatePairs,
+            monthsWithThreeCountries: tripleCountryMonths,
+            doubleYogaDays,
         };
 
         return PROGRESS_MEDAL_DEFINITIONS.map((definition) => {
@@ -17080,6 +17242,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             dynamicDateResolver: (year) => ((year % 4 === 0) && (year % 100 !== 0 || year % 400 === 0)) ? ['02-29'] : []
         },
         // Additional Medals
+        {
+            name: '5 km Swim Session',
+            emoji: '🏊‍♂️5️⃣',
+            description: 'Complete a swim of at least 5 km.',
+            criteria: (activity) => isSwimActivity(activity) && (Number(activity?.distance) || 0) >= 5000,
+        },
+        {
+            name: '10 km Swim Session',
+            emoji: '🏊‍♀️🔟',
+            description: 'Finish a 10 km swim.',
+            criteria: (activity) => isSwimActivity(activity) && (Number(activity?.distance) || 0) >= 10000,
+        },
+        {
+            name: '3 km Swim in an Hour',
+            emoji: '⏱️🏊',
+            description: 'Swim 3 km within 60 minutes.',
+            criteria: (activity) => {
+                if (!isSwimActivity(activity)) {
+                    return false;
+                }
+                const distance = Number(activity?.distance) || 0;
+                const movingTime = Number(activity?.moving_time) || 0;
+                return distance >= 3000 && movingTime > 0 && movingTime <= 3600;
+            }
+        },
+        {
+            name: '2-Hour Swim Session',
+            emoji: '🕑🏊',
+            description: 'Stay in the water for 2 hours or more.',
+            criteria: (activity) => isSwimActivity(activity) && (Number(activity?.moving_time) || 0) >= 7200,
+        },
         {
             name: 'Steep Climber',
             emoji: '🧗‍♀️',
@@ -17385,6 +17578,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             category: 'Consistency',
             streakCriteria: {
                 activityType: 'SWIM',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Yoga Streak — 7 Days',
+            emoji: '🧘‍♂️📅',
+            description: 'Logged yoga sessions seven days in a row.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'YOGA',
                 minLength: 7,
                 awardInterval: 7,
                 matchMode: 'includes',

@@ -11932,16 +11932,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        const ride1000KmMonths = Object.values(monthlyRideDistance).filter(km => km >= 1000).length;
-        if (ride1000KmMonths > 0) {
-            achievements.push({
-                emoji: '🚴‍♂️📆',
-                label: '1,000 km Ride Month',
-                description: 'Rode at least 1,000 km within a single calendar month.',
-                count: ride1000KmMonths
-            });
-        }
-
         const hundredKDollarMonths = Object.values(monthlyDollars).filter(total => Math.round(total) >= 100_000).length;
         if (hundredKDollarMonths > 0) {
             achievements.push({
@@ -16877,19 +16867,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             valueResolver: (totals) => totals.swimSessionCount,
         },
         {
-            name: 'Back-to-Back Swim Days',
-            emoji: '📆🏊',
-            description: 'Log swims on two consecutive days.',
-            rarityKey: 'cerulean',
-            category: 'Milestones',
-            milestoneCategory: 'Swim',
-            targetValue: 1,
-            unitLabel: 'pairs',
-            unitDescription: 'back-to-back swim days',
-            formatter: (value) => Math.floor(value).toLocaleString(),
-            valueResolver: (totals) => totals.backToBackSwimPairs,
-        },
-        {
             name: 'Triple Country Month',
             emoji: '🌍✈️',
             description: 'Train in three different countries within the same month.',
@@ -17680,6 +17657,81 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Earned at least 200 kudos on a single activity',
             category: 'Fan Favorites',
             criteria: (activity) => getActivityLikesCount(activity) >= 200
+        },
+        {
+            name: 'Back-to-Back Swim Days',
+            emoji: '📆🏊',
+            description: 'Log swims on two consecutive days.',
+            category: 'Consistency',
+            rarityKey: 'cerulean',
+            aggregateCriteria: (activityList, aggregateContext) => {
+                const summaries = Array.isArray(aggregateContext?.dailySummaries)
+                    ? aggregateContext.dailySummaries
+                    : [];
+                const swimDates = summaries
+                    .filter(summary => (summary?.swimActivities || 0) > 0)
+                    .map(summary => summary.dateKey)
+                    .filter(Boolean)
+                    .sort();
+
+                let previous = null;
+                let streak = 0;
+                let pairs = 0;
+
+                swimDates.forEach((dateKey) => {
+                    const current = new Date(`${dateKey}T00:00:00Z`);
+                    if (Number.isNaN(current.getTime())) {
+                        return;
+                    }
+
+                    if (previous) {
+                        const diffDays = Math.round((current - previous) / DAY_IN_MS);
+                        streak = diffDays === 1 ? streak + 1 : 1;
+                    } else {
+                        streak = 1;
+                    }
+
+                    if (streak >= 2) {
+                        pairs += 1;
+                    }
+
+                    previous = current;
+                });
+
+                return pairs;
+            },
+        },
+        {
+            name: '1,000 km Ride Month',
+            emoji: '🚴‍♂️📆',
+            description: 'Ride at least 1,000 km within a single calendar month.',
+            category: 'Distance Ride',
+            rarityKey: 'auric',
+            aggregateCriteria: (activityList) => {
+                const monthlyTotals = new Map();
+
+                activityList.forEach((activity) => {
+                    const dateKey = getActivityDateKey(activity);
+                    const normalizedType = (activity?.type || '').toUpperCase();
+                    const distance = Number(activity?.distance) || 0;
+                    if (!dateKey || !normalizedType.includes('RIDE') || distance <= 0) {
+                        return;
+                    }
+
+                    const monthKey = dateKey.slice(0, 7);
+                    const current = monthlyTotals.get(monthKey) || 0;
+                    monthlyTotals.set(monthKey, current + (distance / METERS_IN_KILOMETER));
+                });
+
+                let qualifyingMonths = 0;
+                monthlyTotals.forEach((totalKm) => {
+                    if (totalKm >= 1000) {
+                        qualifyingMonths += 1;
+                    }
+                });
+
+                return qualifyingMonths;
+            },
         }
     ];
 

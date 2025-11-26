@@ -85,6 +85,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const toHex = (value) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, '0');
     const interpolate = (start, end, factor) => start + (end - start) * factor;
     const clamp01 = (value) => Math.min(1, Math.max(0, value));
+    const lightenHexColor = (hex, amount = 0.2) => {
+        const normalized = typeof hex === 'string' ? hex.replace('#', '') : '';
+        if (![3, 6].includes(normalized.length)) {
+            return hex;
+        }
+
+        const fullHex = normalized.length === 3
+            ? normalized.split('').map((char) => char + char).join('')
+            : normalized;
+        const intValue = Number.parseInt(fullHex, 16);
+        const r = (intValue >> 16) & 255;
+        const g = (intValue >> 8) & 255;
+        const b = intValue & 255;
+        const factor = clamp01(amount);
+
+        const mix = (channel) => channel + ((255 - channel) * factor);
+        return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+    };
     const isTouchCapable = ('ontouchstart' in window)
         || (navigator.maxTouchPoints > 0)
         || (navigator.msMaxTouchPoints > 0);
@@ -1300,15 +1318,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         elevation: document.getElementById('endurance-ma-chart-elevation'),
         movingTime: document.getElementById('endurance-ma-chart-moving-time'),
     };
+    let enduranceChartElement = document.getElementById('endurance-chart');
     let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
     let enduranceChartInstances = new Map();
     let enduranceChartSource = [];
     let enduranceCompareForm = document.getElementById('endurance-compare-form');
     let enduranceCompareSelect = document.getElementById('endurance-compare-select');
-    let enduranceCompareInput = document.getElementById('endurance-compare-input');
     let enduranceCompareStatus = document.getElementById('endurance-compare-status');
     const enduranceComparisonProfiles = new Map();
     const leaderboardComparisonOptions = new Map();
+    const leaderboardNameToIdMap = new Map();
     const activityTypeFilter = document.getElementById('activity-type-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
@@ -1633,10 +1652,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             elevation: document.getElementById('endurance-ma-chart-elevation'),
             movingTime: document.getElementById('endurance-ma-chart-moving-time'),
         };
+        enduranceChartElement = document.getElementById('endurance-chart');
         enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
         enduranceCompareForm = document.getElementById('endurance-compare-form');
         enduranceCompareSelect = document.getElementById('endurance-compare-select');
-        enduranceCompareInput = document.getElementById('endurance-compare-input');
         enduranceCompareStatus = document.getElementById('endurance-compare-status');
         enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
         setEnduranceChartSkeletonVisible(isShellLoading());
@@ -3815,6 +3834,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        leaderboardNameToIdMap.clear();
         enduranceCompareSelect.innerHTML = '';
         const option = document.createElement('option');
         option.value = '';
@@ -3825,6 +3845,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const syncEnduranceCompareOptions = (entries = []) => {
         leaderboardComparisonOptions.clear();
+        leaderboardNameToIdMap.clear();
 
         if (!enduranceCompareSelect) {
             return;
@@ -3844,9 +3865,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         selectableEntries.forEach((entry) => {
             const option = document.createElement('option');
-            option.value = entry.userId;
-            option.textContent = entry.rawDisplayName || entry.displayName || entry.userId;
+            const optionLabel = entry.rawDisplayName || entry.displayName || entry.userId;
+            option.value = optionLabel;
+            option.textContent = optionLabel;
+            option.dataset.userId = entry.userId;
             leaderboardComparisonOptions.set(entry.userId, option.textContent);
+            leaderboardNameToIdMap.set(optionLabel.toLowerCase(), entry.userId);
             enduranceCompareSelect.appendChild(option);
         });
 
@@ -12517,6 +12541,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hasData = masterSeries.length > 0;
         const labels = masterSeries.map((entry) => entry.label);
         const masterKeys = masterSeries.map((entry) => entry.date.toISOString().slice(0, 10));
+        const enduranceTickMeta = masterSeries.map((entry) => ({
+            label: entry.label,
+            year: entry?.date?.getFullYear?.(),
+            month: entry?.date?.getMonth?.(),
+            day: entry?.date?.getDate?.(),
+        }));
         const movingAverageWindow = 50;
 
         if (!hasChartLibrary || !hasData) {
@@ -12637,6 +12667,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.35)';
         const tickFont = { family: 'Rubik, system-ui, -apple-system, sans-serif', size: 12, weight: '600' };
+        let runPlotActive = false;
+        let ridePlotActive = false;
 
         destroyEnduranceChart();
         setEnduranceChartSkeletonVisible(false);
@@ -12645,15 +12677,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const yearTicks = [];
             scale.ticks.forEach((tick) => {
                 const sourceIndex = visibleStart + tick.value;
-                const entry = masterSeries[sourceIndex];
-                const currentYear = entry?.date?.getFullYear?.();
-                const previousYear = sourceIndex > 0 && masterSeries[sourceIndex - 1]?.date
-                    ? masterSeries[sourceIndex - 1].date.getFullYear()
-                    : null;
-                const isNewYear = Number.isInteger(currentYear)
-                    && (previousYear === null || previousYear !== currentYear);
+                const meta = enduranceTickMeta[sourceIndex];
+                const previousMeta = sourceIndex > 0 ? enduranceTickMeta[sourceIndex - 1] : null;
+                const isNewYear = meta && Number.isInteger(meta.year)
+                    && (!previousMeta || previousMeta?.year !== meta.year);
                 if (isNewYear) {
-                    yearTicks.push({ ...tick, label: String(currentYear) });
+                    yearTicks.push({ ...tick, label: String(meta.year) });
                 }
             });
             return yearTicks.length > 0 ? yearTicks : scale.ticks;
@@ -12680,8 +12709,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     const baseColor = profileColorMap.get(profileKey) || config.palette.base;
                     const isRunDiscipline = discipline.key === 'run';
-                    const lineColor = baseColor;
-                    const fillColor = hexToRgba(baseColor, 0.18);
+                    const lineColor = isRunDiscipline ? lightenHexColor(baseColor, 0.28) : baseColor;
+                    const fillColor = hexToRgba(lineColor, 0.18);
 
                     datasets.push({
                         label: `${config.label} · ${discipline.label} · ${profileLabel} · ${movingAverageWindow}d MA`,
@@ -12692,8 +12721,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         borderDash: isRunDiscipline ? [8, 4] : undefined,
                         tension: 0.32,
                         spanGaps: true,
-                        pointRadius: 3,
-                        pointHoverRadius: 7,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
                         pointHitRadius: 16,
                         pointBackgroundColor: lineColor,
                         pointBorderColor: lineColor,
@@ -12701,6 +12730,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         rawSeries: rawSeries.slice(visibleStart),
                         yAxisID: isRunDiscipline ? 'yRun' : 'yRide',
                     });
+
+                    if (isRunDiscipline) {
+                        runPlotActive = true;
+                    } else {
+                        ridePlotActive = true;
+                    }
                 });
             });
 
@@ -12798,17 +12833,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 color: axisColor,
                                 font: tickFont,
                                 callback(value, index, ticks) {
-                                    if (isAllTimeRange) {
+                                    const tick = ticks?.[index];
+                                    const sourceIndex = visibleStart + (Number.isFinite(tick?.value) ? tick.value : index);
+                                    const meta = enduranceTickMeta[sourceIndex];
+                                    const previousMeta = sourceIndex > 0 ? enduranceTickMeta[sourceIndex - 1] : null;
+
+                                    if (!meta) {
                                         return this.getLabelForValue(value);
                                     }
+
+                                    if (isAllTimeRange && Number.isInteger(meta.year)) {
+                                        return (!previousMeta || previousMeta.year !== meta.year)
+                                            ? String(meta.year)
+                                            : '';
+                                    }
+
+                                    const isNewMonth = !previousMeta || meta.month !== previousMeta.month;
+                                    const preferredLabel = isNewMonth ? meta.label : '';
 
                                     if (shouldUseSparseTicks && ticks.length > 6) {
                                         const visibleTicks = Math.max(3, Math.min(7, ticks.length));
                                         const spacing = Math.max(1, Math.floor(ticks.length / visibleTicks));
-                                        return index % spacing === 0 ? this.getLabelForValue(value) : '';
+                                        return index % spacing === 0 ? (preferredLabel || meta.label) : '';
                                     }
 
-                                    return index % 2 === 0 ? this.getLabelForValue(value) : '';
+                                    return preferredLabel || meta.label || this.getLabelForValue(value);
                                 },
                             },
                             grid: {
@@ -12854,6 +12903,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             }));
         });
 
+        if (enduranceChartElement) {
+            enduranceChartElement.dataset.runActive = runPlotActive ? 'true' : 'false';
+            enduranceChartElement.dataset.rideActive = ridePlotActive ? 'true' : 'false';
+        }
+
     };
 
     const setEnduranceCompareStatus = (message = '') => {
@@ -12864,13 +12918,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const addEnduranceComparison = async (userId, labelHint = '') => {
-        const trimmedId = typeof userId === 'string' ? userId.trim() : '';
+        const resolvedId = typeof userId === 'string'
+            ? (leaderboardNameToIdMap.get(userId.toLowerCase()) || userId)
+            : '';
+        const trimmedId = typeof resolvedId === 'string' ? resolvedId.trim() : '';
         if (!trimmedId) {
-            setEnduranceCompareStatus('Select a leaderboard athlete or enter an ID to compare.');
+            setEnduranceCompareStatus('Select a leaderboard athlete to compare.');
             return;
         }
 
-        const knownLabel = leaderboardComparisonOptions.get(trimmedId) || labelHint;
+        const knownLabel = leaderboardComparisonOptions.get(trimmedId) || labelHint || userId;
         if (enduranceComparisonProfiles.has(trimmedId)) {
             const existingLabel = enduranceComparisonProfiles.get(trimmedId)?.label || knownLabel || trimmedId;
             setEnduranceCompareStatus(`${existingLabel} is already on the chart.`);
@@ -12907,9 +12964,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activities,
             });
 
-            if (enduranceCompareInput) {
-                enduranceCompareInput.value = '';
-            }
             if (enduranceCompareSelect) {
                 enduranceCompareSelect.value = '';
             }
@@ -12929,12 +12983,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         enduranceCompareForm.addEventListener('submit', (event) => {
             event.preventDefault();
-            const selectedUserId = enduranceCompareSelect?.value || '';
-            const manualValue = enduranceCompareInput?.value || '';
-            const targetUserId = selectedUserId || manualValue;
-            const selectionLabel = selectedUserId
-                ? (enduranceCompareSelect?.selectedOptions?.[0]?.textContent || selectedUserId)
-                : manualValue;
+            const selectedOption = enduranceCompareSelect?.selectedOptions?.[0];
+            const selectedValue = enduranceCompareSelect?.value || '';
+            const selectedLabel = selectedOption?.textContent || selectedValue;
+            const resolvedId = selectedOption?.dataset?.userId
+                || leaderboardNameToIdMap.get(selectedValue.toLowerCase())
+                || selectedValue;
+            const targetUserId = resolvedId || '';
+            const selectionLabel = selectedLabel || targetUserId;
             addEnduranceComparison(targetUserId, selectionLabel);
         });
 

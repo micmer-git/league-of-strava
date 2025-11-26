@@ -1315,6 +1315,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         container: document.getElementById('wallet-chart-overlay'),
         label: document.getElementById('wallet-overlay-label'),
         balance: document.getElementById('wallet-overlay-balance'),
+        change: document.getElementById('wallet-overlay-change'),
         value: document.getElementById('wallet-overlay-value'),
     };
     let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
@@ -1386,6 +1387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletOverlayDefaults = {
         label: 'Wallet insight',
         balance: 'Balance',
+        change: '',
         value: 'Hover or tap a point to inspect it.',
         valueDirection: null,
     };
@@ -1448,6 +1450,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (walletOverlayElements.balance) {
             walletOverlayElements.balance.textContent = nextState.balance;
+        }
+        if (walletOverlayElements.change) {
+            walletOverlayElements.change.textContent = nextState.change || '';
+            walletOverlayElements.change.classList.toggle('hidden', !nextState.change);
+            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--positive', nextState.valueDirection === 'positive');
+            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--negative', nextState.valueDirection === 'negative');
         }
         if (walletOverlayElements.value) {
             walletOverlayElements.value.textContent = nextState.value;
@@ -6950,14 +6958,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const rankName = unlock.rank.name || 'Rank unlocked';
         const emoji = unlock.rank.emoji || '';
-        const hours = Number.isFinite(unlock.cumulativeHours)
-            ? `${unlock.cumulativeHours.toFixed(unlock.cumulativeHours >= 10 ? 0 : 1)}h total`
+        let yearsToReach = Number.isFinite(unlock.monthsFromStart)
+            ? unlock.monthsFromStart / 12
             : null;
-        const months = Number.isFinite(unlock.monthsFromStart)
-            ? `${unlock.monthsFromStart.toFixed(1)} mo from first activity`
+        if (!Number.isFinite(yearsToReach) && Number.isFinite(unlock.cumulativeHours)) {
+            yearsToReach = unlock.cumulativeHours / (24 * 365);
+        }
+        const yearsLabel = Number.isFinite(yearsToReach)
+            ? `${yearsToReach.toFixed(yearsToReach >= 1 ? 1 : 2)} years to reach`
             : null;
-        const suffixParts = [hours, months].filter(Boolean);
-        const suffix = suffixParts.length ? ` — ${suffixParts.join(' · ')}` : '';
+        const suffix = yearsLabel ? ` — ${yearsLabel}` : '';
 
         return `${emoji} ${rankName}${suffix}`.trim();
     };
@@ -6985,7 +6995,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         walletOverlayLastPointKey = pointKey;
 
-        const { percentChange } = getWalletOverlayChangeDetails({
+        const { percentChange, changeValue } = getWalletOverlayChangeDetails({
             dataset,
             rawValue,
             index: dataIndex,
@@ -6994,10 +7004,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const percentLabel = formatPercentLabel(percentChange);
+        const changeLabel = Number.isFinite(changeValue) ? formatSignedUsdValue(changeValue) : null;
+        const changeParts = [changeLabel, percentLabel].filter(Boolean);
         const valueLabel = formatWalletValueLabel(rawValue) || '—';
-        const balanceText = percentLabel
-            ? `Balance ${valueLabel} (${percentLabel})`
-            : `Balance ${valueLabel}`;
+        const balanceText = `Balance ${valueLabel}`;
 
         const detailParts = [];
         if (dataset?.isTopActivityHighlight && Array.isArray(periodMeta?.highlightReasons)) {
@@ -7027,6 +7037,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             visible: true,
             label: periodMeta?.label || dataset?.label || 'Wallet insight',
             balance: balanceText,
+            change: changeParts.length ? changeParts.join(' · ') : '',
             value: valueText,
             valueDirection: percentChange > 0 ? 'positive' : percentChange < 0 ? 'negative' : null,
             position: eventPosition,
@@ -7881,7 +7892,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const barBorderColors = Array.isArray(dataset.barBorderColors) && dataset.barBorderColors.length === periodMeta.length
             ? dataset.barBorderColors
             : periodMeta.map(() => '#16a34a');
-        const perPeriodLabel = dataset.perPeriodLabel || 'Per-period change';
+        const perPeriodLabel = dataset.perPeriodLabel || 'Balance change';
 
         const buildMonthlyPeriodMeta = (yearLabel, colors) => MONTH_COMPARISON_LABELS.map((monthLabel, monthIndex) => {
             const numericYear = Number(yearLabel);
@@ -7978,7 +7989,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }] : []),
                 ...(showLineSeries ? [{
                     type: 'line',
-                    label: 'Cumulative balance',
+                    label: 'Balance',
                     data: Array.isArray(dataset.values) ? dataset.values : [],
                     borderColor: isDarkMode ? '#4ade80' : '#16a34a',
                     backgroundColor: 'transparent',
@@ -9697,7 +9708,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 periodMeta: [],
                 barBorderColors: [],
                 bucketType: 'quarter',
-                changeLabel: 'Period change',
+                changeLabel: 'Balance change',
             };
         }
 
@@ -9745,16 +9756,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 periodMeta: [],
                 barBorderColors: [],
                 bucketType,
-                changeLabel:
-                    bucketType === 'week'
-                        ? 'Weekly change'
-                        : bucketType === 'two-week'
-                            ? 'Biweekly change'
-                            : bucketType === 'month'
-                                ? 'Monthly change'
-                                : bucketType === 'two-month'
-                                    ? 'Bimonthly change'
-                                    : 'Quarterly change',
+                changeLabel: 'Balance change',
             };
         }
 
@@ -9953,15 +9955,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const barBorderColors = periodMeta.map(entry => entry.colors?.border || '#16a34a');
-        const changeLabel = bucketType === 'week'
-            ? 'Weekly change'
-            : bucketType === 'two-week'
-                ? 'Biweekly change'
-                : bucketType === 'month'
-                    ? 'Monthly change'
-                    : bucketType === 'two-month'
-                        ? 'Bimonthly change'
-                        : 'Quarterly change';
+        const changeLabel = 'Balance change';
 
         return {
             labels,

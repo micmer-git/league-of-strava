@@ -2587,7 +2587,7 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 .weekly-snapshot__value,
 .activity-card__value-tag,
 .money-highlight {
-    color: #16a34a;
+    color: #0d9488;
 }
 
 .dark .wallet-chart__overlay-balance,
@@ -2598,7 +2598,7 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 .dark .weekly-snapshot__value,
 .dark .activity-card__value-tag,
 .dark .money-highlight {
-    color: #4ade80;
+    color: #5eead4;
 }
 
 .wallet-table__label,
@@ -3052,39 +3052,96 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .wallet-chart__overlay {
     display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    padding: 0.95rem 1.05rem;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+    max-width: min(360px, calc(100% - 2rem));
+    pointer-events: none;
+    gap: 0.2rem;
+    flex-direction: column;
+    backdrop-filter: blur(8px);
+}
+
+.wallet-chart__overlay.is-visible {
+    display: flex;
 }
 
 .wallet-chart__overlay-label {
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: rgba(226, 232, 240, 0.85);
-    margin-bottom: 0.2rem;
+    font-size: 0.95rem;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 0.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.wallet-chart__overlay-label::before {
+    content: '';
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.14);
+    flex-shrink: 0;
 }
 
 .wallet-chart__overlay-balance {
-    font-size: 0.82rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    margin: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.wallet-chart__overlay-change {
+    font-size: 0.95rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgba(226, 232, 240, 0.78);
-    margin: 0 0 0.2rem;
+    margin: 0 0 0.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #0d9488;
+}
+
+.wallet-chart__overlay-change::before {
+    content: '(';
+}
+
+.wallet-chart__overlay-change::after {
+    content: ')';
+}
+
+.wallet-chart__overlay-change.hidden {
+    display: none;
+}
+
+.wallet-chart__overlay-change--positive,
+.wallet-chart__overlay-value--positive {
+    color: #0d9488;
+}
+
+.wallet-chart__overlay-change--negative,
+.wallet-chart__overlay-value--negative {
+    color: #b91c1c;
 }
 
 .wallet-chart__overlay-value {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #f8fafc;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #334155;
     margin: 0;
-}
-
-.wallet-chart__overlay-value--positive {
-    color: #22c55e;
-}
-
-.wallet-chart__overlay-value--negative {
-    color: #f87171;
 }
 
 .wallet-chart__overlay-value:empty {
@@ -3713,7 +3770,20 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 }
 
 .dark .wallet-chart__overlay-balance {
-    color: rgba(226, 232, 240, 0.85);
+    color: #5eead4;
+}
+
+.dark .wallet-chart__overlay-change {
+    color: #5eead4;
+}
+
+.dark .wallet-chart__overlay-value {
+    color: #e2e8f0;
+}
+
+.dark .wallet-chart__overlay-change--negative,
+.dark .wallet-chart__overlay-value--negative {
+    color: #fca5a5;
 }
 
 .dark .wallet-chart__hint {

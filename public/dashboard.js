@@ -3863,6 +3863,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const syncEnduranceCompareOptions = (entries = []) => {
+        const toSlug = (value) => {
+            if (typeof value !== 'string') {
+                return '';
+            }
+
+            const normalized = value.trim().toLowerCase();
+            const slug = normalized
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/[\s_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            return slug || normalized;
+        };
+
         leaderboardComparisonOptions.clear();
         leaderboardNameToIdMap.clear();
 
@@ -3870,12 +3883,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const selectableEntries = entries.filter((entry) => typeof entry.userId === 'string' && entry.userId.trim().length > 0);
+        const selectableEntries = entries.filter((entry) => {
+            const hasUserId = typeof entry.userId === 'string' && entry.userId.trim().length > 0;
+            const displayLabel = entry.rawDisplayName || entry.displayName;
+            const hasDisplayName = typeof displayLabel === 'string' && displayLabel.trim().length > 0;
+            return hasUserId || hasDisplayName;
+        });
+
         if (selectableEntries.length === 0) {
             resetEnduranceCompareSelect('No shared leaderboard names available yet');
             return;
         }
 
+        const usedIdentifiers = new Set();
         enduranceCompareSelect.innerHTML = '';
         const placeholder = document.createElement('option');
         placeholder.value = '';
@@ -3883,14 +3903,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceCompareSelect.appendChild(placeholder);
 
         selectableEntries.forEach((entry) => {
+            const label = (entry.rawDisplayName || entry.displayName || '').trim();
+            const identifier = (typeof entry.userId === 'string' && entry.userId.trim().length > 0)
+                ? entry.userId.trim()
+                : toSlug(label);
+
+            if (!identifier || usedIdentifiers.has(identifier)) {
+                return;
+            }
+
             const option = document.createElement('option');
-            const optionLabel = entry.rawDisplayName || entry.displayName || entry.userId;
-            option.value = optionLabel;
+            const optionLabel = label || entry.userId || identifier;
+            option.value = identifier;
             option.textContent = optionLabel;
-            option.dataset.userId = entry.userId;
-            leaderboardComparisonOptions.set(entry.userId, option.textContent);
-            leaderboardNameToIdMap.set(optionLabel.toLowerCase(), entry.userId);
+            option.dataset.userId = identifier;
+            leaderboardComparisonOptions.set(identifier, option.textContent);
+            leaderboardNameToIdMap.set(optionLabel.toLowerCase(), identifier);
             enduranceCompareSelect.appendChild(option);
+            usedIdentifiers.add(identifier);
         });
 
         enduranceCompareSelect.disabled = false;

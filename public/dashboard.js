@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         auric: '#fbbf24',
         obsidian: '#0f172a',
     };
+    const MEDAL_RARITY_DISPLAY_ORDER = ['obsidian', 'auric', 'amethyst', 'cerulean', 'verdant'];
     const calculateMedalDollarValue = (countOrMedals = 0) => {
         if (Array.isArray(countOrMedals)) {
             return calculateMedalValueSummary(countOrMedals).totalValue;
@@ -266,6 +267,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         { ...level, index },
     ]));
     const DEFAULT_MEDAL_RARITY_KEY = MEDAL_RARITY_LEVELS[0].key;
+
+    const getMedalRarityDisplayIndex = (key) => {
+        const normalized = normalizeRarityKey(key);
+        const orderIndex = MEDAL_RARITY_DISPLAY_ORDER.indexOf(normalized);
+        return orderIndex >= 0 ? orderIndex : MEDAL_RARITY_DISPLAY_ORDER.length;
+    };
 
     const normalizeRarityKey = (key) => {
         if (typeof key !== 'string') {
@@ -6502,24 +6509,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         wrapper.setAttribute('role', 'group');
         wrapper.setAttribute('aria-label', 'Filter medals by rarity');
 
-        const resetFilters = () => {
-            medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
-            renderMedalsGrid();
-        };
-
-        const allButton = document.createElement('button');
-        const allActive = medalRarityFilters.size === MEDAL_RARITY_LEVELS.length;
-        allButton.type = 'button';
-        allButton.className = 'medal-discipline-slider__button';
-        allButton.textContent = 'All rarities';
-        allButton.setAttribute('aria-pressed', String(allActive));
-        if (allActive) {
-            allButton.classList.add('is-active');
-        }
-        allButton.addEventListener('click', resetFilters);
-        wrapper.appendChild(allButton);
-
-        MEDAL_RARITY_LEVELS.forEach((level) => {
+        MEDAL_RARITY_DISPLAY_ORDER.forEach((rarityKey) => {
+            const level = getMedalRarityMeta(rarityKey);
             const button = document.createElement('button');
             const isActive = medalRarityFilters.has(level.key);
             const baseColor = MEDAL_RARITY_COLOR_MAP[level.key] || '#f59e0b';
@@ -6528,11 +6519,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             button.dataset.rarityKey = level.key;
             button.setAttribute('aria-pressed', String(isActive));
             button.title = level.description || `${level.name} medals`;
-
-            const swatch = document.createElement('span');
-            swatch.className = 'medal-rarity-filter__swatch';
-            swatch.style.backgroundColor = baseColor;
-            button.appendChild(swatch);
 
             const label = document.createElement('span');
             label.textContent = `${level.emoji} ${level.name}`;
@@ -6616,6 +6602,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             ));
         }
 
+        filteredInventory = filteredInventory.slice().sort((a, b) => {
+            const countA = toNonNegativeInteger(a?.count);
+            const countB = toNonNegativeInteger(b?.count);
+            if (countA !== countB) {
+                return countB - countA;
+            }
+            const rarityOrderDiff = getMedalRarityDisplayIndex(a?.rarityKey) - getMedalRarityDisplayIndex(b?.rarityKey);
+            if (rarityOrderDiff !== 0) {
+                return rarityOrderDiff;
+            }
+            return (a?.name || '').localeCompare(b?.name || '');
+        });
+
         if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
             const emptyState = document.createElement('p');
             emptyState.className = 'text-sm text-gray-500 col-span-full';
@@ -6659,11 +6658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalsByRarity.get(rarityKey).medals.push(medal);
         });
 
-        const orderedRarities = rarityOrder.sort((a, b) => {
-            const indexA = getMedalRarityMeta(a).index;
-            const indexB = getMedalRarityMeta(b).index;
-            return indexB - indexA;
-        });
+        const orderedRarities = rarityOrder.sort((a, b) => getMedalRarityDisplayIndex(a) - getMedalRarityDisplayIndex(b));
 
         const createDescriptionSnippet = (description, limit = 120) => {
             const trimmed = (description || '').trim();
@@ -6691,10 +6686,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             wrapper.className = 'medals-category';
             wrapper.dataset.rarity = rarityKey;
 
-            const heading = document.createElement('button');
-            heading.type = 'button';
-            heading.className = 'medals-category__title medals-category__toggle';
-            heading.setAttribute('aria-expanded', 'true');
+            const heading = document.createElement('div');
+            heading.className = 'medals-category__title';
             heading.dataset.rarity = rarityKey;
 
             const emojiSpan = document.createElement('span');
@@ -6714,12 +6707,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 heading.appendChild(tierSpan);
             }
 
-            const chevron = document.createElement('span');
-            chevron.className = 'medals-category__chevron';
-            chevron.setAttribute('aria-hidden', 'true');
-            chevron.textContent = '▾';
-            heading.appendChild(chevron);
-
             wrapper.appendChild(heading);
 
             const descriptionText = meta?.description || '';
@@ -6734,11 +6721,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             list.className = 'medals-list';
             list.setAttribute('role', 'list');
 
-            const setCollapsedState = (collapsed) => {
-                heading.setAttribute('aria-expanded', String(!collapsed));
-                wrapper.classList.toggle('medals-category--collapsed', collapsed);
-                list.classList.toggle('hidden', collapsed);
-            };
+            groupedMedals.sort((a, b) => toNonNegativeInteger(b?.count) - toNonNegativeInteger(a?.count));
 
             groupedMedals.forEach((medal) => {
                 const listItem = document.createElement('li');
@@ -6792,6 +6775,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     textWrapper.appendChild(progressSpan);
                 }
 
+                const medalValue = getMedalRarityValue(medal) * medalCount;
+                const valueTag = document.createElement('span');
+                valueTag.className = 'medals-list__value';
+                const valueInThousands = medalValue / 1000;
+                valueTag.textContent = `Worth $${valueInThousands.toLocaleString()}k`;
+                textWrapper.appendChild(valueTag);
+
                 medalButton.append(countWrapper, textWrapper);
 
                 const descriptionText = (medal.description || '').trim();
@@ -6823,12 +6813,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 listItem.appendChild(medalButton);
                 list.appendChild(listItem);
-            });
-
-            setCollapsedState(false);
-            heading.addEventListener('click', () => {
-                const isExpanded = heading.getAttribute('aria-expanded') === 'true';
-                setCollapsedState(isExpanded);
             });
 
             wrapper.appendChild(list);

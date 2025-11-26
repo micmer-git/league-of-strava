@@ -5296,35 +5296,94 @@ document.addEventListener('DOMContentLoaded', async () => {
             const pillRow = document.createElement('div');
             pillRow.className = 'rank-modal__progress-pills';
 
-            const pill = document.createElement('button');
-            pill.type = 'button';
-            pill.className = 'profile-metric-pill profile-ratio-pill rank-modal__progress-pill';
-            pill.classList.add(`profile-ratio-pill--${(activeEntry.category || '').toLowerCase()}`);
+            const buildStatPill = (statConfig = {}) => {
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = 'profile-metric-pill profile-ratio-pill rank-modal__progress-pill';
+                pill.classList.add(`profile-ratio-pill--${(activeEntry.category || '').toLowerCase()}`);
 
-            const srLabel = document.createElement('span');
-            srLabel.className = 'sr-only';
-            srLabel.textContent = `${activeEntry.category || 'Discipline'} average`;
+                const srLabel = document.createElement('span');
+                srLabel.className = 'sr-only';
+                srLabel.textContent = `${activeEntry.category || 'Discipline'} ${statConfig?.label || 'stat'}`;
 
-            const value = document.createElement('span');
-            value.className = 'profile-ratio-pill__value';
-            value.textContent = activeEntry.valueLabel || '—';
+                const value = document.createElement('span');
+                value.className = 'profile-ratio-pill__value';
+                value.textContent = statConfig?.value || '—';
 
-            pill.append(srLabel, value);
-
-            const detailText = activeEntry.detailLabel || activeEntry.countLabel;
-            if (detailText) {
                 const detail = document.createElement('span');
                 detail.className = 'profile-ratio-pill__detail';
-                detail.textContent = detailText;
-                pill.appendChild(detail);
-            }
+                detail.textContent = statConfig?.detail || 'Not enough data yet.';
 
-            const tooltipText = activeEntry.tooltipText || detailText;
-            if (tooltipText) {
-                attachTooltip(pill, tooltipText);
-            }
+                pill.append(srLabel, value, detail);
 
-            pillRow.appendChild(pill);
+                if (statConfig?.tooltipText) {
+                    attachTooltip(pill, statConfig.tooltipText);
+                }
+
+                return pill;
+            };
+
+            const buildStatEntries = () => {
+                const stats = [];
+                const metrics = activeEntry.metrics || {};
+                const disciplineLabel = activeEntry.category || 'Discipline';
+                const baseCountLabel = activeEntry.countLabel || '';
+                const hasDistance = Number.isFinite(metrics.avgDistanceKm) && metrics.avgDistanceKm > 0;
+                const distanceValue = hasDistance
+                    ? `${formatKilometersDisplay(metrics.avgDistanceKm)} km`
+                    : '—';
+                const speedLabel = activeEntry.speedLabel || '—';
+                const climbLabel = activeEntry.climbLabel || '—';
+                const hasPoolsMetric = Number.isFinite(metrics.avgPoolsPerActivity) && metrics.avgPoolsPerActivity > 0;
+
+                stats.push({
+                    key: 'distance',
+                    label: 'average length',
+                    value: distanceValue,
+                    detail: hasDistance ? 'Avg length' : 'No distance yet',
+                    tooltipText: [
+                        baseCountLabel,
+                        hasDistance
+                            ? `${disciplineLabel} average length ${distanceValue}.`
+                            : `No ${disciplineLabel.toLowerCase()} distance recorded yet.`,
+                    ].filter(Boolean).join(' '),
+                });
+
+                stats.push({
+                    key: 'velocity',
+                    label: 'velocity',
+                    value: speedLabel,
+                    detail: activeEntry.speedDescriptor === 'speed' ? 'Avg speed' : 'Avg pace',
+                    tooltipText: [
+                        baseCountLabel,
+                        speedLabel && speedLabel !== '—'
+                            ? `${disciplineLabel} average ${activeEntry.speedDescriptor || 'speed'} ${speedLabel}.`
+                            : `No ${disciplineLabel.toLowerCase()} pace data yet.`,
+                    ].filter(Boolean).join(' '),
+                });
+
+                stats.push({
+                    key: 'climb',
+                    label: hasPoolsMetric ? 'average pool count' : 'meters per km',
+                    value: climbLabel,
+                    detail: hasPoolsMetric ? 'Avg pools' : 'm climbed per km',
+                    tooltipText: [
+                        baseCountLabel,
+                        climbLabel && climbLabel !== '—'
+                            ? hasPoolsMetric
+                                ? `${disciplineLabel} average ${climbLabel}.`
+                                : `${disciplineLabel} elevation gain ${climbLabel}.`
+                            : `No ${disciplineLabel.toLowerCase()} elevation data yet.`,
+                    ].filter(Boolean).join(' '),
+                });
+
+                return stats;
+            };
+
+            buildStatEntries().forEach((stat) => {
+                pillRow.appendChild(buildStatPill(stat));
+            });
+
             header.appendChild(pillRow);
         }
 
@@ -5484,10 +5543,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 category,
                 emoji,
                 count: metrics.count,
+                metrics,
                 countLabel: createCountLabel(metrics, label),
                 valueLabel: avgDistanceLabel,
                 detailLabel,
                 tooltipText: tooltipParts.join(' '),
+                speedLabel,
+                speedDescriptor,
+                climbLabel,
             };
         };
 

@@ -4386,6 +4386,26 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
 }
 
+.medal-rarity-filter {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+}
+
+.medal-rarity-filter__swatch {
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 999px;
+    display: inline-block;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.medal-rarity-filter__tier {
+    color: rgba(15, 23, 42, 0.65);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 .medal-discipline-slider__button:focus-visible {
     outline: 2px solid #f59e0b;
     outline-offset: 2px;

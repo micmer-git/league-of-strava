@@ -20,6 +20,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         auric: 20000,
         obsidian: 50000,
     };
+    const MEDAL_RARITY_COLOR_MAP = {
+        verdant: '#10b981',
+        cerulean: '#0ea5e9',
+        amethyst: '#a855f7',
+        auric: '#fbbf24',
+        obsidian: '#0f172a',
+    };
     const calculateMedalDollarValue = (countOrMedals = 0) => {
         if (Array.isArray(countOrMedals)) {
             return calculateMedalValueSummary(countOrMedals).totalValue;
@@ -511,6 +518,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         return DEFAULT_MEDAL_RARITY_KEY;
+    };
+    const normalizeMedalRarityPayload = (medal = {}) => {
+        const raritySource = medal?.rarityKey || medal?.rarity || medal?.rarityLabel;
+        const rarityPayload = buildMedalRarityPayload(raritySource || resolveMedalRarityKey(medal));
+        return {
+            ...medal,
+            ...rarityPayload,
+        };
     };
     const WALLET_CATEGORY_META = {
         'Distance Run': { label: 'Run', icon: '🏃' },
@@ -1772,6 +1787,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const FILTER_APPLY_DELAY_MS = 250;
     let filterApplyTimeout = null;
     let medalInventory = [];
+    let medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
     let historicalMedalInventory = [];
     let milestoneCarouselIndex = 0;
     const progressDisciplineTabs = [
@@ -2355,15 +2371,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const medalCount = toNonNegativeInteger(summary.medalSummary?.count);
 
-        const applyRarityMetadata = (medal = {}) => {
-            const raritySource = medal?.rarityKey || medal?.rarity || medal?.rarityLabel;
-            const rarityPayload = buildMedalRarityPayload(raritySource || resolveMedalRarityKey(medal));
-            return {
-                ...medal,
-                ...rarityPayload,
-                legacyCategory: medal?.legacyCategory || medal?.category || '',
-            };
-        };
+        const applyRarityMetadata = (medal = {}) => normalizeMedalRarityPayload({
+            ...medal,
+            legacyCategory: medal?.legacyCategory || medal?.category || '',
+        });
 
         const medalsEarned = Array.isArray(summary.medalsEarned)
             ? summary.medalsEarned.map((medal) => ({
@@ -6425,6 +6436,92 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 'multi';
     };
 
+    const ensureMedalRarityFilters = () => {
+        if (!(medalRarityFilters instanceof Set) || medalRarityFilters.size === 0) {
+            medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
+        }
+    };
+
+    const renderMedalRarityToggles = () => {
+        ensureMedalRarityFilters();
+        const wrapper = document.createElement('div');
+        wrapper.className = 'medal-discipline-slider medal-rarity-filter';
+        wrapper.setAttribute('role', 'group');
+        wrapper.setAttribute('aria-label', 'Filter medals by rarity');
+
+        const resetFilters = () => {
+            medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
+            renderMedalsGrid();
+        };
+
+        const allButton = document.createElement('button');
+        const allActive = medalRarityFilters.size === MEDAL_RARITY_LEVELS.length;
+        allButton.type = 'button';
+        allButton.className = 'medal-discipline-slider__button';
+        allButton.textContent = 'All rarities';
+        allButton.setAttribute('aria-pressed', String(allActive));
+        if (allActive) {
+            allButton.classList.add('is-active');
+        }
+        allButton.addEventListener('click', resetFilters);
+        wrapper.appendChild(allButton);
+
+        MEDAL_RARITY_LEVELS.forEach((level) => {
+            const button = document.createElement('button');
+            const isActive = medalRarityFilters.has(level.key);
+            const baseColor = MEDAL_RARITY_COLOR_MAP[level.key] || '#f59e0b';
+            button.type = 'button';
+            button.className = 'medal-discipline-slider__button';
+            button.dataset.rarityKey = level.key;
+            button.setAttribute('aria-pressed', String(isActive));
+            button.title = level.description || `${level.name} medals`;
+
+            const swatch = document.createElement('span');
+            swatch.className = 'medal-rarity-filter__swatch';
+            swatch.style.backgroundColor = baseColor;
+            button.appendChild(swatch);
+
+            const label = document.createElement('span');
+            label.textContent = `${level.emoji} ${level.name}`;
+            button.appendChild(label);
+
+            if (level.tier) {
+                const tier = document.createElement('span');
+                tier.className = 'medal-rarity-filter__tier';
+                tier.textContent = level.tier;
+                button.appendChild(tier);
+            }
+
+            if (isActive) {
+                button.classList.add('is-active');
+            }
+
+            button.style.borderColor = `${baseColor}55`;
+            button.style.background = isActive
+                ? `linear-gradient(135deg, ${baseColor}22, ${baseColor}44)`
+                : 'transparent';
+            button.style.color = isActive ? '#0f172a' : '';
+
+            button.addEventListener('click', () => {
+                const nextFilters = new Set(medalRarityFilters);
+                if (nextFilters.has(level.key)) {
+                    if (nextFilters.size === 1) {
+                        return;
+                    }
+                    nextFilters.delete(level.key);
+                } else {
+                    nextFilters.add(level.key);
+                }
+                medalRarityFilters = nextFilters;
+                renderMedalsGrid();
+            });
+
+            wrapper.appendChild(button);
+        });
+
+        medalsSection.appendChild(wrapper);
+    };
+
     const renderMedalsGrid = () => {
         refreshAchievementTargets();
         if (!medalsSection) {
@@ -6438,6 +6535,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         medalsSection.innerHTML = '';
+        renderMedalRarityToggles();
 
         let filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
 
@@ -6455,8 +6553,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             filteredInventory = fallbackInventory;
         }
 
+        ensureMedalRarityFilters();
+        const allowedRarities = medalRarityFilters.size > 0
+            ? medalRarityFilters
+            : new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
+        if (allowedRarities.size > 0 && allowedRarities.size < MEDAL_RARITY_LEVELS.length) {
+            filteredInventory = filteredInventory.filter((medal) => allowedRarities.has(
+                normalizeRarityKey(medal?.rarityKey || medal?.rarity || medal?.rarityLabel)
+            ));
+        }
+
         if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
-            medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals available yet.</p>';
+            const emptyState = document.createElement('p');
+            emptyState.className = 'text-sm text-gray-500 col-span-full';
+            emptyState.textContent = 'No medals available yet.';
+            medalsSection.appendChild(emptyState);
             if (medalsLoadMoreButton) {
                 medalsLoadMoreButton.classList.add('hidden');
                 medalsLoadMoreButton.disabled = true;
@@ -17719,7 +17830,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
 
-        return normalized;
+        return normalized.map((entry) => {
+            const definition = entry?.name ? medalDefinitionLookup.get(entry.name) : null;
+            const merged = definition ? { ...definition, ...entry } : { ...entry };
+            return normalizeMedalRarityPayload({
+                ...merged,
+                legacyCategory: merged?.legacyCategory || merged?.category || definition?.category || '',
+                discipline: merged?.discipline || definition?.discipline,
+                description: merged?.description || definition?.description || '',
+                emoji: merged?.emoji || definition?.emoji || '',
+            });
+        });
     };
 
     const hydrateMedalFromDefinition = (medal = {}) => {
@@ -17733,12 +17854,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const definition = medalDefinitionLookup.get(medal.name);
         const merged = definition ? { ...definition, ...medal } : { ...medal };
 
-        return {
+        return normalizeMedalRarityPayload({
             ...merged,
             discipline: resolveMedalDiscipline(merged),
             description: merged.description || definition?.description || '',
             emoji: merged.emoji || definition?.emoji || '',
-        };
+        });
     };
 
     const medalOrderMap = new Map(medalsConfig.map((medal, index) => [medal.name, index]));

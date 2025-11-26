@@ -1213,7 +1213,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rankModalContentElement = document.getElementById('rank-modal-content');
     const rankModalClassElement = document.getElementById('rank-modal-class');
     const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
-    const rankModalMilestonesElement = document.getElementById('rank-modal-milestones');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
     const walletModalElement = document.getElementById('wallet-modal');
@@ -1864,8 +1863,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let medalInventory = [];
     let medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
     let historicalMedalInventory = [];
-    let milestoneCarouselIndex = 0;
-    let milestoneRatioStats = null;
+    let disciplineRatioStats = null;
     const progressDisciplineTabs = [
         { key: 'Run', emoji: '🏃', label: 'Run progression' },
         { key: 'Ride', emoji: '🚴', label: 'Ride progression' },
@@ -5348,8 +5346,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressElement.appendChild(list);
     };
 
-    const buildMilestoneRatioEntries = () => {
-        if (!milestoneRatioStats || typeof milestoneRatioStats !== 'object') {
+    const buildDisciplineRatioEntries = () => {
+        if (!disciplineRatioStats || typeof disciplineRatioStats !== 'object') {
             return [];
         }
 
@@ -5372,7 +5370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return `No ${label} yet`;
         };
 
-        const runMetrics = milestoneRatioStats.run;
+        const runMetrics = disciplineRatioStats.run;
         if (runMetrics) {
             entries.push({
                 category: 'Run',
@@ -5392,7 +5390,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        const rideMetrics = milestoneRatioStats.ride;
+        const rideMetrics = disciplineRatioStats.ride;
         if (rideMetrics) {
             entries.push({
                 category: 'Ride',
@@ -5412,7 +5410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        const swimMetrics = milestoneRatioStats.swim;
+        const swimMetrics = disciplineRatioStats.swim;
         if (swimMetrics) {
             entries.push({
                 category: 'Swim',
@@ -5432,177 +5430,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         return entries;
-    };
-
-    const buildMilestoneCarouselData = () => {
-        const progressEntries = Array.isArray(historicalMedalInventory) ? historicalMedalInventory : [];
-        const progressByName = new Map(progressEntries.map(entry => [entry.name, entry]));
-        const grouped = new Map();
-
-        PROGRESS_MEDAL_DEFINITIONS.forEach((definition) => {
-            const category = definition.milestoneCategory || definition.category || 'Milestones';
-            const progress = progressByName.get(definition.name);
-            const progressStatus = progress?.progressStatus || createMedalProgressStatus({
-                currentValue: progress?.progressStatus?.totalValue || 0,
-                targetValue: definition.targetValue,
-                unitLabel: definition.unitLabel,
-                unitDescription: definition.unitDescription,
-                formatter: definition.formatter,
-            });
-            const entry = {
-                name: definition.name,
-                emoji: definition.emoji || '🌳',
-                count: toNonNegativeInteger(progress?.count),
-                progressStatus,
-            };
-
-            if (!grouped.has(category)) {
-                grouped.set(category, []);
-            }
-            grouped.get(category).push(entry);
-        });
-
-        buildMilestoneRatioEntries().forEach((entry) => {
-            const category = entry.category || 'Milestones';
-            if (!grouped.has(category)) {
-                grouped.set(category, []);
-            }
-            grouped.get(category).unshift(entry);
-        });
-
-        const orderedCategories = MILESTONE_CATEGORY_ORDER.length > 0
-            ? MILESTONE_CATEGORY_ORDER
-            : Array.from(grouped.keys());
-
-        return orderedCategories.map((category) => ({
-            category,
-            entries: (grouped.get(category) || []).sort((a, b) => (a.name || '').localeCompare(b.name || '')),
-        })).filter(group => group.entries.length > 0);
-    };
-
-    const renderMilestoneCarousel = () => {
-        if (!rankModalMilestonesElement) {
-            return;
-        }
-
-        const categories = buildMilestoneCarouselData();
-        const totalCategories = categories.length;
-        const isEmpty = totalCategories === 0;
-
-        rankModalMilestonesElement.innerHTML = '';
-        rankModalMilestonesElement.hidden = isEmpty;
-        rankModalMilestonesElement.setAttribute('aria-hidden', isEmpty ? 'true' : 'false');
-
-        if (isEmpty) {
-            const emptyState = document.createElement('p');
-            emptyState.className = 'rank-modal__milestones-empty';
-            emptyState.textContent = 'Milestone progress will appear once activities load.';
-            rankModalMilestonesElement.appendChild(emptyState);
-            return;
-        }
-
-        if (milestoneCarouselIndex >= totalCategories) {
-            milestoneCarouselIndex = 0;
-        }
-        if (milestoneCarouselIndex < 0) {
-            milestoneCarouselIndex = totalCategories - 1;
-        }
-
-        const activeCategory = categories[milestoneCarouselIndex];
-
-        const card = document.createElement('div');
-        card.className = 'rank-modal__milestones-card';
-
-        const header = document.createElement('div');
-        header.className = 'rank-modal__milestones-header';
-
-        const title = document.createElement('p');
-        title.className = 'rank-modal__milestones-title';
-        title.textContent = '🌳 Milestone grove';
-
-        const indicator = document.createElement('span');
-        indicator.className = 'rank-modal__milestones-indicator';
-        indicator.textContent = `${activeCategory.category} • ${activeCategory.entries.length} goals`;
-
-        header.append(title, indicator);
-
-        const controls = document.createElement('div');
-        controls.className = 'rank-modal__milestones-controls';
-
-        const createNavButton = (direction) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'rank-modal__milestones-button';
-            button.textContent = '🌳';
-            const label = direction === 'next' ? 'Next milestone category' : 'Previous milestone category';
-            button.setAttribute('aria-label', label);
-            button.addEventListener('click', () => {
-                if (direction === 'next') {
-                    milestoneCarouselIndex = (milestoneCarouselIndex + 1) % totalCategories;
-                } else {
-                    milestoneCarouselIndex = (milestoneCarouselIndex - 1 + totalCategories) % totalCategories;
-                }
-                renderMilestoneCarousel();
-            });
-            return button;
-        };
-
-        const previousButton = createNavButton('previous');
-        const nextButton = createNavButton('next');
-        controls.append(previousButton, nextButton);
-
-        const subheader = document.createElement('div');
-        subheader.className = 'rank-modal__milestones-subheader';
-        subheader.append(indicator, controls);
-
-        const description = document.createElement('p');
-        description.className = 'rank-modal__milestones-description';
-        description.textContent = 'Swipe through ride, run, and swim milestones plus training ratios with the grove toggle.';
-
-        const list = document.createElement('ul');
-        list.className = 'rank-modal__milestones-list';
-        list.setAttribute('role', 'list');
-
-        activeCategory.entries.forEach((entry) => {
-            const item = document.createElement('li');
-            item.className = 'rank-modal__milestones-item';
-
-            const itemHeader = document.createElement('div');
-            itemHeader.className = 'rank-modal__milestones-item-header';
-
-            const nameGroup = document.createElement('div');
-            nameGroup.className = 'rank-modal__milestones-name';
-
-            const emoji = document.createElement('span');
-            emoji.className = 'rank-modal__milestones-emoji';
-            emoji.textContent = entry.emoji || '🌳';
-
-            const name = document.createElement('span');
-            name.className = 'rank-modal__milestones-name-text';
-            name.textContent = entry.name || 'Milestone';
-
-            nameGroup.append(emoji, name);
-
-            const count = Math.max(0, toNonNegativeInteger(entry?.count));
-            const countLabel = typeof entry?.countLabel === 'string' ? entry.countLabel.trim() : '';
-            const countBadge = document.createElement('span');
-            countBadge.className = 'rank-modal__milestones-count';
-            const countText = countLabel || (count > 0 ? `${count.toLocaleString()}× earned` : 'In progress');
-            countBadge.textContent = countText;
-            countBadge.setAttribute('aria-label', countText);
-
-            itemHeader.append(nameGroup, countBadge);
-
-            const detail = document.createElement('p');
-            detail.className = 'rank-modal__milestones-progress';
-            detail.textContent = entry?.progressStatus?.detail || entry?.progressStatus?.label || 'Progress tracking unavailable';
-
-            item.append(itemHeader, detail);
-            list.appendChild(item);
-        });
-
-        card.append(header, subheader, description, list);
-        rankModalMilestonesElement.appendChild(card);
     };
 
     const renderRankRewardModalContent = ({
@@ -5722,10 +5549,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const targetElement = timelineElement || listElement;
             targetElement?.appendChild(emptyState);
             return;
-        }
-
-        if (idPrefix === 'rank-modal') {
-            renderMilestoneCarousel();
         }
 
         if (timelineElement && idPrefix === 'rank-modal') {
@@ -6763,6 +6586,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         medalsSection.appendChild(wrapper);
+
+        return wrapper;
+    };
+
+    const renderDisciplineRatioPills = (anchorElement) => {
+        const entries = buildDisciplineRatioEntries();
+
+        if (!medalsSection || !Array.isArray(entries) || entries.length === 0) {
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'discipline-ratio-pills';
+        container.setAttribute('role', 'list');
+        container.setAttribute('aria-label', 'Training ratios by discipline');
+
+        entries.forEach((entry) => {
+            const pill = document.createElement('button');
+            pill.type = 'button';
+            pill.className = 'profile-metric-pill discipline-ratio-pills__pill';
+            pill.classList.add(`discipline-ratio-pills__pill--${(entry.category || '').toLowerCase()}`);
+            pill.setAttribute('role', 'listitem');
+
+            const label = document.createElement('span');
+            label.className = 'discipline-ratio-pills__label';
+            label.textContent = `${entry.emoji || ''} ${entry.category || 'Discipline'}`.trim();
+
+            const detail = document.createElement('span');
+            detail.className = 'discipline-ratio-pills__detail';
+            detail.textContent = entry?.progressStatus?.detail || entry?.progressStatus?.label || 'Not enough data yet.';
+
+            const countText = typeof entry?.countLabel === 'string' && entry.countLabel.trim()
+                ? entry.countLabel.trim()
+                : 'No sessions logged yet';
+            const count = document.createElement('span');
+            count.className = 'discipline-ratio-pills__count';
+            count.textContent = countText;
+
+            pill.append(label, detail, count);
+            pill.setAttribute('aria-label', `${label.textContent} — ${countText}. ${detail.textContent}`);
+            container.appendChild(pill);
+        });
+
+        if (anchorElement?.parentElement === medalsSection) {
+            anchorElement.insertAdjacentElement('afterend', container);
+        } else {
+            medalsSection.appendChild(container);
+        }
     };
 
     const renderMedalsGrid = () => {
@@ -6778,7 +6649,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         medalsSection.innerHTML = '';
-        renderMedalRarityToggles();
+        const rarityToggleWrapper = renderMedalRarityToggles();
+        renderDisciplineRatioPills(rarityToggleWrapper);
 
         let filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
 
@@ -17375,7 +17247,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             valueResolver: (totals) => totals.doubleYogaDays,
         },
     ];
-    const MILESTONE_CATEGORY_ORDER = ['Ride', 'Run', 'Swim'];
 
     const createMedalProgressStatus = ({
         currentValue = 0,
@@ -19269,7 +19140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? allData.activities
             : activities;
         const lifetimeActivitiesForStats = lifetimeActivities;
-        milestoneRatioStats = buildActivityRatioSummaries(lifetimeActivitiesForStats);
+        disciplineRatioStats = buildActivityRatioSummaries(lifetimeActivitiesForStats);
         const lifetimeTotals = (data?.totals && typeof data.totals === 'object')
             ? data.totals
             : (allData?.totals || {});
@@ -19428,8 +19299,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);
         medalInventory = fullMedalInventory.filter(medal => !isHistoricalMedal(medal));
-        milestoneCarouselIndex = 0;
-        renderMilestoneCarousel();
 
         medalContributionMap = new Map();
         medalContributionHighlightsByDate = new Map();

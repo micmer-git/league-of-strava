@@ -1874,7 +1874,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         entries: [],
         rawEntries: [],
         sortKey: 'rank',
-        direction: 'asc'
+        direction: 'asc',
     };
 
     const FILTER_APPLY_DELAY_MS = 250;
@@ -12717,12 +12717,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         data: slicedSeries,
                         borderColor: lineColor,
                         backgroundColor: fillColor,
-                        borderWidth: 2,
+                        borderWidth: 3,
                         borderDash: isRunDiscipline ? [8, 4] : undefined,
                         tension: 0.32,
                         spanGaps: true,
                         pointRadius: 0,
-                        pointHoverRadius: 6,
+                        pointHoverRadius: 7,
                         pointHitRadius: 16,
                         pointBackgroundColor: lineColor,
                         pointBorderColor: lineColor,
@@ -12758,30 +12758,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return seriesEntry?.label || 'Daily total';
                 },
                 label: (context) => {
-                    const label = context.dataset?.label || '';
                     const value = Number.isFinite(context.parsed?.y)
                         ? context.parsed.y
-                        : 0;
-                    return `${label}: ${value.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                    })}`;
-                },
-                footer: (context) => {
-                    const [first] = context || [];
-                    const dataIndex = Number.isInteger(first?.dataIndex)
-                        ? first.dataIndex
                         : null;
-                    const rawSeries = Array.isArray(first?.dataset?.rawSeries) ? first.dataset.rawSeries : [];
-                    const rawValue = Number.isInteger(dataIndex)
-                        && Number.isFinite(rawSeries[dataIndex])
-                        ? rawSeries[dataIndex]
-                        : 0;
-                    const formatted = rawValue.toLocaleString(undefined, {
-                        maximumFractionDigits: config.key === 'elevation' ? 0 : 2,
-                    });
+                    if (!Number.isFinite(value)) {
+                        return '';
+                    }
+
+                    const formatter = typeof config.tickFormatter === 'function'
+                        ? config.tickFormatter
+                        : (val) => val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                    const formatted = formatter(value);
                     const unit = config?.unit || '';
-                    const labelText = config?.label || 'Daily total';
-                    return `${labelText}: ${formatted}${unit}`;
+                    return `${formatted}${unit}`.trim();
                 },
             };
 
@@ -12795,12 +12784,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: {
-                        mode: 'index',
+                        mode: 'nearest',
                         intersect: false,
+                        axis: 'x',
                     },
                     hover: {
-                        mode: 'index',
+                        mode: 'nearest',
                         intersect: false,
+                        axis: 'x',
                     },
                     layout: {
                         padding: { top: 8, right: 14, bottom: 16, left: 8 },
@@ -12810,10 +12801,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                             display: false,
                         },
                         tooltip: {
-                            mode: 'index',
+                            mode: 'nearest',
                             intersect: false,
-                            titleFont: tickFont,
-                            bodyFont: tickFont,
+                            displayColors: false,
+                            backgroundColor: isDarkMode ? '#0b1221' : '#0f172a',
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#e2e8f0',
+                            padding: 12,
+                            titleFont: { ...tickFont, size: 13, weight: '700' },
+                            bodyFont: { ...tickFont, size: 16, weight: '700' },
                             callbacks: tooltipCallbacks,
                         },
                     },
@@ -21162,7 +21158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // === Initial Data Fetch ===
-    if (leaderboardBody) {
+    if (leaderboardBody || enduranceCompareSelect) {
         loadLeaderboard();
     }
 

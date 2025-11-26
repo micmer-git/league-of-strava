@@ -1432,9 +1432,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const canvasWidth = walletChartCanvas.clientWidth || overlayWidth;
         const canvasHeight = walletChartCanvas.clientHeight || overlayHeight;
         const clampedX = Math.min(Math.max(position.x, overlayWidth / 2), Math.max(overlayWidth / 2, canvasWidth - (overlayWidth / 2)));
-        let desiredTop = position.y - overlayHeight - 60;
+        const verticalGap = 18;
+        const hasRoomAbove = position.y > overlayHeight + verticalGap;
+        const preferredTop = hasRoomAbove
+            ? position.y - overlayHeight - verticalGap
+            : position.y + verticalGap;
         const maxTop = canvasHeight - overlayHeight - 16;
-        desiredTop = Math.min(Math.max(12, desiredTop), maxTop);
+        const desiredTop = Math.min(Math.max(12, preferredTop), maxTop);
         overlay.style.left = `${clampedX - (overlayWidth / 2)}px`;
         overlay.style.top = `${desiredTop}px`;
     };
@@ -7147,8 +7151,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const percentLabel = formatPercentLabel(percentChange);
         const changeLabel = Number.isFinite(changeValue) ? formatSignedUsdValue(changeValue) : null;
         const changeParts = [changeLabel, percentLabel].filter(Boolean);
+        const changeSuffix = changeParts.length ? ` (${changeParts.join(' · ')})` : '';
         const valueLabel = formatWalletValueLabel(rawValue) || '—';
-        const balanceText = `Balance ${valueLabel}`;
+        const balanceText = `Balance ${valueLabel}${changeSuffix}`;
 
         const detailParts = [];
         if (dataset?.isTopActivityHighlight && Array.isArray(periodMeta?.highlightReasons)) {
@@ -7178,7 +7183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             visible: true,
             label: periodMeta?.label || dataset?.label || 'Wallet insight',
             balance: balanceText,
-            change: changeParts.length ? changeParts.join(' · ') : '',
+            change: '',
             value: valueText,
             valueDirection: percentChange > 0 ? 'positive' : percentChange < 0 ? 'negative' : null,
             position: eventPosition,
@@ -8289,7 +8294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     },
                     tooltip: {
-                        enabled: true,
+                        enabled: false,
                         mode: 'index',
                         intersect: false,
                         callbacks: {

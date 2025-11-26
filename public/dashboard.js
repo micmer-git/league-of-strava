@@ -13080,7 +13080,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setEndurancePlotFullscreen(normalizedKey, enable);
     };
 
-    const bindEnduranceFullscreenControls = () => {
+    function bindEnduranceFullscreenControls() {
         const buttons = Array.from(document.querySelectorAll('[data-endurance-fullscreen-toggle]'));
         if (!buttons.length) {
             return;
@@ -13107,7 +13107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         }
-    };
+    }
 
     const addEnduranceComparison = async (userId, labelHint = '') => {
         const resolvedId = typeof userId === 'string'

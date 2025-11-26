@@ -917,6 +917,53 @@ button,
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
 }
 
+.profile-ratio-pill {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 0.2rem;
+    padding: 0.6rem 0.75rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.profile-ratio-pill__label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-text-primary, #0f172a);
+}
+
+.profile-ratio-pill__value {
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.profile-ratio-pill__detail {
+    font-size: 0.85rem;
+    color: rgba(51, 65, 85, 0.8);
+}
+
+.profile-ratio-pill--run {
+    background: linear-gradient(135deg, #e0f2fe, #e5e7eb);
+}
+
+.profile-ratio-pill--ride {
+    background: linear-gradient(135deg, #fff7ed, #fef3c7);
+}
+
+.profile-ratio-pill--swim {
+    background: linear-gradient(135deg, #ecfeff, #e0f2fe);
+}
+
+.dark .profile-ratio-pill__detail {
+    color: rgba(203, 213, 225, 0.85);
+}
+
+.profile-card__stat-empty {
+    margin: 0;
+    font-size: 0.9rem;
+    color: rgba(51, 65, 85, 0.75);
+}
+
 .dashboard-onepage {
     display: flex;
     flex-direction: column;

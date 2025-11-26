@@ -4471,6 +4471,23 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     gap: 0.5rem;
 }
 
+.endurance-compare__inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.endurance-compare__select {
+    border: 1px solid rgba(148, 163, 184, 0.7);
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.95rem;
+    background: #fff;
+    width: 100%;
+    color: #0f172a;
+}
+
 .endurance-compare__input {
     border: 1px solid rgba(148, 163, 184, 0.7);
     border-radius: 0.75rem;
@@ -4536,6 +4553,7 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     color: #e2e8f0;
 }
 
+.dark .endurance-compare__select,
 .dark .endurance-compare__input {
     background: rgba(15, 23, 42, 0.75);
     border-color: rgba(148, 163, 184, 0.6);

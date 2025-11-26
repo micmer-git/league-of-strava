@@ -12934,7 +12934,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const bindEnduranceCompareForm = () => {
+    function bindEnduranceCompareForm() {
         if (!enduranceCompareForm || enduranceCompareForm.dataset.bound === 'true') {
             return;
         }
@@ -12946,7 +12946,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         enduranceCompareForm.dataset.bound = 'true';
-    };
+    }
 
     const destroyMedalMixChart = () => {
         if (medalMixChartInstance) {

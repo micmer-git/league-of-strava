@@ -33,6 +33,36 @@ const {
   ensurePayloadCountryMetadata,
 } = require('./services/activityCountry');
 
+// === NEW ROUTE: Populate Frontend Dropdown ===
+app.get('/api/leaderboard/simple-list', async (req, res) => {
+  try {
+    // 1. Ensure cache is warm
+    await leaderboardCache.ensureLoaded();
+    const entries = await leaderboardCache.getEntries();
+
+    // 2. Map to just the data we need (ID and Display Name)
+    const simpleList = entries.map(entry => {
+        // Resolve rank name from the existing RANK_LEVELS constant if available
+        const levelIndex = Math.max(0, (entry.level || 1) - 1);
+        const rankConfig = RANK_LEVELS[levelIndex] || {};
+        const rankName = rankConfig.name || `Level ${entry.level || 0}`;
+
+        return {
+            userId: entry.userId,
+            displayName: entry.displayName || `Athlete ${entry.userId}`,
+            rank: rankName
+        };
+    });
+
+    res.json(simpleList);
+  } catch (error) {
+    console.error('Failed to fetch leaderboard list:', error);
+    res.status(500).json({ error: 'Failed to load competitors' });
+  }
+});
+
+
+
 const app = express();
 app.use(cookieParser());
 app.use(express.json());

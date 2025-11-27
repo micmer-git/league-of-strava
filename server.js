@@ -942,6 +942,24 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+app.get('/api/leaderboard/simple-list', async (req, res) => {
+  try {
+    await leaderboardCache.ensureLoaded();
+    const entries = await leaderboardCache.getEntries();
+
+    const simpleList = entries.map((entry) => ({
+      userId: entry.userId,
+      displayName: entry.displayName || `Athlete ${entry.userId}`,
+      rank: entry.rankName || entry.rank || 'No Rank',
+    }));
+
+    return res.json(simpleList);
+  } catch (error) {
+    console.error('Failed to fetch leaderboard list:', error);
+    return res.status(500).json({ error: 'Failed to load competitors' });
+  }
+});
+
 app.get('/api/dashboard-users', async (req, res) => {
   try {
     const [dashboardUserIds, leaderboardEntries] = await Promise.all([

@@ -951,14 +951,34 @@ app.get('/api/dashboard-users', async (req, res) => {
 
     const leaderboardNameById = new Map(
       leaderboardEntries
-        .filter(entry => entry?.userId)
-        .map(entry => [String(entry.userId).trim(), entry.displayName || ''])
+        .map((entry) => {
+          const userId = typeof entry?.userId === 'string' || typeof entry?.userId === 'number'
+            ? String(entry.userId).trim()
+            : '';
+          const displayName = typeof entry?.displayName === 'string' ? entry.displayName.trim() : '';
+          return userId ? [userId, displayName] : null;
+        })
+        .filter(Boolean)
     );
+
+    const leaderboardUserIds = leaderboardEntries
+      .map((entry) => {
+        if (typeof entry?.userId === 'string' || typeof entry?.userId === 'number') {
+          return String(entry.userId).trim();
+        }
+        return '';
+      })
+      .filter(userId => userId.length > 0);
+
+    const uniqueDashboardIds = Array.from(new Set([
+      ...dashboardUserIds,
+      ...leaderboardUserIds,
+    ]));
 
     const dashboards = [];
 
     // Resolve display labels for every dashboard, preferring leaderboard names when available
-    for (const id of dashboardUserIds) {
+    for (const id of uniqueDashboardIds) {
       const userId = typeof id === 'string' || typeof id === 'number' ? String(id).trim() : '';
 
       if (!userId) {

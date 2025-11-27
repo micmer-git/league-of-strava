@@ -1396,6 +1396,38 @@ to { opacity: 1; transform: translateY(0); }
     font-size: clamp(0.9rem, 2.4vw, 1.1rem);
 }
 
+.profile-card__world-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+    color: var(--color-text-primary, #0f172a);
+    font-weight: 600;
+}
+
+.profile-card__world-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 999px;
+    background: linear-gradient(120deg, #e0f2fe, #eff6ff);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.profile-card__world-stat + .profile-card__world-stat::before {
+    content: '•';
+    color: #94a3b8;
+    margin-right: 0.2rem;
+    margin-left: 0.1rem;
+}
+
+.profile-card__world-emoji {
+    font-size: 1rem;
+    line-height: 1;
+}
+
 .profile-card__season-pills .profile-metrics__row,
 .profile-card__coins.stats-card__pills > .profile-metrics__row,
 .profile-card__wallet-totals.profile-card__stat-row {
@@ -1419,6 +1451,23 @@ to { opacity: 1; transform: translateY(0); }
 .profile-card__wallet-totals .wallet-total-pill {
     gap: 0.4rem;
     padding-block: 0.55rem;
+}
+
+.profile-card__world-pill {
+    background: linear-gradient(135deg, #e0f2fe, #e0f2fe 40%, #f0f9ff 100%);
+    color: #0f172a;
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.profile-card__world-pill--medals {
+    background: linear-gradient(135deg, #ffe4e6, #fff1f2);
+    border-color: rgba(244, 63, 94, 0.18);
+}
+
+.profile-card__world-pill--countries {
+    background: linear-gradient(135deg, #f5f3ff, #eef2ff);
+    border-color: rgba(99, 102, 241, 0.2);
 }
 
 .profile-card__wallet-totals {
@@ -2685,6 +2734,10 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 .wallet-table__cell {
     min-width: 2.1rem;
+}
+
+.wallet-table__cell[data-coin-emoji] {
+    cursor: pointer;
 }
 
 .wallet-table__label {
@@ -7408,10 +7461,19 @@ body.dark .activity-card__title-link:focus-visible,
     padding: 0.65rem;
     text-align: center;
     min-width: 0;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .dark .achievement-card__coin {
     background: rgba(30, 41, 59, 0.75);
+}
+
+.achievement-card__coin:hover,
+.achievement-card__coin:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+    outline: none;
 }
 
 .achievement-card__coin-emoji {

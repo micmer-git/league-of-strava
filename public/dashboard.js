@@ -1448,7 +1448,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const leaderboardBody = document.getElementById('leaderboard-body');
     const leaderboardSortButtons = Array.from(document.querySelectorAll('.leaderboard-sort'));
     let panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
-    let coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
     const WALLET_PAN_THROTTLE_MS = 100;
@@ -1747,7 +1746,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
         medalsLoadMoreButton = document.getElementById('medals-load-more');
         panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
-        coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
         chartToggleButtons.balance = chartToggleBalanceButton;
         achievementWallet = document.getElementById('achievement-wallet');
         updateActivitiesMedalInfo();
@@ -14023,31 +14021,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const totals = computeWalletCoinTotals(latestWalletSummaryPayload.categories);
-        const elementMap = {
-            '💲': 'coin-dollar',
-            '💰': 'coin-money',
-            '🧈': 'coin-butter',
-            '💎': 'coin-diamond',
-            '👑': 'coin-king'
-        };
-
-        Object.entries(elementMap).forEach(([emoji, elementId]) => {
-            const element = document.getElementById(elementId);
-            if (!element) {
-                return;
-            }
-            const targetValue = toNonNegativeInteger(totals[emoji]);
-            const normalizedCurrent = Number((element.textContent || '').replace(/,/g, ''));
-            const currentValue = Number.isFinite(normalizedCurrent) ? normalizedCurrent : 0;
-            if (currentValue !== targetValue) {
-                element.textContent = targetValue.toLocaleString();
-            }
-            const parentButton = element.closest('button[data-coin-type]');
-            if (parentButton) {
-                parentButton.setAttribute('aria-label', `${targetValue.toLocaleString()} ${emoji} minted`);
-            }
-        });
-
         const totalCoinValue = Object.entries(totals).reduce((sum, [emoji, count]) => {
             const normalizedCount = toNonNegativeInteger(count);
             const coinValue = COIN_VALUE_MAP[emoji] || 0;
@@ -21665,29 +21638,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const applyCoinFilterAndNavigate = (coinType) => {
+        const coinEmoji = (coinType || '').trim();
+        if (coinEmoji && COIN_EMOJIS.includes(coinEmoji)) {
+            currentActivityFilters.coinEmoji = coinEmoji;
+        } else {
+            currentActivityFilters.coinEmoji = null;
+        }
+
+        if (filterApplyTimeout) {
+            clearTimeout(filterApplyTimeout);
+            filterApplyTimeout = null;
+        }
+
+        requestActivitiesRender({ preserveVisibleCount: false });
+        mapsTo('activities', { focusTab: true });
+    };
+
     const bindCoinShortcutButtons = () => {
-        coinShortcutButtons.forEach((button) => {
-            if (!button || button.dataset.coinShortcutInitialized === 'true') {
+        const achievementsPanel = document.getElementById('panel-achievements');
+        if (!achievementsPanel || achievementsPanel.dataset.coinShortcutInitialized === 'true') {
+            return;
+        }
+
+        achievementsPanel.dataset.coinShortcutInitialized = 'true';
+        achievementsPanel.addEventListener('click', (event) => {
+            const coinTarget = event.target.closest('[data-coin-emoji]');
+            if (!coinTarget) {
                 return;
             }
 
-            button.dataset.coinShortcutInitialized = 'true';
-            button.addEventListener('click', () => {
-                const coinType = (button.dataset.coinType || '').trim();
-                if (coinType && COIN_EMOJIS.includes(coinType)) {
-                    currentActivityFilters.coinEmoji = coinType;
-                } else {
-                    currentActivityFilters.coinEmoji = null;
-                }
+            const coinType = coinTarget.dataset.coinEmoji || '';
+            if (!COIN_EMOJIS.includes(coinType)) {
+                return;
+            }
 
-                if (filterApplyTimeout) {
-                    clearTimeout(filterApplyTimeout);
-                    filterApplyTimeout = null;
-                }
-
-                requestActivitiesRender({ preserveVisibleCount: false });
-                mapsTo('activities', { focusTab: true });
-            });
+            event.preventDefault();
+            applyCoinFilterAndNavigate(coinType);
         });
     };
 

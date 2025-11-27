@@ -3582,6 +3582,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         return value.replace(/[&<>"']/g, char => map[char] || char);
     };
 
+    const extractAthleteIdFromInput = (input) => {
+        if (!input) {
+            return '';
+        }
+
+        const normalized = String(input).trim();
+        const urlMatch = normalized.match(/athletes?\/(\d+)/i);
+        if (urlMatch?.[1]) {
+            return urlMatch[1];
+        }
+
+        const numericMatch = normalized.match(/\d{4,}/);
+        if (numericMatch?.[0]) {
+            return numericMatch[0];
+        }
+
+        return '';
+    };
+
     const formatRetryAfterDuration = (seconds) => {
         const numericValue = Number(seconds);
         if (!Number.isFinite(numericValue) || numericValue <= 0) {
@@ -3809,6 +3828,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const parseLeaderboardEntries = (entries = []) => {
         return entries.map((entry, index) => {
             const rawUserId = typeof entry?.userId === 'string' ? entry.userId.trim() : '';
+            const athleteId = typeof entry?.athleteId === 'string'
+                ? entry.athleteId.trim()
+                : (typeof entry?.athleteId === 'number' ? String(entry.athleteId) : '');
             const hasUserLink = rawUserId.length > 0;
             const baseName = typeof entry?.displayName === 'string' && entry.displayName.trim().length > 0
                 ? entry.displayName.trim()
@@ -3830,6 +3852,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return {
                 baseRank: index + 1,
                 userId: rawUserId,
+                athleteId,
                 rawDisplayName: baseName,
                 displayName: safeDisplayName,
                 displayNameSortable: baseName.toLocaleLowerCase(),
@@ -3985,6 +4008,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const usedIdentifiers = new Set();
+        const usedAutocompleteValues = new Set();
         enduranceCompareSelect.innerHTML = '';
         if (enduranceCompareDatalist) {
             enduranceCompareDatalist.innerHTML = '';
@@ -3998,13 +4022,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!enduranceCompareDatalist || !label) {
                 return;
             }
+            const normalizedLabel = label.trim();
+            if (!normalizedLabel || usedAutocompleteValues.has(normalizedLabel.toLowerCase())) {
+                return;
+            }
             const datalistOption = document.createElement('option');
-            datalistOption.value = label;
+            datalistOption.value = normalizedLabel;
             enduranceCompareDatalist.appendChild(datalistOption);
+            usedAutocompleteValues.add(normalizedLabel.toLowerCase());
         };
 
         selectableEntries.forEach((entry) => {
             const label = (entry.rawDisplayName || entry.displayName || '').trim();
+            const athleteId = typeof entry.athleteId === 'string'
+                ? entry.athleteId.trim()
+                : (typeof entry.athleteId === 'number' ? String(entry.athleteId) : '');
             const identifier = (typeof entry.userId === 'string' && entry.userId.trim().length > 0)
                 ? entry.userId.trim()
                 : toSlug(label);
@@ -4018,18 +4050,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             option.value = identifier;
             option.textContent = optionLabel;
             option.dataset.userId = identifier;
+            if (athleteId) {
+                option.dataset.athleteId = athleteId;
+            }
             leaderboardComparisonOptions.set(identifier, option.textContent);
             leaderboardNameToIdMap.set(optionLabel.toLowerCase(), identifier);
             leaderboardNameToIdMap.set(identifier.toLowerCase(), identifier);
+            if (athleteId) {
+                leaderboardNameToIdMap.set(athleteId.toLowerCase(), identifier);
+                leaderboardComparisonOptions.set(athleteId, option.textContent);
+            }
             enduranceCompareSelect.appendChild(option);
             usedIdentifiers.add(identifier);
             appendDatalistOption(optionLabel);
+            appendDatalistOption(athleteId);
         });
 
         enduranceCompareSelect.disabled = false;
         if (enduranceCompareInput) {
             enduranceCompareInput.disabled = false;
-            enduranceCompareInput.placeholder = 'Start typing a leaderboard name';
+            enduranceCompareInput.placeholder = 'Start typing a leaderboard name or athlete ID';
         }
     };
 
@@ -4037,9 +4077,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         .map(entry => {
             const userId = typeof entry?.userId === 'string' ? entry.userId.trim() : '';
             const displayName = typeof entry?.displayName === 'string' ? entry.displayName.trim() : '';
+            const athleteId = typeof entry?.athleteId === 'string'
+                ? entry.athleteId.trim()
+                : (typeof entry?.athleteId === 'number' ? String(entry.athleteId) : '');
 
             return {
                 userId,
+                athleteId,
                 rawDisplayName: displayName || userId,
                 displayName: displayName || userId,
             };
@@ -13748,7 +13792,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             : '';
         const trimmedId = typeof resolvedId === 'string' ? resolvedId.trim() : '';
         if (!trimmedId) {
-            setEnduranceCompareStatus('Select a leaderboard athlete to compare.');
+            setEnduranceCompareStatus('Select a leaderboard athlete or provide a Strava athlete ID to compare.');
             return;
         }
 
@@ -13813,17 +13857,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceCompareForm.addEventListener('submit', (event) => {
             event.preventDefault();
             const typedName = enduranceCompareInput?.value?.trim() || '';
+            const typedAthleteId = extractAthleteIdFromInput(typedName);
             const selectedOption = enduranceCompareSelect?.selectedOptions?.[0];
             const selectedValue = enduranceCompareSelect?.value || '';
-            const selectedLabel = typedName || selectedOption?.textContent || selectedValue;
-            const resolvedId = (typedName && leaderboardNameToIdMap.get(typedName.toLowerCase()))
+            const normalizedSelectedValue = typeof selectedValue === 'string' ? selectedValue.trim() : '';
+            const selectedLabel = typedName || selectedOption?.textContent || normalizedSelectedValue || typedAthleteId;
+            const leaderboardLookup = typedName ? leaderboardNameToIdMap.get(typedName.toLowerCase()) : '';
+            const athleteIdLookup = typedAthleteId ? leaderboardNameToIdMap.get(typedAthleteId.toLowerCase()) : '';
+            const resolvedId = leaderboardLookup
+                || athleteIdLookup
                 || selectedOption?.dataset?.userId
-                || leaderboardNameToIdMap.get(selectedValue.toLowerCase())
-                || selectedValue;
+                || leaderboardNameToIdMap.get(normalizedSelectedValue.toLowerCase())
+                || typedAthleteId
+                || normalizedSelectedValue;
             const targetUserId = resolvedId || '';
-            const selectionLabel = selectedLabel || targetUserId;
-            if (typedName && !resolvedId) {
-                setEnduranceCompareStatus(`No leaderboard match found for "${typedName}". Try a saved dashboard user.`);
+            const selectionLabel = selectedLabel || targetUserId || typedAthleteId || normalizedSelectedValue;
+            if (typedName && !leaderboardLookup && !athleteIdLookup && !typedAthleteId) {
+                setEnduranceCompareStatus(`No leaderboard or athlete ID match found for "${typedName}". Try a saved dashboard user or paste the Strava athlete ID.`);
                 return;
             }
             addEnduranceComparison(targetUserId, selectionLabel);

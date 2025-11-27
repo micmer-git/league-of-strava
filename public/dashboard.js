@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         cerulean: 5000,
         amethyst: 10000,
         auric: 20000,
+        star: 25000,
         obsidian: 50000,
     };
     const MEDAL_RARITY_COLOR_MAP = {
@@ -25,9 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         cerulean: '#0ea5e9',
         amethyst: '#a855f7',
         auric: '#fbbf24',
+        star: '#fcd34d',
         obsidian: '#0f172a',
     };
-    const MEDAL_RARITY_DISPLAY_ORDER = ['obsidian', 'auric', 'amethyst', 'cerulean', 'verdant'];
+    const MEDAL_RARITY_DISPLAY_ORDER = ['obsidian', 'star', 'auric', 'amethyst', 'cerulean', 'verdant'];
     const calculateMedalDollarValue = (countOrMedals = 0) => {
         if (Array.isArray(countOrMedals)) {
             return calculateMedalValueSummary(countOrMedals).totalValue;
@@ -250,6 +252,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         return parsedDate ? parsedDate.getTime() : null;
     };
 
+    const createSeededRandom = (seedInput = '') => {
+        let seed = 0;
+        const normalized = String(seedInput);
+        for (let index = 0; index < normalized.length; index += 1) {
+            seed = (seed * 31 + normalized.charCodeAt(index)) >>> 0;
+        }
+
+        return () => {
+            seed ^= seed << 13;
+            seed ^= seed >>> 17;
+            seed ^= seed << 5;
+            return ((seed >>> 0) % 10000) / 10000;
+        };
+    };
+
     const MEDAL_RARITY_ALIASES = new Map([
         ['ember', 'auric'],
         ['crimson', 'obsidian'],
@@ -286,6 +303,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             tier: 'Elite',
             emoji: '🟡',
             description: 'Serious endurance streaks and heavyweight lifetime pushes.',
+        },
+        {
+            key: 'star',
+            name: 'Star',
+            tier: 'Challenge',
+            emoji: '⭐',
+            description: 'Limited monthly star medals worth $25k each.',
         },
         {
             key: 'obsidian',
@@ -379,7 +403,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             standardCount += count;
-            standardValue += getMedalRarityValue(medal) * count;
+            const medalValue = Number.isFinite(medal?.valueOverride)
+                ? medal.valueOverride
+                : getMedalRarityValue(medal);
+            standardValue += medalValue * count;
         });
 
         historicalValue = calculateHistoricalMedalValue(historicalCount);
@@ -1314,8 +1341,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activitiesMedalInfoLabel = document.getElementById('activities-medal-info-label');
     let activitiesMedalInfoDescription = document.getElementById('activities-medal-info-description');
     let activitiesMedalInfoClearButton = document.getElementById('activities-medal-info-clear');
+    let monthlyChallengesSection = document.getElementById('profile-monthly-challenges');
+    let monthlyChallengesMonth = document.getElementById('monthly-challenges-month');
+    let monthlyChallengesSummaryElement = document.getElementById('monthly-challenges-summary');
+    let monthlyChallengesBonus = document.getElementById('monthly-challenges-bonus');
+    let monthlyChallengesCarousel = document.getElementById('monthly-challenges-carousel');
     let topAchievementsCarousel = document.getElementById('top-achievements-carousel');
     let profileActivityHistoryElement = document.getElementById('profile-activity-history-body');
+    let monthlyChallengesInterval = null;
     let topAchievementsInterval = null;
     let enduranceChartCanvases = {
         distance: document.getElementById('endurance-ma-chart-distance'),
@@ -2523,6 +2556,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }))
             : [];
 
+        const monthlyChallenges = summary.monthlyChallenges
+            ? {
+                ...summary.monthlyChallenges,
+                challenges: Array.isArray(summary.monthlyChallenges.challenges)
+                    ? summary.monthlyChallenges.challenges.map(challenge => ({ ...challenge }))
+                    : [],
+            }
+            : { monthKey: '', monthLabel: '', challenges: [], completedChallenges: 0, totalChallenges: 0 };
+
         const medalValueSummary = calculateMedalValueSummary(medalsEarned);
         const historicalCount = toNonNegativeInteger(
             summary.medalSummary?.historicalCount ?? medalValueSummary.historicalCount,
@@ -2548,6 +2590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalsEarned,
             medalInventory,
             medalContributions,
+            monthlyChallenges,
         };
     };
 
@@ -2948,6 +2991,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        const monthlyChallenges = buildMonthlyChallengeSet(activityList);
+
+        monthlyChallenges.challenges.forEach((challenge) => {
+            const medalEntry = normalizeMedalRarityPayload({
+                name: challenge.medalName,
+                emoji: challenge.emoji || '⭐',
+                description: challenge.description,
+                count: challenge.completed ? 1 : 0,
+                category: 'Star Medals',
+                legacyCategory: 'Star Medals',
+                rarityKey: 'star',
+                valueOverride: challenge.rewardValue,
+                discipline: challenge.discipline || 'multi',
+            });
+
+            medalDefinitionLookup.set(challenge.medalName, medalEntry);
+            allMedals.push(medalEntry);
+            if (medalEntry.count > 0) {
+                medalsEarned.push(medalEntry);
+            }
+        });
+
+        if (monthlyChallenges.completionMedal) {
+            const completionEntry = normalizeMedalRarityPayload(monthlyChallenges.completionMedal);
+            medalDefinitionLookup.set(completionEntry.name, completionEntry);
+            allMedals.push(completionEntry);
+            if (completionEntry.count > 0) {
+                medalsEarned.push(completionEntry);
+            }
+        }
+
         const medalValueSummary = calculateMedalValueSummary(medalsEarned);
         const medalSummary = {
             count: medalValueSummary.totalCount,
@@ -2986,6 +3060,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalsEarned,
             medalInventory: sortedMedals,
             medalContributions,
+            monthlyChallenges,
         };
     };
 
@@ -12153,6 +12228,276 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { longest, awardCount };
     };
 
+    const MONTHLY_CHALLENGE_REWARD_VALUE = 25000;
+    const MONTHLY_CHALLENGE_BONUS_VALUE = 250000;
+
+    const randomWithinRange = (randomFn, min = 0, max = 1) => {
+        const value = typeof randomFn === 'function' ? randomFn() : Math.random();
+        return min + (max - min) * value;
+    };
+
+    const roundToStep = (value, step = 1) => {
+        if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) {
+            return 0;
+        }
+        return Math.round(value / step) * step;
+    };
+
+    const buildMonthlyChallengeStats = (activityList = [], monthKey) => {
+        const stats = {
+            monthKey,
+            totalDistanceKm: 0,
+            rideDistanceKm: 0,
+            runDistanceKm: 0,
+            swimDistanceKm: 0,
+            totalHours: 0,
+            elevationM: 0,
+            activityCount: 0,
+            yogaSessions: 0,
+            rideCount: 0,
+            runCount: 0,
+            swimCount: 0,
+            activeDays: 0,
+            yogaRunComboDays: 0,
+            multiDisciplineDays: 0,
+        };
+
+        if (!Array.isArray(activityList) || !monthKey) {
+            return stats;
+        }
+
+        const dailyTypes = new Map();
+
+        activityList.forEach((activity) => {
+            const reference = getActivityCalendarReference(activity);
+            if (!reference || !reference.dayKey || !reference.dayKey.startsWith(monthKey)) {
+                return;
+            }
+
+            const normalizedType = (activity.type || activity.sport_type || '').toUpperCase();
+            const distanceKm = Number.isFinite(activity.distance) ? activity.distance / METERS_IN_KILOMETER : 0;
+            const elevation = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+            const movingHours = Number.isFinite(activity.moving_time) ? activity.moving_time / 3600 : 0;
+
+            stats.totalDistanceKm += distanceKm;
+            stats.totalHours += movingHours;
+            stats.elevationM += elevation;
+            stats.activityCount += 1;
+
+            const dayEntry = dailyTypes.get(reference.dayKey) || { types: new Set() };
+
+            if (normalizedType.includes('RIDE')) {
+                stats.rideDistanceKm += distanceKm;
+                stats.rideCount += 1;
+                dayEntry.types.add('RIDE');
+            }
+            if (normalizedType.includes('RUN')) {
+                stats.runDistanceKm += distanceKm;
+                stats.runCount += 1;
+                dayEntry.types.add('RUN');
+            }
+            if (normalizedType.includes('SWIM')) {
+                stats.swimDistanceKm += distanceKm;
+                stats.swimCount += 1;
+                dayEntry.types.add('SWIM');
+            }
+            if (normalizedType.includes('YOGA')) {
+                stats.yogaSessions += 1;
+                dayEntry.types.add('YOGA');
+            }
+            if (!dayEntry.types.size) {
+                dayEntry.types.add('OTHER');
+            }
+
+            dailyTypes.set(reference.dayKey, dayEntry);
+        });
+
+        stats.activeDays = dailyTypes.size;
+
+        dailyTypes.forEach((entry) => {
+            if (entry.types.has('YOGA') && entry.types.has('RUN')) {
+                stats.yogaRunComboDays += 1;
+            }
+            if (entry.types.size >= 2) {
+                stats.multiDisciplineDays += 1;
+            }
+        });
+
+        return stats;
+    };
+
+    const MONTHLY_CHALLENGE_TEMPLATES = [
+        {
+            key: 'distance-all',
+            emoji: '🧭',
+            title: 'Distance drive',
+            unit: 'km',
+            description: (target) => `Cover ${target} km across any sport this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 220, 480), 10),
+            progress: (stats) => stats.totalDistanceKm,
+        },
+        {
+            key: 'elevation',
+            emoji: '⛰️',
+            title: 'Elevation focus',
+            unit: 'm',
+            description: (target) => `Climb ${target.toLocaleString()} m of vert this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3000, 9000), 100),
+            progress: (stats) => stats.elevationM,
+        },
+        {
+            key: 'hours',
+            emoji: '⏱️',
+            title: 'Hours in motion',
+            unit: 'h',
+            description: (target) => `Log ${target} hours of moving time this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 18, 48), 1),
+            progress: (stats) => stats.totalHours,
+        },
+        {
+            key: 'activities',
+            emoji: '📆',
+            title: 'Activity streaker',
+            unit: 'activities',
+            description: (target) => `Complete ${target} activities before the month ends.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 12, 28), 1),
+            progress: (stats) => stats.activityCount,
+        },
+        {
+            key: 'ride-distance',
+            emoji: '🚴',
+            title: 'Ride mileage',
+            unit: 'km',
+            description: (target) => `Ride ${target} km this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 180, 520), 10),
+            progress: (stats) => stats.rideDistanceKm,
+        },
+        {
+            key: 'run-distance',
+            emoji: '🏃',
+            title: 'Run mileage',
+            unit: 'km',
+            description: (target) => `Run ${target} km this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 80, 220), 5),
+            progress: (stats) => stats.runDistanceKm,
+        },
+        {
+            key: 'swim-distance',
+            emoji: '🏊',
+            title: 'Swim push',
+            unit: 'km',
+            description: (target) => `Swim ${target} km this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 6, 20), 0.5),
+            progress: (stats) => stats.swimDistanceKm,
+        },
+        {
+            key: 'yoga-sessions',
+            emoji: '🧘',
+            title: 'Yoga reset',
+            unit: 'sessions',
+            description: (target) => `Log ${target} yoga sessions this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 6, 14), 1),
+            progress: (stats) => stats.yogaSessions,
+        },
+        {
+            key: 'yoga-run-combo',
+            emoji: '🧘🏃',
+            title: 'Yoga + run stack',
+            unit: 'days',
+            description: (target) => `Stack yoga and a run on ${target} different days.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3, 7), 1),
+            progress: (stats) => stats.yogaRunComboDays,
+        },
+        {
+            key: 'multi-discipline',
+            emoji: '✨',
+            title: 'Mixed-mode days',
+            unit: 'days',
+            description: (target) => `Log ${target} days with 2+ activity types.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 4, 10), 1),
+            progress: (stats) => stats.multiDisciplineDays,
+        },
+    ];
+
+    const formatMonthlyChallengeValue = (value, unit) => {
+        const normalizedValue = Number.isFinite(value) ? value : 0;
+        switch (unit) {
+            case 'km':
+                return `${formatKilometersDisplay(normalizedValue)} km`;
+            case 'm':
+                return `${Math.round(normalizedValue).toLocaleString()} m`;
+            case 'h':
+                return `${formatHoursDisplay(normalizedValue)} h`;
+            case 'activities':
+            case 'sessions':
+            case 'days':
+                return `${Math.round(normalizedValue)} ${unit}`;
+            default:
+                return `${Math.round(normalizedValue)}`;
+        }
+    };
+
+    const buildMonthlyChallengeSet = (activityList = [], now = new Date()) => {
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthLabel = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        const stats = buildMonthlyChallengeStats(activityList, monthKey);
+        const seededRandom = createSeededRandom(`${monthKey}-star-challenges`);
+
+        const shuffledTemplates = MONTHLY_CHALLENGE_TEMPLATES.slice().sort(() => seededRandom() - 0.5);
+        const selectedTemplates = shuffledTemplates.slice(0, 5);
+
+        const challenges = selectedTemplates.map((template) => {
+            const rawTarget = template.target(stats, seededRandom, monthLabel);
+            const targetValue = Math.max(1, Math.round(rawTarget * 100) / 100);
+            const currentValue = Math.max(0, Number(template.progress(stats)) || 0);
+            const progressPercent = Math.max(0, Math.min(100, Math.round((currentValue / targetValue) * 100)));
+
+            const progressLabel = `${formatMonthlyChallengeValue(currentValue, template.unit)} / ${formatMonthlyChallengeValue(targetValue, template.unit)}`;
+
+            return {
+                key: `${monthKey}-${template.key}`,
+                emoji: template.emoji,
+                title: template.title,
+                description: template.description(targetValue),
+                targetValue,
+                currentValue,
+                progressPercent,
+                progressLabel,
+                monthLabel,
+                monthKey,
+                unit: template.unit,
+                rewardValue: MONTHLY_CHALLENGE_REWARD_VALUE,
+                completed: currentValue >= targetValue,
+                medalName: `${monthLabel} Star — ${template.title}`,
+                discipline: 'multi',
+            };
+        });
+
+        const completedChallenges = challenges.filter(challenge => challenge.completed).length;
+        const allComplete = challenges.length > 0 && completedChallenges === challenges.length;
+
+        const completionMedal = {
+            name: `${monthLabel} 25 Completion`,
+            emoji: '🌟',
+            description: 'Completed all five monthly star challenges.',
+            rarityKey: 'star',
+            valueOverride: MONTHLY_CHALLENGE_BONUS_VALUE,
+            count: allComplete ? 1 : 0,
+            category: 'Star Medals',
+            legacyCategory: 'Star Medals',
+            discipline: 'multi',
+        };
+
+        return {
+            monthKey,
+            monthLabel,
+            challenges,
+            completedChallenges,
+            totalChallenges: challenges.length,
+            completionMedal,
+        };
+    };
+
     const computePremiumAchievements = (lifetimeActivities = []) => {
         if (!Array.isArray(lifetimeActivities) || lifetimeActivities.length === 0) {
             return [];
@@ -12438,6 +12783,123 @@ document.addEventListener('DOMContentLoaded', async () => {
             attachTooltip(badge, tooltipMessage);
             container.appendChild(badge);
         });
+    };
+
+    const renderMonthlyChallengesCarousel = (container, monthlySummary = null) => {
+        if (!container) {
+            return;
+        }
+
+        const track = container.querySelector('[data-monthly-challenges-track]');
+        if (!track) {
+            return;
+        }
+
+        track.innerHTML = '';
+        if (monthlyChallengesInterval) {
+            clearInterval(monthlyChallengesInterval);
+            monthlyChallengesInterval = null;
+        }
+
+        const challenges = Array.isArray(monthlySummary?.challenges) ? monthlySummary.challenges : [];
+        if (!monthlySummary || challenges.length === 0) {
+            if (monthlyChallengesSection) {
+                monthlyChallengesSection.classList.add('hidden');
+            }
+            return;
+        }
+
+        if (monthlyChallengesSection) {
+            monthlyChallengesSection.classList.remove('hidden');
+        }
+
+        const completedChallenges = Number(monthlySummary.completedChallenges) || 0;
+        const totalChallenges = Number(monthlySummary.totalChallenges) || challenges.length;
+        const monthLabel = monthlySummary.monthLabel || 'This month';
+        const bonusUnlocked = Number(monthlySummary?.completionMedal?.count) > 0;
+
+        if (monthlyChallengesMonth) {
+            monthlyChallengesMonth.textContent = monthLabel;
+        }
+        if (monthlyChallengesSummaryElement) {
+            monthlyChallengesSummaryElement.textContent = `Completed ${completedChallenges} of ${totalChallenges} star challenges so far.`;
+        }
+        if (monthlyChallengesBonus) {
+            monthlyChallengesBonus.textContent = bonusUnlocked
+                ? '$250k ⭐ bonus secured — amazing!'
+                : 'Complete all five for a $250k ⭐ bonus';
+        }
+
+        const slides = challenges.map((challenge) => {
+            const slide = document.createElement('article');
+            slide.className = 'profile-monthly-challenges__slide';
+
+            const header = document.createElement('div');
+            header.className = 'profile-monthly-challenges__slide-header';
+
+            const icon = document.createElement('span');
+            icon.className = 'profile-monthly-challenges__icon';
+            icon.textContent = challenge.emoji || '⭐';
+
+            const title = document.createElement('h4');
+            title.className = 'profile-monthly-challenges__slide-title';
+            title.textContent = challenge.title || 'Monthly challenge';
+
+            header.append(icon, title);
+
+            const description = document.createElement('p');
+            description.className = 'profile-monthly-challenges__slide-description';
+            description.textContent = challenge.description || 'Track your progress and grab the star medal.';
+
+            const progress = document.createElement('div');
+            progress.className = 'profile-monthly-challenges__progress';
+
+            const bar = document.createElement('div');
+            bar.className = 'profile-monthly-challenges__progress-bar';
+
+            const fill = document.createElement('div');
+            fill.className = 'profile-monthly-challenges__progress-fill';
+            const percent = Math.max(0, Math.min(100, Number(challenge.progressPercent) || 0));
+            fill.style.width = `${percent}%`;
+            bar.appendChild(fill);
+
+            const meta = document.createElement('div');
+            meta.className = 'profile-monthly-challenges__progress-meta';
+
+            const progressLabel = document.createElement('span');
+            progressLabel.textContent = challenge.progressLabel || `${percent}% complete`;
+
+            const rewardLabel = document.createElement('span');
+            rewardLabel.className = 'profile-monthly-challenges__reward';
+            const rewardValue = Number.isFinite(challenge.rewardValue)
+                ? challenge.rewardValue
+                : MONTHLY_CHALLENGE_REWARD_VALUE;
+            rewardLabel.innerHTML = `<span aria-hidden="true">⭐</span>$${rewardValue.toLocaleString('en-US')}`;
+
+            meta.append(progressLabel, rewardLabel);
+
+            progress.append(bar, meta);
+            slide.append(header, description, progress);
+            track.appendChild(slide);
+            return slide;
+        });
+
+        let currentIndex = 0;
+        const activateSlide = (index) => {
+            slides.forEach((slide, idx) => {
+                slide.classList.toggle('is-active', idx === index);
+            });
+            track.style.transform = `translateX(-${index * 100}%)`;
+        };
+
+        activateSlide(currentIndex);
+
+        if (slides.length > 1) {
+            monthlyChallengesInterval = window.setInterval(() => {
+                currentIndex = (currentIndex + 1) % slides.length;
+                activateSlide(currentIndex);
+            }, 5200);
+        }
     };
 
     const renderTopAchievementsCarousel = (container, achievements = []) => {
@@ -19732,6 +20194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const lifetimeRewardSummary = shouldRecomputeMedals
             ? getLifetimeRewardSummary(lifetimeActivities)
             : cloneRewardSummary(precomputedRewards);
+        renderMonthlyChallengesCarousel(monthlyChallengesCarousel, lifetimeRewardSummary.monthlyChallenges);
         const categories = lifetimeRewardSummary.categories;
         const medalsEarned = lifetimeRewardSummary.medalsEarned;
         const medalSummary = lifetimeRewardSummary.medalSummary;

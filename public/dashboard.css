@@ -3614,6 +3614,165 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     color: #475569;
 }
 
+.profile-monthly-challenges {
+    margin-top: 1rem;
+    padding: 1rem 1.05rem;
+    background: linear-gradient(135deg, #fff7ed, #ecfeff);
+    color: #0f172a;
+    border-radius: 0.95rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.profile-monthly-challenges__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.profile-monthly-challenges__eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #475569;
+}
+
+.profile-monthly-challenges__title-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+
+.profile-monthly-challenges__title {
+    margin: 0;
+    font-size: clamp(1rem, 2.4vw, 1.3rem);
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.profile-monthly-challenges__bonus {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(14, 165, 233, 0.1);
+    color: #0ea5e9;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.profile-monthly-challenges__summary {
+    margin: 0;
+    color: #334155;
+    font-size: 0.95rem;
+}
+
+.profile-monthly-challenges__carousel {
+    overflow: hidden;
+    position: relative;
+}
+
+.profile-monthly-challenges__track {
+    display: flex;
+    gap: 0.75rem;
+    transition: transform 0.6s ease, opacity 0.4s ease;
+    will-change: transform;
+}
+
+.profile-monthly-challenges__slide {
+    flex: 0 0 100%;
+    padding: 1rem;
+    background: #ffffff;
+    border-radius: 0.85rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    transform: scale(0.98);
+    opacity: 0.92;
+    transition: transform 0.4s ease, opacity 0.4s ease, box-shadow 0.4s ease;
+}
+
+.profile-monthly-challenges__slide.is-active {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
+}
+
+.profile-monthly-challenges__slide-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.35rem;
+}
+
+.profile-monthly-challenges__icon {
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.profile-monthly-challenges__slide-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.profile-monthly-challenges__slide-description {
+    margin: 0;
+    color: #334155;
+    font-size: 0.95rem;
+}
+
+.profile-monthly-challenges__progress {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.profile-monthly-challenges__progress-bar {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.profile-monthly-challenges__progress-fill {
+    position: absolute;
+    inset: 0;
+    width: 0;
+    background: linear-gradient(90deg, #0ea5e9, #f97316);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.profile-monthly-challenges__progress-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.4rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.profile-monthly-challenges__reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 0.75rem;
+    background: rgba(251, 191, 36, 0.16);
+    color: #b45309;
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
 .profile-top-achievements {
     margin-top: 1.25rem;
     padding: 0.75rem 0.9rem;

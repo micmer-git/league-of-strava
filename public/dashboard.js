@@ -11,6 +11,115 @@ document.addEventListener('DOMContentLoaded', async () => {
         '💎': 10000,
         '👑': 50000
     };
+    / === NEW FUNCTION: Fetch Competitors ===
+    async function populateComparisonDropdown() {
+        const select = document.getElementById('endurance-compare-select');
+        const dataList = document.getElementById('endurance-compare-datalist');
+        
+        if (!select || !dataList) return;
+
+        try {
+            const response = await fetch('/api/leaderboard/simple-list');
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const users = await response.json();
+            
+            // Clear existing options (keep the placeholder)
+            select.innerHTML = '<option value="">Select from leaderboard</option>';
+            dataList.innerHTML = '';
+            
+            // Populate the UI
+            users.forEach(user => {
+                // Option for the Select Dropdown
+                const option = document.createElement('option');
+                option.value = user.userId;
+                option.textContent = `${user.displayName} (${user.rank})`;
+                select.appendChild(option);
+                
+                // Option for the Search Datalist (for typing names)
+                const listOption = document.createElement('option');
+                listOption.value = user.displayName; 
+                listOption.setAttribute('data-userid', user.userId); 
+                dataList.appendChild(listOption);
+            });
+        } catch (error) {
+            console.error('Error populating comparison dropdown:', error);
+            const errorOpt = document.createElement('option');
+            errorOpt.textContent = "Unable to load competitors";
+            select.appendChild(errorOpt);
+        }
+    }
+
+    // === UPDATED: Form Binding ===
+    const bindEnduranceCompareForm = () => {
+        if (!enduranceCompareForm) return;
+
+        // Populate the dropdown when we bind the form
+        populateComparisonDropdown();
+
+        enduranceCompareForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Reset status
+            if (enduranceCompareStatus) {
+                enduranceCompareStatus.textContent = '';
+                enduranceCompareStatus.classList.add('hidden');
+            }
+
+            let targetUserId = enduranceCompareSelect.value;
+            const inputValue = enduranceCompareInput.value;
+
+            // If dropdown is empty, check the text input against the datalist
+            if (!targetUserId && inputValue) {
+                const dataList = document.getElementById('endurance-compare-datalist');
+                if (dataList) {
+                    const options = Array.from(dataList.options);
+                    const match = options.find(opt => opt.value === inputValue);
+                    if (match) {
+                        targetUserId = match.getAttribute('data-userid');
+                    }
+                }
+            }
+
+            if (!targetUserId) {
+                console.warn('No user selected for comparison.');
+                return;
+            }
+
+            console.log("Fetching comparison data for:", targetUserId);
+
+            try {
+                // Set loading state
+                if (enduranceCompareStatus) {
+                    enduranceCompareStatus.textContent = 'Loading...';
+                    enduranceCompareStatus.className = 'text-xs text-gray-500 mt-2 block';
+                    enduranceCompareStatus.classList.remove('hidden');
+                }
+
+                // 1. Fetch the user snapshot
+                // Note: You need to implement/ensure this endpoint exists or use your existing data fetching logic
+                /* const response = await fetch(`/api/user-snapshot/${targetUserId}`);
+                const data = await response.json();
+                
+                // 2. Add to your comparison map
+                enduranceComparisonProfiles.set(targetUserId, data.activities || []);
+                
+                // 3. Update the chart
+                updateEnduranceChart(enduranceSource);
+                */
+                
+                // For now, logging as requested
+                console.log(`Ready to plot user ${targetUserId}`);
+
+            } catch (error) {
+                console.error("Failed to add competitor:", error);
+                if (enduranceCompareStatus) {
+                    enduranceCompareStatus.textContent = 'Failed to load user data.';
+                    enduranceCompareStatus.className = 'text-xs text-red-500 mt-2 block';
+                }
+            }
+        });
+    };
     const MEDAL_BASE_VALUE = 100000;
     const MEDAL_GROWTH_RATE = 1.05;
     const MEDAL_RARITY_VALUE_MAP = {

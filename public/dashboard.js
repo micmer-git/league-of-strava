@@ -4048,7 +4048,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const loadDashboardComparisonOptions = async (canSyncEnduranceOptions) => {
         if (!canSyncEnduranceOptions) {
-            return;
+            return [];
         }
 
         try {
@@ -4062,11 +4062,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
 
             const normalizedEntries = normalizeDashboardUserEntries(data?.dashboards || []);
-            syncEnduranceCompareOptions(normalizedEntries);
+            return normalizedEntries;
         } catch (error) {
             console.error('Failed to load dashboard users', error);
             resetEnduranceCompareSelect('Unable to load dashboard users');
         }
+
+        return [];
     };
 
     const applyLeaderboardSort = (sortKey = 'rank', direction = null) => {
@@ -4130,7 +4132,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             leaderboardState.direction = 'asc';
 
             if (canSyncEnduranceOptions) {
-                syncEnduranceCompareOptions(parsedEntries);
+                const dashboardEntries = await comparisonPromise;
+                const mergedEntries = Array.isArray(dashboardEntries)
+                    ? parsedEntries.concat(dashboardEntries)
+                    : parsedEntries;
+                syncEnduranceCompareOptions(mergedEntries);
             }
 
             if (canRenderLeaderboard) {
@@ -4145,8 +4151,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     : 'Failed to load the leaderboard. Please try again later.';
             }
         }
-
-        await comparisonPromise;
     };
 
     const formatStatValue = (value) => {

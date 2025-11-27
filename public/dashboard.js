@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         '💎': 10000,
         '👑': 50000
     };
-    / === NEW FUNCTION: Fetch Competitors ===
+    // === NEW FUNCTION: Fetch Competitors ===
     async function populateComparisonDropdown() {
         const select = document.getElementById('endurance-compare-select');
         const dataList = document.getElementById('endurance-compare-datalist');

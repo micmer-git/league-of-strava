@@ -947,11 +947,17 @@ app.get('/api/leaderboard/simple-list', async (req, res) => {
     await leaderboardCache.ensureLoaded();
     const entries = await leaderboardCache.getEntries();
 
-    const simpleList = entries.map((entry) => ({
-      userId: entry.userId,
-      displayName: entry.displayName || `Athlete ${entry.userId}`,
-      rank: entry.rankName || entry.rank || 'No Rank',
-    }));
+    const simpleList = entries.map(entry => {
+      const levelIndex = Math.max(0, (entry.level || 1) - 1);
+      const rankConfig = RANK_LEVELS[levelIndex] || {};
+      const rankName = rankConfig.name || `Level ${entry.level || 0}`;
+
+      return {
+        userId: entry.userId,
+        displayName: entry.displayName || `Athlete ${entry.userId}`,
+        rank: rankName,
+      };
+    });
 
     return res.json(simpleList);
   } catch (error) {

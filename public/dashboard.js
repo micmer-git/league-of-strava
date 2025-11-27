@@ -13909,38 +13909,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const populateComparisonDropdown = async () => {
+        if (!enduranceCompareSelect || !enduranceCompareDatalist) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/leaderboard/simple-list');
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const users = await response.json();
+            const normalized = normalizeLeaderboardSimpleEntries(users);
+
+            if (normalized.length === 0) {
+                resetEnduranceCompareSelect('No leaderboard athletes available yet');
+                return;
+            }
+
+            syncEnduranceCompareOptions(normalized);
+
+            if (enduranceCompareSelect?.options?.length) {
+                enduranceCompareSelect.options[0].textContent = 'Select from leaderboard';
+            }
+        } catch (error) {
+            console.error('Error populating comparison dropdown:', error);
+            resetEnduranceCompareSelect('Unable to load competitors');
+        }
+    };
+
     function bindEnduranceCompareForm() {
         if (!enduranceCompareForm || enduranceCompareForm.dataset.bound === 'true') {
             return;
         }
 
+        populateComparisonDropdown();
+
         enduranceCompareForm.addEventListener('submit', (event) => {
             event.preventDefault();
-            const typedName = enduranceCompareInput?.value?.trim() || '';
-            const typedAthleteId = extractAthleteIdFromInput(typedName);
-            const selectedOption = enduranceCompareSelect?.selectedOptions?.[0];
-            const selectedValue = enduranceCompareSelect?.value || '';
-            const normalizedSelectedValue = typeof selectedValue === 'string' ? selectedValue.trim() : '';
-            const datalistMatch = (typedName && enduranceCompareDatalist)
-                ? Array.from(enduranceCompareDatalist.options).find((option) => option.value === typedName)
-                : null;
-            const datalistUserId = datalistMatch?.dataset?.userid || datalistMatch?.getAttribute('data-userid') || '';
-            const selectedLabel = typedName || selectedOption?.textContent || normalizedSelectedValue || typedAthleteId;
-            const leaderboardLookup = typedName ? leaderboardNameToIdMap.get(typedName.toLowerCase()) : '';
-            const athleteIdLookup = typedAthleteId ? leaderboardNameToIdMap.get(typedAthleteId.toLowerCase()) : '';
-            const resolvedId = datalistUserId
-                || leaderboardLookup
-                || athleteIdLookup
-                || selectedOption?.dataset?.userId
-                || leaderboardNameToIdMap.get(normalizedSelectedValue.toLowerCase())
-                || typedAthleteId
-                || normalizedSelectedValue;
-            const targetUserId = resolvedId || '';
-            const selectionLabel = selectedLabel || targetUserId || typedAthleteId || normalizedSelectedValue;
-            if (typedName && !leaderboardLookup && !athleteIdLookup && !typedAthleteId) {
-                setEnduranceCompareStatus(`No leaderboard or athlete ID match found for "${typedName}". Try a saved dashboard user or paste the Strava athlete ID.`);
+
+            if (enduranceCompareStatus) {
+                enduranceCompareStatus.textContent = '';
+                enduranceCompareStatus.classList.add('hidden');
+            }
+
+            let targetUserId = enduranceCompareSelect?.value || '';
+            const inputValue = enduranceCompareInput?.value || '';
+
+            if (!targetUserId && inputValue) {
+                const options = enduranceCompareDatalist ? Array.from(enduranceCompareDatalist.options) : [];
+                const match = options.find(opt => opt.value === inputValue);
+                if (match) {
+                    targetUserId = match.getAttribute('data-userid') || match.dataset?.userid || '';
+                }
+            }
+
+            if (!targetUserId) {
+                console.warn('No user selected for comparison.');
                 return;
             }
+
+            const selectionLabel = inputValue
+                || enduranceCompareSelect?.selectedOptions?.[0]?.textContent
+                || targetUserId;
+
             addEnduranceComparison(targetUserId, selectionLabel);
         });
 

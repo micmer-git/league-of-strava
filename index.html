@@ -1,162 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>League of Strava</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>League of Strava - Master Your Performance</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; overflow-x: hidden; }
+        h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
+        
+        /* Glassmorphism Card Style */
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cta-btn {
+            background: linear-gradient(90deg, #2563eb, #7c3aed);
+            transition: all 0.3s ease;
+        }
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
+        }
+    </style>
 </head>
-<body>
-  <div class="page">
-    <header class="site-header">
-      <div class="brand">
-        <img src="static/league-of-strava.png" alt="League of Strava logo" class="brand__logo" loading="lazy" decoding="async">
-        <div class="brand__copy">
-          <p class="brand__eyebrow">Fantasy league energy</p>
-          <h1 class="brand__title">League of Strava</h1>
+<body class="min-h-screen flex flex-col relative">
+
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
+    </div>
+
+    <nav class="relative z-50 w-full p-6 flex justify-between items-center opacity-0 nav-item">
+        <div class="flex items-center gap-3">
+            <img src="static/league-of-strava.png" alt="Logo" class="w-10 h-10 rounded-full shadow-lg">
+            <span class="text-xl font-bold tracking-tight">League of Strava</span>
         </div>
-      </div>
-      <a class="cta strava-connect" href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh">
-        <img src="static/strava-logo.png" alt="Strava" class="strava-connect__icon" loading="lazy" decoding="async">
-        <span>Connect with Strava</span>
-      </a>
-    </header>
+        <a href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh" class="px-6 py-2 rounded-full border border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white transition-all text-sm font-medium">
+            Connect Strava
+        </a>
+    </nav>
 
-    <main class="content">
-      <section class="hero">
-        <div class="hero__text">
-          <p class="hero__eyebrow">One pager, five beats</p>
-          <h2 class="hero__title">Your Strava story, simplified.</h2>
-          <p class="hero__subtitle">Swipe through the essentials: how the league works, what medals mean, and why balance matters for every effort you log.</p>
-          <div class="hero__actions">
-            <a class="cta" href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh">Explore your data</a>
-            <span class="hero__hint">You can always reconnect to refresh stats.</span>
-          </div>
-        </div>
-        <div class="hero__badge" aria-hidden="true">⚔️</div>
-      </section>
-
-      <section class="carousel" aria-label="League of Strava highlights">
-        <div class="carousel__rail">
-          <article class="slide is-active" aria-label="Introduction to League of Strava">
-            <p class="slide__eyebrow">Slide 1</p>
-            <h3 class="slide__title">Introduction to League of Strava</h3>
-            <p class="slide__body">A seasonal, story-driven dashboard that turns your Strava activity into an RPG-inspired league. Simple ranks, clear medals, and a focus on momentum instead of noise.</p>
-            <ul class="slide__list">
-              <li>Mobile-friendly by design, perfect after a ride.</li>
-              <li>Instant read on your weekly pulse and lifetime journey.</li>
-              <li>Built to motivate, not overwhelm.</li>
-            </ul>
-          </article>
-
-          <article class="slide" aria-label="Overview of ranking system">
-            <p class="slide__eyebrow">Slide 2</p>
-            <h3 class="slide__title">Overview of ranking system</h3>
-            <p class="slide__body">Ranks are seasonal. Your class ladder responds to weekly hours, streaks, and balanced cross-discipline effort.</p>
-            <div class="pill-grid">
-              <span class="pill">Baseline → Veteran → Elite</span>
-              <span class="pill">Hours + Consistency drive promotions</span>
-              <span class="pill">Streaks protect your position</span>
-              <span class="pill">Rest weeks cool off decay</span>
+    <main class="relative z-10 flex-grow flex flex-col items-center justify-center container mx-auto px-6 py-12">
+        
+        <div class="text-center max-w-4xl mx-auto mb-20">
+            <div class="inline-block px-4 py-1 rounded-full bg-blue-900/30 border border-blue-500/30 text-blue-400 text-xs font-bold mb-6 tracking-wide opacity-0 hero-elem">
+                SEASONAL FANTASY LEAGUE
             </div>
-          </article>
-
-          <article class="slide" aria-label="Insights about medals">
-            <p class="slide__eyebrow">Slide 3</p>
-            <h3 class="slide__title">Insights about medals</h3>
-            <p class="slide__body">Medals celebrate style, grit, and variety. Each color hints at rarity, and the ribbon tells you whether it came from volume, intensity, or community vibes.</p>
-            <ul class="slide__list">
-              <li>Bronze &amp; Silver: consistent weeks that stack momentum.</li>
-              <li>Gold: breakthrough efforts or multi-sport combos.</li>
-              <li>Legendary: season-defining feats shared with your crew.</li>
-            </ul>
-          </article>
-
-          <article class="slide" aria-label="Balance calculation example and plot mock up">
-            <p class="slide__eyebrow">Slide 4</p>
-            <h3 class="slide__title">Balance calculation example</h3>
-            <p class="slide__body">Balance mixes volume and variety. A clean split across run, ride, and strength keeps your recovery curve happy.</p>
-            <div class="balance-grid" role="img" aria-label="Mocked weekly balance chart">
-              <div class="balance-row">
-                <span>Hours</span>
-                <div class="bar" style="--fill:80%"></div>
-                <span class="value">12.0h</span>
-              </div>
-              <div class="balance-row">
-                <span>Variety</span>
-                <div class="bar" style="--fill:65%"></div>
-                <span class="value">3 sports</span>
-              </div>
-              <div class="balance-row">
-                <span>Recovery</span>
-                <div class="bar" style="--fill:55%"></div>
-                <span class="value">2 easy days</span>
-              </div>
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight opacity-0 hero-elem">
+                Your Sweat. <br />
+                <span class="gradient-text">Gamified.</span>
+            </h1>
+            <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 opacity-0 hero-elem">
+                Turn your Strava activities into an RPG. Earn ranks, unlock medals, and balance your training load to climb the leaderboard.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center opacity-0 hero-elem">
+                <a href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh" class="cta-btn px-8 py-4 rounded-xl text-white font-bold text-lg flex items-center justify-center gap-2">
+                    <img src="static/strava-logo.png" class="w-5 h-5 brightness-0 invert" alt="">
+                    Enter the League
+                </a>
             </div>
-            <p class="slide__note">Tip: balancing hours with rest keeps your rank moving without burnout.</p>
-          </article>
-
-          <article class="slide" aria-label="Info about milestone medals and super achievements">
-            <p class="slide__eyebrow">Slide 5</p>
-            <h3 class="slide__title">Milestone medals &amp; super achievements</h3>
-            <p class="slide__body">Big arcs deserve big signals. Milestone medals unlock at 50/100/250 lifetime hours; super achievements land when you chain streaks, elevation, and volume together.</p>
-            <div class="badge-row">
-              <span class="badge">🏅 50h Milestone</span>
-              <span class="badge">🌄 Elevation Hero</span>
-              <span class="badge">🔥 Super Streak</span>
-            </div>
-            <p class="slide__note">They’re rare on purpose—earn them, share them, and watch the map glow.</p>
-          </article>
         </div>
 
-        <div class="carousel__controls" aria-label="Carousel controls">
-          <button class="nav nav--prev" type="button" aria-label="Previous slide">‹</button>
-          <div class="dots" role="tablist" aria-label="Carousel navigation"></div>
-          <button class="nav nav--next" type="button" aria-label="Next slide">›</button>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl perspective-1000">
+            
+            <div class="glass-card p-8 rounded-2xl opacity-0 feature-card transform translate-y-10">
+                <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mb-6 text-2xl">🛡️</div>
+                <h3 class="text-xl font-bold mb-3">Dynamic Ranks</h3>
+                <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                    Your class ladder responds to weekly hours and consistency. Move from <span class="text-white font-semibold">Baseline</span> to <span class="text-yellow-400 font-semibold">Elite</span> by maintaining streaks.
+                </p>
+                <div class="w-full bg-slate-700/50 h-2 rounded-full overflow-hidden">
+                    <div class="bg-blue-500 h-full w-3/4"></div>
+                </div>
+                <p class="text-xs text-right text-blue-400 mt-2">Elite Progress: 75%</p>
+            </div>
+
+            <div class="glass-card p-8 rounded-2xl opacity-0 feature-card transform translate-y-10">
+                <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mb-6 text-2xl">🏅</div>
+                <h3 class="text-xl font-bold mb-3">Rare Medals</h3>
+                <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                    Unlock achievements for volume, intensity, and variety. Look for the <span class="text-yellow-400">Legendary</span> badges for season-defining feats.
+                </p>
+                <div class="flex gap-2 mt-4">
+                    <span class="w-8 h-8 rounded-full bg-yellow-500/20 border border-yellow-500 flex items-center justify-center text-xs">⚡</span>
+                    <span class="w-8 h-8 rounded-full bg-slate-500/20 border border-slate-500 flex items-center justify-center text-xs">🏔️</span>
+                    <span class="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-500 flex items-center justify-center text-xs">🔥</span>
+                </div>
+            </div>
+
+            <div class="glass-card p-8 rounded-2xl opacity-0 feature-card transform translate-y-10">
+                <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mb-6 text-2xl">📈</div>
+                <h3 class="text-xl font-bold mb-3">Best Practices</h3>
+                <p class="text-slate-400 text-sm leading-relaxed">
+                    Balance is key. Don't just grind; recover.
+                </p>
+                <ul class="mt-4 space-y-2 text-sm text-slate-300">
+                    <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Mix Run & Ride & Strength</li>
+                    <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Consistent easy days</li>
+                    <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Avoid burnout decay</li>
+                </ul>
+            </div>
+
         </div>
-      </section>
+
     </main>
-  </div>
 
-  <script>
-    const rail = document.querySelector('.carousel__rail');
-    const slides = Array.from(document.querySelectorAll('.slide'));
-    const dotsContainer = document.querySelector('.dots');
-    const prevButton = document.querySelector('.nav--prev');
-    const nextButton = document.querySelector('.nav--next');
-    let activeIndex = 0;
+    <footer class="w-full text-center py-8 text-slate-600 text-sm relative z-10">
+        &copy; 2024 League of Strava. Not affiliated with Strava, Inc.
+    </footer>
 
-    const updateSlide = (index) => {
-      activeIndex = (index + slides.length) % slides.length;
-      slides.forEach((slide, position) => {
-        slide.classList.toggle('is-active', position === activeIndex);
-      });
-      rail.style.transform = `translateX(-${activeIndex * 100}%)`;
-      Array.from(dotsContainer.children).forEach((dot, position) => {
-        dot.classList.toggle('is-active', position === activeIndex);
-        dot.setAttribute('aria-selected', position === activeIndex);
-      });
-    };
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const tl = gsap.timeline();
 
-    slides.forEach((_, index) => {
-      const dot = document.createElement('button');
-      dot.type = 'button';
-      dot.className = 'dot';
-      dot.setAttribute('role', 'tab');
-      dot.setAttribute('aria-label', `Go to slide ${index + 1}`);
-      dot.addEventListener('click', () => updateSlide(index));
-      dotsContainer.appendChild(dot);
-    });
+            // Nav Fade In
+            tl.to(".nav-item", { opacity: 1, duration: 1, ease: "power2.out" });
 
-    prevButton.addEventListener('click', () => updateSlide(activeIndex - 1));
-    nextButton.addEventListener('click', () => updateSlide(activeIndex + 1));
+            // Hero Elements Stagger
+            tl.to(".hero-elem", { 
+                y: 0, 
+                opacity: 1, 
+                duration: 0.8, 
+                stagger: 0.2, 
+                ease: "back.out(1.7)" 
+            }, "-=0.5");
 
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowLeft') updateSlide(activeIndex - 1);
-      if (event.key === 'ArrowRight') updateSlide(activeIndex + 1);
-    });
+            // Cards Stagger
+            tl.to(".feature-card", {
+                y: 0,
+                opacity: 1,
+                duration: 0.8,
+                stagger: 0.15,
+                ease: "power3.out"
+            }, "-=0.3");
 
-    updateSlide(0);
-  </script>
+            // 3D Tilt Effect on Cards
+            const cards = document.querySelectorAll('.glass-card');
+            cards.forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    
+                    const rotateX = ((y - centerY) / centerY) * -5;
+                    const rotateY = ((x - centerX) / centerX) * 5;
+
+                    gsap.to(card, {
+                        transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
+                        duration: 0.1
+                    });
+                });
+
+                card.addEventListener('mouseleave', () => {
+                    gsap.to(card, {
+                        transform: `perspective(1000px) rotateX(0deg) rotateY(0deg)`,
+                        duration: 0.5,
+                        ease: "elastic.out(1, 0.5)"
+                    });
+                });
+            });
+        });
+    </script>
 </body>
 </html>

@@ -986,12 +986,17 @@ app.get('/api/dashboard-users', async (req, res) => {
       }
 
       let displayName = leaderboardNameById.get(userId) || '';
+      let athleteId = null;
 
       if (!displayName) {
         try {
           const snapshot = await getLatestUserSnapshot(userId);
           const profile = snapshot?.payload?.profile || {};
           displayName = profile.displayName || profile.name || profile.username || '';
+          athleteId = snapshot?.payload?.athlete?.id
+            || snapshot?.payload?.profile?.athleteId
+            || snapshot?.payload?.athleteId
+            || null;
         } catch (snapshotError) {
           console.warn(`Unable to resolve display name for dashboard ${userId}:`, snapshotError.message);
         }
@@ -1000,6 +1005,7 @@ app.get('/api/dashboard-users', async (req, res) => {
       dashboards.push({
         userId,
         displayName: displayName || userId,
+        athleteId: athleteId ? String(athleteId) : null,
       });
     }
 

@@ -219,25 +219,25 @@
           <span aria-hidden="true" class="profile-card__world-emoji">👍</span>
           <span class="font-semibold" id="likes-total">0</span>
         </span>
+        <div class="stats-card__totals profile-card__wallet-totals profile-card__stat-row profile-card__world-totals">
+          <button aria-label="Open achievements panel" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--coins" data-panel-target="achievements" type="button">
+            <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
+            <span class="wallet-total-pill__value" id="wallet-summary-coins-count">0</span>
+          </button>
+          <button aria-label="Open medals view" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--medals" data-panel-target="medals" type="button">
+            <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
+            <span class="wallet-total-pill__value" id="wallet-summary-medal-count">0</span>
+          </button>
+          <button aria-label="Open country filters" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--countries" id="country-stat" type="button">
+            <span aria-hidden="true" class="wallet-total-pill__icon">🗺️</span>
+            <span class="wallet-total-pill__value" id="country-total">0</span>
+          </button>
+        </div>
       </div>
     <div class="profile-metrics stats-card__pills profile-card__stat-row" id="profile-discipline-ratios" hidden>
       <div class="profile-metrics__row" id="profile-discipline-ratio-row">
         <p class="profile-card__stat-empty" id="profile-discipline-ratio-empty">Average run and ride stats will appear here once activities are synced.</p>
       </div>
-    </div>
-    <div class="stats-card__totals profile-card__wallet-totals profile-card__stat-row">
-      <button aria-label="Open achievements panel" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--coins" data-panel-target="achievements" type="button">
-        <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
-        <span class="wallet-total-pill__value" id="wallet-summary-coins-count">0</span>
-      </button>
-      <button aria-label="Open medals view" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--medals" data-panel-target="medals" type="button">
-        <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
-        <span class="wallet-total-pill__value" id="wallet-summary-medal-count">0</span>
-      </button>
-      <button aria-label="Open country filters" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--countries" id="country-stat" type="button">
-        <span aria-hidden="true" class="wallet-total-pill__icon">🗺️</span>
-        <span class="wallet-total-pill__value" id="country-total">0</span>
-      </button>
     </div>
     <section aria-label="Biweekly balance heatmap" class="wallet-heatmap" id="wallet-heatmap">
       <p class="wallet-heatmap__empty hidden" id="wallet-heatmap-empty">Switch to the all-time view to see the monthly heatmap.</p>

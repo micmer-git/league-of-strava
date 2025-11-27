@@ -1428,6 +1428,14 @@ to { opacity: 1; transform: translateY(0); }
     line-height: 1;
 }
 
+.profile-card__world-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-left: auto;
+    width: auto;
+}
+
 .profile-card__season-pills .profile-metrics__row,
 .profile-card__coins.stats-card__pills > .profile-metrics__row,
 .profile-card__wallet-totals.profile-card__stat-row {
@@ -1478,12 +1486,23 @@ to { opacity: 1; transform: translateY(0); }
     width: 100%;
 }
 
+.profile-card__world-row .profile-card__wallet-totals {
+    width: auto;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+}
+
 .profile-card__wallet-totals .wallet-total-pill {
     flex: 1 1 0;
     min-width: 0;
     justify-content: center;
     padding-inline: clamp(0.5rem, 1.6vw, 0.85rem);
     white-space: nowrap;
+}
+
+.profile-card__world-row .profile-card__wallet-totals .wallet-total-pill {
+    flex: 0 0 auto;
+    min-width: 3rem;
 }
 
 .profile-card__wallet-totals .wallet-total-pill__value {

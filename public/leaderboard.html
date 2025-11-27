@@ -14,7 +14,7 @@
 <body class="leaderboard-body">
   <header class="site-header">
     <div class="site-header__inner">
-      <a href="/" class="site-header__brand">
+      <a class="site-header__brand" href="/">
         <img src="/static/league-of-strava.png" alt="League of Strava logo">
         <span class="site-header__brand-text">League of Strava</span>
       </a>
@@ -27,21 +27,15 @@
         <a href="/">Home</a>
         <a href="/dashboard">Dashboard</a>
         <a href="/leaderboard" aria-current="page">Leaderboard</a>
-        <a href="https://www.paypal.com/paypalme/michelemerelli" target="_blank" rel="noopener">Donate</a>
+        <a href="/contact">Contact</a>
       </nav>
     </div>
   </header>
-
   <main class="leaderboard-main">
-    <section class="leaderboard-intro">
-      <h1 id="leaderboard-heading">Global Leaderboard</h1>
-      <p id="leaderboard-summary">Track the latest progress from every athlete. The table below shows the most recent level, total haul, pizza coins, medals, and other wallet stats submitted for each user.</p>
-    </section>
-
-    <section class="leaderboard-container">
-      <div id="leaderboard-status" class="leaderboard-status" role="status" aria-live="polite">Loading leaderboard…</div>
+    <section class="leaderboard-container" aria-labelledby="leaderboard-heading">
+      <h1 id="leaderboard-heading" class="sr-only">Global Leaderboard</h1>
       <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
-        <table class="leaderboard-table" aria-describedby="leaderboard-summary">
+        <table class="leaderboard-table">
           <thead>
             <tr>
               <th scope="col">
@@ -53,48 +47,67 @@
                 <span class="sr-only">Athlete</span>
               </th>
               <th scope="col">
-                <span aria-hidden="true">🎚️</span>
-                <span class="sr-only">Level</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="overall">
+                  <span>Level</span>
+                  <span class="sr-only">Sort by level ranking</span>
+                </button>
               </th>
               <th scope="col">
-                <span aria-hidden="true">👛</span>
-                <span class="sr-only">Wallet</span>
+                <span>Balance</span>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">🌍</span>
-                <span class="sr-only">World trips</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="worldTrips">
+                  <span aria-hidden="true">🌍</span>
+                  <span class="sr-only">Sort by world trips</span>
+                </button>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">🏔️</span>
-                <span class="sr-only">Everest summits</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="everestSummits">
+                  <span aria-hidden="true">🏔️</span>
+                  <span class="sr-only">Sort by Everest summits</span>
+                </button>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">🍕</span>
-                <span class="sr-only">Pizza slices</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="pizzas">
+                  <span aria-hidden="true">🍕</span>
+                  <span class="sr-only">Sort by pizzas</span>
+                </button>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">💲</span>
-                <span class="sr-only">Dollar coins</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="coin:💲">
+                  <span aria-hidden="true">💲</span>
+                  <span class="sr-only">Sort by dollar coins</span>
+                </button>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">💰</span>
-                <span class="sr-only">Vault coins</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="coin:💰">
+                  <span aria-hidden="true">💰</span>
+                  <span class="sr-only">Sort by vault coins</span>
+                </button>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">🧈</span>
-                <span class="sr-only">Butter coins</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="coin:🧈">
+                  <span aria-hidden="true">🧈</span>
+                  <span class="sr-only">Sort by butter coins</span>
+                </button>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">💎</span>
-                <span class="sr-only">Diamond coins</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="coin:💎">
+                  <span aria-hidden="true">💎</span>
+                  <span class="sr-only">Sort by diamond coins</span>
+                </button>
               </th>
               <th scope="col" class="stat-cell">
-                <span aria-hidden="true">👑</span>
-                <span class="sr-only">Crown coins</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="coin:👑">
+                  <span aria-hidden="true">👑</span>
+                  <span class="sr-only">Sort by crown coins</span>
+                </button>
               </th>
               <th scope="col">
-                <span aria-hidden="true">⏱️</span>
-                <span class="sr-only">Last updated</span>
+                <button type="button" class="leaderboard-sort-button" data-sort-key="updated">
+                  <span aria-hidden="true">⏱️</span>
+                  <span class="sr-only">Sort by last updated</span>
+                </button>
               </th>
             </tr>
           </thead>

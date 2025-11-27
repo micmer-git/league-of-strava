@@ -1,0 +1,32 @@
+[
+  {
+    "timestamp": "2025-11-18T16:43:48.507Z",
+    "requestUid": "req_1763484228507_2eer4n",
+    "name": "Michele Merelli",
+    "email": "michelemerelli.8@gmail.com",
+    "stravaProfile": "https://www.strava.com/athletes/14488475",
+    "athleteId": "14488475",
+    "requestType": "race",
+    "raceDate": "2024-04-14T00:00:00.000Z",
+    "raceStartLocation": "Boston",
+    "raceType": "run",
+    "raceDistanceKm": 42.1,
+    "raceDistanceMinKm": 39.99,
+    "raceDistanceMaxKm": 44.21,
+    "raceElevationGain": null,
+    "raceElevationMinM": null,
+    "raceElevationMaxM": null,
+    "notes": "Boston Marathon target window",
+    "approved": true,
+    "implemented": true,
+    "metadata": {
+      "source": "contact-form",
+      "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36",
+      "raceActivityType": "run",
+      "tolerancePercent": {
+        "distance": 5,
+        "elevation": 5
+      }
+    }
+  }
+]

@@ -4,6 +4,7 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
+const { upsertLeaderboardFileEntry, readLeaderboardFileEntries } = require('./leaderboardFileStore');
 
 const SERVICE_ACCOUNT_FILE = process.env.GOOGLE_SERVICE_ACCOUNT_FILE
   ? path.resolve(process.env.GOOGLE_SERVICE_ACCOUNT_FILE)
@@ -95,9 +96,52 @@ const LEADERBOARD_HEADER = [
 ];
 const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
 const USER_SNAPSHOT_HEADER = ['timestamp', 'source', 'payload'];
+const USER_SYNC_HEADER = ['timestamp', 'source', 'payload'];
+const SYNC_PROGRESS_SHEET_NAME = process.env.SYNC_PROGRESS_SHEET_NAME || 'SyncProgress';
+const SYNC_PROGRESS_HEADER = [
+  'timestamp',
+  'userId',
+  'syncType',
+  'fetchedCount',
+  'uniqueActivityIds',
+  'lastActivityId',
+  'lastActivityTimestamp',
+  'totalActivities',
+  'notes',
+];
+const CONTACT_REQUESTS_SHEET_NAME = process.env.CONTACT_REQUESTS_SHEET_NAME || 'ContactRequests';
+const CONTACT_REQUESTS_HEADER = [
+  'timestamp',
+  'requestUid',
+  'name',
+  'email',
+  'stravaProfile',
+  'athleteId',
+  'requestType',
+  'medalDescription',
+  'raceDate',
+  'raceStartLocation',
+  'raceType',
+  'raceDistanceKm',
+  'raceDistanceMinKm',
+  'raceDistanceMaxKm',
+  'raceElevationGain',
+  'raceElevationMinM',
+  'raceElevationMaxM',
+  'climbSegmentId',
+  'climbSegmentName',
+  'climbSegmentDistance',
+  'climbSegmentElevationGain',
+  'climbSegmentAverageGrade',
+  'notes',
+  'approved',
+  'implemented',
+  'metadata',
+];
 const GOOGLE_SHEETS_CELL_LIMIT = 50000;
 const GOOGLE_SHEETS_SAFE_PAYLOAD_LENGTH = 45000;
 const SNAPSHOT_CHUNK_PREFIX = '__CHUNK__';
+const SYNC_SHEET_PREFIX = 'sync_';
 
 function sanitizeSheetTitle(value) {
   const fallback = 'user';
@@ -166,6 +210,19 @@ async function ensureSheetExists(sheetName, headerRow = []) {
 async function sheetExists(sheetName) {
   const sheetTitles = await listSheetTitles();
   return sheetTitles.includes(sheetName);
+}
+
+async function listSnapshotUserIds() {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const titles = await listSheetTitles();
+  const prefix = 'user_';
+
+  return titles
+    .filter(title => typeof title === 'string' && title.startsWith(prefix) && title.length > prefix.length)
+    .map(title => title.slice(prefix.length));
 }
 /**
  * Get or create a sheet for a user.
@@ -244,6 +301,21 @@ async function ensureUserSnapshotSheet(userId) {
   return sheetName;
 }
 
+function getUserSyncSheetTitle(userId) {
+  const sanitizedId = sanitizeSheetTitle(userId ?? 'user');
+  return `${SYNC_SHEET_PREFIX}${sanitizedId}`;
+}
+
+async function ensureUserSyncSheet(userId) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = getUserSyncSheetTitle(userId);
+  await ensureSheetExists(sheetName, USER_SYNC_HEADER);
+  return sheetName;
+}
+
 async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
   if (!SPREADSHEET_ID) {
     throw new Error('SPREADSHEET_ID environment variable is not set.');
@@ -285,6 +357,206 @@ async function appendUserSnapshot({ userId, payload = {}, source = 'strava' }) {
     sheetName,
     payloadMetadata,
   };
+}
+
+async function appendUserSyncEntry({ userId, payload = [], source = 'sync' }) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = await ensureUserSyncSheet(userId);
+  const timestamp = new Date().toISOString();
+  const {
+    storedValue: serializedPayload,
+    metadata: payloadMetadata,
+    chunks: payloadChunks = [],
+  } = serializeSnapshotPayload(payload);
+
+  const rowsToAppend = [
+    [
+      timestamp,
+      source ?? 'sync',
+      serializedPayload,
+    ],
+    ...payloadChunks.map(chunkValue => [
+      timestamp,
+      `${source ?? 'sync'}:chunk`,
+      chunkValue,
+    ]),
+  ];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    resource: {
+      values: rowsToAppend,
+    },
+  });
+
+  return {
+    timestamp,
+    sheetName,
+    payloadMetadata,
+  };
+}
+
+async function appendUserSyncProgress({
+  userId,
+  syncType = 'sync',
+  fetchedCount = 0,
+  uniqueActivityIds = 0,
+  lastActivityId = '',
+  lastActivityTimestamp = '',
+  totalActivities = '',
+  notes = '',
+}) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = await ensureSheetExists(SYNC_PROGRESS_SHEET_NAME, SYNC_PROGRESS_HEADER);
+  const timestamp = new Date().toISOString();
+  const numericFetchedCount = Number.isFinite(Number(fetchedCount)) ? Number(fetchedCount) : 0;
+  const numericUniqueIds = Number.isFinite(Number(uniqueActivityIds)) ? Number(uniqueActivityIds) : 0;
+  const resolvedLastActivityId = lastActivityId === null || lastActivityId === undefined
+    ? ''
+    : String(lastActivityId);
+  const resolvedLastActivityTimestamp = (() => {
+    if (lastActivityTimestamp === null || lastActivityTimestamp === undefined) {
+      return '';
+    }
+
+    if (typeof lastActivityTimestamp === 'number' && Number.isFinite(lastActivityTimestamp)) {
+      const milliseconds = lastActivityTimestamp > 1e12
+        ? lastActivityTimestamp
+        : lastActivityTimestamp * 1000;
+      return new Date(milliseconds).toISOString();
+    }
+
+    if (typeof lastActivityTimestamp === 'string') {
+      const parsed = Date.parse(lastActivityTimestamp);
+      if (Number.isFinite(parsed)) {
+        return new Date(parsed).toISOString();
+      }
+
+      return lastActivityTimestamp;
+    }
+
+    return '';
+  })();
+  const numericTotalActivities = Number.isFinite(Number(totalActivities))
+    ? Number(totalActivities)
+    : '';
+  const normalizedNotes = typeof notes === 'string' ? notes : String(notes ?? '');
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    resource: {
+      values: [[
+        timestamp,
+        userId ?? '',
+        syncType ?? 'sync',
+        numericFetchedCount,
+        numericUniqueIds,
+        resolvedLastActivityId,
+        resolvedLastActivityTimestamp,
+        numericTotalActivities === '' ? '' : numericTotalActivities,
+        normalizedNotes,
+      ]],
+    },
+  });
+
+  return {
+    timestamp,
+    sheetName,
+    fetchedCount: numericFetchedCount,
+    uniqueActivityIds: numericUniqueIds,
+    lastActivityId: resolvedLastActivityId,
+    lastActivityTimestamp: resolvedLastActivityTimestamp,
+    totalActivities: numericTotalActivities === '' ? null : numericTotalActivities,
+    notes: normalizedNotes,
+  };
+}
+
+async function getUserSyncProgressEntries(userId, { limit = 50 } = {}) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const normalizedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 25, 1), 500);
+  const sheetName = SYNC_PROGRESS_SHEET_NAME;
+  const exists = await sheetExists(sheetName);
+
+  if (!exists) {
+    return [];
+  }
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A2:I100000`,
+  });
+
+  const normalizedUserId = userId ? String(userId) : '';
+  const values = res.data.values || [];
+
+  const rows = values
+    .map((row = []) => {
+      const [
+        timestamp = '',
+        rowUserId = '',
+        syncType = 'sync',
+        fetchedCount = '',
+        uniqueActivityIds = '',
+        lastActivityId = '',
+        lastActivityTimestamp = '',
+        totalActivities = '',
+        notes = '',
+      ] = row;
+
+      const parsedFetched = Number.parseInt(fetchedCount, 10);
+      const parsedUnique = Number.parseInt(uniqueActivityIds, 10);
+      const parsedTotal = totalActivities === '' || totalActivities === undefined
+        ? null
+        : Number.parseInt(totalActivities, 10);
+
+      return {
+        timestamp: timestamp || '',
+        userId: rowUserId || '',
+        syncType: syncType || 'sync',
+        fetchedCount: Number.isFinite(parsedFetched) ? parsedFetched : 0,
+        uniqueActivityIds: Number.isFinite(parsedUnique) ? parsedUnique : 0,
+        lastActivityId: lastActivityId || '',
+        lastActivityTimestamp: lastActivityTimestamp || '',
+        totalActivities: Number.isFinite(parsedTotal) ? parsedTotal : null,
+        notes: notes || '',
+      };
+    })
+    .filter(entry => !normalizedUserId || entry.userId === normalizedUserId)
+    .sort((a, b) => {
+      const parsedA = Date.parse(a.timestamp || '');
+      const parsedB = Date.parse(b.timestamp || '');
+      if (Number.isFinite(parsedB) && Number.isFinite(parsedA)) {
+        return parsedB - parsedA;
+      }
+
+      if (Number.isFinite(parsedB)) {
+        return -1;
+      }
+
+      if (Number.isFinite(parsedA)) {
+        return 1;
+      }
+
+      return 0;
+    })
+    .slice(0, normalizedLimit);
+
+  return rows;
 }
 
 async function getLatestUserSnapshot(userId) {
@@ -402,10 +674,166 @@ async function getLatestUserSnapshot(userId) {
   return null;
 }
 
+async function getLatestUserSyncEntry(userId) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetName = getUserSyncSheetTitle(userId);
+  const exists = await sheetExists(sheetName);
+
+  if (!exists) {
+    return null;
+  }
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A2:C100000`,
+  });
+
+  const values = res.data.values || [];
+  if (values.length === 0) {
+    return null;
+  }
+
+  const chunkAccumulator = [];
+
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const [timestamp = '', source = 'sync', payloadRaw = '{}'] = values[index];
+
+    if (typeof payloadRaw === 'string' && payloadRaw.startsWith(`${SNAPSHOT_CHUNK_PREFIX}|`)) {
+      const [prefix, chunkIndex = '-1', chunkTotal = '0', ...rest] = payloadRaw.split('|');
+
+      if (prefix === SNAPSHOT_CHUNK_PREFIX) {
+        chunkAccumulator.push({
+          index: Number.parseInt(chunkIndex, 10),
+          chunkCount: Number.parseInt(chunkTotal, 10),
+          data: rest.join('|'),
+        });
+        continue;
+      }
+    }
+
+    const parsed = safeJsonParse(payloadRaw);
+
+    if (parsed.ok && parsed.value && parsed.value.__chunked === true) {
+      const chunkCount = parsed.value.chunkCount || 0;
+
+      if (chunkCount === 0) {
+        return {
+          timestamp,
+          source,
+          payload: {
+            error: 'Chunked payload metadata missing chunk count',
+          },
+          payloadMetadata: {
+            serialized: true,
+            compressed: true,
+            chunked: true,
+            valid: false,
+          },
+        };
+      }
+
+      if (chunkAccumulator.length < chunkCount) {
+        return {
+          timestamp,
+          source,
+          payload: {
+            error: 'Incomplete chunked payload data',
+            expectedChunks: chunkCount,
+            receivedChunks: chunkAccumulator.length,
+          },
+          payloadMetadata: {
+            serialized: true,
+            compressed: true,
+            chunked: true,
+            valid: false,
+            chunkCount,
+          },
+        };
+      }
+
+      const chunkSet = chunkAccumulator.splice(0, chunkCount);
+      const sortedChunks = chunkSet
+        .filter(chunk => typeof chunk.data === 'string')
+        .sort((a, b) => (a.index || 0) - (b.index || 0));
+      const reconstructedPayload = sortedChunks.map(chunk => chunk.data || '').join('');
+
+      const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(reconstructedPayload);
+
+      return {
+        timestamp,
+        source,
+        payload: decodedPayload,
+        payloadMetadata: {
+          ...metadata,
+          chunked: true,
+          chunkCount,
+          encodedLength: parsed.value.encodedLength || reconstructedPayload.length,
+          originalLength: parsed.value.originalLength || (metadata ? metadata.originalLength : undefined),
+        },
+      };
+    }
+
+    const { payload: decodedPayload, metadata } = deserializeSnapshotPayload(payloadRaw);
+
+    return {
+      timestamp,
+      source,
+      payload: decodedPayload,
+      payloadMetadata: metadata,
+    };
+  }
+
+  return null;
+}
+
+async function getUserActivityHistory(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  const latestEntry = await getLatestUserSyncEntry(userId);
+
+  if (!latestEntry || latestEntry.payload === undefined || latestEntry.payload === null) {
+    return [];
+  }
+
+  if (Array.isArray(latestEntry.payload)) {
+    return latestEntry.payload;
+  }
+
+  if (
+    latestEntry.payload
+    && typeof latestEntry.payload === 'object'
+    && Array.isArray(latestEntry.payload.activities)
+  ) {
+    return latestEntry.payload.activities;
+  }
+
+  return [];
+}
+
+async function storeUserDataInSheet(userId, activities, source = 'sync') {
+  if (!Array.isArray(activities)) {
+    throw new Error('Activities payload must be an array.');
+  }
+
+  return appendUserSyncEntry({
+    userId,
+    payload: activities,
+    source,
+  });
+}
+
 async function appendLeaderboardEntry({
   userId,
   displayName = '',
   level = 0,
+  rankName = '',
+  rankEmoji = '',
+  rank = null,
   dollars = 0,
   emoji = '',
   coins = 0,
@@ -418,55 +846,21 @@ async function appendLeaderboardEntry({
   pizzas = 0,
   coinBreakdown = {},
 }) {
-  if (!SPREADSHEET_ID) {
-    throw new Error('SPREADSHEET_ID environment variable is not set.');
-  }
-
-  const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
   const timestamp = new Date().toISOString();
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A1`,
-    valueInputOption: 'RAW',
-    insertDataOption: 'INSERT_ROWS',
-    resource: {
-      values: [
-        [
-          timestamp,
-          userId ?? '',
-          displayName ?? '',
-          level !== undefined && level !== null ? Number(level) : '',
-          emoji ?? '',
-          totalHaulValue !== undefined && totalHaulValue !== null ? Number(totalHaulValue) : '',
-          walletBalance !== undefined && walletBalance !== null ? Number(walletBalance) : '',
-          dollars !== undefined && dollars !== null ? Number(dollars) : '',
-          coins !== undefined && coins !== null ? Number(coins) : '',
-          pizzaCoins !== undefined && pizzaCoins !== null ? Number(pizzaCoins) : '',
-          medals !== undefined && medals !== null ? Number(medals) : '',
-          worldTrips !== undefined && worldTrips !== null ? Number(worldTrips) : '',
-          everestSummits !== undefined && everestSummits !== null ? Number(everestSummits) : '',
-          pizzas !== undefined && pizzas !== null ? Number(pizzas) : '',
-          ...COIN_EMOJIS.map(emojiKey => {
-            const value = coinBreakdown?.[emojiKey];
-            return value !== undefined && value !== null ? Number(value) : 0;
-          }),
-        ],
-      ],
-    },
-  });
-
   const normalizedCoinBreakdown = COIN_EMOJIS.reduce((acc, emojiKey) => {
     const numericValue = Number(coinBreakdown?.[emojiKey]);
     acc[emojiKey] = Number.isFinite(numericValue) ? numericValue : 0;
     return acc;
   }, {});
 
-  return {
+  const normalizedEntry = {
     timestamp,
     userId,
     displayName,
     level: Number(level) || 0,
+    rankName: typeof rankName === 'string' ? rankName : '',
+    rankEmoji: typeof rankEmoji === 'string' ? rankEmoji : '',
+    rank: rank && typeof rank === 'object' ? rank : null,
     dollars: Number(dollars) || 0,
     emoji,
     coins: Number(coins) || 0,
@@ -479,34 +873,119 @@ async function appendLeaderboardEntry({
     pizzas: Number(pizzas) || 0,
     coinBreakdown: normalizedCoinBreakdown,
   };
+
+  if (!SPREADSHEET_ID) {
+    console.warn('SPREADSHEET_ID environment variable is not set. Caching leaderboard entry locally.');
+  } else {
+    try {
+      const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        resource: {
+          values: [
+            [
+              timestamp,
+              userId ?? '',
+              displayName ?? '',
+              Number(level) || 0,
+              emoji ?? '',
+              Number(totalHaulValue) || 0,
+              Number(walletBalance) || 0,
+              Number(dollars) || 0,
+              Number(coins) || 0,
+              Number(pizzaCoins) || 0,
+              Number(medals) || 0,
+              Number(worldTrips) || 0,
+              Number(everestSummits) || 0,
+              Number(pizzas) || 0,
+              ...COIN_EMOJIS.map(emojiKey => normalizedCoinBreakdown[emojiKey] || 0),
+            ],
+          ],
+        },
+      });
+    } catch (sheetError) {
+      console.warn('Unable to store leaderboard entry in Google Sheets:', sheetError.message);
+    }
+  }
+
+  try {
+    await upsertLeaderboardFileEntry({
+      ...normalizedEntry,
+      coinBreakdown: normalizedCoinBreakdown,
+    });
+  } catch (fileError) {
+    console.warn('Unable to update cached leaderboard file:', fileError.message);
+  }
+
+  return normalizedEntry;
+}
+
+function mapCachedLeaderboardEntryToRow(entry = {}) {
+  const baseRow = {
+    timestamp: entry.timestamp || '',
+    userId: entry.userId || '',
+    displayName: entry.displayName || '',
+    level: entry.level ?? 0,
+    emoji: entry.emoji || '',
+    totalHaulValue: entry.totalHaulValue ?? 0,
+    walletBalance: entry.walletBalance ?? 0,
+    dollars: entry.dollars ?? 0,
+    coins: entry.coins ?? 0,
+    pizzaCoins: entry.pizzaCoins ?? 0,
+    medals: entry.medals ?? 0,
+    '🌍': entry.worldTrips ?? 0,
+    '🏔️': entry.everestSummits ?? 0,
+    '🍕': entry.pizzas ?? 0,
+  };
+
+  COIN_EMOJIS.forEach((emojiKey) => {
+    const numericValue = Number(entry.coinBreakdown?.[emojiKey]);
+    baseRow[emojiKey] = Number.isFinite(numericValue) ? numericValue : 0;
+  });
+
+  return baseRow;
+}
+
+async function readCachedLeaderboardRows() {
+  const cachedEntries = await readLeaderboardFileEntries();
+  return cachedEntries.map(mapCachedLeaderboardEntryToRow);
 }
 
 async function getLeaderboardRows() {
   if (!SPREADSHEET_ID) {
-    throw new Error('SPREADSHEET_ID environment variable is not set.');
+    console.warn('SPREADSHEET_ID environment variable is not set. Using cached leaderboard entries.');
+    return readCachedLeaderboardRows();
   }
 
-  const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!A1:Z1000`,
-  });
-
-  const values = res.data.values || [];
-  if (values.length === 0) {
-    return [];
-  }
-
-  const [header, ...rows] = values;
-  const headerMap = header.map(h => h.trim());
-
-  return rows.map(row => {
-    const record = {};
-    headerMap.forEach((key, index) => {
-      record[key] = row[index] ?? '';
+  try {
+    const sheetName = await ensureSheetExists(DEFAULT_LEADERBOARD_SHEET_NAME, LEADERBOARD_HEADER);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A1:Z1000`,
     });
-    return record;
-  });
+
+    const values = res.data.values || [];
+    if (values.length === 0) {
+      return [];
+    }
+
+    const [header, ...rows] = values;
+    const headerMap = header.map(h => h.trim());
+
+    return rows.map(row => {
+      const record = {};
+      headerMap.forEach((key, index) => {
+        record[key] = row[index] ?? '';
+      });
+      return record;
+    });
+  } catch (sheetError) {
+    console.warn('Unable to load leaderboard rows from Google Sheets. Falling back to cached entries:', sheetError.message);
+    return readCachedLeaderboardRows();
+  }
 }
 
 async function getLeaderboardLatestEntries() {
@@ -809,12 +1288,174 @@ async function getUserEntries(userId) {
     });
 }
 
+function normalizeBooleanCell(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function tryParseJson(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+}
+
+async function ensureContactRequestSheet() {
+  return ensureSheetExists(CONTACT_REQUESTS_SHEET_NAME, CONTACT_REQUESTS_HEADER);
+}
+
+function buildContactRequestRow(entry = {}) {
+  return [
+    entry.timestamp || new Date().toISOString(),
+    entry.requestUid || `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    entry.name || '',
+    entry.email || '',
+    entry.stravaProfile || '',
+    entry.athleteId || '',
+    entry.requestType || '',
+    entry.medalDescription || '',
+    entry.raceDate || '',
+    entry.raceStartLocation || '',
+    entry.raceType || '',
+    Number.isFinite(entry.raceDistanceKm) ? entry.raceDistanceKm : '',
+    Number.isFinite(entry.raceDistanceMinKm) ? entry.raceDistanceMinKm : '',
+    Number.isFinite(entry.raceDistanceMaxKm) ? entry.raceDistanceMaxKm : '',
+    Number.isFinite(entry.raceElevationGain) ? entry.raceElevationGain : '',
+    Number.isFinite(entry.raceElevationMinM) ? entry.raceElevationMinM : '',
+    Number.isFinite(entry.raceElevationMaxM) ? entry.raceElevationMaxM : '',
+    entry.climbSegmentId || '',
+    entry.climbSegmentName || '',
+    Number.isFinite(entry.climbSegmentDistance) ? entry.climbSegmentDistance : '',
+    Number.isFinite(entry.climbSegmentElevationGain) ? entry.climbSegmentElevationGain : '',
+    Number.isFinite(entry.climbSegmentAverageGrade) ? entry.climbSegmentAverageGrade : '',
+    entry.notes || '',
+    entry.approved ? 'TRUE' : 'FALSE',
+    entry.implemented ? 'TRUE' : 'FALSE',
+    entry.metadata ? JSON.stringify(entry.metadata) : '',
+  ];
+}
+
+async function appendContactRequest(entry = {}) {
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  await ensureContactRequestSheet();
+  const row = buildContactRequestRow(entry);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${CONTACT_REQUESTS_SHEET_NAME}!A1`,
+    valueInputOption: 'RAW',
+    resource: {
+      values: [row],
+    },
+  });
+
+  return {
+    timestamp: row[0],
+    requestUid: row[1],
+  };
+}
+
+function normalizeContactRequest(row = []) {
+  const getValue = (index) => (index < row.length ? row[index] : '');
+  const metadata = tryParseJson(getValue(25));
+
+  return {
+    timestamp: getValue(0),
+    requestUid: getValue(1),
+    name: getValue(2),
+    email: getValue(3),
+    stravaProfile: getValue(4),
+    athleteId: getValue(5),
+    requestType: getValue(6),
+    medalDescription: getValue(7),
+    raceDate: getValue(8),
+    raceStartLocation: getValue(9),
+    raceType: getValue(10),
+    raceDistanceKm: Number(getValue(11)) || null,
+    raceDistanceMinKm: Number(getValue(12)) || null,
+    raceDistanceMaxKm: Number(getValue(13)) || null,
+    raceElevationGain: Number(getValue(14)) || null,
+    raceElevationMinM: Number(getValue(15)) || null,
+    raceElevationMaxM: Number(getValue(16)) || null,
+    climbSegmentId: getValue(17),
+    climbSegmentName: getValue(18),
+    climbSegmentDistance: Number(getValue(19)) || null,
+    climbSegmentElevationGain: Number(getValue(20)) || null,
+    climbSegmentAverageGrade: Number(getValue(21)) || null,
+    notes: getValue(22),
+    approved: normalizeBooleanCell(getValue(23)),
+    implemented: normalizeBooleanCell(getValue(24)),
+    metadata: metadata || null,
+  };
+}
+
+async function getContactRequestsForUser(userId) {
+  if (!userId) {
+    return [];
+  }
+
+  if (!SPREADSHEET_ID) {
+    throw new Error('SPREADSHEET_ID environment variable is not set.');
+  }
+
+  const sheetAvailable = await sheetExists(CONTACT_REQUESTS_SHEET_NAME);
+  if (!sheetAvailable) {
+    return [];
+  }
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${CONTACT_REQUESTS_SHEET_NAME}!A2:Z`,
+  });
+
+  const rows = Array.isArray(response.data.values) ? response.data.values : [];
+  const normalizedUserId = String(userId);
+
+  return rows
+    .map(normalizeContactRequest)
+    .filter(entry => entry.athleteId && entry.athleteId === normalizedUserId);
+}
+
 module.exports = {
   appendUserData,
   getUserData,
   appendUserSnapshot,
   getLatestUserSnapshot,
+  appendUserSyncEntry,
+  getLatestUserSyncEntry,
+  getUserActivityHistory,
+  storeUserDataInSheet,
+  appendUserSyncProgress,
+  getUserSyncProgressEntries,
   appendLeaderboardEntry,
   getLeaderboardLatestEntries,
   getUserEntries,
+  listSnapshotUserIds,
+  appendContactRequest,
+  getContactRequestsForUser,
 };

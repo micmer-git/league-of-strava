@@ -5,14 +5,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     const EVEREST_HEIGHT_M = 8849;
     const PIZZA_KCAL = 800;
     const COIN_VALUE_MAP = {
-        '💲': 20,
-        '💰': 100,
-        '🧈': 500,
-        '💎': 3000,
-        '👑': 10000
+        '💲': 200,
+        '💰': 1000,
+        '🧈': 5000,
+        '💎': 10000,
+        '👑': 50000
     };
-    const MEDAL_DOLLAR_VALUE = 5000;
+    const MEDAL_BASE_VALUE = 100000;
+    const MEDAL_GROWTH_RATE = 1.05;
+    const MEDAL_RARITY_VALUE_MAP = {
+        verdant: 1000,
+        cerulean: 5000,
+        amethyst: 10000,
+        auric: 20000,
+        star: 25000,
+        obsidian: 50000,
+    };
+    const MEDAL_RARITY_COLOR_MAP = {
+        verdant: '#10b981',
+        cerulean: '#0ea5e9',
+        amethyst: '#a855f7',
+        auric: '#fbbf24',
+        star: '#fcd34d',
+        obsidian: '#0f172a',
+    };
+    const MEDAL_RARITY_DISPLAY_ORDER = ['obsidian', 'star', 'auric', 'amethyst', 'cerulean', 'verdant'];
+    const calculateMedalDollarValue = (countOrMedals = 0) => {
+        if (Array.isArray(countOrMedals)) {
+            return calculateMedalValueSummary(countOrMedals).totalValue;
+        }
+
+        return calculateHistoricalMedalValue(countOrMedals);
+    };
     const COIN_EMOJIS = ['💲', '💰', '🧈', '💎', '👑'];
+    const CROWD_COIN_EMOJI = '🧈';
+    const DIAMOND_COIN_EMOJI = '💎';
     const COIN_COLOR_MAP = {
         '💲': '#0ea5e9',
         '💰': '#6366f1',
@@ -29,208 +56,972 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const MEDAL_COLOR_PALETTE = ['#f97316', '#facc15', '#22d3ee', '#a855f7', '#34d399', '#f472b6', '#38bdf8'];
     const MEDAL_OTHER_COLOR = '#94a3b8';
-    const BALANCE_YEAR_COLOR_PALETTE = [
-        { border: '#2563eb', background: 'rgba(37, 99, 235, 0.18)' },
-        { border: '#16a34a', background: 'rgba(22, 163, 74, 0.18)' },
-        { border: '#f97316', background: 'rgba(249, 115, 22, 0.18)' },
-        { border: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)' },
-        { border: '#14b8a6', background: 'rgba(20, 184, 166, 0.18)' },
-        { border: '#ef4444', background: 'rgba(239, 68, 68, 0.18)' },
-        { border: '#f59e0b', background: 'rgba(245, 158, 11, 0.18)' },
-        { border: '#6366f1', background: 'rgba(99, 102, 241, 0.18)' }
-    ];
+    const WALLET_GRADIENT_START = { r: 148, g: 163, b: 184 }; // slate grey
+    const WALLET_GRADIENT_END = { r: 22, g: 101, b: 52 }; // deep emerald
+    const WALLET_BACKGROUND_ALPHA_START = 0.28;
+    const WALLET_BACKGROUND_ALPHA_END = 0.48;
+    const WALLET_HOVER_ALPHA_BOOST = 0.12;
+    const HEATMAP_COLOR_START = { r: 231, g: 245, b: 235 };
+    const HEATMAP_COLOR_MID = { r: 117, g: 201, b: 140 };
+    const HEATMAP_COLOR_END = { r: 15, g: 81, b: 50 };
     const MONTH_COMPARISON_LABELS = Array.from({ length: 12 }, (_, index) => {
         const date = new Date(2000, index, 1);
         return date.toLocaleDateString(undefined, { month: 'short' });
     });
+    const hexToRgba = (hex, alpha = 1) => {
+        const normalized = typeof hex === 'string' ? hex.replace('#', '') : '';
+        if (![3, 6].includes(normalized.length)) {
+            return hex;
+        }
+
+        const fullHex = normalized.length === 3
+            ? normalized.split('').map((char) => char + char).join('')
+            : normalized;
+        const intValue = Number.parseInt(fullHex, 16);
+        const r = (intValue >> 16) & 255;
+        const g = (intValue >> 8) & 255;
+        const b = intValue & 255;
+        const clampedAlpha = Math.max(0, Math.min(1, Number(alpha) || 0));
+        return `rgba(${r}, ${g}, ${b}, ${clampedAlpha})`;
+    };
+    const toHex = (value) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, '0');
+    const interpolate = (start, end, factor) => start + (end - start) * factor;
+    const clamp01 = (value) => Math.min(1, Math.max(0, value));
+    const lightenHexColor = (hex, amount = 0.2) => {
+        const normalized = typeof hex === 'string' ? hex.replace('#', '') : '';
+        if (![3, 6].includes(normalized.length)) {
+            return hex;
+        }
+
+        const fullHex = normalized.length === 3
+            ? normalized.split('').map((char) => char + char).join('')
+            : normalized;
+        const intValue = Number.parseInt(fullHex, 16);
+        const r = (intValue >> 16) & 255;
+        const g = (intValue >> 8) & 255;
+        const b = intValue & 255;
+        const factor = clamp01(amount);
+
+        const mix = (channel) => channel + ((255 - channel) * factor);
+        return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
+    };
+    const isTouchCapable = ('ontouchstart' in window)
+        || (navigator.maxTouchPoints > 0)
+        || (navigator.msMaxTouchPoints > 0);
+    const mobileViewportMediaQuery = typeof window.matchMedia === 'function'
+        ? window.matchMedia('(max-width: 768px)')
+        : null;
+    const isMobileZoomViewport = () => isTouchCapable && Boolean(mobileViewportMediaQuery?.matches);
+    const bindMediaQueryChange = (query, handler) => {
+        if (!query || typeof handler !== 'function') {
+            return;
+        }
+        if (typeof query.addEventListener === 'function') {
+            query.addEventListener('change', handler);
+        } else if (typeof query.addListener === 'function') {
+            query.addListener(handler);
+        }
+    };
+    const buildWalletGradientEntry = (factor) => {
+        const clampedFactor = clamp01(Number.isFinite(factor) ? factor : 0);
+        const r = Math.round(interpolate(WALLET_GRADIENT_START.r, WALLET_GRADIENT_END.r, clampedFactor));
+        const g = Math.round(interpolate(WALLET_GRADIENT_START.g, WALLET_GRADIENT_END.g, clampedFactor));
+        const b = Math.round(interpolate(WALLET_GRADIENT_START.b, WALLET_GRADIENT_END.b, clampedFactor));
+        const border = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        const backgroundAlpha = interpolate(WALLET_BACKGROUND_ALPHA_START, WALLET_BACKGROUND_ALPHA_END, clampedFactor);
+        const hoverAlpha = Math.min(0.9, backgroundAlpha + WALLET_HOVER_ALPHA_BOOST);
+        const toRgba = (alpha) => `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
+        return {
+            border,
+            background: toRgba(backgroundAlpha),
+            hover: toRgba(hoverAlpha),
+        };
+    };
+    const getWalletGradientForIndex = (index, total) => {
+        if (!Number.isFinite(total) || total <= 1) {
+            return buildWalletGradientEntry(1);
+        }
+        const position = clamp01(index / (total - 1));
+        return buildWalletGradientEntry(position);
+    };
+    const buildWalletGradientPalette = (total) => {
+        if (!Number.isFinite(total) || total <= 0) {
+            return [];
+        }
+        return Array.from({ length: Math.trunc(total) }, (_, index) => getWalletGradientForIndex(index, total));
+    };
     const COIN_SUMMARY_LABEL = 'Achievement Wallet';
     const MEDALS_PAGE_SIZE = Number.POSITIVE_INFINITY;
     const COIN_LABEL_OVERRIDES = {
         Run: {
-            '10km Run': '10 km run',
+            '10km Run': '10 km',
             '21km Run': 'Half marathon',
+            '30km Run': '30 km',
             '42km Run': 'Marathon',
-            '50km Run/Week': '50 km run week',
-            '100km Run/Week': '100 km run week'
+            '65km Run': '65 km'
         },
         Ride: {
-            '100km Ride': '100 km ride',
-            '150km Ride': '150 km ride',
-            '200km Ride': 'Double century (200 km)',
-            '300km Ride/Week': '300 km ride week',
-            '600km Ride/Week': '600 km ride week'
+            '100km Ride': '100 km',
+            '200km Ride': '200 km',
+            '250km Ride': '250 km',
+            '300km Ride': '300 km',
+            '600km Ride': '600 km'
         },
         Elevation: {
-            '1000m Elevation': '1,000 m climb',
-            '2000m Elevation': '2,000 m climb',
-            'Half Everest': 'Half Everest',
-            '10k Elevation/Week': '10k m elevation week',
-            '25k Elevation/Month': '25k m elevation month'
+            '1000m Elevation': '1,000 m',
+            '2500m Elevation': '2,500 m',
+            '4000m Elevation': '4,000 m',
+            '30k Elevation Month': '30k month',
+            'Everesting Crowd': 'Everesting crowd'
         },
         Calories: {
-            '1000 kcal Activity': '1,000 kcal activity',
-            '2000 kcal Activity': '2,000 kcal activity',
-            '4000 kcal Activity': '4,000 kcal activity',
-            '7500 kcal Activity': '7,500 kcal activity',
-            '8000 kcal Activity': '8,000 kcal activity',
-            '12000 kcal Week': '12,000 kcal week',
-            '24000 kcal Week': '24,000 kcal week'
+            '1000 kcal Activity': '1,000',
+            '3000 kcal Activity': '3,000',
+            '6000 kcal Activity': '6,000',
+            '7500 kcal Activity': '7,500',
+            '8000 kcal Activity': '8,000'
         }
     };
-    const CALORIE_SCALE_FACTOR = 0.65;
-    const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' });
-    const usdCodeFormatter = new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: 'USD',
-        currencyDisplay: 'symbol',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    });
-    const DASHBOARD_CACHE_VERSION = 'v2';
-    const DASHBOARD_CACHE_STORAGE_KEY = `los:dashboard-cache:${DASHBOARD_CACHE_VERSION}`;
-    const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
-    const DASHBOARD_CACHE_MAX_ENTRIES = 6;
-
-    const createEmptyCacheContainer = () => ({
-        version: DASHBOARD_CACHE_VERSION,
-        entries: {},
-        metadata: {},
-    });
-
-    const persistDashboardCacheContainer = (container) => {
-        if (!container || typeof container !== 'object') {
-            return;
-        }
-
-        try {
-            sessionStorage.setItem(DASHBOARD_CACHE_STORAGE_KEY, JSON.stringify(container));
-        } catch (error) {
-            console.warn('Unable to persist dashboard cache:', error);
-        }
+    const COIN_ROW_DEFAULT_UNITS = {
+        Run: 'km',
+        Ride: 'km',
+        Elevation: 'm',
+        Calories: ''
     };
 
-    const loadDashboardCacheContainer = () => {
-        const fallback = createEmptyCacheContainer();
-
-        try {
-            const raw = sessionStorage.getItem(DASHBOARD_CACHE_STORAGE_KEY);
-            if (!raw) {
-                return fallback;
-            }
-
-            const parsed = JSON.parse(raw);
-            if (!parsed || typeof parsed !== 'object' || parsed.version !== DASHBOARD_CACHE_VERSION) {
-                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
-                return fallback;
-            }
-
-            const entries = (parsed.entries && typeof parsed.entries === 'object') ? { ...parsed.entries } : {};
-            const metadata = (parsed.metadata && typeof parsed.metadata === 'object') ? { ...parsed.metadata } : {};
-            const container = { version: DASHBOARD_CACHE_VERSION, entries, metadata };
-            const now = Date.now();
-            let mutated = false;
-
-            Object.entries(entries).forEach(([key, entry]) => {
-                const timestamp = Number(entry?.timestamp);
-                if (!entry || !Number.isFinite(timestamp) || (DASHBOARD_CACHE_TTL_MS > 0 && now - timestamp > DASHBOARD_CACHE_TTL_MS)) {
-                    delete entries[key];
-                    mutated = true;
-                }
-            });
-
-            if (mutated) {
-                persistDashboardCacheContainer(container);
-            }
-
-            return container;
-        } catch (error) {
-            console.warn('Unable to access dashboard cache storage:', error);
-            try {
-                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
-            } catch (storageError) {
-                console.warn('Unable to reset dashboard cache storage:', storageError);
-            }
-            return fallback;
-        }
+    const PROFILE_PERIOD_KEY_BY_SHORT_LABEL = {
+        '7D': 'weekly',
+        '1M': 'monthly',
+        '3M': 'quarter',
+        '1Y': 'yearly',
+    };
+    const PROFILE_PERIOD_SHORT_LABELS_BY_KEY = {
+        weekly: '7D',
+        monthly: '1M',
+        quarter: '3M',
+        yearly: '1Y',
+    };
+    const PROFILE_RANGE_SUMMARY_LABELS = {
+        '7D': '7D',
+        '1M': '1M',
+        '3M': '3M',
+        '1Y': '1Y',
     };
 
-    const resolveDashboardCacheKey = (payload) => {
-        const athleteId = payload?.athlete?.id;
+    const PROFILE_PERIOD_MODAL_METADATA = {
+        weekly: {
+            title: 'Last 7 Days Overview',
+            description: 'Seven-day haul recap.',
+        },
+        monthly: {
+            title: 'Last Month Overview',
+            description: 'Thirty-day haul recap.',
+        },
+        quarter: {
+            title: 'Last 3 Months Overview',
+            description: 'Ninety-day haul recap.',
+        },
+        yearly: {
+            title: 'Last Year Overview',
+            description: 'Year-long haul recap.',
+        },
+    };
+    const PROFILE_PERIOD_OPTIONS_BY_KEY = {
+        yearly: { shortLabel: '1Y', longLabel: 'One-year' },
+        quarter: { shortLabel: '3M', longLabel: 'Three-month' },
+        monthly: { shortLabel: '1M', longLabel: 'One-month' },
+        weekly: { shortLabel: '7D', longLabel: 'Seven-day' },
+    };
 
-        if (isSharedView) {
-            if (sharedUserId) {
-                return `shared:${sharedUserId}`;
-            }
-
-            if (athleteId !== undefined && athleteId !== null) {
-                return `shared:${athleteId}`;
-            }
-
+    const getActivityDate = (activity) => {
+        if (!activity || typeof activity !== 'object') {
             return null;
         }
 
-        if (athleteId !== undefined && athleteId !== null) {
-            return `self:${athleteId}`;
+        const rawDate = activity.start_date || activity.start_date_local;
+        if (!rawDate) {
+            return null;
         }
 
-        return 'self:unknown';
+        const parsedDate = new Date(rawDate);
+        return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
     };
 
-    const getDashboardCacheLookupKeys = (container) => {
-        const keys = [];
-
-        if (isSharedView) {
-            if (sharedUserId) {
-                keys.push(`shared:${sharedUserId}`);
-            }
-            return keys;
-        }
-
-        if (container?.metadata) {
-            if (typeof container.metadata.lastActiveKey === 'string') {
-                keys.push(container.metadata.lastActiveKey);
-            }
-        }
-
-        if (!keys.includes('self:unknown')) {
-            keys.push('self:unknown');
-        }
-
-        return keys;
+    const getActivityTimestamp = (activity) => {
+        const parsedDate = getActivityDate(activity);
+        return parsedDate ? parsedDate.getTime() : null;
     };
 
-    const enforceDashboardCacheSizeLimit = (container, protectedKey) => {
-        if (!container || !container.entries) {
-            return;
+    const createSeededRandom = (seedInput = '') => {
+        let seed = 0;
+        const normalized = String(seedInput);
+        for (let index = 0; index < normalized.length; index += 1) {
+            seed = (seed * 31 + normalized.charCodeAt(index)) >>> 0;
         }
 
-        const keys = Object.keys(container.entries);
-        if (keys.length <= DASHBOARD_CACHE_MAX_ENTRIES) {
-            return;
+        return () => {
+            seed ^= seed << 13;
+            seed ^= seed >>> 17;
+            seed ^= seed << 5;
+            return ((seed >>> 0) % 10000) / 10000;
+        };
+    };
+
+    const MEDAL_RARITY_ALIASES = new Map([
+        ['ember', 'auric'],
+        ['crimson', 'obsidian'],
+        ['platinum', 'amethyst'],
+        ['gold', 'cerulean'],
+        ['diamond', 'auric'],
+    ]);
+
+    const MEDAL_RARITY_LEVELS = [
+        {
+            key: 'verdant',
+            name: 'Verdant',
+            tier: 'Everyday',
+            emoji: '🟢',
+            description: 'Approachable medals for celebrating movement and seasonal moments.',
+        },
+        {
+            key: 'cerulean',
+            name: 'Cerulean',
+            tier: 'Seasoned',
+            emoji: '🔵',
+            description: 'Reliable consistency, short streaks, and hallmark race efforts.',
+        },
+        {
+            key: 'amethyst',
+            name: 'Amethyst',
+            tier: 'Fierce',
+            emoji: '🟣',
+            description: 'Demanding multi-activity days and meaningful milestones.',
+        },
+        {
+            key: 'auric',
+            name: 'Auric',
+            tier: 'Elite',
+            emoji: '🟡',
+            description: 'Serious endurance streaks and heavyweight lifetime pushes.',
+        },
+        {
+            key: 'star',
+            name: 'Star',
+            tier: 'Challenge',
+            emoji: '⭐',
+            description: 'Limited monthly star medals worth $25k each.',
+        },
+        {
+            key: 'obsidian',
+            name: 'Obsidian',
+            tier: 'Apex',
+            emoji: '⚫️',
+            description: 'The pinnacle: legendary feats, massive totals, and relentless grit.',
+        },
+    ];
+
+    const MEDAL_RARITY_META_MAP = new Map(MEDAL_RARITY_LEVELS.map((level, index) => [
+        level.key,
+        { ...level, index },
+    ]));
+    const DEFAULT_MEDAL_RARITY_KEY = MEDAL_RARITY_LEVELS[0].key;
+
+    const getMedalRarityDisplayIndex = (key) => {
+        const normalized = normalizeRarityKey(key);
+        const orderIndex = MEDAL_RARITY_DISPLAY_ORDER.indexOf(normalized);
+        return orderIndex >= 0 ? orderIndex : MEDAL_RARITY_DISPLAY_ORDER.length;
+    };
+
+    const normalizeRarityKey = (key) => {
+        if (typeof key !== 'string') {
+            return DEFAULT_MEDAL_RARITY_KEY;
+        }
+        const normalized = key.trim().toLowerCase();
+        const resolved = MEDAL_RARITY_ALIASES.get(normalized) || normalized;
+        return MEDAL_RARITY_META_MAP.has(resolved)
+            ? resolved
+            : DEFAULT_MEDAL_RARITY_KEY;
+    };
+
+    const getMedalRarityMeta = (key) => {
+        const normalized = normalizeRarityKey(key);
+        return MEDAL_RARITY_META_MAP.get(normalized) || MEDAL_RARITY_META_MAP.get(DEFAULT_MEDAL_RARITY_KEY);
+    };
+
+    const formatMedalRarityLabel = (key) => {
+        const meta = getMedalRarityMeta(key);
+        return `${meta.emoji} ${meta.name} · ${meta.tier}`;
+    };
+
+    const buildMedalRarityPayload = (rarityKeyInput) => {
+        const meta = getMedalRarityMeta(rarityKeyInput);
+        return {
+            rarityKey: meta.key,
+            rarityLabel: formatMedalRarityLabel(meta.key),
+            rarityIndex: meta.index,
+            rarityEmoji: meta.emoji,
+            rarityTier: meta.tier,
+            rarityDescription: meta.description,
+        };
+    };
+
+    const calculateHistoricalMedalValue = (count = 0) => {
+        const safeCount = Math.max(0, Number(count) || 0);
+        if (safeCount === 0) {
+            return 0;
         }
 
-        const sortedKeys = keys.sort((a, b) => {
-            const timeA = Number(container.entries[a]?.timestamp) || 0;
-            const timeB = Number(container.entries[b]?.timestamp) || 0;
-            return timeA - timeB;
+        return MEDAL_BASE_VALUE * (MEDAL_GROWTH_RATE ** safeCount);
+    };
+
+    const getMedalRarityValue = (medal = {}) => {
+        const rarityKey = normalizeRarityKey(medal?.rarityKey || medal?.rarity || medal?.rarityLabel);
+        return MEDAL_RARITY_VALUE_MAP[rarityKey] || MEDAL_RARITY_VALUE_MAP[DEFAULT_MEDAL_RARITY_KEY];
+    };
+
+    const isHistoricalMedal = (medal = {}) => Boolean(medal?.progressStatus || medal?.milestoneCategory);
+
+    const calculateMedalValueSummary = (medals = []) => {
+        const medalsList = Array.isArray(medals) ? medals : [];
+
+        let historicalCount = 0;
+        let historicalValue = 0;
+        let standardValue = 0;
+        let standardCount = 0;
+
+        medalsList.forEach((medal) => {
+            const rawCount = medal?.count;
+            const normalizedCount = toNonNegativeInteger(rawCount);
+            const count = Number.isFinite(rawCount) ? normalizedCount : 1;
+            if (count <= 0) {
+                return;
+            }
+
+            if (isHistoricalMedal(medal)) {
+                historicalCount += count;
+                return;
+            }
+
+            standardCount += count;
+            const medalValue = Number.isFinite(medal?.valueOverride)
+                ? medal.valueOverride
+                : getMedalRarityValue(medal);
+            standardValue += medalValue * count;
         });
 
-        for (const key of sortedKeys) {
-            if (Object.keys(container.entries).length <= DASHBOARD_CACHE_MAX_ENTRIES) {
-                break;
-            }
+        historicalValue = calculateHistoricalMedalValue(historicalCount);
+        const totalCount = historicalCount + standardCount;
+        const totalValue = historicalValue + standardValue;
 
-            if (key === protectedKey) {
-                continue;
-            }
+        return {
+            totalCount,
+            historicalCount,
+            standardCount,
+            historicalValue,
+            standardValue,
+            totalValue,
+        };
+    };
 
-            delete container.entries[key];
+    const MEDAL_RARITY_OVERRIDES = (() => {
+        const map = new Map();
+        const assign = (rarityKey, names) => {
+            const normalizedKey = normalizeRarityKey(rarityKey);
+            names.forEach((name) => {
+                if (typeof name === 'string' && name.trim()) {
+                    map.set(name, normalizedKey);
+                }
+            });
+        };
+
+        assign('verdant', [
+            'Easter Enthusiast',
+            'Pi Day Pace Setter',
+            'Summer Solstice Sprinter',
+            'Super Nice Day',
+            'Night Owl',
+            'Early Riser',
+            'Double Yoga Day',
+        ]);
+
+        assign('cerulean', [
+            'Christmas Champion',
+            'New Year’s Hero',
+            'Valentine’s Victor',
+            'Independence Day Icon',
+            'Halloween Hero',
+            'Thanksgiving Titan',
+            'Mother’s Day Master',
+            'Father’s Day Fighter',
+            'Labor Day Legend',
+            'Global Running Day Star',
+            'Leap Day Legend',
+            'Double Run Day',
+            'Run Streak — 7 Days',
+            'Ride Streak — 7 Days',
+            'Swim Streak — 7 Days',
+            'Marathon Finisher',
+            'Cycling Streak',
+            'Back-to-Back Swim Days',
+        ]);
+
+        assign('amethyst', [
+            'Run & Ride One Day',
+            '3 Activities One Day',
+            'Coppa Coppi Protector',
+            'Vertical Velocity',
+            'Urban Ladder',
+            'Power Pedaler',
+            'Tempo Trailblazer',
+            'Peak Fueler',
+            'Crowd Pleaser',
+            'Training Fortnight',
+            'Century Swim Sessions',
+            'Triple Country Month',
+        ]);
+
+        assign('auric', [
+            'Run, Ride & Swim One Day',
+            'Double Ride One Day',
+            'Steep Climber',
+            'Alpine Sprinter',
+            'Coastal Century',
+            'Ridge Explorer',
+            'Gradient Guru',
+            'Switchback Cyclist',
+            'Run Streak — 30 Days',
+            'Ride Streak — 30 Days',
+            'Training Month Milestone',
+            '2 Days Consecutive of 100 km Ride',
+            '2 Days Consecutive 5h+ Each Day',
+            '7-Day Caloric Champion',
+            'Skyline Charge',
+            'Evergreen Endurance',
+            'Hefty Haul',
+            'Season of Consistency',
+            'Skyward Cyclist',
+            '2 Half Marathons Back to Back',
+            '2 Days Consecutive 1500 m Elevation',
+        ]);
+
+        assign('obsidian', [
+            '2 Days Consecutive of 150 km Ride',
+            '3 Days Consecutive 5h+ Each Day',
+            'Summit Strider',
+            'Ultra Voyager',
+            'Mountain Marathoner',
+            'Volcanic Vertical',
+            'Ultra Runner',
+            'Half-Year Sentinel',
+            'Community Star',
+            '2 Marathons Back to Back',
+            'Olympic Triathlons Completed',
+            '2 Days Back to Back 3000 m Elevation',
+            'Year of Grit',
+            'Legend of Kudos',
+        ]);
+
+        return map;
+    })();
+
+    const resolveMedalRarityKey = (medal = {}) => {
+        if (medal && typeof medal.rarity === 'string') {
+            return normalizeRarityKey(medal.rarity);
         }
+        if (medal && typeof medal.rarityKey === 'string') {
+            return normalizeRarityKey(medal.rarityKey);
+        }
+
+        const overrideKey = MEDAL_RARITY_OVERRIDES.get(medal?.name);
+        if (overrideKey) {
+            return overrideKey;
+        }
+
+        if (medal?.streakCriteria) {
+            const minLength = Number(medal.streakCriteria.minLength) || 0;
+            if (minLength >= 365) {
+                return 'obsidian';
+            }
+            if (minLength >= 182) {
+                return 'auric';
+            }
+            if (minLength >= 90) {
+                return 'amethyst';
+            }
+            if (minLength >= 60) {
+                return 'amethyst';
+            }
+            if (minLength >= 30) {
+                return 'auric';
+            }
+            if (minLength >= 14) {
+                return 'cerulean';
+            }
+            if (minLength >= 7) {
+                return 'cerulean';
+            }
+            return DEFAULT_MEDAL_RARITY_KEY;
+        }
+
+        if (medal?.consecutiveConfig && Number.isFinite(Number(medal.consecutiveConfig.requiredLength))) {
+            const required = Number(medal.consecutiveConfig.requiredLength);
+            if (required >= 3) {
+                return 'auric';
+            }
+            if (required >= 2) {
+                return 'amethyst';
+            }
+        }
+
+        if (medal?.dates || medal?.dynamicDateResolver) {
+            return DEFAULT_MEDAL_RARITY_KEY;
+        }
+
+        if (medal?.aggregateCriteria || medal?.aggregateResolver) {
+            return 'auric';
+        }
+
+        if (typeof medal?.criteria === 'function') {
+            return 'amethyst';
+        }
+
+        return DEFAULT_MEDAL_RARITY_KEY;
+    };
+    const normalizeMedalRarityPayload = (medal = {}) => {
+        const raritySource = medal?.rarityKey || medal?.rarity || medal?.rarityLabel;
+        const rarityPayload = buildMedalRarityPayload(raritySource || resolveMedalRarityKey(medal));
+        return {
+            ...medal,
+            ...rarityPayload,
+        };
+    };
+    const WALLET_CATEGORY_META = {
+        'Distance Run': { label: 'Run', icon: '🏃' },
+        'Distance Ride': { label: 'Ride', icon: '🚴' },
+        Elevation: { label: 'Elevation', icon: '🧗' },
+        'Calories (kcal)': { label: 'Calories', icon: '🔥' },
+    };
+    const EXCLUDED_WALLET_CATEGORIES = new Set(['Segments']);
+
+    const coinConfig = {
+        Run: {
+            lifetime: { metric: 'distance', threshold: 10, emoji: '💲' },
+            weekly: { metric: 'distance', threshold: 30, emoji: '💰' },
+            milestone: [
+                { metric: 'distance', threshold: 21, emoji: '🧈', name: 'Half Marathon' },
+                { metric: 'distance', threshold: 42, emoji: '💎', name: 'Full Marathon' }
+            ],
+            ultraWeekly: { metric: 'distance', threshold: 65, emoji: '👑' }
+        },
+        Ride: {
+            lifetime: { metric: 'distance', threshold: 100, emoji: '💲' },
+            weekly: { metric: 'distance', threshold: 300, emoji: '💰' },
+            milestone: [
+                { metric: 'distance', threshold: 200, emoji: '🧈', name: 'Double Century' },
+                { metric: 'distance', threshold: 250, emoji: '💎', name: 'Extreme Endurance' }
+            ],
+            ultraWeekly: { metric: 'distance', threshold: 600, emoji: '👑' }
+        },
+        Elevation: {
+            lifetime: { metric: 'elevation', threshold: 1000, emoji: '💲' },
+            weekly: { metric: 'elevation', threshold: 5000, emoji: '💰' },
+            milestone: [
+                { metric: 'elevation', threshold: 10000, emoji: '🧈', name: 'Climb Crusher' },
+                { metric: 'elevation', threshold: 25000, emoji: '💎', name: 'Peak Performer' }
+            ],
+            ultraWeekly: { metric: 'elevation', threshold: 50000, emoji: '👑' }
+        },
+        kcal: {
+            lifetime: { metric: 'calories', threshold: 1000, emoji: '💲' },
+            weekly: { metric: 'calories', threshold: 6000, emoji: '💰' },
+            milestone: [
+                { metric: 'calories', threshold: 3000, emoji: '🧈', name: 'Metabolism Boost' },
+                { metric: 'calories', threshold: 7500, emoji: '💎', name: 'Metabolic Master' }
+            ],
+            ultraWeekly: { metric: 'calories', threshold: 8000, emoji: '👑' }
+        }
+    };
+
+    const toNonNegativeInteger = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return 0;
+        }
+        if (numeric <= 0) {
+            return 0;
+        }
+        return Math.floor(numeric);
+    };
+    const CALORIE_SCALE_FACTOR = 0.65;
+    const formatWalletValue = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return '$0';
+        }
+
+        const absolute = Math.abs(numeric);
+        let unit = '';
+        let scaled = absolute;
+
+        if (absolute >= 1_000_000) {
+            unit = 'M';
+            scaled = absolute / 1_000_000;
+        } else if (absolute >= 1_000) {
+            unit = 'k';
+            scaled = absolute / 1_000;
+        }
+
+        const decimals = scaled >= 10 || unit === '' ? 0 : 1;
+        const formatted = scaled.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: decimals,
+        });
+
+        const prefix = numeric < 0 ? '-' : '';
+        return `${prefix}$${formatted}${unit}`;
+    };
+
+    const walletCompactFormatter = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        notation: 'compact',
+        compactDisplay: 'short',
+        maximumFractionDigits: 1,
+    });
+
+    const formatWalletCompactValue = (value) => {
+        if (!Number.isFinite(value)) {
+            return '$0';
+        }
+        return walletCompactFormatter.format(value);
+    };
+
+    const currencyFormatter = { format: formatWalletValue };
+    const usdCodeFormatter = { format: formatWalletValue };
+    const DASHBOARD_CACHE_VERSION = 'v2';
+    const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+
+    // Previously we limited cached activities to 250 entries to reduce the amount of
+    // data stored locally. This caused dashboards loaded for specific user IDs to
+    // miss a large portion of their historical data (and the accompanying
+    // metadata/snapshots) once the limit was reached. Remove the cap so we always
+    // preserve the full backend dataset.
+    const MAX_CACHED_ACTIVITIES = Infinity;
+    const MAX_CACHED_SEGMENTS = 200;
+
+    const CACHE_KEYS = {
+        DASHBOARD: (userId) => `los:dashboard:${DASHBOARD_CACHE_VERSION}:${userId || 'self'}`,
+        LEADERBOARD: `los:leaderboard:${DASHBOARD_CACHE_VERSION}`,
+        USER_SNAPSHOT: (userId) => `los:snapshot:${DASHBOARD_CACHE_VERSION}:${userId}`,
+    };
+
+    const CACHE_TTL = {
+        DASHBOARD: DASHBOARD_CACHE_TTL_MS,
+        LEADERBOARD: 2 * 60 * 1000,
+        USER_SNAPSHOT: 10 * 60 * 1000,
+    };
+
+    let cacheStorage;
+    let cacheStorageDisabled = false;
+    const inMemoryCache = new Map();
+    const resolveCacheStorage = () => {
+        if (cacheStorageDisabled) {
+            return cacheStorage || null;
+        }
+        if (cacheStorage) {
+            return cacheStorage;
+        }
+
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                cacheStorage = window.localStorage;
+                return cacheStorage;
+            }
+        } catch (error) {
+            console.warn('Local storage unavailable, falling back to session storage.', error);
+        }
+
+        try {
+            if (typeof window !== 'undefined' && window.sessionStorage) {
+                cacheStorage = window.sessionStorage;
+                return cacheStorage;
+            }
+        } catch (error) {
+            console.warn('Session storage unavailable; caching disabled.', error);
+        }
+
+        cacheStorageDisabled = true;
+        cacheStorage = null;
+        return cacheStorage;
+    };
+
+    const isQuotaExceededError = (error) => {
+        if (!error) {
+            return false;
+        }
+
+        if (typeof error === 'object') {
+            const { name, code } = error;
+            if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                return true;
+            }
+            if (code === 22 || code === 1014) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    const limitObjectEntries = (source, allowedKeys, maxEntries) => {
+        if (!source || typeof source !== 'object') {
+            return undefined;
+        }
+
+        const shouldFilterByKeys = allowedKeys instanceof Set && allowedKeys.size > 0;
+        const filteredEntries = Object.entries(source).filter(([key]) => {
+            if (!shouldFilterByKeys) {
+                return true;
+            }
+            return allowedKeys.has(String(key));
+        });
+
+        if (filteredEntries.length === 0) {
+            return undefined;
+        }
+
+        const limitedEntries = Number.isFinite(maxEntries) && maxEntries > 0
+            ? filteredEntries.slice(0, maxEntries)
+            : filteredEntries;
+
+        return limitedEntries.reduce((acc, [key, value]) => {
+            acc[key] = value;
+            return acc;
+        }, {});
+    };
+
+    const sanitizeDashboardCachePayload = (payload) => {
+        if (!payload || typeof payload !== 'object') {
+            return null;
+        }
+
+        const sanitized = { ...payload };
+
+        let trimmedActivities;
+        if (Array.isArray(payload.activities)) {
+            trimmedActivities = payload.activities.slice(0, MAX_CACHED_ACTIVITIES);
+            sanitized.activities = trimmedActivities;
+        }
+
+        let trimmedSegments;
+        if (Array.isArray(payload.segments)) {
+            trimmedSegments = payload.segments.slice(0, MAX_CACHED_SEGMENTS);
+            sanitized.segments = trimmedSegments;
+        }
+
+        if (payload.activityMetadata && typeof payload.activityMetadata === 'object') {
+            const activityKeys = new Set();
+            (trimmedActivities || payload.activities || []).forEach((activity) => {
+                if (!activity || typeof activity !== 'object') {
+                    return;
+                }
+                const identifier = activity.id ?? activity.external_id;
+                if (identifier !== undefined && identifier !== null) {
+                    activityKeys.add(String(identifier));
+                }
+            });
+
+            const trimmedMetadata = limitObjectEntries(payload.activityMetadata, activityKeys, MAX_CACHED_ACTIVITIES);
+            if (trimmedMetadata) {
+                sanitized.activityMetadata = trimmedMetadata;
+            } else if ('activityMetadata' in sanitized) {
+                delete sanitized.activityMetadata;
+            }
+        }
+
+        if (payload.segmentMetadata && typeof payload.segmentMetadata === 'object') {
+            const segmentKeys = new Set();
+            (trimmedSegments || payload.segments || []).forEach((segment) => {
+                if (segment && (segment.id !== undefined && segment.id !== null)) {
+                    segmentKeys.add(String(segment.id));
+                }
+            });
+
+            const trimmedMetadata = limitObjectEntries(payload.segmentMetadata, segmentKeys, MAX_CACHED_SEGMENTS);
+            if (trimmedMetadata) {
+                sanitized.segmentMetadata = trimmedMetadata;
+            } else if ('segmentMetadata' in sanitized) {
+                delete sanitized.segmentMetadata;
+            }
+        }
+
+        return sanitized;
+    };
+
+    const readCacheEntry = (key, ttl) => {
+        if (!key) {
+            return null;
+        }
+
+        const storage = resolveCacheStorage();
+
+        let raw;
+        if (storage) {
+            try {
+                raw = storage.getItem(key);
+            } catch (error) {
+                console.warn('Cache read failed:', error);
+                return null;
+            }
+        } else if (inMemoryCache.has(key)) {
+            raw = inMemoryCache.get(key);
+        } else {
+            return null;
+        }
+
+        if (!raw) {
+            return null;
+        }
+
+        let entry;
+        try {
+            entry = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch (error) {
+            console.warn('Unable to parse cache entry; clearing.', error);
+            try {
+                storage?.removeItem?.(key);
+            } catch (removeError) {
+                console.warn('Unable to remove corrupt cache entry:', removeError);
+            }
+            inMemoryCache.delete(key);
+            return null;
+        }
+
+        if (!entry || entry.version !== DASHBOARD_CACHE_VERSION) {
+            try {
+                storage?.removeItem?.(key);
+            } catch (removeError) {
+                console.warn('Unable to purge outdated cache entry:', removeError);
+            }
+            inMemoryCache.delete(key);
+            return null;
+        }
+
+        const timestamp = Number(entry.timestamp);
+        if (!Number.isFinite(timestamp)) {
+            try {
+                storage?.removeItem?.(key);
+            } catch (removeError) {
+                console.warn('Unable to purge invalid cache entry:', removeError);
+            }
+            inMemoryCache.delete(key);
+            return null;
+        }
+
+        const age = Date.now() - timestamp;
+        const ttlLimit = Number.isFinite(ttl) ? ttl : 0;
+        if (ttlLimit > 0 && age > ttlLimit) {
+            try {
+                storage?.removeItem?.(key);
+            } catch (removeError) {
+                console.warn('Unable to purge expired cache entry:', removeError);
+            }
+            inMemoryCache.delete(key);
+            return null;
+        }
+
+        return entry;
+    };
+
+    const writeCacheEntry = (key, entry) => {
+        const storage = resolveCacheStorage();
+        if (!key || !entry) {
+            return;
+        }
+
+        if (cacheStorageDisabled) {
+            inMemoryCache.set(key, entry);
+            return;
+        }
+
+        let serialized;
+        try {
+            serialized = JSON.stringify(entry);
+        } catch (serializationError) {
+            console.warn('Unable to serialize cache entry:', serializationError);
+            return;
+        }
+
+        if (!storage) {
+            inMemoryCache.set(key, entry);
+            return;
+        }
+
+        try {
+            storage.setItem(key, serialized);
+        } catch (error) {
+            if (isQuotaExceededError(error)) {
+                console.warn('Cache write skipped due to storage quota limits. Attempting fallback storage.', error);
+
+                try {
+                    storage.removeItem(key);
+                } catch (removeError) {
+                    console.warn('Unable to clear cache key after quota failure:', removeError);
+                }
+
+                let fallbackApplied = false;
+                if (typeof window !== 'undefined') {
+                    try {
+                        if (storage !== window.sessionStorage && window.sessionStorage) {
+                            cacheStorage = window.sessionStorage;
+                            cacheStorage.setItem(key, serialized);
+                            fallbackApplied = true;
+                        }
+                    } catch (sessionError) {
+                        console.warn('Session storage fallback failed:', sessionError);
+                    }
+                }
+
+                if (!fallbackApplied) {
+                    cacheStorageDisabled = true;
+                    cacheStorage = storage || cacheStorage;
+                    inMemoryCache.set(key, entry);
+                }
+                return;
+            }
+
+            console.warn('Cache write failed:', error);
+            cacheStorageDisabled = true;
+            cacheStorage = storage || cacheStorage;
+            inMemoryCache.set(key, entry);
+        }
+    };
+
+    const removeCacheEntry = (key) => {
+        const storage = resolveCacheStorage();
+        if (!key) {
+            return;
+        }
+
+        try {
+            storage?.removeItem?.(key);
+        } catch (error) {
+            console.warn('Cache removal failed:', error);
+        }
+
+        inMemoryCache.delete(key);
     };
 
     // === DOM Elements ===
     const bodyElement = document.body;
-    const loadingSpinner = document.getElementById('loading-spinner');
+    const shellElement = document.querySelector('[data-dashboard-shell]');
+    const isShellLoading = () => Boolean(shellElement?.classList.contains('is-loading'));
+    const setShellLoadingState = (isLoading) => {
+        if (!shellElement) {
+            return;
+        }
+        shellElement.classList.toggle('is-loading', Boolean(isLoading));
+    };
     const closeSpinnerButton = document.getElementById('close-spinner');
     const loadingProgressBar = document.getElementById('loading-progress-bar');
     const loadingProgressBarFill = document.getElementById('loading-progress-bar-fill');
@@ -284,18 +1075,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     const athleteAvatarElement = document.getElementById('athlete-avatar');
     const currentRankElement = document.getElementById('current-rank');
     const nextRankElement = document.getElementById('next-rank');
-    const rankingProgressElement = document.getElementById('ranking-progress');
-    const rankingProgressMonthlyElement = document.getElementById('ranking-progress-monthly');
+    const rankingProgressWeeklyElement = document.getElementById('ranking-progress-weekly');
     const rankDetailsElement = document.getElementById('rank-details');
     const levelProgressElement = document.getElementById('level-progress');
-    const globeStatButton = document.getElementById('globe-stat');
-    const everestStatButton = document.getElementById('everest-stat');
-    const pizzaStatButton = document.getElementById('pizza-stat');
-    const likesStatButton = document.getElementById('likes-stat');
-    const globeTotalElement = document.getElementById('globe-total');
-    const everestTotalElement = document.getElementById('everest-total');
-    const pizzaTotalElement = document.getElementById('pizza-total');
-    const likesTotalElement = document.getElementById('likes-total');
+    const levelProgressWeeklyFillElement = document.getElementById('level-progress-weekly-fill');
+    const rankInfoButton = document.getElementById('rank-info-button');
+    const leagueClassSummaryElement = document.getElementById('league-class-summary');
+    const leagueClassEmojiElement = document.getElementById('league-class-emoji');
+    const leagueClassNameElement = document.getElementById('league-class-name');
+    const leagueClassDescriptionElement = document.getElementById('league-class-description');
+    const leagueClassReasonsElement = document.getElementById('league-class-reasons');
+    let globeStatButton = document.getElementById('globe-stat');
+    let everestStatButton = document.getElementById('everest-stat');
+    let pizzaStatButton = document.getElementById('pizza-stat');
+    let likesStatButton = document.getElementById('likes-stat');
+    let countryStatButton = document.getElementById('country-stat');
+    const disciplineRatioSection = document.getElementById('profile-discipline-ratios');
+    const disciplineRatioRowElement = document.getElementById('profile-discipline-ratio-row');
+    const disciplineRatioEmptyElement = document.getElementById('profile-discipline-ratio-empty');
+    let globeTotalElement = document.getElementById('globe-total');
+    let everestTotalElement = document.getElementById('everest-total');
+    let pizzaTotalElement = document.getElementById('pizza-total');
+    let likesTotalElement = document.getElementById('likes-total');
+    let countryTotalElement = document.getElementById('country-total');
+    let renderFunStats = () => {};
+    let renderProfileDisciplineRatios = () => {};
+    let updateCountryMapSummary = () => {};
+    let refreshCountryMapIfVisible = () => {};
     const profileWalletTotalElement = document.getElementById('profile-wallet-total');
     const shareButton = document.getElementById('share-dashboard');
     const shareCardPreview = document.getElementById('share-card-preview');
@@ -313,19 +1119,177 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareFeedbackElement = document.getElementById('share-feedback');
     const shareCopyButtonLabel = shareCopyButton?.querySelector('span:last-child') || null;
     const shareCopyOriginalLabel = shareCopyButtonLabel?.textContent ?? '';
-    const profileRefreshButton = document.getElementById('profile-refresh');
+    const shareModalElement = document.getElementById('share-modal');
+    const shareModalDialog = shareModalElement?.querySelector('.share-modal__dialog') || null;
+    const shareModalDismissElements = shareModalElement
+        ? Array.from(shareModalElement.querySelectorAll('[data-share-modal-dismiss]'))
+        : [];
+    const countryMapModalElement = document.getElementById('country-map-modal');
+    const countryMapDialog = countryMapModalElement?.querySelector('.country-map-modal__dialog') || null;
+    const countryMapDismissElements = countryMapModalElement
+        ? Array.from(countryMapModalElement.querySelectorAll('[data-country-map-dismiss]'))
+        : [];
+    const countryMapCanvas = document.getElementById('country-map-canvas');
+    const countryMapSummaryElement = document.getElementById('country-map-summary');
+    const countryMapLegendElement = document.getElementById('country-map-legend');
+    const countryMapLegendMinElement = countryMapLegendElement?.querySelector('[data-country-legend-min]') || null;
+    const countryMapLegendMaxElement = countryMapLegendElement?.querySelector('[data-country-legend-max]') || null;
+    const countryMapStatusElement = document.getElementById('country-map-status');
+    const countryMapLoadingElement = document.getElementById('country-map-loading');
+    const countryMapEmptyElement = document.getElementById('country-map-empty');
+    const COUNTRY_MAP_TOPOJSON_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+    let shareModalReturnFocusTo = null;
+    let countryMapModalReturnFocusTo = null;
+    let profilePeriodModalReturnFocusTo = null;
+    let profilePeriodModalActiveTrigger = null;
+    let profilePeriodModalActiveKey = 'yearly';
+    let activitiesFilterReturnFocusTo = null;
+    let pendingActivitiesOptions = null;
+    let lastActivitiesRenderOptions = { preserveVisibleCount: false };
+    let countryMapChart = null;
+    let countryMapFeaturesPromise = null;
+    let countryMapRendererPromise = null;
+    const COUNTRY_MAP_RENDERER_SCRIPTS = [
+        'https://cdn.jsdelivr.net/npm/chart.js',
+        'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1',
+        'https://cdn.jsdelivr.net/npm/chartjs-chart-geo@4.4.5/build/index.umd.min.js',
+    ];
+
+    const waitForCountryMapRenderers = (timeoutMs = 4000) => new Promise((resolve) => {
+        const start = Date.now();
+        const isReady = () => typeof window.Chart !== 'undefined'
+            && typeof window.ChartGeo !== 'undefined'
+            && typeof window.ChartGeo.topojson !== 'undefined';
+        if (isReady()) {
+            resolve(true);
+            return;
+        }
+        const tick = () => {
+            if (isReady()) {
+                resolve(true);
+                return;
+            }
+            if (Date.now() - start >= timeoutMs) {
+                resolve(false);
+                return;
+            }
+            if (typeof window.requestAnimationFrame === 'function') {
+                window.requestAnimationFrame(tick);
+            } else {
+                window.setTimeout(tick, 60);
+            }
+        };
+        tick();
+    });
+
+    const injectCountryMapScript = (src) => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.dataset.countryMapLoader = 'true';
+        script.addEventListener('load', () => resolve());
+        script.addEventListener('error', () => reject(new Error(`Failed to load map renderer script: ${src}`)));
+        document.head.appendChild(script);
+    });
+
+    const ensureCountryMapRenderers = async () => {
+        if (typeof window.Chart !== 'undefined'
+            && typeof window.ChartGeo !== 'undefined'
+            && typeof window.ChartGeo.topojson !== 'undefined') {
+            return true;
+        }
+        if (!countryMapRendererPromise) {
+            countryMapRendererPromise = (async () => {
+                const readyAfterWait = await waitForCountryMapRenderers(750);
+                if (readyAfterWait) {
+                    return true;
+                }
+                for (const src of COUNTRY_MAP_RENDERER_SCRIPTS) {
+                    try {
+                        await injectCountryMapScript(src);
+                    } catch (error) {
+                        console.error(error);
+                        throw error;
+                    }
+                }
+                return waitForCountryMapRenderers();
+            })().catch((error) => {
+                console.error('Unable to bootstrap map renderer scripts', error);
+                countryMapRendererPromise = null;
+                return false;
+            });
+        }
+        return countryMapRendererPromise;
+    };
+    let pendingWalletRender = false;
+    const manualSyncButton = document.getElementById('fetch-strava-button');
+    const setManualSyncButtonState = (isLoading) => {
+        if (!manualSyncButton) {
+            return;
+        }
+
+        const loading = Boolean(isLoading);
+        manualSyncButton.disabled = loading;
+
+        if (loading) {
+            manualSyncButton.setAttribute('aria-busy', 'true');
+        } else {
+            manualSyncButton.removeAttribute('aria-busy');
+        }
+    };
+    const shouldFallbackToManualSync = async () => {
+        if (!window.dashboardMobile?.refresh) {
+            return true;
+        }
+
+        try {
+            const refreshed = await window.dashboardMobile.refresh({ showLoading: true });
+
+            if (refreshed && typeof refreshed === 'object' && 'status' in refreshed) {
+                handleSyncResponse(refreshed);
+            }
+
+            return refreshed === false && !isSharedView;
+        } catch (refreshError) {
+            console.error('Dashboard refresh failed:', refreshError);
+            return true;
+        }
+    };
     const rankModalElement = document.getElementById('rank-modal');
-    const rankModalListElement = document.getElementById('rank-modal-list');
-    const rankModalSummaryElement = document.getElementById('rank-modal-summary');
     const rankModalTimelineElement = document.getElementById('rank-modal-timeline');
-    const rankModalTimelineMarkersElement = document.getElementById('rank-modal-timeline-markers');
-    const rankModalTimelineFocusElement = document.getElementById('rank-modal-timeline-focus');
+    const rankModalSummaryElement = document.getElementById('rank-modal-summary');
+    const rankModalProgressElement = document.getElementById('rank-modal-progress');
+    const rankModalContentElement = document.getElementById('rank-modal-content');
+    const rankModalClassElement = document.getElementById('rank-modal-class');
+    const rankModalSnapshotsElement = document.getElementById('rank-modal-snapshots');
     const rankModalCloseButton = document.getElementById('rank-modal-close');
     const rankModalDismissElements = Array.from(document.querySelectorAll('[data-rank-modal-dismiss]'));
+    const walletModalElement = document.getElementById('wallet-modal');
+    const walletModalContentElement = document.getElementById('wallet-modal-content');
+    const walletModalSummaryElement = document.getElementById('wallet-modal-summary');
+    const walletModalListElement = document.getElementById('wallet-modal-list');
+    const walletModalSnapshotsElement = document.getElementById('wallet-modal-snapshots');
+    const walletModalCloseButton = document.getElementById('wallet-modal-close');
+    const walletModalDismissElements = Array.from(document.querySelectorAll('[data-wallet-modal-dismiss]'));
+    const profilePeriodModalElement = document.getElementById('profile-period-modal');
+    const profilePeriodModalContentElement = document.getElementById('profile-period-modal-content');
+    const profilePeriodModalTitleElement = document.getElementById('profile-period-modal-title');
+    const profilePeriodModalDescriptionElement = document.getElementById('profile-period-modal-description');
+    const profilePeriodModalCloseButton = document.getElementById('profile-period-modal-close');
+    const profilePeriodModalDismissElements = Array.from(document.querySelectorAll('[data-profile-period-dismiss]'));
+    const profilePeriodToggleElement = document.getElementById('profile-period-toggle');
+    const profilePeriodToggleButtons = profilePeriodToggleElement
+        ? Array.from(profilePeriodToggleElement.querySelectorAll('[data-profile-period-option]'))
+        : [];
     const walletBalanceValueElements = Array.from(document.querySelectorAll('[data-wallet-balance-value]'));
     const walletBalanceChangeElements = {
-        month: document.getElementById('profile-wallet-change-month'),
         year: document.getElementById('profile-wallet-change-year')
+    };
+    const walletChangeSnapshotKeyMap = {
+        '7d': 'weekly',
+        '1m': 'monthly',
+        '3m': 'quarter',
+        '1y': 'yearly',
     };
     const walletSummaryElements = {
         coinsCount: document.getElementById('wallet-summary-coins-count'),
@@ -335,169 +1299,528 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalValue: document.getElementById('wallet-summary-total-value'),
         totalDetail: document.getElementById('wallet-summary-total-detail')
     };
-    const achievementWallet = document.getElementById('achievement-wallet');
-    const medalsSection = document.getElementById('medals-section');
+    let achievementWallet = document.getElementById('achievement-wallet');
+    let medalsSection = document.getElementById('medals-section');
+    let hasLoggedMissingAchievementWallet = false;
+    let hasLoggedMissingMedalsSection = false;
+    const refreshAchievementTargets = () => {
+        if (!achievementWallet) {
+            achievementWallet = document.getElementById('achievement-wallet');
+        } else {
+            hasLoggedMissingAchievementWallet = false;
+        }
+        if (!medalsSection) {
+            medalsSection = document.getElementById('medals-section');
+        } else {
+            hasLoggedMissingMedalsSection = false;
+        }
+    };
     const segmentContainer = document.querySelector('#segment-completions .grid');
     const segmentSection = document.getElementById('segment-completions');
     if (segmentSection) {
         segmentSection.classList.add('hidden');
     }
     const segmentStatusElement = document.getElementById('segment-status');
-    const bestActivitiesContainer = document.getElementById('best-activities');
-    const topPerformancesEmptyState = document.getElementById('top-performances-empty');
+    let bestActivitiesContainer = document.getElementById('best-activities');
+    let topPerformancesSection = document.getElementById('activities-top-performances');
+    let topPerformancesEmptyState = document.getElementById('top-performances-empty');
+    const topPerformanceActivityHighlights = new Map();
+    const topPerformanceActivityOrder = [];
     const yearSelect = document.getElementById('year-select');
-    const activitiesContainer = document.getElementById('activities-container');
-    const activitiesEmptyState = document.getElementById('activities-empty');
-    const medalFilterBanner = document.getElementById('medal-filter-banner');
-    const medalFilterLabel = document.getElementById('medal-filter-label');
-    const medalFilterDescription = document.getElementById('medal-filter-description');
-    const medalFilterEmoji = document.getElementById('medal-filter-emoji');
-    const activitiesSectionElement = document.getElementById('activities-section');
-    const activityFilterSummary = document.getElementById('activity-filter-summary');
-    const activityFilterActive = document.getElementById('activity-filter-active');
+    let activitiesContainer = document.getElementById('activities-container');
+    let activitiesEmptyState = document.getElementById('activities-empty');
+    let medalFilterBanner = document.getElementById('medal-filter-banner');
+    let medalFilterLabel = document.getElementById('medal-filter-label');
+    let medalFilterDescription = document.getElementById('medal-filter-description');
+    let medalFilterEmoji = document.getElementById('medal-filter-emoji');
+    let activitiesSectionElement = document.getElementById('activities-section');
+    let activityFilterSummary = document.getElementById('activity-filter-summary');
+    let activityFilterActive = document.getElementById('activity-filter-active');
+    let activitiesMedalInfo = document.getElementById('activities-medal-info');
+    let activitiesMedalInfoEmoji = document.getElementById('activities-medal-info-emoji');
+    let activitiesMedalInfoLabel = document.getElementById('activities-medal-info-label');
+    let activitiesMedalInfoDescription = document.getElementById('activities-medal-info-description');
+    let activitiesMedalInfoClearButton = document.getElementById('activities-medal-info-clear');
+    let monthlyChallengesSection = document.getElementById('profile-monthly-challenges');
+    let monthlyChallengesMonth = document.getElementById('monthly-challenges-month');
+    let monthlyChallengesSummaryElement = document.getElementById('monthly-challenges-summary');
+    let monthlyChallengesBonus = document.getElementById('monthly-challenges-bonus');
+    let monthlyChallengesCarousel = document.getElementById('monthly-challenges-carousel');
+    let topAchievementsCarousel = document.getElementById('top-achievements-carousel');
+    let profileActivityHistoryElement = document.getElementById('profile-activity-history-body');
+    let monthlyChallengesInterval = null;
+    let topAchievementsInterval = null;
+    let enduranceChartCanvases = {
+        distance: document.getElementById('endurance-ma-chart-distance'),
+        elevation: document.getElementById('endurance-ma-chart-elevation'),
+        movingTime: document.getElementById('endurance-ma-chart-moving-time'),
+    };
+    let enduranceChartElement = document.getElementById('endurance-chart');
+    let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
+    let enduranceChartInstances = new Map();
+    let enduranceChartSource = [];
+    let enduranceCompareForm = document.getElementById('endurance-compare-form');
+    let enduranceCompareInput = document.getElementById('endurance-compare-input');
+    let enduranceCompareSelect = document.getElementById('endurance-compare-select');
+    let enduranceCompareDatalist = document.getElementById('endurance-compare-datalist');
+    let enduranceCompareStatus = document.getElementById('endurance-compare-status');
+    let enduranceFullscreenPlot = null;
+    const enduranceFullscreenMediaQuery = window.matchMedia('(max-width: 768px)');
+    const enduranceComparisonProfiles = new Map();
+    let enduranceOrientationLocked = false;
+    const leaderboardComparisonOptions = new Map();
+    const leaderboardNameToIdMap = new Map();
     const activityTypeFilter = document.getElementById('activity-type-filter');
-    const activityCountryFilter = document.getElementById('activity-country-filter');
     const activityHoursMinInput = document.getElementById('activity-hours-min');
     const activityHoursMaxInput = document.getElementById('activity-hours-max');
     const activityDistanceMinInput = document.getElementById('activity-distance-min');
     const activityDistanceMaxInput = document.getElementById('activity-distance-max');
     const activityElevationMinInput = document.getElementById('activity-elevation-min');
     const activityElevationMaxInput = document.getElementById('activity-elevation-max');
+    const activitySortSelect = document.getElementById('activity-sort-by');
+    const requestFilterContainer = document.getElementById('activities-request-filters');
+    const raceFilterWrapper = document.getElementById('activities-race-filter');
+    const raceFilterSelect = document.getElementById('race-filter-select');
+    const climbFilterWrapper = document.getElementById('activities-climb-filter');
+    const climbFilterSelect = document.getElementById('climb-filter-select');
+    const climbAttemptsDetail = document.getElementById('climb-attempts-detail');
+    const climbAttemptsSummary = document.getElementById('climb-attempts-summary');
+    const climbAttemptsList = document.getElementById('climb-attempts-list');
     const rankProgressTriggerElement = document.getElementById('rank-progress-trigger');
     const activityFilterForm = document.getElementById('activities-filter-form');
+    const activitiesFilterModal = document.getElementById('activities-filter-modal');
+    let activitiesFilterOpenButton = document.getElementById('activities-filter-open');
+    const activitiesFilterDismissButtons = Array.from(document.querySelectorAll('[data-activities-filter-dismiss]'));
     const quickFilterButtons = Array.from(document.querySelectorAll('[data-quick-filter]'));
+    const filterShortcutButtons = Array.from(document.querySelectorAll('[data-filter-shortcut]'));
     const resetActivityFiltersButton = document.getElementById('reset-activity-filters');
-    const loadMoreButton = document.getElementById('load-more-btn');
-    const activityFetchWarning = document.getElementById('activities-fetch-warning');
+    const filterCollapsibleElements = Array.from(document.querySelectorAll('[data-filter-collapsible]'));
+    const countryFilterList = document.getElementById('country-filter-list');
+    const countryFilterEmptyState = document.getElementById('country-filter-empty');
+    let loadMoreButton = document.getElementById('load-more-btn');
+    let activityFetchWarning = document.getElementById('activities-fetch-warning');
     const premiumAchievementsElement = document.getElementById('premium-achievements');
-    const walletChartCanvas = document.getElementById('wallet-chart');
-    const walletChartWrapper = document.getElementById('wallet-chart-wrapper');
-    const chartToggleCoinsButton = document.getElementById('chart-toggle-coins');
-    const chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
-    const balanceYearToggle = document.getElementById('balance-year-toggle');
-    const balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
-    const medalsLoadMoreButton = document.getElementById('medals-load-more');
+    let walletChartCanvas = document.getElementById('wallet-chart');
+    let walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
+    let walletHeatmapContainer = document.getElementById('wallet-heatmap');
+    let walletHeatmapGrid = document.getElementById('wallet-heatmap-grid');
+    let walletHeatmapWrapper = walletHeatmapGrid ? walletHeatmapGrid.parentElement : null;
+    let walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
+    let walletHeatmapPopover = document.getElementById('wallet-heatmap-popover');
+    let walletHeatmapBackdrop = document.getElementById('wallet-heatmap-backdrop');
+    let walletHeatmapPreview = document.getElementById('wallet-heatmap-preview');
+    const walletOverlayElements = {
+        container: document.getElementById('wallet-chart-overlay'),
+        label: document.getElementById('wallet-overlay-label'),
+        balance: document.getElementById('wallet-overlay-balance'),
+        change: document.getElementById('wallet-overlay-change'),
+        value: document.getElementById('wallet-overlay-value'),
+    };
+    let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
+    let walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
+    let walletChartSettingsButton = document.getElementById('wallet-chart-settings');
+    let walletBottomSheet = document.getElementById('wallet-bottom-sheet');
+    let walletBottomSheetScrim = document.getElementById('wallet-bottom-sheet-scrim');
+    let walletBottomSheetDismissButtons = Array.from(document.querySelectorAll('[data-wallet-sheet-dismiss]'));
+    let walletBottomSheetEscapeHandler = null;
+    let walletGridToggle = document.getElementById('wallet-toggle-grid');
+    let walletLegendToggle = document.getElementById('wallet-toggle-legend');
+    let walletLabelsToggle = document.getElementById('wallet-toggle-labels');
+    let walletAppearanceSelect = document.getElementById('wallet-appearance-select');
+    let walletChartExportButton = document.getElementById('wallet-chart-export');
+    let walletChartShareButton = document.getElementById('wallet-chart-share');
+    let walletZoomPluginAvailable = false;
+    let walletChartInstance = null;
+    let walletChartClickSelection = null;
+    let walletChartEventsBound = false;
+    let walletChartCrosshairPosition = null;
+    let walletOverlayLastPointKey = null;
+    let walletHighlightThrottleHandle = null;
+    let walletHighlightPending = null;
+    let walletTouchLongPressActive = false;
+    let walletLastTapTime = 0;
+    let walletLastTapCoords = null;
+    let chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
+    let balanceYearToggle = document.getElementById('balance-year-toggle');
+    let balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
+    let medalsLoadMoreButton = document.getElementById('medals-load-more');
     const leaderboardStatus = document.getElementById('leaderboard-status');
     const leaderboardBody = document.getElementById('leaderboard-body');
     const leaderboardSortButtons = Array.from(document.querySelectorAll('.leaderboard-sort'));
-    const panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
-    const coinShortcutButtons = Array.from(document.querySelectorAll('#coin-summary [data-coin-type]'));
+    let panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
+    const WALLET_PAN_THROTTLE_MS = 100;
+    const WALLET_DOUBLE_TAP_WINDOW_MS = 320;
+    const WALLET_DOUBLE_TAP_DISTANCE_PX = 28;
+    const applyTouchActionToChart = (canvasElement) => {
+        if (!canvasElement || !canvasElement.style) {
+            return;
+        }
+        if (isMobileZoomViewport()) {
+            canvasElement.style.touchAction = 'pan-y pinch-zoom';
+        } else if (canvasElement.style.touchAction) {
+            canvasElement.style.touchAction = '';
+        }
+    };
+    const updateWalletChartTouchAction = () => {
+        applyTouchActionToChart(walletChartCanvas);
+    };
+    bindMediaQueryChange(mobileViewportMediaQuery, updateWalletChartTouchAction);
+    window.addEventListener('orientationchange', updateWalletChartTouchAction);
+    updateWalletChartTouchAction();
+    const bottomNavMediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateBottomNavState = () => {
+        const isActive = bottomNavMediaQuery.matches && mobileDashboardNavButtons.length > 0;
+        document.body.classList.toggle('is-bottom-nav-active', isActive);
+    };
+    updateBottomNavState();
+    if (typeof bottomNavMediaQuery.addEventListener === 'function') {
+        bottomNavMediaQuery.addEventListener('change', updateBottomNavState);
+    } else if (typeof bottomNavMediaQuery.addListener === 'function') {
+        bottomNavMediaQuery.addListener(updateBottomNavState);
+    }
+
+    const walletOverlayDefaults = {
+        label: 'Wallet insight',
+        balance: 'Balance',
+        change: '',
+        value: 'Hover or tap a point to inspect it.',
+        valueDirection: null,
+    };
+
+    const setWalletChartSkeletonVisible = (visible = false) => {
+        if (!walletChartSkeletonElement) {
+            return;
+        }
+        walletChartSkeletonElement.classList.toggle('hidden', !visible);
+    };
+
+    const setEnduranceChartSkeletonVisible = (visible = false) => {
+        if (!enduranceChartSkeletonElement) {
+            return;
+        }
+
+        enduranceChartSkeletonElement.classList.toggle('hidden', !visible);
+    };
+
+    const positionWalletOverlay = (position) => {
+        if (!walletOverlayElements.container || !walletChartCanvas || !position) {
+            return;
+        }
+        const overlay = walletOverlayElements.container;
+        const overlayWidth = overlay.offsetWidth || 240;
+        const overlayHeight = overlay.offsetHeight || 140;
+        const canvasWidth = walletChartCanvas.clientWidth || overlayWidth;
+        const canvasHeight = walletChartCanvas.clientHeight || overlayHeight;
+        const clampedX = Math.min(Math.max(position.x, overlayWidth / 2), Math.max(overlayWidth / 2, canvasWidth - (overlayWidth / 2)));
+        const verticalGap = 18;
+        const hasRoomAbove = position.y > overlayHeight + verticalGap;
+        const preferredTop = hasRoomAbove
+            ? position.y - overlayHeight - verticalGap
+            : position.y + verticalGap;
+        const maxTop = canvasHeight - overlayHeight - 16;
+        const desiredTop = Math.min(Math.max(12, preferredTop), maxTop);
+        overlay.style.left = `${clampedX - (overlayWidth / 2)}px`;
+        overlay.style.top = `${desiredTop}px`;
+    };
+
+    const applyWalletOverlayState = (state = null) => {
+        const container = walletOverlayElements.container;
+        if (!container) {
+            return;
+        }
+
+        const nextState = state && typeof state === 'object'
+            ? { ...walletOverlayDefaults, ...state }
+            : { ...walletOverlayDefaults };
+
+        const isVisible = Boolean(state?.visible);
+        container.classList.toggle('is-visible', isVisible);
+        if (!isVisible) {
+            walletOverlayLastPointKey = null;
+            walletChartCrosshairPosition = null;
+            container.style.removeProperty('left');
+            container.style.removeProperty('top');
+        } else if (state?.position) {
+            positionWalletOverlay(state.position);
+        }
+
+        if (walletOverlayElements.label) {
+            walletOverlayElements.label.textContent = nextState.label;
+        }
+        if (walletOverlayElements.balance) {
+            walletOverlayElements.balance.textContent = nextState.balance;
+        }
+        if (walletOverlayElements.change) {
+            walletOverlayElements.change.textContent = nextState.change || '';
+            walletOverlayElements.change.classList.toggle('hidden', !nextState.change);
+            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--positive', nextState.valueDirection === 'positive');
+            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--negative', nextState.valueDirection === 'negative');
+        }
+        if (walletOverlayElements.value) {
+            walletOverlayElements.value.textContent = nextState.value;
+            walletOverlayElements.value.classList.toggle('wallet-chart__overlay-value--positive', nextState.valueDirection === 'positive');
+            walletOverlayElements.value.classList.toggle('wallet-chart__overlay-value--negative', nextState.valueDirection === 'negative');
+        }
+    };
     const dashboardPanels = new Map();
+    const chartToggleButtons = {
+        balance: null
+    };
+    const walletZoomButtons = {
+        in: null,
+        out: null,
+    };
+    const updateWalletZoomControlState = () => {
+        const hasChart = Boolean(walletChartInstance);
+        if (walletZoomButtons.in) {
+            walletZoomButtons.in.disabled = !hasChart;
+            walletZoomButtons.in.setAttribute('aria-disabled', hasChart ? 'false' : 'true');
+            walletZoomButtons.in.classList.toggle('is-disabled', !hasChart);
+        }
+        if (walletZoomButtons.out) {
+            walletZoomButtons.out.disabled = !hasChart;
+            walletZoomButtons.out.setAttribute('aria-disabled', hasChart ? 'false' : 'true');
+            walletZoomButtons.out.classList.toggle('is-disabled', !hasChart);
+        }
+    };
+    const stepWalletTimeframe = (direction) => {
+        if (!direction) {
+            return;
+        }
+        const normalizedValue = WALLET_TIMEFRAME_SEQUENCE.includes(walletSelectedTimeframe)
+            ? walletSelectedTimeframe
+            : (typeof walletSelectedTimeframe === 'string' && walletSelectedTimeframe.startsWith('year-')
+                ? WALLET_TIMEFRAME_LAST_12_MONTHS
+                : WALLET_TIMEFRAME_ALL);
+        const currentIndex = WALLET_TIMEFRAME_SEQUENCE.indexOf(normalizedValue);
+        if (currentIndex === -1) {
+            return;
+        }
+        const nextIndex = direction === 'in'
+            ? Math.max(0, currentIndex - 1)
+            : Math.min(WALLET_TIMEFRAME_SEQUENCE.length - 1, currentIndex + 1);
+        if (nextIndex !== currentIndex) {
+            requestWalletTimeframeChange(WALLET_TIMEFRAME_SEQUENCE[nextIndex]);
+        }
+    };
+    const performWalletZoomAction = (action) => {
+        if (action === 'in' || action === 'out') {
+            stepWalletTimeframe(action);
+        }
+    };
+    const bindWalletZoomControls = () => {
+        Object.entries(walletZoomButtons).forEach(([action, button]) => {
+            if (!button || button.dataset.walletZoomBound === 'true') {
+                return;
+            }
+            button.addEventListener('click', () => {
+                performWalletZoomAction(action);
+            });
+            button.dataset.walletZoomBound = 'true';
+        });
+        updateWalletZoomControlState();
+    };
     document.querySelectorAll('[data-dashboard-panel]').forEach(panel => {
         const name = panel?.dataset?.dashboardPanel;
         if (name) {
             dashboardPanels.set(name, panel);
         }
     });
+    const panelTemplates = new Map();
+    document.querySelectorAll('template[data-panel-template]').forEach((template) => {
+        const name = template?.dataset?.panelTemplate;
+        if (name) {
+            panelTemplates.set(name, template);
+        }
+    });
+    const panelReadyCallbacks = new Map();
     const dashboardPanelsContainer = document.querySelector('[data-dashboard-panels]');
-    const pullToRefreshIndicator = document.getElementById('pull-to-refresh-indicator');
-    const pullToRefreshLabel = pullToRefreshIndicator?.querySelector('[data-pull-label]');
     const mobilePanelChangeCallbacks = new Set();
     const DASHBOARD_PANEL_STORAGE_KEY = 'los:dashboard:active-panel';
     let canPersistPanelState = true;
-    const walletLayerReferenceState = {
-        toggles: [],
-        layers: [],
-        cleanupCallbacks: [],
-    };
-    let activeWalletLayerName = null;
 
-    const cleanupWalletLayerListeners = () => {
-        if (!walletLayerReferenceState.cleanupCallbacks.length) {
+    const refreshPanelReferences = () => {
+        globeStatButton = document.getElementById('globe-stat');
+        everestStatButton = document.getElementById('everest-stat');
+        pizzaStatButton = document.getElementById('pizza-stat');
+        likesStatButton = document.getElementById('likes-stat');
+        countryStatButton = document.getElementById('country-stat');
+        globeTotalElement = document.getElementById('globe-total');
+        everestTotalElement = document.getElementById('everest-total');
+        pizzaTotalElement = document.getElementById('pizza-total');
+        likesTotalElement = document.getElementById('likes-total');
+        countryTotalElement = document.getElementById('country-total');
+        walletSummaryElements.coinsCount = document.getElementById('wallet-summary-coins-count');
+        walletSummaryElements.coinsValue = document.getElementById('wallet-summary-coins-value');
+        walletSummaryElements.medalCount = document.getElementById('wallet-summary-medal-count');
+        walletSummaryElements.medalValue = document.getElementById('wallet-summary-medal-value');
+        walletSummaryElements.totalValue = document.getElementById('wallet-summary-total-value');
+        walletSummaryElements.totalDetail = document.getElementById('wallet-summary-total-detail');
+        activitiesContainer = document.getElementById('activities-container');
+        activitiesEmptyState = document.getElementById('activities-empty');
+        medalsSection = document.getElementById('medals-section');
+        medalFilterBanner = document.getElementById('medal-filter-banner');
+        medalFilterLabel = document.getElementById('medal-filter-label');
+        medalFilterDescription = document.getElementById('medal-filter-description');
+        medalFilterEmoji = document.getElementById('medal-filter-emoji');
+        activitiesSectionElement = document.getElementById('activities-section');
+        activityFilterSummary = document.getElementById('activity-filter-summary');
+        activityFilterActive = document.getElementById('activity-filter-active');
+        bestActivitiesContainer = document.getElementById('best-activities');
+        topPerformancesSection = document.getElementById('activities-top-performances');
+        topPerformancesEmptyState = document.getElementById('top-performances-empty');
+        activitiesMedalInfo = document.getElementById('activities-medal-info');
+        activitiesMedalInfoEmoji = document.getElementById('activities-medal-info-emoji');
+        activitiesMedalInfoLabel = document.getElementById('activities-medal-info-label');
+        activitiesMedalInfoDescription = document.getElementById('activities-medal-info-description');
+        activitiesMedalInfoClearButton = document.getElementById('activities-medal-info-clear');
+        activitiesFilterOpenButton = document.getElementById('activities-filter-open');
+        loadMoreButton = document.getElementById('load-more-btn');
+        activityFetchWarning = document.getElementById('activities-fetch-warning');
+        topAchievementsCarousel = document.getElementById('top-achievements-carousel');
+        profileActivityHistoryElement = document.getElementById('profile-activity-history-body');
+        if (topAchievementsInterval) {
+            clearInterval(topAchievementsInterval);
+            topAchievementsInterval = null;
+        }
+        if (typeof destroyEnduranceChart === 'function') {
+            destroyEnduranceChart();
+        }
+        enduranceChartCanvases = {
+            distance: document.getElementById('endurance-ma-chart-distance'),
+            elevation: document.getElementById('endurance-ma-chart-elevation'),
+            movingTime: document.getElementById('endurance-ma-chart-moving-time'),
+        };
+        enduranceChartElement = document.getElementById('endurance-chart');
+        enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
+        enduranceCompareForm = document.getElementById('endurance-compare-form');
+        enduranceCompareInput = document.getElementById('endurance-compare-input');
+        enduranceCompareSelect = document.getElementById('endurance-compare-select');
+        enduranceCompareDatalist = document.getElementById('endurance-compare-datalist');
+        enduranceCompareStatus = document.getElementById('endurance-compare-status');
+        enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
+        setEnduranceChartSkeletonVisible(isShellLoading());
+        bindEnduranceCompareForm();
+        bindEnduranceFullscreenControls();
+        walletChartCanvas = document.getElementById('wallet-chart');
+        walletChartSkeletonElement = document.getElementById('wallet-chart-skeleton');
+        setWalletChartSkeletonVisible(isShellLoading());
+        walletOverlayElements.container = document.getElementById('wallet-chart-overlay');
+        walletOverlayElements.label = document.getElementById('wallet-overlay-label');
+        walletOverlayElements.balance = document.getElementById('wallet-overlay-balance');
+        walletOverlayElements.value = document.getElementById('wallet-overlay-value');
+        walletZoomButtons.out = document.getElementById('wallet-zoom-out');
+        walletZoomButtons.in = document.getElementById('wallet-zoom-in');
+        walletChartRangeButtons = Array.from(document.querySelectorAll('[data-wallet-range]'));
+        walletChartSettingsButton = document.getElementById('wallet-chart-settings');
+        walletBottomSheet = document.getElementById('wallet-bottom-sheet');
+        walletBottomSheetScrim = document.getElementById('wallet-bottom-sheet-scrim');
+        walletBottomSheetDismissButtons = Array.from(document.querySelectorAll('[data-wallet-sheet-dismiss]'));
+        walletGridToggle = document.getElementById('wallet-toggle-grid');
+        walletLegendToggle = document.getElementById('wallet-toggle-legend');
+        walletLabelsToggle = document.getElementById('wallet-toggle-labels');
+        walletAppearanceSelect = document.getElementById('wallet-appearance-select');
+        walletChartExportButton = document.getElementById('wallet-chart-export');
+        walletChartShareButton = document.getElementById('wallet-chart-share');
+        walletHeatmapContainer = document.getElementById('wallet-heatmap');
+        walletHeatmapGrid = document.getElementById('wallet-heatmap-grid');
+        walletHeatmapPopover = document.getElementById('wallet-heatmap-popover');
+        walletHeatmapBackdrop = document.getElementById('wallet-heatmap-backdrop');
+        walletHeatmapWrapper = walletHeatmapGrid ? walletHeatmapGrid.parentElement : null;
+        walletHeatmapEmptyState = document.getElementById('wallet-heatmap-empty');
+        walletHeatmapPreview = document.getElementById('wallet-heatmap-preview');
+        if (walletAppearanceSelect) {
+            walletAppearanceSelect.value = walletChartAppearancePreference;
+        }
+        applyWalletOverlayState(null);
+        bindWalletZoomControls();
+        updateWalletChartTouchAction();
+        walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
+        if (walletTimeframeSelect) {
+            populateWalletTimeframeSelect(latestWalletMetrics);
+        }
+        chartToggleBalanceButton = document.getElementById('chart-toggle-balance');
+        balanceYearToggle = document.getElementById('balance-year-toggle');
+        balanceYearToggleLabel = document.querySelector('[data-balance-year-toggle-label]');
+        medalsLoadMoreButton = document.getElementById('medals-load-more');
+        panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
+        chartToggleButtons.balance = chartToggleBalanceButton;
+        achievementWallet = document.getElementById('achievement-wallet');
+        updateActivitiesMedalInfo();
+        renderFunStats();
+        renderProfileDisciplineRatios();
+        syncWalletTimeRangeChips();
+        updateWalletLayerToggleState();
+        bindWalletTimeRangeButtons();
+        bindWalletBottomSheet();
+        bindWalletLayerToggles();
+        bindWalletExportShare();
+        bindCountryStatButton();
+    };
+
+    const onPanelReady = (panelName, callback) => {
+        if (!panelName || typeof callback !== 'function') {
             return;
         }
 
-        walletLayerReferenceState.cleanupCallbacks.forEach((callback) => {
+        if (dashboardPanels.has(panelName)) {
+            callback(dashboardPanels.get(panelName));
+            return;
+        }
+
+        const callbacks = panelReadyCallbacks.get(panelName) ?? [];
+        callbacks.push(callback);
+        panelReadyCallbacks.set(panelName, callbacks);
+    };
+
+    const runPanelReadyCallbacks = (panelName, panelElement) => {
+        const callbacks = panelReadyCallbacks.get(panelName);
+        if (!callbacks || callbacks.length === 0) {
+            return;
+        }
+
+        panelReadyCallbacks.delete(panelName);
+        callbacks.forEach((callback) => {
             try {
-                callback();
+                callback(panelElement);
             } catch (error) {
-                console.warn('Unable to clean up wallet layer listener:', error);
+                console.error('Panel initializer error for', panelName, error);
             }
         });
-        walletLayerReferenceState.cleanupCallbacks = [];
     };
 
-    const refreshPanelReferences = () => {
-        cleanupWalletLayerListeners();
-        walletLayerReferenceState.toggles = Array.from(document.querySelectorAll('[data-wallet-layer-toggle]'));
-        walletLayerReferenceState.layers = Array.from(document.querySelectorAll('[data-wallet-layer]'));
+    const ensurePanel = (panelName) => {
+        if (!panelName) {
+            return false;
+        }
 
-        const updateWalletLayerToggleState = (targetLayer = null) => {
-            if (walletLayerReferenceState.toggles.length === 0 && walletLayerReferenceState.layers.length === 0) {
-                activeWalletLayerName = null;
-                return;
-            }
+        if (dashboardPanels.has(panelName)) {
+            refreshPanelReferences();
+            return true;
+        }
 
-            const resolvedLayer = targetLayer
-                || activeWalletLayerName
-                || walletLayerReferenceState.toggles.find((button) => button.classList.contains('is-active') && button.dataset.walletLayerToggle)?.dataset.walletLayerToggle
-                || walletLayerReferenceState.layers.find((layer) => layer.classList.contains('is-active') && layer.dataset.walletLayer)?.dataset.walletLayer
-                || walletLayerReferenceState.toggles[0]?.dataset.walletLayerToggle
-                || walletLayerReferenceState.layers[0]?.dataset.walletLayer
-                || null;
+        const template = panelTemplates.get(panelName);
+        if (!template || !dashboardPanelsContainer) {
+            return false;
+        }
 
-            activeWalletLayerName = resolvedLayer;
+        const fragment = template.content.cloneNode(true);
+        dashboardPanelsContainer.appendChild(fragment);
 
-            if (!resolvedLayer) {
-                walletLayerReferenceState.toggles.forEach((button) => {
-                    button.classList.remove('is-active');
-                    button.setAttribute('aria-pressed', 'false');
-                    button.removeAttribute('aria-current');
-                });
-                walletLayerReferenceState.layers.forEach((layer) => {
-                    layer.classList.add('is-active');
-                    layer.removeAttribute('hidden');
-                });
-                return;
-            }
+        const newPanel = dashboardPanelsContainer.querySelector(`[data-dashboard-panel="${panelName}"]`);
+        if (!newPanel) {
+            return false;
+        }
 
-            walletLayerReferenceState.toggles.forEach((button) => {
-                const isActive = button.dataset.walletLayerToggle === resolvedLayer;
-                button.classList.toggle('is-active', isActive);
-                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-                if (isActive) {
-                    button.setAttribute('aria-current', 'true');
-                } else {
-                    button.removeAttribute('aria-current');
-                }
-            });
-
-            walletLayerReferenceState.layers.forEach((layer) => {
-                const isActive = layer.dataset.walletLayer === resolvedLayer;
-                layer.classList.toggle('is-active', isActive);
-                if (isActive) {
-                    layer.removeAttribute('hidden');
-                } else {
-                    layer.setAttribute('hidden', 'true');
-                }
-            });
-        };
-
-        walletLayerReferenceState.toggles.forEach((button) => {
-            const handleClick = (event) => {
-                event.preventDefault();
-                if (button.disabled) {
-                    return;
-                }
-
-                const targetLayer = button.dataset.walletLayerToggle;
-                if (!targetLayer) {
-                    return;
-                }
-
-                updateWalletLayerToggleState(targetLayer);
-            };
-
-            button.addEventListener('click', handleClick);
-            walletLayerReferenceState.cleanupCallbacks.push(() => {
-                button.removeEventListener('click', handleClick);
-            });
-        });
-
-        updateWalletLayerToggleState();
+        dashboardPanels.set(panelName, newPanel);
+        refreshPanelReferences();
+        runPanelReadyCallbacks(panelName, newPanel);
+        return true;
     };
+
+    refreshPanelReferences();
 
     const updateViewportHeightVar = () => {
         const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? document.documentElement?.clientHeight;
@@ -517,6 +1840,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.documentElement.style.overflowX = 'hidden';
+
+    const isValidPanelName = (name) => typeof name === 'string'
+        && name.trim().length > 0
+        && (dashboardPanels.has(name) || panelTemplates.has(name));
+
+    const readPanelFromUrl = () => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const panelParam = (params.get('panel') || '').trim();
+            return isValidPanelName(panelParam) ? panelParam : null;
+        } catch (error) {
+            console.warn('Unable to parse panel from URL:', error);
+            return null;
+        }
+    };
+
+    const syncPanelUrl = (panelName, { replace = false } = {}) => {
+        if (!isValidPanelName(panelName) || !('history' in window)) {
+            return;
+        }
+
+        const method = replace ? 'replaceState' : 'pushState';
+        if (typeof window.history[method] !== 'function') {
+            return;
+        }
+
+        try {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('panel', panelName);
+            const nextUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+            const nextState = { ...(window.history.state || {}), panel: panelName };
+            window.history[method](nextState, '', nextUrl);
+        } catch (error) {
+            console.warn('Unable to update panel URL state:', error);
+        }
+    };
 
     const readStoredPanelName = () => {
         if (!canPersistPanelState) {
@@ -555,32 +1914,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     };
-    const chartToggleButtons = {
-        coins: chartToggleCoinsButton,
-        balance: chartToggleBalanceButton
-    };
     const leaderboardState = {
         entries: [],
         rawEntries: [],
         sortKey: 'rank',
-        direction: 'asc'
+        direction: 'asc',
     };
 
     const FILTER_APPLY_DELAY_MS = 250;
     let filterApplyTimeout = null;
-    let coinChartMode = 'stacked';
     let medalInventory = [];
+    const DEFAULT_MEDAL_RARITY_FILTER_KEY = MEDAL_RARITY_DISPLAY_ORDER[0] || DEFAULT_MEDAL_RARITY_KEY;
+    const buildDefaultMedalRarityFilter = () => new Set([DEFAULT_MEDAL_RARITY_FILTER_KEY]);
+    let medalRarityFilters = buildDefaultMedalRarityFilter();
+    let historicalMedalInventory = [];
+    let disciplineRatioStats = null;
+    const progressDisciplineTabs = [
+        { key: 'Run', emoji: '🏃', label: 'Run progression' },
+        { key: 'Ride', emoji: '🚴', label: 'Ride progression' },
+        { key: 'Swim', emoji: '🏊', label: 'Swim progression' },
+    ];
+    let activeProgressDiscipline = progressDisciplineTabs[0].key;
+    let medalContributionMap = new Map();
+    let medalContributionHighlightsByDate = new Map();
+    let medalActivityCounts = new Map();
+    const walletMetricsCache = { key: null, metrics: [] };
+    const rewardSummaryCache = { key: null, summary: null };
     let visibleMedalCount = 0;
     let activeQuickFilter = null;
+    let activeFilterShortcut = null;
+    let topFilterShortcutActive = false;
     let lastShareData = null;
     let shareCopyResetTimeout = null;
 
     let activePanelName = null;
+    const sharedViewParam = new URLSearchParams(window.location.search).get('userId') || '';
+    const initialPanelFromUrl = readPanelFromUrl();
+    const shouldForceProfilePanel = sharedViewParam.trim().length > 0;
     const initialPanelFromMarkup = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab ?? null;
     const storedPanelName = readStoredPanelName();
-    const initialPanelName = (storedPanelName && dashboardPanels.has(storedPanelName))
-        ? storedPanelName
-        : (initialPanelFromMarkup || (dashboardPanels.keys().next().value ?? null));
+    const initialPanelName = (isValidPanelName(initialPanelFromUrl)
+        ? initialPanelFromUrl
+        : (storedPanelName && isValidPanelName(storedPanelName)
+            ? storedPanelName
+            : (initialPanelFromMarkup || (dashboardPanels.keys().next().value ?? null))));
 
     function updateMobileNavigation(panelName) {
         if (mobileDashboardNavButtons.length === 0) {
@@ -594,9 +1971,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    function setActivePanel(panelName, { focusTab = false } = {}) {
-        if (!panelName || !dashboardPanels.has(panelName)) {
+    function mapsTo(panelName, { focusTab = false, skipUrlSync = false } = {}) {
+        if (!panelName) {
             return;
+        }
+
+        if (!dashboardPanels.has(panelName)) {
+            const ensured = ensurePanel(panelName);
+            if (!ensured) {
+                return;
+            }
         }
 
         if (activePanelName === panelName) {
@@ -643,11 +2027,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             panel.classList.toggle('is-active', name === panelName);
         });
 
+        if (panelName === 'activities' && pendingActivitiesOptions) {
+            const options = pendingActivitiesOptions;
+            pendingActivitiesOptions = null;
+            applyFilters(options);
+        }
+
+        if (panelName === 'wallet' && pendingWalletRender) {
+            renderWalletChart();
+            pendingWalletRender = false;
+        }
+
         notifyPanelChange(panelName);
+
+        if (!skipUrlSync) {
+            syncPanelUrl(panelName);
+        }
     }
 
-    refreshPanelReferences();
-    setActivePanel(initialPanelName || 'profile');
+    const resolvedInitialPanel = shouldForceProfilePanel ? 'profile' : (initialPanelName || 'profile');
+    mapsTo(resolvedInitialPanel, { skipUrlSync: true });
+    syncPanelUrl(resolvedInitialPanel, { replace: true });
+
+    window.addEventListener('popstate', (event) => {
+        const panelFromState = event?.state?.panel;
+        const panelFromUrl = readPanelFromUrl();
+        const targetPanel = isValidPanelName(panelFromState) ? panelFromState : panelFromUrl;
+        if (targetPanel && targetPanel !== activePanelName) {
+            mapsTo(targetPanel, { skipUrlSync: true });
+        }
+    });
 
     const moveToRelativePanel = (direction) => {
         if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {
@@ -662,7 +2071,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        setActivePanel(targetButton.dataset.dashboardTab, { focusTab: false });
+        mapsTo(targetButton.dataset.dashboardTab, { focusTab: false });
         if (typeof targetButton.focus === 'function') {
             try {
                 targetButton.focus({ preventScroll: true });
@@ -678,7 +2087,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         button.addEventListener('click', () => {
-            setActivePanel(button.dataset.dashboardTab, { focusTab: true });
+            mapsTo(button.dataset.dashboardTab, { focusTab: true });
         });
 
         button.addEventListener('keydown', (event) => {
@@ -694,207 +2103,109 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     mobileDashboardNavButtons.forEach((button) => {
         button.addEventListener('click', () => {
-            setActivePanel(button.dataset.dashboardNav, { focusTab: false });
+            mapsTo(button.dataset.dashboardNav, { focusTab: false });
         });
     });
-
-    if (dashboardPanelsContainer) {
-        const SWIPE_THRESHOLD_PX = 56;
-        const SWIPE_MAX_OFF_AXIS_PX = 72;
-        let swipePointerId = null;
-        let swipeStartX = 0;
-        let swipeStartY = 0;
-        let isTrackingSwipe = false;
-
-        const resetSwipeTracking = () => {
-            if (swipePointerId !== null && typeof dashboardPanelsContainer.releasePointerCapture === 'function' && dashboardPanelsContainer.hasPointerCapture?.(swipePointerId)) {
-                dashboardPanelsContainer.releasePointerCapture(swipePointerId);
-            }
-            swipePointerId = null;
-            swipeStartX = 0;
-            swipeStartY = 0;
-            isTrackingSwipe = false;
-        };
-
-        dashboardPanelsContainer.addEventListener('pointerdown', (event) => {
-            if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
-                return;
-            }
-            swipePointerId = event.pointerId;
-            swipeStartX = event.clientX;
-            swipeStartY = event.clientY;
-            isTrackingSwipe = true;
-            if (typeof dashboardPanelsContainer.setPointerCapture === 'function') {
-                try {
-                    dashboardPanelsContainer.setPointerCapture(event.pointerId);
-                } catch (error) {
-                    // Ignore setPointerCapture failures
-                }
-            }
-        });
-
-        dashboardPanelsContainer.addEventListener('pointermove', (event) => {
-            if (!isTrackingSwipe || event.pointerId !== swipePointerId) {
-                return;
-            }
-
-            const deltaX = event.clientX - swipeStartX;
-            const deltaY = event.clientY - swipeStartY;
-
-            if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > SWIPE_MAX_OFF_AXIS_PX) {
-                resetSwipeTracking();
-                return;
-            }
-
-            if (Math.abs(deltaX) > SWIPE_THRESHOLD_PX && Math.abs(deltaY) < SWIPE_MAX_OFF_AXIS_PX) {
-                event.preventDefault();
-                resetSwipeTracking();
-                moveToRelativePanel(deltaX < 0 ? 1 : -1);
-            }
-        });
-
-        const cancelSwipeTracking = () => {
-            resetSwipeTracking();
-        };
-
-        dashboardPanelsContainer.addEventListener('pointerup', cancelSwipeTracking);
-        dashboardPanelsContainer.addEventListener('pointercancel', cancelSwipeTracking);
-        dashboardPanelsContainer.addEventListener('lostpointercapture', cancelSwipeTracking);
-    }
-
-    const isTouchCapable = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
-
-    if (isTouchCapable && pullToRefreshIndicator) {
-        const PULL_READY_THRESHOLD_PX = 72;
-        const PULL_REFRESH_THRESHOLD_PX = 120;
-        let pullStartY = 0;
-        let isPulling = false;
-        let lastPullDistance = 0;
-        let isPullRefreshing = false;
-
-        const resetPullIndicator = (force = false) => {
-            if (isPullRefreshing && !force) {
-                return;
-            }
-
-            isPulling = false;
-            lastPullDistance = 0;
-            pullToRefreshIndicator.classList.remove('is-visible', 'is-ready', 'is-refreshing');
-            pullToRefreshIndicator.style.setProperty('--pull-indicator-offset', '0px');
-            if (pullToRefreshLabel) {
-                pullToRefreshLabel.textContent = 'Pull to refresh';
-            }
-            isPullRefreshing = false;
-        };
-
-        const updatePullIndicator = (distance) => {
-            const normalized = Math.max(0, distance);
-            const clamped = Math.min(normalized, 160);
-            if (normalized > 0) {
-                pullToRefreshIndicator.classList.add('is-visible');
-            } else {
-                pullToRefreshIndicator.classList.remove('is-visible');
-            }
-            pullToRefreshIndicator.style.setProperty('--pull-indicator-offset', `${clamped}px`);
-            if (pullToRefreshLabel) {
-                pullToRefreshLabel.textContent = normalized > PULL_REFRESH_THRESHOLD_PX ? 'Release to refresh' : 'Pull to refresh';
-            }
-            if (normalized > PULL_READY_THRESHOLD_PX) {
-                pullToRefreshIndicator.classList.add('is-ready');
-            } else {
-                pullToRefreshIndicator.classList.remove('is-ready');
-            }
-        };
-
-        const getScrollContainer = () => document.scrollingElement || document.documentElement || document.body;
-
-        const handleTouchStart = (event) => {
-            if (event.touches.length !== 1 || isPullRefreshing) {
-                return;
-            }
-
-            const scrollTop = getScrollContainer()?.scrollTop ?? window.pageYOffset;
-            if (scrollTop > 0) {
-                return;
-            }
-
-            pullStartY = event.touches[0].clientY;
-            lastPullDistance = 0;
-            isPulling = true;
-        };
-
-        const handleTouchMove = (event) => {
-            if (!isPulling || isPullRefreshing) {
-                return;
-            }
-
-            const currentY = event.touches[0].clientY;
-            const distance = currentY - pullStartY;
-            if (distance <= 0) {
-                lastPullDistance = 0;
-                updatePullIndicator(0);
-                return;
-            }
-
-            lastPullDistance = distance;
-            updatePullIndicator(distance);
-            if (distance > 0) {
-                event.preventDefault();
-            }
-        };
-
-        const triggerRefresh = () => {
-            if (isPullRefreshing || typeof window.dashboardMobile?.refresh !== 'function') {
-                resetPullIndicator(true);
-                return;
-            }
-
-            isPullRefreshing = true;
-            pullToRefreshIndicator.classList.add('is-refreshing');
-            pullToRefreshIndicator.classList.remove('is-ready');
-            if (pullToRefreshLabel) {
-                pullToRefreshLabel.textContent = 'Refreshing…';
-            }
-
-            Promise.resolve(window.dashboardMobile.refresh({ showLoading: true })).finally(() => {
-                window.setTimeout(() => resetPullIndicator(true), 150);
-            });
-        };
-
-        const handleTouchEnd = () => {
-            if (!isPulling) {
-                return;
-            }
-
-            isPulling = false;
-            if (lastPullDistance > PULL_REFRESH_THRESHOLD_PX && !isSharedView) {
-                triggerRefresh();
-            } else {
-                resetPullIndicator();
-            }
-        };
-
-        window.addEventListener('touchstart', handleTouchStart, { passive: true });
-        window.addEventListener('touchmove', handleTouchMove, { passive: false });
-        window.addEventListener('touchend', handleTouchEnd);
-        window.addEventListener('touchcancel', () => resetPullIndicator(true));
-    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const sharedUserIdParam = (urlParams.get('userId') || '').trim();
     const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
     const isSharedView = Boolean(sharedUserId);
+    const syncParamRaw = (urlParams.get('sync') || '').toLowerCase();
+    const shouldForceAuthSync = !isSharedView && ['1', 'true', 'yes', 'refresh'].includes(syncParamRaw);
+
+    const removeSyncQueryParam = () => {
+        if (!('history' in window) || typeof window.history.replaceState !== 'function') {
+            return;
+        }
+
+        const currentUrl = new URL(window.location.href);
+        if (!currentUrl.searchParams.has('sync')) {
+            return;
+        }
+
+        currentUrl.searchParams.delete('sync');
+        const nextSearch = currentUrl.searchParams.toString();
+        const nextUrl = `${currentUrl.pathname}${nextSearch ? `?${nextSearch}` : ''}${currentUrl.hash}`;
+        window.history.replaceState({}, '', nextUrl);
+    };
+
+    const buildStravaAuthRedirectUrl = () => {
+        if (typeof window === 'undefined' || !window.location) {
+            return '/auth/strava';
+        }
+
+        try {
+            const currentUrl = new URL(window.location.href);
+            const redirectTarget = new URL(currentUrl.href);
+            redirectTarget.searchParams.set('sync', '1');
+            const redirectPath = `${redirectTarget.pathname}${redirectTarget.search}${redirectTarget.hash}`;
+            const authUrl = new URL('/auth/strava', window.location.origin);
+            authUrl.searchParams.set('redirect', redirectPath);
+            return authUrl.toString();
+        } catch (error) {
+            console.error('Failed to construct Strava auth redirect URL:', error);
+            return '/auth/strava';
+        }
+    };
+
+    const createStravaAuthRedirectError = () => {
+        const error = new Error('Redirecting to Strava for authentication.');
+        error.name = 'StravaAuthRequiredError';
+        error.isAuthRedirect = true;
+        return error;
+    };
+
+    const createStravaAuthRedirectResult = () => ({
+        status: 'auth_redirect',
+        isAuthRedirect: true,
+    });
+
+    const redirectToStravaAuth = () => {
+        if (typeof window === 'undefined' || !window.location) {
+            return;
+        }
+
+        const authUrl = buildStravaAuthRedirectUrl();
+        if (authUrl) {
+            window.location.href = authUrl;
+        }
+    };
     const rankingProgressLabelElement = document.getElementById('ranking-progress-label');
     const coinMixCanvas = document.getElementById('coin-mix-chart');
     const coinMixEmptyState = document.getElementById('coin-mix-empty');
     const medalMixCanvas = document.getElementById('medal-mix-chart');
     const medalMixEmptyState = document.getElementById('medal-mix-empty');
+    const updateMixChartTouchActions = () => {
+        applyTouchActionToChart(coinMixCanvas);
+        applyTouchActionToChart(medalMixCanvas);
+    };
+    bindMediaQueryChange(mobileViewportMediaQuery, updateMixChartTouchActions);
+    window.addEventListener('orientationchange', updateMixChartTouchActions);
+    updateMixChartTouchActions();
 
     if (walletChartCanvas) {
         walletChartCanvas.classList.add('hidden');
     }
 
     if (typeof Chart !== 'undefined') {
+        const zoomPlugin = (typeof window !== 'undefined')
+            ? (window.ChartZoom || window.chartjsPluginZoom || window['chartjs-plugin-zoom'])
+            : null;
+        if (zoomPlugin && typeof Chart.register === 'function') {
+            Chart.register(zoomPlugin);
+            walletZoomPluginAvailable = true;
+        }
+        if (!walletZoomPluginAvailable) {
+            const registry = Chart.registry;
+            if (registry?.plugins?.get) {
+                walletZoomPluginAvailable = Boolean(registry.plugins.get('zoom'));
+            } else if (typeof registry?.getPlugin === 'function') {
+                walletZoomPluginAvailable = Boolean(registry.getPlugin('zoom'));
+            } else if (Chart._plugins?.get) {
+                walletZoomPluginAvailable = Boolean(Chart._plugins.get('zoom'));
+            }
+        }
         const defaultFontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";
         Chart.defaults.font.family = defaultFontFamily;
         Chart.defaults.font.size = 13;
@@ -910,52 +2221,859 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
         }
     }
-
-    Object.values(chartToggleButtons).forEach(button => {
-        if (button && !button.dataset.baseClass) {
-            button.dataset.baseClass = button.className;
-        }
-    });
+    updateWalletZoomControlState();
 
     const medalColorAssignments = new Map();
     let medalColorIndex = 0;
 
     let activeChartKey = 'balance';
-    let walletChartInstance = null;
-    let walletChartStatusElement = null;
 
-    const setWalletChartStatus = (message) => {
-        if (!walletChartWrapper) {
+    const storeWalletChartScaleDefaults = (chart) => {
+        if (!chart) {
             return;
         }
-
-        if (!message) {
-            if (walletChartStatusElement) {
-                walletChartStatusElement.remove();
-                walletChartStatusElement = null;
+        const scales = chart.scales || {};
+        const defaults = {};
+        Object.entries(scales).forEach(([scaleId, scale]) => {
+            if (!scale || !scale.options) {
+                return;
             }
-            walletChartWrapper.removeAttribute('data-wallet-chart-status');
+            defaults[scaleId] = {
+                min: scale.options.min,
+                max: scale.options.max,
+                suggestedMin: scale.options.suggestedMin,
+                suggestedMax: scale.options.suggestedMax,
+                beginAtZero: scale.options.beginAtZero,
+            };
+        });
+        chart.$walletOriginalScales = defaults;
+        Object.values(scales).forEach((scale) => {
+            if (scale) {
+                scale.$walletZoomActive = false;
+            }
+        });
+    };
+
+    const restoreWalletChartScaleDefaults = (chart) => {
+        if (!chart || !chart.$walletOriginalScales) {
+            return;
+        }
+        Object.entries(chart.scales || {}).forEach(([scaleId, scale]) => {
+            const original = chart.$walletOriginalScales[scaleId];
+            if (!scale || !scale.options || !original) {
+                return;
+            }
+            scale.options.min = original.min;
+            scale.options.max = original.max;
+            scale.options.suggestedMin = original.suggestedMin;
+            scale.options.suggestedMax = original.suggestedMax;
+            scale.options.beginAtZero = original.beginAtZero;
+            scale.$walletZoomActive = false;
+        });
+    };
+
+    const getWalletDatasetValue = (entry) => {
+        if (Number.isFinite(entry)) {
+            return entry;
+        }
+        if (entry && typeof entry === 'object') {
+            if (Number.isFinite(entry.y)) {
+                return entry.y;
+            }
+            if (Number.isFinite(entry.value)) {
+                return entry.value;
+            }
+        }
+        return Number.NaN;
+    };
+
+    const computeWalletAxisRange = (chart, axisId, startIndex, endIndex) => {
+        const datasets = Array.isArray(chart?.data?.datasets) ? chart.data.datasets : [];
+        let min = Number.POSITIVE_INFINITY;
+        let max = Number.NEGATIVE_INFINITY;
+
+        datasets.forEach((dataset, datasetIndex) => {
+            if (!dataset || (dataset.yAxisID || 'y') !== axisId) {
+                return;
+            }
+            const meta = chart.getDatasetMeta ? chart.getDatasetMeta(datasetIndex) : null;
+            if (meta?.hidden) {
+                return;
+            }
+            const data = Array.isArray(dataset.data) ? dataset.data : [];
+            for (let index = startIndex; index <= endIndex; index += 1) {
+                const value = getWalletDatasetValue(data[index]);
+                if (!Number.isFinite(value)) {
+                    continue;
+                }
+                if (value < min) {
+                    min = value;
+                }
+                if (value > max) {
+                    max = value;
+                }
+            }
+        });
+
+        if (min === Number.POSITIVE_INFINITY || max === Number.NEGATIVE_INFINITY) {
+            return null;
+        }
+
+        if (min === max) {
+            const padding = Math.max(1, Math.abs(min) * 0.05);
+            return { min: min - padding, max: max + padding };
+        }
+
+        return { min, max };
+    };
+
+    const updateWalletChartDynamicRanges = (chart) => {
+        if (!chart || !walletZoomPluginAvailable) {
             return;
         }
 
-        if (!walletChartStatusElement) {
-            walletChartStatusElement = document.createElement('p');
-            walletChartStatusElement.id = 'wallet-chart-status';
-            walletChartStatusElement.className = 'wallet-chart__status';
-            walletChartStatusElement.setAttribute('role', 'status');
-            walletChartStatusElement.setAttribute('aria-live', 'polite');
-            walletChartWrapper.appendChild(walletChartStatusElement);
+        const xScale = chart.scales?.x;
+        const labelsLength = chart.data?.labels?.length || 0;
+        if (!xScale || labelsLength === 0) {
+            return;
         }
 
-        walletChartWrapper.setAttribute('data-wallet-chart-status', message);
-        walletChartStatusElement.textContent = message;
+        const startIndex = Math.max(0, Math.floor(xScale.min ?? 0));
+        const endIndex = Math.min(labelsLength - 1, Math.ceil(xScale.max ?? (labelsLength - 1)));
+
+        Object.entries(chart.scales || {}).forEach(([scaleId, scale]) => {
+            if (!scale || !scale.options || scaleId === 'x') {
+                return;
+            }
+
+            const range = computeWalletAxisRange(chart, scaleId, startIndex, endIndex);
+            if (range) {
+                const delta = range.max - range.min;
+                const padding = delta > 0 ? delta * 0.08 : Math.max(1, Math.abs(range.max) * 0.08);
+                scale.options.beginAtZero = false;
+                scale.options.suggestedMin = range.min - padding;
+                scale.options.suggestedMax = range.max + padding;
+                scale.$walletZoomActive = true;
+            } else if (scale.$walletZoomActive) {
+                const original = chart.$walletOriginalScales?.[scaleId];
+                if (original) {
+                    scale.options.beginAtZero = original.beginAtZero;
+                    scale.options.suggestedMin = original.suggestedMin;
+                    scale.options.suggestedMax = original.suggestedMax;
+                    scale.options.min = original.min;
+                    scale.options.max = original.max;
+                }
+                scale.$walletZoomActive = false;
+            }
+        });
+    };
+
+    const resetWalletChartZoom = (chart) => {
+        if (!chart) {
+            return;
+        }
+        if (typeof chart.resetZoom === 'function') {
+            chart.resetZoom();
+        }
+        restoreWalletChartScaleDefaults(chart);
+        if (typeof chart.update === 'function') {
+            chart.update();
+        }
+    };
+
+    const handleWalletZoomComplete = ({ chart }) => {
+        if (!chart) {
+            return;
+        }
+        updateWalletChartDynamicRanges(chart);
+        if (typeof chart.update === 'function') {
+            chart.update('none');
+        }
+    };
+
+    const buildWalletZoomOptions = (labelsLength) => {
+        if (!walletZoomPluginAvailable) {
+            return undefined;
+        }
+        const mobileZoom = isMobileZoomViewport();
+        const zoomMode = mobileZoom ? 'x' : 'xy';
+        const allowWheelZoom = !mobileZoom;
+        return {
+            limits: {
+                x: {
+                    min: 0,
+                    max: labelsLength ? labelsLength - 1 : undefined,
+                },
+            },
+            pan: {
+                enabled: true,
+                mode: zoomMode,
+                modifierKey: allowWheelZoom ? 'shift' : undefined,
+                threshold: mobileZoom ? 12 : 0,
+                scaleMode: zoomMode,
+                onPanComplete: handleWalletZoomComplete,
+            },
+            zoom: {
+                wheel: {
+                    enabled: allowWheelZoom,
+                    modifierKey: allowWheelZoom ? 'ctrl' : undefined,
+                },
+                pinch: {
+                    enabled: true,
+                    mode: zoomMode,
+                    threshold: mobileZoom ? 0.35 : 0,
+                },
+                drag: allowWheelZoom
+                    ? {
+                        enabled: true,
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        borderColor: 'rgba(16, 185, 129, 0.35)',
+                        borderWidth: 1,
+                    }
+                    : {
+                        enabled: false,
+                },
+                mode: zoomMode,
+                scaleMode: zoomMode,
+                onZoomComplete: handleWalletZoomComplete,
+            },
+        };
     };
     let coinMixChartInstance = null;
     let medalMixChartInstance = null;
     let balanceCompareYears = false;
+    const WALLET_TIMEFRAME_ALL = 'all';
+    const WALLET_TIMEFRAME_LAST_12_MONTHS = 'last-12-months';
+    const WALLET_TIMEFRAME_DAY = 'range-1d';
+    const WALLET_TIMEFRAME_WEEK = 'range-1w';
+    const WALLET_TIMEFRAME_MONTH = 'range-1m';
+    const WALLET_TIMEFRAME_3_MONTH = 'range-3m';
+    const WALLET_TIMEFRAME_6_MONTH = 'range-6m';
+    const WALLET_TIMEFRAME_2_YEAR = 'range-2y';
+    const WALLET_TIMEFRAME_SEQUENCE = [
+        WALLET_TIMEFRAME_3_MONTH,
+        WALLET_TIMEFRAME_6_MONTH,
+        WALLET_TIMEFRAME_LAST_12_MONTHS,
+        WALLET_TIMEFRAME_2_YEAR,
+        WALLET_TIMEFRAME_ALL,
+    ];
+    const MIN_WALLET_CHART_POINTS = 6;
+    let walletSelectedTimeframe = WALLET_TIMEFRAME_ALL;
+    let walletChartAppearancePreference = 'auto';
+    const walletChartLayerPrefs = { grid: true, legend: true, labels: false };
+    let walletChartLegendAvailable = false;
+    let walletChartPointLabelsAvailable = false;
     const walletChartData = {
-        coins: { labels: [], coinBreakdown: {}, medalBreakdown: [], timelineLabels: [], coinTimeline: {} },
-        balance: { labels: [], values: [], compareLabels: MONTH_COMPARISON_LABELS, compareDatasets: [] }
+        balance: {
+            labels: [],
+            values: [],
+            perPeriodValues: [],
+            periodMeta: [],
+            barBorderColors: [],
+            perPeriodLabel: 'Per-period change',
+            bucketType: 'quarter',
+            compareLabels: MONTH_COMPARISON_LABELS,
+            compareDatasets: [],
+            compareMonthlyDatasets: []
+        }
+    };
+
+    const computeActivitiesCacheKey = (activities = []) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return 'empty';
+        }
+
+        const first = activities[0] || {};
+        const last = activities[activities.length - 1] || {};
+        const firstKey = first.id ?? first.start_date ?? first.name ?? 'start';
+        const lastKey = last.id ?? last.start_date ?? last.name ?? 'end';
+        const totalMovingTime = activities.reduce((sum, activity) => sum + (Number(activity?.moving_time) || 0), 0);
+        return `${activities.length}:${firstKey}:${lastKey}:${Math.round(totalMovingTime)}`;
+    };
+
+    const getWalletMetricsForActivities = (activities = []) => {
+        const key = computeActivitiesCacheKey(activities);
+        if (walletMetricsCache.key !== key) {
+            walletMetricsCache.key = key;
+            walletMetricsCache.metrics = buildWalletMetrics(activities);
+        }
+        return walletMetricsCache.metrics;
+    };
+
+    const cloneRewardSummary = (summary) => {
+        if (!summary) {
+            return {
+                categories: [],
+                medalSummary: { count: 0, value: 0 },
+                medalsEarned: [],
+                medalInventory: [],
+                medalContributions: [],
+            };
+        }
+
+        const categories = Array.isArray(summary.categories)
+            ? summary.categories
+                .filter(category => category && !EXCLUDED_WALLET_CATEGORIES.has(category.name))
+                .map(category => ({
+                    name: category.name,
+                    achievements: Array.isArray(category.achievements)
+                        ? category.achievements.map(achievement => ({
+                            ...achievement,
+                            count: toNonNegativeInteger(achievement?.count),
+                        }))
+                        : [],
+                }))
+            : [];
+
+        const medalCount = toNonNegativeInteger(summary.medalSummary?.count);
+
+        const applyRarityMetadata = (medal = {}) => normalizeMedalRarityPayload({
+            ...medal,
+            legacyCategory: medal?.legacyCategory || medal?.category || '',
+        });
+
+        const medalsEarned = Array.isArray(summary.medalsEarned)
+            ? summary.medalsEarned.map((medal) => ({
+                ...applyRarityMetadata(medal),
+                count: toNonNegativeInteger(medal?.count),
+            }))
+            : [];
+
+        const medalInventory = Array.isArray(summary.medalInventory)
+            ? summary.medalInventory.map((medal) => ({
+                ...applyRarityMetadata(medal),
+                count: toNonNegativeInteger(medal?.count),
+                milestoneCategory: medal?.milestoneCategory || medal?.category || '',
+            }))
+            : [];
+
+        const medalContributions = Array.isArray(summary.medalContributions)
+            ? summary.medalContributions.map(entry => ({
+                name: entry?.name || '',
+                emoji: entry?.emoji || '',
+                description: entry?.description || '',
+                dates: Array.isArray(entry?.dates) ? entry.dates.slice() : [],
+            }))
+            : [];
+
+        const monthlyChallenges = summary.monthlyChallenges
+            ? {
+                ...summary.monthlyChallenges,
+                challenges: Array.isArray(summary.monthlyChallenges.challenges)
+                    ? summary.monthlyChallenges.challenges.map(challenge => ({ ...challenge }))
+                    : [],
+            }
+            : { monthKey: '', monthLabel: '', challenges: [], completedChallenges: 0, totalChallenges: 0 };
+
+        const medalValueSummary = calculateMedalValueSummary(medalsEarned);
+        const historicalCount = toNonNegativeInteger(
+            summary.medalSummary?.historicalCount ?? medalValueSummary.historicalCount,
+        );
+        const historicalValue = Number.isFinite(summary.medalSummary?.historicalValue)
+            ? summary.medalSummary.historicalValue
+            : medalValueSummary.historicalValue;
+        const standardValue = Number.isFinite(summary.medalSummary?.standardValue)
+            ? summary.medalSummary.standardValue
+            : medalValueSummary.standardValue;
+
+        return {
+            categories,
+            medalSummary: {
+                count: medalCount || medalValueSummary.totalCount,
+                value: Number.isFinite(summary.medalSummary?.value)
+                    ? summary.medalSummary.value
+                    : medalValueSummary.totalValue,
+                historicalCount,
+                historicalValue,
+                standardValue,
+            },
+            medalsEarned,
+            medalInventory,
+            medalContributions,
+            monthlyChallenges,
+        };
+    };
+
+    const buildLifetimeRewardSummary = (activities = []) => {
+        const activityList = Array.isArray(activities) ? activities : [];
+        const aggregateContext = createAggregateContext(activityList);
+        const categories = [
+            { name: 'Distance Run', achievements: [] },
+            { name: 'Distance Ride', achievements: [] },
+            { name: 'Elevation', achievements: [] },
+            { name: 'Calories (kcal)', achievements: [] },
+        ];
+
+        const findCategory = (categoryName) => categories.find(cat => cat.name === categoryName);
+        const pushAchievement = (categoryName, achievement) => {
+            const category = findCategory(categoryName);
+            if (!category) {
+                return;
+            }
+            const normalizedCount = toNonNegativeInteger(achievement?.count);
+            category.achievements.push({
+                name: achievement.name,
+                emoji: achievement.emoji,
+                description: achievement.description,
+                count: normalizedCount,
+            });
+        };
+
+        const accumulateThresholdCounts = (activities, definitions, valueExtractor) => {
+            const counts = new Array(definitions.length).fill(0);
+            activities.forEach(activity => {
+                const value = valueExtractor(activity);
+                if (!Number.isFinite(value) || value <= 0) {
+                    return;
+                }
+                definitions.forEach((definition, index) => {
+                    if (value >= definition.threshold) {
+                        counts[index] += 1;
+                    }
+                });
+            });
+            return counts;
+        };
+
+        const accumulateWeeklyThresholdCounts = (activities, definitions, valueExtractor) => {
+            const counts = new Array(definitions.length).fill(0);
+            if (!Array.isArray(activities) || activities.length === 0) {
+                return counts;
+            }
+
+            const weeklyTotals = new Map();
+            activities.forEach(activity => {
+                const value = valueExtractor(activity);
+                if (!Number.isFinite(value) || value <= 0) {
+                    return;
+                }
+
+                const activityDate = getActivityDate(activity);
+                const weekInfo = activityDate ? getISOWeekInfo(activityDate) : null;
+                if (!weekInfo) {
+                    return;
+                }
+
+                const currentTotal = weeklyTotals.get(weekInfo.key) || 0;
+                weeklyTotals.set(weekInfo.key, currentTotal + value);
+            });
+
+            weeklyTotals.forEach(total => {
+                definitions.forEach((definition, index) => {
+                    if (total >= definition.threshold) {
+                        counts[index] += 1;
+                    }
+                });
+            });
+
+            return counts;
+        };
+
+        const getDistanceKm = (activity) => {
+            const distanceValue = Number(activity?.distance);
+            return Number.isFinite(distanceValue) ? distanceValue / 1000 : 0;
+        };
+        const getElevationGain = (activity) => {
+            const elevationValue = Number(activity?.total_elevation_gain);
+            return Number.isFinite(elevationValue) ? elevationValue : 0;
+        };
+
+        const runActivities = activityList.filter(activity => (activity.type || '').toUpperCase() === 'RUN');
+        const rideActivities = activityList.filter(activity => (activity.type || '').toUpperCase() === 'RIDE');
+
+        if (coinConfig?.Run) {
+            const runConfig = coinConfig.Run;
+            const runActivityDefinitions = [
+                {
+                    threshold: runConfig.lifetime.threshold,
+                    emoji: runConfig.lifetime.emoji,
+                    name: `${runConfig.lifetime.threshold}km Run`,
+                    description: `Completed a run of at least ${runConfig.lifetime.threshold} km`,
+                },
+                ...runConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold}km Run`,
+                    description: `Completed a run of at least ${milestone.threshold} km`,
+                })),
+            ];
+            const runCounts = accumulateThresholdCounts(runActivities, runActivityDefinitions, getDistanceKm);
+            runActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Run', {
+                    ...definition,
+                    count: runCounts[index],
+                });
+            });
+
+            const runWeeklyDefinitions = [
+                {
+                    threshold: runConfig.weekly.threshold,
+                    emoji: runConfig.weekly.emoji,
+                    name: `Run ${runConfig.weekly.threshold}km Week`,
+                    description: `Weeks with at least ${runConfig.weekly.threshold} km of running`,
+                },
+                {
+                    threshold: runConfig.ultraWeekly.threshold,
+                    emoji: runConfig.ultraWeekly.emoji,
+                    name: `Run ${runConfig.ultraWeekly.threshold}km Week`,
+                    description: `Weeks with at least ${runConfig.ultraWeekly.threshold} km of running`,
+                },
+            ];
+            const runWeeklyCounts = accumulateWeeklyThresholdCounts(runActivities, runWeeklyDefinitions, getDistanceKm);
+            runWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Run', {
+                    ...definition,
+                    count: runWeeklyCounts[index],
+                });
+            });
+        }
+
+        if (coinConfig?.Ride) {
+            const rideConfig = coinConfig.Ride;
+            const rideActivityDefinitions = [
+                {
+                    threshold: rideConfig.lifetime.threshold,
+                    emoji: rideConfig.lifetime.emoji,
+                    name: `${rideConfig.lifetime.threshold}km Ride`,
+                    description: `Completed a ride of at least ${rideConfig.lifetime.threshold} km`,
+                },
+                ...rideConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold}km Ride`,
+                    description: `Completed a ride of at least ${milestone.threshold} km`,
+                })),
+            ];
+            const rideCounts = accumulateThresholdCounts(rideActivities, rideActivityDefinitions, getDistanceKm);
+            rideActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Ride', {
+                    ...definition,
+                    count: rideCounts[index],
+                });
+            });
+
+            const rideWeeklyDefinitions = [
+                {
+                    threshold: rideConfig.weekly.threshold,
+                    emoji: rideConfig.weekly.emoji,
+                    name: `Ride ${rideConfig.weekly.threshold}km Week`,
+                    description: `Weeks with at least ${rideConfig.weekly.threshold} km of riding`,
+                },
+                {
+                    threshold: rideConfig.ultraWeekly.threshold,
+                    emoji: rideConfig.ultraWeekly.emoji,
+                    name: `Ride ${rideConfig.ultraWeekly.threshold}km Week`,
+                    description: `Weeks with at least ${rideConfig.ultraWeekly.threshold} km of riding`,
+                },
+            ];
+            const rideWeeklyCounts = accumulateWeeklyThresholdCounts(rideActivities, rideWeeklyDefinitions, getDistanceKm);
+            rideWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Distance Ride', {
+                    ...definition,
+                    count: rideWeeklyCounts[index],
+                });
+            });
+        }
+
+        if (coinConfig?.Elevation) {
+            const elevationConfig = coinConfig.Elevation;
+            const elevationActivityDefinitions = [
+                {
+                    threshold: elevationConfig.lifetime.threshold,
+                    emoji: elevationConfig.lifetime.emoji,
+                    name: `${elevationConfig.lifetime.threshold.toLocaleString()}m Elevation`,
+                    description: `Activities with at least ${elevationConfig.lifetime.threshold.toLocaleString()} m of climbing`,
+                },
+                ...elevationConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold.toLocaleString()}m Elevation`,
+                    description: `Activities with at least ${milestone.threshold.toLocaleString()} m of climbing`,
+                })),
+            ];
+            const elevationCounts = accumulateThresholdCounts(activityList, elevationActivityDefinitions, getElevationGain);
+            elevationActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Elevation', {
+                    ...definition,
+                    count: elevationCounts[index],
+                });
+            });
+
+            const elevationWeeklyDefinitions = [
+                {
+                    threshold: elevationConfig.weekly.threshold,
+                    emoji: elevationConfig.weekly.emoji,
+                    name: `${elevationConfig.weekly.threshold.toLocaleString()}m Climb Week`,
+                    description: `Weeks climbing at least ${elevationConfig.weekly.threshold.toLocaleString()} m`,
+                },
+                {
+                    threshold: elevationConfig.ultraWeekly.threshold,
+                    emoji: elevationConfig.ultraWeekly.emoji,
+                    name: `${elevationConfig.ultraWeekly.threshold.toLocaleString()}m Climb Week`,
+                    description: `Weeks climbing at least ${elevationConfig.ultraWeekly.threshold.toLocaleString()} m`,
+                },
+            ];
+            const elevationWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, elevationWeeklyDefinitions, getElevationGain);
+            elevationWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Elevation', {
+                    ...definition,
+                    count: elevationWeeklyCounts[index],
+                });
+            });
+        }
+
+        if (coinConfig?.kcal) {
+            const calorieConfig = coinConfig.kcal;
+            const calorieActivityDefinitions = [
+                {
+                    threshold: calorieConfig.lifetime.threshold,
+                    emoji: calorieConfig.lifetime.emoji,
+                    name: `${calorieConfig.lifetime.threshold} kcal Activity`,
+                    description: `Activities burning at least ${calorieConfig.lifetime.threshold.toLocaleString()} kcal`,
+                },
+                ...calorieConfig.milestone.map(milestone => ({
+                    threshold: milestone.threshold,
+                    emoji: milestone.emoji,
+                    name: milestone.name || `${milestone.threshold} kcal Activity`,
+                    description: `Activities burning at least ${milestone.threshold.toLocaleString()} kcal`,
+                })),
+            ];
+            const calorieCounts = accumulateThresholdCounts(activityList, calorieActivityDefinitions, calculateActivityCalories);
+            calorieActivityDefinitions.forEach((definition, index) => {
+                pushAchievement('Calories (kcal)', {
+                    ...definition,
+                    count: calorieCounts[index],
+                });
+            });
+
+            const calorieWeeklyDefinitions = [
+                {
+                    threshold: calorieConfig.weekly.threshold,
+                    emoji: calorieConfig.weekly.emoji,
+                    name: `${calorieConfig.weekly.threshold.toLocaleString()} kcal Week`,
+                    description: `Weeks burning at least ${calorieConfig.weekly.threshold.toLocaleString()} kcal`,
+                },
+                {
+                    threshold: calorieConfig.ultraWeekly.threshold,
+                    emoji: calorieConfig.ultraWeekly.emoji,
+                    name: `${calorieConfig.ultraWeekly.threshold.toLocaleString()} kcal Week`,
+                    description: `Weeks burning at least ${calorieConfig.ultraWeekly.threshold.toLocaleString()} kcal`,
+                },
+            ];
+            const calorieWeeklyCounts = accumulateWeeklyThresholdCounts(activityList, calorieWeeklyDefinitions, calculateActivityCalories);
+            calorieWeeklyDefinitions.forEach((definition, index) => {
+                pushAchievement('Calories (kcal)', {
+                    ...definition,
+                    count: calorieWeeklyCounts[index],
+                });
+            });
+        }
+
+        const medalsEarned = [];
+        const activityYears = Array.from(new Set(activityList
+            .map(activity => {
+                const date = new Date(activity.start_date);
+                return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+            })
+            .filter(year => year !== null)));
+
+        const allMedals = medalsConfig.map(medal => {
+            const medalCategory = resolveMedalCategory(medal);
+            const rarityPayload = buildMedalRarityPayload(resolveMedalRarityKey(medal));
+            const result = {
+                name: medal.name,
+                emoji: medal.emoji,
+                description: medal.description,
+                count: 0,
+                isDayBased: Boolean((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver),
+                category: medalCategory,
+                legacyCategory: medalCategory,
+                discipline: resolveMedalDiscipline(medal),
+                ...rarityPayload,
+            };
+
+            let count = 0;
+
+            if (typeof medal.aggregateCriteria === 'function') {
+                try {
+                    const aggregateCount = medal.aggregateCriteria(activityList, aggregateContext);
+                    if (Number.isFinite(aggregateCount) && aggregateCount > 0) {
+                        count = Math.floor(aggregateCount);
+                    }
+                } catch (error) {
+                    count = 0;
+                }
+            } else if (result.isDayBased) {
+                const resolvedDates = new Set();
+                const addResolvedDate = (value) => {
+                    const normalized = normalizeMonthDayToken(value);
+                    if (normalized) {
+                        resolvedDates.add(normalized);
+                    }
+                };
+
+                (medal.dates || []).forEach(addResolvedDate);
+
+                if (medal.dynamicDateResolver && activityYears.length > 0) {
+                    activityYears.forEach(year => {
+                        (medal.dynamicDateResolver(year) || []).forEach(addResolvedDate);
+                    });
+                }
+
+                const uniqueCalendarHits = new Set();
+                activityList.forEach(activity => {
+                    const calendarDate = getActivityDateKey(activity);
+                    if (!calendarDate) {
+                        return;
+                    }
+
+                    const monthDay = calendarDate.slice(5, 10);
+                    if (!resolvedDates.has(monthDay)) {
+                        return;
+                    }
+
+                    uniqueCalendarHits.add(calendarDate);
+                });
+
+                count = uniqueCalendarHits.size;
+            } else if (medal.streakCriteria) {
+                const streakStats = computeStreakAwardStats(activityList, medal.streakCriteria);
+                count = streakStats.awardCount;
+            } else if (typeof medal.criteria === 'function') {
+                count = activityList.filter(activity => {
+                    try {
+                        return Boolean(medal.criteria(activity));
+                    } catch (error) {
+                        return false;
+                    }
+                }).length;
+            } else if (medal.name === '7-Day Caloric Champion') {
+                const dailyCalories = {};
+                activityList.forEach(activity => {
+                    const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
+                    dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + calculateActivityCalories(activity);
+                });
+
+                const dates = Object.keys(dailyCalories).sort();
+                let streak = 0;
+                let maxStreak = 0;
+
+                dates.forEach(date => {
+                    if (dailyCalories[date] >= 1000) {
+                        streak += 1;
+                        maxStreak = Math.max(maxStreak, streak);
+                    } else {
+                        streak = 0;
+                    }
+                });
+
+                if (maxStreak >= 7) {
+                    count = Math.floor(maxStreak / 7);
+                }
+            }
+
+            const normalizedCount = toNonNegativeInteger(count);
+
+            result.count = normalizedCount;
+
+            if (normalizedCount > 0) {
+                medalsEarned.push(result);
+            }
+
+            return result;
+        });
+
+        const progressMedals = buildProgressMedalEntries(activityList);
+        progressMedals.forEach((progressMedal) => {
+            allMedals.push(progressMedal);
+            if (toNonNegativeInteger(progressMedal?.count) > 0) {
+                medalsEarned.push(progressMedal);
+            }
+        });
+
+        const monthlyChallenges = buildMonthlyChallengeSet(activityList);
+
+        monthlyChallenges.challenges.forEach((challenge) => {
+            const medalEntry = normalizeMedalRarityPayload({
+                name: challenge.medalName,
+                emoji: challenge.emoji || '⭐',
+                description: challenge.description,
+                count: challenge.completed ? 1 : 0,
+                category: 'Star Medals',
+                legacyCategory: 'Star Medals',
+                rarityKey: 'star',
+                valueOverride: challenge.rewardValue,
+                discipline: challenge.discipline || 'multi',
+            });
+
+            medalDefinitionLookup.set(challenge.medalName, medalEntry);
+            allMedals.push(medalEntry);
+            if (medalEntry.count > 0) {
+                medalsEarned.push(medalEntry);
+            }
+        });
+
+        if (monthlyChallenges.completionMedal) {
+            const completionEntry = normalizeMedalRarityPayload(monthlyChallenges.completionMedal);
+            medalDefinitionLookup.set(completionEntry.name, completionEntry);
+            allMedals.push(completionEntry);
+            if (completionEntry.count > 0) {
+                medalsEarned.push(completionEntry);
+            }
+        }
+
+        const medalValueSummary = calculateMedalValueSummary(medalsEarned);
+        const medalSummary = {
+            count: medalValueSummary.totalCount,
+            value: medalValueSummary.totalValue,
+            historicalCount: medalValueSummary.historicalCount,
+            historicalValue: medalValueSummary.historicalValue,
+            standardValue: medalValueSummary.standardValue,
+        };
+
+        const getRaritySortValue = (medal) => (Number.isFinite(medal?.rarityIndex) ? medal.rarityIndex : -1);
+        const sortedMedals = allMedals.slice().sort((a, b) => {
+            const rarityComparison = getRaritySortValue(b) - getRaritySortValue(a);
+            if (rarityComparison !== 0) {
+                return rarityComparison;
+            }
+            if ((b.count || 0) !== (a.count || 0)) {
+                return (b.count || 0) - (a.count || 0);
+            }
+            const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
+            if (dayComparison !== 0) {
+                return dayComparison;
+            }
+            const orderA = medalOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+            const orderB = medalOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        const medalContributions = computeMedalContributionEntries(aggregateContext?.dailySummaries);
+
+        return {
+            categories,
+            medalSummary,
+            medalsEarned,
+            medalInventory: sortedMedals,
+            medalContributions,
+            monthlyChallenges,
+        };
+    };
+
+    const getLifetimeRewardSummary = (activities = []) => {
+        const key = computeActivitiesCacheKey(activities);
+        if (rewardSummaryCache.key === key && rewardSummaryCache.summary) {
+            return cloneRewardSummary(rewardSummaryCache.summary);
+        }
+
+        const summary = buildLifetimeRewardSummary(activities);
+        rewardSummaryCache.key = key;
+        rewardSummaryCache.summary = summary;
+        return cloneRewardSummary(summary);
     };
 
     // === Data Storage ===
@@ -967,6 +3085,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ACTIVITIES_BATCH_PAGES = 3;
     const LOAD_MORE_MAX_CYCLES = 8;
     const LOAD_MORE_THROTTLE_MS = 1200;
+    const MAX_COUNTRY_FILTER_CHIPS = 32;
 
     let visibleActivitiesCount = 0;
     let sortedActivities = [];
@@ -975,7 +3094,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     let medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
     let activeMedalMeta = null;
     let medalFilteredActivities = [];
-    let walletGrowthStats = { currentTotal: 0, monthChangePct: null, yearChangePct: null };
+    let walletGrowthStats = {
+        currentTotal: 0,
+        quarterChangePct: null,
+        yearChangePct: null,
+        quarterChangeValue: null,
+        yearChangeValue: null
+    };
+    let latestFunStats = null;
+    let latestFunStatsContext = { hasActivities: false };
+    let latestCountryStats = [];
+    let latestWalletSummaryPayload = null;
+    let latestWalletMetrics = [];
     let hasMoreActivities = false;
     let nextActivitiesPageStart = 1;
     let isFetchingActivities = false;
@@ -986,23 +3116,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     let hasShownWeeklySnapshot = false;
     let hasHydratedFromClientCache = false;
 
-    const DEFAULT_COUNTRY_LABEL = 'Unknown location';
     const DEFAULT_ACTIVITY_FILTERS = {
         type: 'all',
-        country: 'all',
         minHours: null,
         maxHours: null,
         minDistance: null,
         maxDistance: null,
         minElevation: null,
         maxElevation: null,
+        raceRequestId: null,
+        climbSegmentId: null,
+        coinEmoji: null,
+        countries: [],
+        sortBy: 'date-desc',
+        startDate: null,
+        endDate: null,
+        topShortcut: false,
     };
+    const ALLOWED_ACTIVITY_SORTS = new Set(['date-desc', 'distance-desc', 'balance-desc', 'elevation-desc']);
     let currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
     let activityFilterUniverseCount = 0;
+    let raceRequestMap = new Map();
+    let climbRequestMap = new Map();
+    let climbAttemptsBySegment = new Map();
+    let climbSegmentMetadata = new Map();
+    let climbSegmentActivityMatches = new Map();
+    let activityClimbMatches = new Map();
+    const countryFilterSelection = new Set();
+    let lastCountryFilterStats = [];
+    const countryMetadataByCode = new Map();
 
     let tooltipHideTimeout = null;
     let activeInsight = null;
-    let spinnerHideTimeout = null;
     let hasInitializedLoadingProgress = false;
     let isInitialLoadComplete = false;
     let hasCompletedInitialRender = false;
@@ -1013,12 +3158,151 @@ document.addEventListener('DOMContentLoaded', async () => {
         nextRank: null,
         currentMonthHours: 0,
         previousMonthHours: 0,
+        lastWeekHours: 0,
     };
-    let rankTimelineSelectionIndex = null;
-    let rankTimelineGroups = [];
-    let rankTimelineMaxHours = 0;
+    let currentLeagueClass = null;
+    let viewingRankIndex = 0;
+    const RANK_REWARD_PERIODS = [
+        { key: 'weekly', label: 'Last 7 days', days: 7 },
+        { key: 'monthly', label: 'Last 30 days', days: 30 },
+        { key: 'quarter', label: 'Last 90 days', days: 90 },
+        { key: 'yearly', label: 'Last 365 days', days: 365 },
+    ];
+    let rankRewardSnapshots = [];
+    let highlightedRankSnapshotElement = null;
+    let highlightedWalletSnapshotElement = null;
+    let hasActivitiesState = false;
 
-    const rankTriggerElements = [currentRankElement, levelProgressElement, rankProgressTriggerElement].filter(Boolean);
+    const BASE_RANK_HOURS_PER_LEVEL = 100;
+    const PRESTIGE_HOURS_PER_LEVEL = 20;
+    const MASTER_PRESTIGE_HOURS_PER_LEVEL = 100;
+    const BASE_RANK_GROUPS = [
+        { name: 'Wood', emoji: '🪵', levels: 10 },
+        { name: 'Metal', emoji: '⚙️', levels: 10 },
+        { name: 'Bronze', emoji: '🥉', levels: 10 },
+        { name: 'Silver', emoji: '🥈', levels: 10 },
+        { name: 'Gold', emoji: '🥇', levels: 10 },
+        { name: 'Platinum', emoji: '💎', levels: 10 },
+    ];
+    const PRESTIGE_GROUPS = [
+        { prestigeNumber: 1, emoji: '🍎', levels: 10 },
+        { prestigeNumber: 2, emoji: '🍌', levels: 10 },
+        { prestigeNumber: 3, emoji: '🍇', levels: 10 },
+        { prestigeNumber: 4, emoji: '🍉', levels: 10 },
+        { prestigeNumber: 5, emoji: '🍒', levels: 10 },
+        { prestigeNumber: 6, emoji: '🍍', levels: 10 },
+        { prestigeNumber: 7, emoji: '🥑', levels: 10 },
+        { prestigeNumber: 8, emoji: '🌮', levels: 10 },
+        { prestigeNumber: 9, emoji: '🍣', levels: 10 },
+        { prestigeNumber: 10, emoji: '🍕', levels: 10 },
+    ];
+    const MASTER_PRESTIGE_LEVELS = 100;
+    const MASTER_PRESTIGE_EMOJI = '👑';
+
+    const buildRankConfig = () => {
+        const levels = [];
+
+        let currentMinHours = 0;
+
+        const addGroupLevels = (group, hoursPerLevel, nameBuilder) => {
+            const levelNameBuilder = typeof nameBuilder === 'function'
+                ? nameBuilder
+                : (level) => `${group.name} ${level}`;
+
+            for (let level = 1; level <= group.levels; level += 1) {
+                levels.push({
+                    name: levelNameBuilder(level),
+                    emoji: group.emoji,
+                    minHours: currentMinHours,
+                    hoursPerLevel,
+                });
+                currentMinHours += hoursPerLevel;
+            }
+        };
+
+        BASE_RANK_GROUPS.forEach(group => addGroupLevels(group, BASE_RANK_HOURS_PER_LEVEL));
+        PRESTIGE_GROUPS.forEach(group => addGroupLevels(
+            group,
+            PRESTIGE_HOURS_PER_LEVEL,
+            (level) => `Prestige ${group.prestigeNumber} - Level ${level}`,
+        ));
+
+        for (let master = 1; master <= MASTER_PRESTIGE_LEVELS; master += 1) {
+            levels.push({
+                name: `Master Prestige ${master}`,
+                emoji: MASTER_PRESTIGE_EMOJI,
+                minHours: currentMinHours,
+                hoursPerLevel: MASTER_PRESTIGE_HOURS_PER_LEVEL,
+            });
+            currentMinHours += MASTER_PRESTIGE_HOURS_PER_LEVEL;
+        }
+
+        return levels;
+    };
+
+    const RANK_CONFIG = buildRankConfig();
+    const TOTAL_RANK_LEVELS = RANK_CONFIG.length;
+
+    const LEAGUE_CLASS_THRESHOLDS = {
+        tier1_duration_hours: 8.0,
+        tier1_streak_days: 30,
+        tier1_suffer_score: 250,
+        tier2_elev_single: 1800,
+        tier2_dist_bike_single: 130.0,
+        tier2_dist_run_single: 28.0,
+        tier2_dist_swim_single: 3000,
+        tier2_kcal_single: 2200,
+        tier3_elev_week: 3500,
+        tier3_dist_bike_week: 250.0,
+        tier3_run_count_week: 5,
+        tier3_avg_kcal_intensity: 700,
+        tier4_activity_count: 12,
+        tier4_night_hour: 21,
+        tier4_morning_hour: 5,
+        tier4_pace_threshold: 4.15,
+    };
+
+    const LEAGUE_CLASS_FUSIONS = new Map([
+        [new Set(['mountain_king', 'distance_run']), {
+            name: 'Il Guardiano delle Alte Vie',
+            description: "Domini sia la distanza che l'altitudine a piedi.",
+        }],
+        [new Set(['bike_lord', 'kcal_tank']), {
+            name: 'Il Juggernaut Corazzato',
+            description: 'Un mostro di potenza in sella: chilometri e calorie distrutti.',
+        }],
+        [new Set(['bike_lord', 'distance_run']), {
+            name: 'Il Ramingo d\'Acciaio',
+            description: 'Maestro delle due strade: inarrestabile a piedi e in sella.',
+        }],
+        [new Set(['water_lord', 'distance_run']), {
+            name: "L'Anfibio Reale",
+            description: 'Nessun confine tra terra e acqua ti può fermare.',
+        }],
+        [new Set(['mountain_king', 'kcal_tank']), {
+            name: 'Il Titano delle Rocce',
+            description: 'Bruci energie come una fornace mentre scalale vette.',
+        }],
+        [new Set(['mountain_king', 'bike_lord']), {
+            name: 'Il Re dei Valichi',
+            description: 'Hai conquistato le vette più alte in sella al tuo destriero.',
+        }],
+    ]);
+
+    const LEAGUE_CLASS_EMOJIS = {
+        tier1: '👑',
+        tier2: '🛡️',
+        tier3: '⚔️',
+        tier4: '🧭',
+        tier5: '🌱',
+    };
+
+    const rankTriggerElements = [
+        currentRankElement,
+        levelProgressElement,
+        rankProgressTriggerElement,
+        rankInfoButton
+    ].filter(Boolean);
 
     const setRankTriggerExpanded = (expanded) => {
         const value = expanded ? 'true' : 'false';
@@ -1027,9 +3311,168 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
     let rankModalPreviouslyFocusedElement = null;
+    let walletModalPreviouslyFocusedElement = null;
     // === Utility Functions ===
 
     const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const normalizeCountryCode = (value) => {
+        if (typeof value !== 'string') {
+            return '';
+        }
+        const normalized = value.trim().toUpperCase();
+        return /^[A-Z]{2}$/.test(normalized) ? normalized : '';
+    };
+
+    const countryCodeToFlagEmoji = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return '';
+        }
+        const base = 0x1F1E6;
+        return normalized
+            .split('')
+            .map(letter => String.fromCodePoint(base + (letter.charCodeAt(0) - 65)))
+            .join('');
+    };
+
+    const registerCountryMetadataEntry = (code, name = '') => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return;
+        }
+        const label = typeof name === 'string' && name.trim().length > 0
+            ? name.trim()
+            : normalized;
+        const existing = countryMetadataByCode.get(normalized) || {};
+        const nextName = existing.name && existing.name.length >= label.length
+            ? existing.name
+            : label;
+        countryMetadataByCode.set(normalized, {
+            code: normalized,
+            name: nextName,
+            flag: countryCodeToFlagEmoji(normalized),
+        });
+    };
+
+    const getCountryDisplayName = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return '';
+        }
+        return countryMetadataByCode.get(normalized)?.name || normalized;
+    };
+
+    const getCountryFilterLabel = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return '';
+        }
+        const name = getCountryDisplayName(normalized);
+        return name;
+    };
+
+    const getActivityCountryCode = (activity = {}) => {
+        if (!activity || typeof activity !== 'object') {
+            return '';
+        }
+        const explicitCode = normalizeCountryCode(activity.country_code || activity.countryCode);
+        if (explicitCode) {
+            return explicitCode;
+        }
+        const locationCode = normalizeCountryCode(activity.location_country);
+        if (locationCode) {
+            return locationCode;
+        }
+        return '';
+    };
+
+    const registerActivityCountryMetadata = (activity = {}) => {
+        const code = getActivityCountryCode(activity);
+        if (!code) {
+            return;
+        }
+        const name = activity.country_name
+            || activity.countryName
+            || activity.location_country
+            || '';
+        registerCountryMetadataEntry(code, name);
+    };
+
+    const buildCountryStatsFromSummary = (summary = {}) => {
+        if (!summary || typeof summary !== 'object') {
+            return [];
+        }
+        return Object.values(summary)
+            .map((entry) => {
+                const code = normalizeCountryCode(entry?.code || entry?.countryCode || entry?.id);
+                if (!code) {
+                    return null;
+                }
+                const count = Number.isFinite(entry?.count) ? entry.count : 0;
+                registerCountryMetadataEntry(code, entry?.name || entry?.label || '');
+                return {
+                    code,
+                    count,
+                    name: getCountryDisplayName(code),
+                    flag: countryCodeToFlagEmoji(code),
+                };
+            })
+            .filter(Boolean)
+            .sort((a, b) => {
+                if (b.count !== a.count) {
+                    return b.count - a.count;
+                }
+                return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+            });
+    };
+
+    const buildCountryStatsFromActivities = (activities = []) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return [];
+        }
+        const countsByCode = new Map();
+        activities.forEach((activity) => {
+            const code = getActivityCountryCode(activity);
+            if (!code) {
+                return;
+            }
+            registerActivityCountryMetadata(activity);
+            const entry = countsByCode.get(code) || { code, count: 0 };
+            entry.count += 1;
+            countsByCode.set(code, entry);
+        });
+        return Array.from(countsByCode.values())
+            .map((entry) => ({
+                code: entry.code,
+                count: entry.count,
+                name: getCountryDisplayName(entry.code),
+                flag: countryCodeToFlagEmoji(entry.code),
+            }))
+            .sort((a, b) => {
+                if (b.count !== a.count) {
+                    return b.count - a.count;
+                }
+                return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+            });
+    };
+
+    const convertCountryStatsToSummary = (stats = []) => {
+        if (!Array.isArray(stats) || stats.length === 0) {
+            return {};
+        }
+        return stats.reduce((acc, entry) => {
+            if (!entry?.code) {
+                return acc;
+            }
+            acc[entry.code] = {
+                code: entry.code,
+                name: entry.name || getCountryDisplayName(entry.code),
+                count: Number.isFinite(entry.count) ? entry.count : 0,
+            };
+            return acc;
+        }, {});
+    };
 
     const isValidStravaPayload = (data) => {
         if (!data || typeof data !== 'object') {
@@ -1092,8 +3535,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const response = await requestFactory();
 
                 if (response.status === 401) {
-                    window.location.href = '/auth/strava';
-                    return Promise.reject(new Error('Redirecting to Strava for authentication.'));
+                    redirectToStravaAuth();
+                    throw createStravaAuthRedirectError();
                 }
 
                 if (allowNotFound && response.status === 404) {
@@ -1137,6 +3580,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             "'": '&#039;',
         };
         return value.replace(/[&<>"']/g, char => map[char] || char);
+    };
+
+    const extractAthleteIdFromInput = (input) => {
+        if (!input) {
+            return '';
+        }
+
+        const normalized = String(input).trim();
+        const urlMatch = normalized.match(/athletes?\/(\d+)/i);
+        if (urlMatch?.[1]) {
+            return urlMatch[1];
+        }
+
+        const numericMatch = normalized.match(/\d{4,}/);
+        if (numericMatch?.[0]) {
+            return numericMatch[0];
+        }
+
+        return '';
     };
 
     const formatRetryAfterDuration = (seconds) => {
@@ -1260,32 +3722,98 @@ document.addEventListener('DOMContentLoaded', async () => {
         return true;
     };
 
-    const formatWalletBalanceLabel = (value) => {
-        const numericValue = Number(value);
-        if (!Number.isFinite(numericValue) || numericValue <= 0) {
-            return '$0.0M';
-        }
-
-        const millions = numericValue / 1_000_000;
-        const precision = millions >= 10 ? 1 : 2;
-        return `$${millions.toFixed(precision)}M`;
-    };
-
-    const formatLeaderboardDecimal = (value) => {
-        const numericValue = Number(value);
-        if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    const formatLeaderboardNumber = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
             return '0';
         }
 
-        if (numericValue >= 100) {
-            return numericValue.toFixed(0);
+        // NO thousand separators - just round to integers
+        return Math.round(numeric).toString();
+    };
+
+    const formatDurationShort = (seconds) => {
+        const totalSeconds = Math.round(Number(seconds));
+        if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+            return '—';
         }
 
-        if (numericValue >= 10) {
-            return numericValue.toFixed(1);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const remainingSeconds = totalSeconds % 60;
+
+        if (hours > 0) {
+            return `${hours}h ${minutes.toString().padStart(2, '0')}m ${remainingSeconds.toString().padStart(2, '0')}s`;
         }
 
-        return numericValue.toFixed(2);
+        if (minutes > 0) {
+            return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
+        }
+
+        return `${remainingSeconds}s`;
+    };
+
+    const formatPace = (secondsPerKm) => {
+        const totalSeconds = Math.round(Number(secondsPerKm));
+        if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+            return '—';
+        }
+
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')} /km`;
+    };
+
+    const formatSwimPace100m = (secondsPerKm) => {
+        const perHundredSeconds = Number(secondsPerKm) / 10;
+        const roundedSeconds = Math.round(perHundredSeconds);
+        if (!Number.isFinite(roundedSeconds) || roundedSeconds <= 0) {
+            return '—';
+        }
+
+        const minutes = Math.floor(roundedSeconds / 60);
+        const seconds = roundedSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')} min/100m`;
+    };
+
+    const isRunActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('run') || sportType.includes('run');
+    };
+
+    const isRideActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('ride') || sportType.includes('ride');
+    };
+
+    const isSwimActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('swim') || sportType.includes('swim');
+    };
+
+    const isYogaActivity = (activity) => {
+        if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const type = String(activity.type || '').toLowerCase();
+        const sportType = String(activity.sport_type || '').toLowerCase();
+        return type.includes('yoga') || sportType.includes('yoga');
     };
 
     const getCoinTotals = (entry) => {
@@ -1300,6 +3828,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const parseLeaderboardEntries = (entries = []) => {
         return entries.map((entry, index) => {
             const rawUserId = typeof entry?.userId === 'string' ? entry.userId.trim() : '';
+            const athleteId = typeof entry?.athleteId === 'string'
+                ? entry.athleteId.trim()
+                : (typeof entry?.athleteId === 'number' ? String(entry.athleteId) : '');
             const hasUserLink = rawUserId.length > 0;
             const baseName = typeof entry?.displayName === 'string' && entry.displayName.trim().length > 0
                 ? entry.displayName.trim()
@@ -1314,27 +3845,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             const coinTotals = getCoinTotals(entry);
             const coinLabels = {};
             COIN_EMOJIS.forEach(emoji => {
-                coinLabels[emoji] = formatLeaderboardDecimal(coinTotals[emoji]);
+                coinLabels[emoji] = formatLeaderboardNumber(coinTotals[emoji]);
             });
             const timestampValue = Date.parse(entry?.timestamp ?? entry?.updatedAt ?? entry?.updated_at ?? entry?.lastUpdated ?? entry?.last_updated ?? '');
 
             return {
                 baseRank: index + 1,
+                userId: rawUserId,
+                athleteId,
+                rawDisplayName: baseName,
                 displayName: safeDisplayName,
                 displayNameSortable: baseName.toLocaleLowerCase(),
                 hasUserLink,
                 dashboardUrl,
                 levelValue: Number.isFinite(levelValue) ? levelValue : 0,
-                levelLabel: Number.isFinite(levelValue) ? levelValue.toLocaleString() : '0',
+                levelLabel: formatLeaderboardNumber(levelValue),
                 levelEmoji: typeof entry?.emoji === 'string' ? escapeHtml(entry.emoji) : '',
                 walletBalanceValue: Number.isFinite(walletBalanceValue) ? walletBalanceValue : 0,
-                walletBalanceLabel: formatWalletBalanceLabel(walletBalanceValue),
+                walletBalanceLabel: formatMillions(walletBalanceValue),
                 worldTrips: Number.isFinite(worldTripsValue) ? worldTripsValue : 0,
-                worldTripsLabel: formatLeaderboardDecimal(worldTripsValue),
+                worldTripsLabel: formatLeaderboardNumber(worldTripsValue),
                 everestSummits: Number.isFinite(everestSummitsValue) ? everestSummitsValue : 0,
-                everestSummitsLabel: formatLeaderboardDecimal(everestSummitsValue),
+                everestSummitsLabel: formatLeaderboardNumber(everestSummitsValue),
                 pizzas: Number.isFinite(pizzasValue) ? pizzasValue : 0,
-                pizzasLabel: formatLeaderboardDecimal(pizzasValue),
+                pizzasLabel: formatLeaderboardNumber(pizzasValue),
                 coins: coinTotals,
                 coinLabels,
                 timestampValue: Number.isFinite(timestampValue) ? timestampValue : 0,
@@ -1418,6 +3952,169 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const resetEnduranceCompareSelect = (placeholder) => {
+        if (!enduranceCompareSelect) {
+            return;
+        }
+
+        leaderboardNameToIdMap.clear();
+        enduranceCompareSelect.innerHTML = '';
+        if (enduranceCompareDatalist) {
+            enduranceCompareDatalist.innerHTML = '';
+        }
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = placeholder;
+        enduranceCompareSelect.appendChild(option);
+        enduranceCompareSelect.disabled = true;
+        if (enduranceCompareInput) {
+            enduranceCompareInput.value = '';
+            enduranceCompareInput.placeholder = placeholder;
+            enduranceCompareInput.disabled = true;
+        }
+    };
+
+    const syncEnduranceCompareOptions = (entries = []) => {
+        const toSlug = (value) => {
+            if (typeof value !== 'string') {
+                return '';
+            }
+
+            const normalized = value.trim().toLowerCase();
+            const slug = normalized
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/[\s_-]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            return slug || normalized;
+        };
+
+        leaderboardComparisonOptions.clear();
+        leaderboardNameToIdMap.clear();
+
+        if (!enduranceCompareSelect) {
+            return;
+        }
+
+        const selectableEntries = entries.filter((entry) => {
+            const hasUserId = typeof entry.userId === 'string' && entry.userId.trim().length > 0;
+            const displayLabel = entry.rawDisplayName || entry.displayName;
+            const hasDisplayName = typeof displayLabel === 'string' && displayLabel.trim().length > 0;
+            return hasUserId || hasDisplayName;
+        });
+
+        if (selectableEntries.length === 0) {
+            resetEnduranceCompareSelect('No dashboard users available yet');
+            return;
+        }
+
+        const usedIdentifiers = new Set();
+        const usedAutocompleteValues = new Set();
+        enduranceCompareSelect.innerHTML = '';
+        if (enduranceCompareDatalist) {
+            enduranceCompareDatalist.innerHTML = '';
+        }
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select a dashboard user';
+        enduranceCompareSelect.appendChild(placeholder);
+
+        const appendDatalistOption = (label) => {
+            if (!enduranceCompareDatalist || !label) {
+                return;
+            }
+            const normalizedLabel = label.trim();
+            if (!normalizedLabel || usedAutocompleteValues.has(normalizedLabel.toLowerCase())) {
+                return;
+            }
+            const datalistOption = document.createElement('option');
+            datalistOption.value = normalizedLabel;
+            enduranceCompareDatalist.appendChild(datalistOption);
+            usedAutocompleteValues.add(normalizedLabel.toLowerCase());
+        };
+
+        selectableEntries.forEach((entry) => {
+            const label = (entry.rawDisplayName || entry.displayName || '').trim();
+            const athleteId = typeof entry.athleteId === 'string'
+                ? entry.athleteId.trim()
+                : (typeof entry.athleteId === 'number' ? String(entry.athleteId) : '');
+            const identifier = (typeof entry.userId === 'string' && entry.userId.trim().length > 0)
+                ? entry.userId.trim()
+                : toSlug(label);
+
+            if (!identifier || usedIdentifiers.has(identifier)) {
+                return;
+            }
+
+            const option = document.createElement('option');
+            const optionLabel = label || entry.userId || identifier;
+            option.value = identifier;
+            option.textContent = optionLabel;
+            option.dataset.userId = identifier;
+            if (athleteId) {
+                option.dataset.athleteId = athleteId;
+            }
+            leaderboardComparisonOptions.set(identifier, option.textContent);
+            leaderboardNameToIdMap.set(optionLabel.toLowerCase(), identifier);
+            leaderboardNameToIdMap.set(identifier.toLowerCase(), identifier);
+            if (athleteId) {
+                leaderboardNameToIdMap.set(athleteId.toLowerCase(), identifier);
+                leaderboardComparisonOptions.set(athleteId, option.textContent);
+            }
+            enduranceCompareSelect.appendChild(option);
+            usedIdentifiers.add(identifier);
+            appendDatalistOption(optionLabel);
+            appendDatalistOption(athleteId);
+        });
+
+        enduranceCompareSelect.disabled = false;
+        if (enduranceCompareInput) {
+            enduranceCompareInput.disabled = false;
+            enduranceCompareInput.placeholder = 'Start typing a leaderboard name or athlete ID';
+        }
+    };
+
+    const normalizeDashboardUserEntries = (entries = []) => entries
+        .map(entry => {
+            const userId = typeof entry?.userId === 'string' ? entry.userId.trim() : '';
+            const displayName = typeof entry?.displayName === 'string' ? entry.displayName.trim() : '';
+            const athleteId = typeof entry?.athleteId === 'string'
+                ? entry.athleteId.trim()
+                : (typeof entry?.athleteId === 'number' ? String(entry.athleteId) : '');
+
+            return {
+                userId,
+                athleteId,
+                rawDisplayName: displayName || userId,
+                displayName: displayName || userId,
+            };
+        })
+        .filter(entry => entry.userId.length > 0);
+
+    const loadDashboardComparisonOptions = async (canSyncEnduranceOptions) => {
+        if (!canSyncEnduranceOptions) {
+            return [];
+        }
+
+        try {
+            const data = await fetchAndValidateJson(
+                () => fetch('/api/dashboard-users', { cache: 'no-store' }),
+                {
+                    attempts: 3,
+                    retryDelay: 750,
+                    validate: payload => Array.isArray(payload?.dashboards),
+                },
+            );
+
+            const normalizedEntries = normalizeDashboardUserEntries(data?.dashboards || []);
+            return normalizedEntries;
+        } catch (error) {
+            console.error('Failed to load dashboard users', error);
+            resetEnduranceCompareSelect('Unable to load dashboard users');
+        }
+
+        return [];
+    };
+
     const applyLeaderboardSort = (sortKey = 'rank', direction = null) => {
         if (!leaderboardState.rawEntries.length) {
             return;
@@ -1455,9 +4152,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const loadLeaderboard = async () => {
-        if (!leaderboardBody || !leaderboardStatus) {
+        const canRenderLeaderboard = Boolean(leaderboardBody && leaderboardStatus);
+        const canSyncEnduranceOptions = Boolean(enduranceCompareSelect);
+
+        if (!canRenderLeaderboard && !canSyncEnduranceOptions) {
             return;
         }
+
+        const comparisonPromise = loadDashboardComparisonOptions(canSyncEnduranceOptions);
 
         try {
             const data = await fetchAndValidateJson(
@@ -1467,23 +4169,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const entries = Array.isArray(data?.leaderboard) ? data.leaderboard : [];
 
-            if (entries.length === 0) {
-                leaderboardState.rawEntries = [];
-                leaderboardState.entries = [];
-                leaderboardState.sortKey = 'rank';
-                leaderboardState.direction = 'asc';
-                updateLeaderboardSortButtons();
-                renderLeaderboard();
-                return;
-            }
-
-            const parsedEntries = parseLeaderboardEntries(entries);
+            const parsedEntries = entries.length > 0 ? parseLeaderboardEntries(entries) : [];
             leaderboardState.rawEntries = parsedEntries;
             leaderboardState.entries = parsedEntries.slice();
             leaderboardState.sortKey = 'rank';
             leaderboardState.direction = 'asc';
-            updateLeaderboardSortButtons();
-            renderLeaderboard();
+
+            if (canSyncEnduranceOptions) {
+                const dashboardEntries = await comparisonPromise;
+                const mergedEntries = Array.isArray(dashboardEntries)
+                    ? parsedEntries.concat(dashboardEntries)
+                    : parsedEntries;
+                syncEnduranceCompareOptions(mergedEntries);
+            }
+
+            if (canRenderLeaderboard) {
+                updateLeaderboardSortButtons();
+                renderLeaderboard();
+            }
         } catch (error) {
             console.error('Failed to load leaderboard', error);
             if (leaderboardStatus) {
@@ -1515,6 +4218,61 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `$${millions.toFixed(1)}M`;
     };
 
+    const formatWalletValueLabel = (value) => {
+        if (!Number.isFinite(value)) {
+            return '';
+        }
+
+        const absolute = Math.abs(value);
+        if (absolute >= 1_000_000) {
+            return `$${(value / 1_000_000).toFixed(1)}M`;
+        }
+
+        if (absolute >= 1_000) {
+            return `$${Math.round(value / 1_000)}k`;
+        }
+
+        return usdCodeFormatter.format(value);
+    };
+
+    const formatSignedUsdValue = (value, { includeZeroSign = true } = {}) => {
+        if (!Number.isFinite(value)) {
+            return includeZeroSign ? '+$0' : '$0';
+        }
+        const absoluteLabel = usdCodeFormatter.format(Math.abs(value));
+        if (value > 0) {
+            return `+${absoluteLabel}`;
+        }
+        if (value < 0) {
+            return `−${absoluteLabel}`;
+        }
+        return includeZeroSign ? `+${absoluteLabel}` : absoluteLabel;
+    };
+
+    const formatSignedUsdCompact = (value, { includeZeroSign = true } = {}) => {
+        if (!Number.isFinite(value)) {
+            return includeZeroSign ? '+$0' : '$0';
+        }
+        const absolute = Math.abs(value);
+        let baseLabel;
+        if (absolute >= 1_000_000) {
+            baseLabel = `$${(absolute / 1_000_000).toFixed(1)}M`;
+        } else if (absolute >= 1_000) {
+            const thousands = absolute / 1_000;
+            const decimals = thousands >= 100 ? 0 : 1;
+            baseLabel = `$${thousands.toFixed(decimals)}k`;
+        } else {
+            baseLabel = usdCodeFormatter.format(absolute);
+        }
+        if (value > 0) {
+            return `+${baseLabel}`;
+        }
+        if (value < 0) {
+            return `−${baseLabel}`;
+        }
+        return includeZeroSign ? `+${baseLabel}` : baseLabel;
+    };
+
     const calculatePercentChange = (currentValue, previousValue) => {
         if (!Number.isFinite(currentValue) || !Number.isFinite(previousValue) || previousValue === 0) {
             return null;
@@ -1522,37 +4280,142 @@ document.addEventListener('DOMContentLoaded', async () => {
         return ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
     };
 
-    const applyPercentChangeToElement = (element, percentValue, periodLabel) => {
+    const formatThousandChange = (value) => {
+        if (!Number.isFinite(value)) {
+            return null;
+        }
+
+        if (value === 0) {
+            return null;
+        }
+
+        const absoluteValue = Math.abs(value);
+        const formatMillions = absoluteValue >= 1_000_000;
+        const divisor = formatMillions ? 1_000_000 : 1_000;
+        const scaledValue = absoluteValue / divisor;
+        const decimals = scaledValue >= 100 ? 0 : 1;
+        const suffix = formatMillions ? 'M' : 'k';
+        const formatted = `$${scaledValue.toFixed(decimals)}${suffix}`;
+        return value > 0 ? `+${formatted}` : `-${formatted}`;
+    };
+
+    const formatPercentLabel = (percentValue) => {
+        if (!Number.isFinite(percentValue)) {
+            return null;
+        }
+
+        const absoluteValue = Math.abs(percentValue);
+        const decimals = absoluteValue >= 100 ? 0 : 1;
+        const prefix = percentValue > 0 ? '+' : percentValue < 0 ? '-' : '';
+        return `${prefix}${absoluteValue.toFixed(decimals)}%`;
+    };
+
+    const appendWalletRangeLabel = (element, baseText, rangeSummary) => {
+        if (!element) {
+            return;
+        }
+
+        element.textContent = '';
+        element.appendChild(document.createTextNode(baseText));
+
+        if (rangeSummary) {
+            const rangeSpan = document.createElement('span');
+            rangeSpan.className = 'profile-card__balance-range';
+            rangeSpan.textContent = `•${rangeSummary}`;
+            element.appendChild(rangeSpan);
+        }
+    };
+
+    const applyWalletChangeToElement = (element, valueChange, percentValue, { shortLabel, longLabel }) => {
         if (!element) {
             return;
         }
 
         element.classList.remove('profile-card__balance-change--negative', 'profile-card__balance-change--neutral');
 
-        if (!Number.isFinite(percentValue)) {
-            element.textContent = `— ${periodLabel}`;
+        const formattedValue = formatThousandChange(valueChange);
+        const formattedPercent = formatPercentLabel(percentValue);
+        const hasValue = Boolean(formattedValue);
+        const hasPercent = Boolean(formattedPercent);
+
+        let tooltipText = '';
+
+        const trimmedShortLabel = (shortLabel || '').trim();
+        const rangeSummary = trimmedShortLabel
+            || PROFILE_RANGE_SUMMARY_LABELS[(shortLabel || '').toUpperCase()]
+            || '';
+
+        if (!hasValue && !hasPercent) {
+            appendWalletRangeLabel(element, '—', rangeSummary);
             element.classList.add('profile-card__balance-change--neutral');
-            element.setAttribute('aria-label', `${periodLabel} change unavailable`);
-            return;
+            element.setAttribute('aria-label', `${longLabel} change unavailable`);
+            tooltipText = `${longLabel} Achievement Wallet change isn't available yet. Keep logging activities to unlock this trend.`;
+        } else {
+            const valuePart = hasValue ? formattedValue : '—';
+            let displayText = valuePart;
+
+            if (hasPercent) {
+                displayText += ` (${formattedPercent})`;
+            }
+            appendWalletRangeLabel(element, displayText.trim(), rangeSummary);
+
+            if (hasValue) {
+                if (formattedValue.startsWith('-')) {
+                    element.classList.add('profile-card__balance-change--negative');
+                } else if (formattedValue === '$0k') {
+                    element.classList.add('profile-card__balance-change--neutral');
+                }
+            } else if (hasPercent) {
+                if (Number.isFinite(percentValue) && percentValue < 0) {
+                    element.classList.add('profile-card__balance-change--negative');
+                } else if (Number.isFinite(percentValue) && percentValue === 0) {
+                    element.classList.add('profile-card__balance-change--neutral');
+                }
+            } else {
+                element.classList.add('profile-card__balance-change--neutral');
+            }
+
+            const ariaValue = formattedValue ?? 'not available';
+            const ariaPercent = hasPercent ? ` (${formattedPercent})` : '';
+            element.setAttribute('aria-label', `${longLabel} change ${ariaValue}${ariaPercent}`);
+
+            const timeframeDescription = (() => {
+                switch (longLabel) {
+                    case 'Seven-day':
+                        return 'the last seven days';
+                    case 'One-month':
+                        return 'the last month';
+                    case 'Three-month':
+                        return 'the last three months';
+                    case 'One-year':
+                        return 'the last year';
+                    default:
+                        return longLabel.toLowerCase();
+                }
+            })();
+            const changeVerb = hasValue ? 'is' : 'shows';
+            const valueSummary = hasValue ? formattedValue : 'no recorded dollar change';
+            const percentSummary = hasPercent ? ` (${formattedPercent})` : '';
+            tooltipText = `${longLabel} Achievement Wallet change ${changeVerb} ${valueSummary}${percentSummary}. Includes coins and medals unlocked over ${timeframeDescription}.`;
         }
 
-        const absoluteValue = Math.abs(percentValue);
-        const decimals = absoluteValue >= 100 ? 0 : 1;
-        const formatted = `${percentValue > 0 ? '+' : percentValue < 0 ? '-' : ''}${absoluteValue.toFixed(decimals)}% ${periodLabel}`;
-        element.textContent = formatted;
-
-        if (percentValue < 0) {
-            element.classList.add('profile-card__balance-change--negative');
-        } else if (percentValue === 0) {
-            element.classList.add('profile-card__balance-change--neutral');
+        if (!element.hasAttribute('tabindex')) {
+            element.setAttribute('tabindex', '0');
         }
+        element.setAttribute('role', 'button');
+        element.dataset.walletChangePeriod = shortLabel;
 
-        const direction = percentValue > 0
-            ? 'increase'
-            : percentValue < 0
-                ? 'decrease'
-                : 'no change';
-        element.setAttribute('aria-label', `${direction} of ${absoluteValue.toFixed(decimals)} percent over ${periodLabel}`);
+        const periodKey = PROFILE_PERIOD_KEY_BY_SHORT_LABEL[shortLabel] || null;
+
+        if (periodKey) {
+            bindProfilePeriodModal(element, {
+                periodKey,
+                longLabel,
+                tooltipText,
+            });
+        } else {
+            attachTooltip(element, tooltipText);
+        }
     };
 
     const formatHoursDisplay = (hours) => {
@@ -1571,158 +4434,299 @@ document.addEventListener('DOMContentLoaded', async () => {
         return hours.toFixed(2);
     };
 
-    const extractRankHighLevel = (rankName) => {
-        if (typeof rankName !== 'string') {
-            return '';
+    const formatKilometersDisplay = (kilometers) => {
+        const numeric = Number(kilometers);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '0';
         }
-        return rankName.replace(/\s+\d+$/, '').trim();
+        if (numeric >= 1000) {
+            return Math.round(numeric).toLocaleString();
+        }
+        if (numeric >= 100) {
+            return Math.round(numeric).toLocaleString();
+        }
+        if (numeric >= 10) {
+            return numeric.toFixed(1);
+        }
+        return numeric.toFixed(2);
     };
 
-    const buildRankTimelineGroups = (config, currentHighLevel) => {
-        const groups = [];
-        const seen = new Set();
-        let currentIndex = -1;
+    const formatMetersPerKilometer = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+        if (numeric >= 1000) {
+            return `${Math.round(numeric).toLocaleString()} m/km`;
+        }
+        if (numeric >= 100) {
+            return `${Math.round(numeric)} m/km`;
+        }
+        return `${numeric.toFixed(1)} m/km`;
+    };
 
-        config.forEach((rank) => {
-            const label = extractRankHighLevel(rank?.name);
-            if (!label || seen.has(label)) {
-                if (label && label === currentHighLevel && currentIndex === -1) {
-                    currentIndex = groups.findIndex(group => group.label === label);
-                }
-                return;
+    const formatKilometersPerHour = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+        return `${numeric.toFixed(numeric >= 10 ? 1 : 2)} km/h`;
+    };
+
+    const getRankTimelineMaxHours = (config = []) => {
+        if (!Array.isArray(config) || config.length === 0) {
+            return 0;
+        }
+
+        const lastRank = config[config.length - 1] || {};
+        const lastMinHours = Number(lastRank?.minHours);
+        const lastSpan = Number(lastRank?.hoursPerLevel ?? BASE_RANK_HOURS_PER_LEVEL);
+
+        if (!Number.isFinite(lastMinHours)) {
+            return 0;
+        }
+
+        return Math.max(0, lastMinHours + (Number.isFinite(lastSpan) ? lastSpan : 0));
+    };
+
+    const renderRankProgressTimeline = (timelineElement, config = []) => {
+        if (!timelineElement) {
+            return;
+        }
+
+        const hasConfig = Array.isArray(config) && config.length > 0;
+        if (!hasConfig) {
+            timelineElement.innerHTML = '';
+            timelineElement.dataset.timelineEmpty = 'true';
+
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__empty';
+            emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
+            timelineElement.appendChild(emptyState);
+            return;
+        }
+
+        timelineElement.dataset.timelineEmpty = 'false';
+
+        const maxHours = getRankTimelineMaxHours(config);
+        const safeTotalHours = Number.isFinite(rankProgressState.totalHours)
+            ? Math.max(0, rankProgressState.totalHours)
+            : 0;
+        const clampedHours = maxHours > 0
+            ? Math.min(safeTotalHours, maxHours)
+            : safeTotalHours;
+        const fillPercent = maxHours > 0
+            ? Math.min(100, Math.max(0, (clampedHours / maxHours) * 100))
+            : 0;
+
+        let scrollArea = timelineElement.querySelector('.rank-modal__timeline-scroll');
+        let timelineInner = timelineElement.querySelector('.rank-modal__timeline-inner');
+
+        const currentIndex = Number.isInteger(rankProgressState.currentRankIndex)
+            ? rankProgressState.currentRankIndex
+            : 0;
+        const currentRank = config[currentIndex] || config[0] || {};
+
+        const rankGroups = [];
+        const seenGroupEmoji = new Set();
+        config.forEach((rank, index) => {
+            if (!seenGroupEmoji.has(rank.emoji)) {
+                seenGroupEmoji.add(rank.emoji);
+                rankGroups.push({ rank, index });
+            }
+        });
+
+        const currentGroupIndex = Math.max(rankGroups.findIndex(group => group.rank.emoji === currentRank.emoji), 0);
+        const viewingRank = config[Math.max(0, Math.min(viewingRankIndex, config.length - 1))] || currentRank;
+        const targetGroupIndex = rankGroups.findIndex(group => group.rank.emoji === viewingRank?.emoji);
+        const resolvedGroupIndex = targetGroupIndex >= 0 ? targetGroupIndex : currentGroupIndex;
+        const viewingGroupIndex = Math.max(0, Math.min(resolvedGroupIndex, rankGroups.length - 1));
+
+        let track = timelineElement.querySelector('.rank-modal__timeline-track');
+        let rail = timelineElement.querySelector('.rank-modal__timeline-rail');
+        let fill = timelineElement.querySelector('.rank-modal__timeline-fill');
+        let markersContainer = timelineElement.querySelector('.rank-modal__timeline-markers');
+        let label = timelineElement.querySelector('.rank-modal__timeline-label');
+        let progressBar = timelineElement.querySelector('.rank-modal__timeline-bar');
+
+        const needsBuild = !(
+            scrollArea &&
+            timelineInner &&
+            track &&
+            rail &&
+            fill &&
+            markersContainer &&
+            label &&
+            progressBar
+        );
+
+        if (needsBuild) {
+            timelineElement.innerHTML = '';
+
+            scrollArea = document.createElement('div');
+            scrollArea.className = 'rank-modal__timeline-scroll';
+
+            timelineInner = document.createElement('div');
+            timelineInner.className = 'rank-modal__timeline-inner';
+
+            track = document.createElement('div');
+            track.className = 'rank-modal__timeline-track';
+            track.setAttribute('role', 'progressbar');
+            track.setAttribute('aria-valuemin', '0');
+            track.setAttribute('aria-valuemax', maxHours.toFixed(0));
+            track.setAttribute('aria-valuenow', clampedHours.toFixed(1));
+            track.setAttribute('aria-label', 'Lifetime hours across all rank levels');
+
+            rail = document.createElement('div');
+            rail.className = 'rank-modal__timeline-rail';
+
+            fill = document.createElement('div');
+            fill.className = 'rank-modal__timeline-fill';
+
+            markersContainer = document.createElement('div');
+            markersContainer.className = 'rank-modal__timeline-markers';
+
+            label = document.createElement('button');
+            label.type = 'button';
+            label.className = 'rank-modal__timeline-label';
+            label.setAttribute('aria-live', 'polite');
+
+            progressBar = document.createElement('div');
+            progressBar.className = 'rank-modal__timeline-bar';
+
+            rail.append(fill, markersContainer, label);
+            progressBar.append(rail);
+
+            track.append(progressBar);
+
+            timelineInner.append(track);
+            scrollArea.appendChild(timelineInner);
+            timelineElement.append(scrollArea);
+        } else {
+            markersContainer.innerHTML = '';
+        }
+
+        timelineInner.style.minWidth = '100%';
+        timelineInner.style.width = '100%';
+
+        label.setAttribute('aria-live', 'polite');
+
+        fill.style.width = `${fillPercent}%`;
+        label.style.left = '50%';
+        track.setAttribute('aria-valuemax', maxHours.toFixed(0));
+        track.setAttribute('aria-valuenow', clampedHours.toFixed(1));
+
+        const recenterToCurrentRank = () => {
+            viewingRankIndex = rankProgressState.currentRankIndex;
+            renderRankProgressTimeline(timelineElement, config);
+        };
+
+        const updateTimelineLabel = (selectedRank) => {
+            const targetHours = Number(selectedRank?.minHours);
+            const hasTargetHours = Number.isFinite(targetHours) && targetHours >= 0;
+            const rankName = selectedRank?.name || 'Rank milestone';
+            const ratio = hasTargetHours && targetHours !== 0
+                ? Math.max(0, Math.min(1, safeTotalHours / targetHours))
+                : 0;
+            const isCurrentRank = Boolean(selectedRank
+                && currentRank
+                && selectedRank.name === currentRank.name
+                && selectedRank.emoji === currentRank.emoji
+                && selectedRank.minHours === currentRank.minHours);
+            const nextRank = rankProgressState.nextRank;
+            const nextTargetHours = Number(nextRank?.minHours);
+            let primaryLabel = `${formatHoursDisplay(safeTotalHours)} h logged`;
+
+            const totalLevels = Math.max(1, TOTAL_RANK_LEVELS || config.length || 0);
+            const rankIndex = Math.max(
+                0,
+                config.findIndex((rankConfig) => rankConfig === selectedRank
+                    || (rankConfig?.emoji === selectedRank?.emoji && rankConfig?.name === selectedRank?.name))
+            );
+            const levelNumber = Math.min(
+                totalLevels,
+                (rankIndex || rankIndex === 0)
+                    ? rankIndex + 1
+                    : Math.max(1, (rankProgressState.currentRankIndex || 0) + 1),
+            );
+            const levelLabel = `${levelNumber}/${totalLevels}`;
+
+            if (isCurrentRank && Number.isFinite(nextTargetHours)) {
+                const hoursRemaining = Math.max(0, nextTargetHours - safeTotalHours);
+                primaryLabel = hoursRemaining <= 0.05
+                    ? `Ready for ${nextRank.name}`
+                    : `${formatHoursDisplay(hoursRemaining)} h to ${nextRank.name}`;
+            } else if (hasTargetHours) {
+                primaryLabel = selectedRank === currentRank
+                    ? `${formatHoursDisplay(targetHours)} h logged`
+                    : `${formatHoursDisplay(safeTotalHours)} / ${formatHoursDisplay(targetHours)} h (${(ratio * 100).toFixed(0)}%)`;
             }
 
-            seen.add(label);
+            const achieved = hasTargetHours && safeTotalHours >= targetHours;
 
-            const group = {
-                label,
-                emoji: rank?.emoji || '⭐',
-                minHours: Number.isFinite(rank?.minHours) ? rank.minHours : 0,
+            label.innerHTML = `
+                <span class="rank-modal__timeline-label-main">${primaryLabel}</span>
+                <span class="rank-modal__timeline-label-meta">
+                    ${achieved ? '<span class="rank-modal__timeline-achieved" aria-hidden="true">✔</span>' : ''}
+                    <span class="rank-modal__timeline-rank">${rankName}</span>
+                    <span class="rank-modal__timeline-level" aria-label="Level ${levelNumber} of ${totalLevels}">(${levelLabel})</span>
+                    ${achieved ? '<span class="sr-only">Rank achieved</span>' : ''}
+                </span>
+            `;
+        };
+
+        label.onclick = recenterToCurrentRank;
+
+        const renderMarkersForGroup = (centerGroupIndex) => {
+            markersContainer.innerHTML = '';
+
+            const buildMarker = (offset) => {
+                const targetGroupIndex = centerGroupIndex + offset;
+                const group = rankGroups[targetGroupIndex];
+                const marker = document.createElement('button');
+                marker.type = 'button';
+                marker.className = `rank-modal__timeline-marker rank-carousel__item rank-carousel__item--${offset === 0 ? 'center' : 'side'}`;
+
+                if (!group) {
+                    marker.style.visibility = 'hidden';
+                    marker.disabled = true;
+                    markersContainer.appendChild(marker);
+                    return;
+                }
+
+                const { rank, index } = group;
+                const isCenter = offset === 0;
+
+                marker.innerHTML = `
+                    <span class="rank-modal__timeline-emoji" aria-hidden="true">${rank.emoji}</span>
+                    <span class="rank-modal__timeline-dot"></span>
+                `;
+
+                if (isCenter) {
+                    marker.setAttribute('aria-current', 'true');
+                    marker.disabled = true;
+                } else {
+                    marker.setAttribute('aria-label', `${rank.name} crest tier`);
+                    marker.addEventListener('click', () => {
+                        viewingRankIndex = index;
+                        renderRankProgressTimeline(timelineElement, config);
+                    });
+                }
+
+                markersContainer.appendChild(marker);
             };
 
-            groups.push(group);
+            [-2, -1, 0, 1, 2].forEach((offset) => buildMarker(offset));
 
-            if (label === currentHighLevel && currentIndex === -1) {
-                currentIndex = groups.length - 1;
-            }
-        });
+            const centerGroup = rankGroups[centerGroupIndex] || { rank: viewingRank };
+            const labelRank = (centerGroup?.rank?.emoji === viewingRank?.emoji)
+                ? viewingRank
+                : (viewingRank || centerGroup.rank);
+            updateTimelineLabel(labelRank);
+        };
 
-        const maxHours = groups.reduce((max, group) => Math.max(max, group.minHours || 0), 0);
-
-        return { groups, currentIndex, maxHours };
-    };
-
-    const getRankTimelineWindow = (groups, centerIndex, radius = 2) => {
-        if (!Array.isArray(groups) || groups.length === 0) {
-            return [];
-        }
-
-        const total = groups.length;
-        let start = Math.max(0, centerIndex - radius);
-        let end = Math.min(total - 1, centerIndex + radius);
-
-        while ((end - start) < radius * 2) {
-            if (start > 0) {
-                start -= 1;
-            } else if (end < total - 1) {
-                end += 1;
-            } else {
-                break;
-            }
-        }
-
-        return groups.slice(start, end + 1);
-    };
-
-    const clampTimelinePercent = (value) => Math.min(98, Math.max(2, value));
-
-    const scrollRankListToHighLevel = (label) => {
-        if (!label || !rankModalListElement) {
-            return;
-        }
-
-        const selector = `[data-rank-high-level="${label}"]`;
-        const targetItem = rankModalListElement.querySelector(selector);
-
-        if (targetItem && typeof targetItem.scrollIntoView === 'function') {
-            targetItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        }
-    };
-
-    const handleRankTimelineSelection = (label) => {
-        if (!label || !Array.isArray(rankTimelineGroups)) {
-            return;
-        }
-
-        const index = rankTimelineGroups.findIndex(group => group.label === label);
-        if (index === -1) {
-            return;
-        }
-
-        rankTimelineSelectionIndex = index;
-        renderRankTimeline();
-        scrollRankListToHighLevel(label);
-    };
-
-    const renderRankTimeline = () => {
-        if (!rankModalTimelineElement || !rankModalTimelineMarkersElement) {
-            return;
-        }
-
-        const hasGroups = Array.isArray(rankTimelineGroups) && rankTimelineGroups.length > 0;
-        rankModalTimelineElement.hidden = !hasGroups;
-        rankModalTimelineMarkersElement.innerHTML = '';
-
-        if (!hasGroups) {
-            return;
-        }
-
-        const fallbackIndex = Math.max(0, rankTimelineGroups.findIndex(group => group.label === extractRankHighLevel(rankProgressState.currentRank?.name)));
-        const focusIndex = Math.min(
-            rankTimelineGroups.length - 1,
-            Math.max(0, Number.isInteger(rankTimelineSelectionIndex) ? rankTimelineSelectionIndex : fallbackIndex)
-        );
-        rankTimelineSelectionIndex = focusIndex;
-
-        const maxHours = rankTimelineMaxHours > 0
-            ? rankTimelineMaxHours
-            : (rankTimelineGroups[rankTimelineGroups.length - 1]?.minHours || 1);
-        const visibleGroups = getRankTimelineWindow(rankTimelineGroups, focusIndex);
-        const focusGroup = rankTimelineGroups[focusIndex];
-
-        const focusPercent = clampTimelinePercent(((focusGroup?.minHours || 0) / maxHours) * 100);
-        if (rankModalTimelineFocusElement) {
-            rankModalTimelineFocusElement.style.left = `${focusPercent}%`;
-        }
-
-        visibleGroups.forEach((group) => {
-            const percent = clampTimelinePercent(((group.minHours || 0) / maxHours) * 100);
-            const marker = document.createElement('button');
-            marker.type = 'button';
-            marker.className = 'rank-modal__timeline-marker';
-            marker.style.left = `${percent}%`;
-            marker.setAttribute('role', 'listitem');
-            marker.dataset.rankHighLevel = group.label;
-
-            const isActive = focusGroup?.label === group.label;
-            if (isActive) {
-                marker.setAttribute('aria-current', 'true');
-            }
-
-            marker.setAttribute(
-                'aria-label',
-                `${group.label} crest at ≥ ${formatHoursDisplay(group.minHours)} hours${isActive ? ' (centered)' : ''}`
-            );
-
-            marker.innerHTML = `
-                <span class="rank-modal__timeline-emoji" aria-hidden="true">${group.emoji}</span>
-                <span class="rank-modal__timeline-label">${group.label}</span>
-                <span class="rank-modal__timeline-hours">≥ ${formatHoursDisplay(group.minHours)} h</span>
-            `;
-
-            marker.addEventListener('click', () => handleRankTimelineSelection(group.label));
-            rankModalTimelineMarkersElement.appendChild(marker);
-        });
+        renderMarkersForGroup(viewingGroupIndex);
+        timelineElement.hidden = false;
     };
 
     const updateRankProgressBar = () => {
@@ -1730,41 +4734,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             totalHours,
             currentRank,
             nextRank,
-            currentMonthHours,
+            lastWeekHours,
         } = rankProgressState;
+
+        const levelProgressFillElement = document.getElementById('level-progress-fill');
+
         const safeTotalHours = Number.isFinite(totalHours) ? totalHours : 0;
         const currentMinHours = Number.isFinite(currentRank?.minHours) ? currentRank.minHours : 0;
         const nextMinHours = Number.isFinite(nextRank?.minHours) ? nextRank.minHours : null;
         const spanHours = Number.isFinite(nextMinHours) && nextMinHours > currentMinHours
             ? nextMinHours - currentMinHours
             : null;
-        const earnedWithinLevel = Math.max(0, safeTotalHours - currentMinHours);
-        const progressRatio = spanHours
-            ? Math.min(1, Math.max(0, earnedWithinLevel / spanHours))
-            : 1;
+        const hasActivities = hasActivitiesState;
+        const weekValue = Number.isFinite(lastWeekHours) ? Math.max(0, lastWeekHours) : 0;
 
-        if (rankingProgressElement) {
-            rankingProgressElement.style.width = `${(progressRatio * 100).toFixed(2)}%`;
-            rankingProgressElement.classList.remove('is-negative', 'is-neutral');
-            rankingProgressElement.setAttribute('aria-valuemin', currentMinHours.toFixed(1));
-            const maxValue = spanHours ? nextMinHours : safeTotalHours;
-            rankingProgressElement.setAttribute('aria-valuemax', Number.isFinite(maxValue) ? maxValue.toFixed(1) : safeTotalHours.toFixed(1));
-            rankingProgressElement.setAttribute('aria-valuenow', safeTotalHours.toFixed(1));
+        let progressPercent = 0;
+        if (spanHours) {
+            const hoursIntoRank = Math.max(0, safeTotalHours - currentMinHours);
+            progressPercent = Math.min(100, Math.max(0, (hoursIntoRank / spanHours) * 100));
+        } else if (nextRank === null) {
+            progressPercent = 100;
+        }
+
+        if (levelProgressFillElement) {
+            levelProgressFillElement.style.width = `${progressPercent.toFixed(2)}%`;
         }
 
         if (rankingProgressLabelElement) {
             const label = `${formatHoursDisplay(safeTotalHours)} h`;
-            rankingProgressLabelElement.textContent = label;
-            rankingProgressLabelElement.setAttribute('aria-label', `Lifetime training ${label}`);
+            rankingProgressLabelElement.textContent = `${label} up to now`;
+            rankingProgressLabelElement.setAttribute('aria-label', `Total training ${label} up to now`);
         }
 
-        if (rankingProgressMonthlyElement) {
-            const monthValue = Number.isFinite(currentMonthHours) ? Math.max(0, currentMonthHours) : 0;
-            const formattedMonthly = formatHoursDisplay(monthValue);
-            const prefix = monthValue > 0 ? '+' : '';
-            const monthlyLabel = `${prefix}${formattedMonthly} h last month`;
-            rankingProgressMonthlyElement.textContent = monthlyLabel;
-            rankingProgressMonthlyElement.setAttribute('aria-label', `${formattedMonthly} hours recorded in the last month`);
+        if (rankingProgressWeeklyElement) {
+            rankingProgressWeeklyElement.textContent = '';
+            rankingProgressWeeklyElement.setAttribute('aria-hidden', 'true');
+            rankingProgressWeeklyElement.style.display = 'none';
+        }
+
+        if (levelProgressWeeklyFillElement) {
+            levelProgressWeeklyFillElement.style.width = '0%';
+            levelProgressWeeklyFillElement.classList.remove('is-visible');
+            levelProgressWeeklyFillElement.style.display = 'none';
+            levelProgressWeeklyFillElement.setAttribute('aria-hidden', 'true');
         }
 
         if (nextRankElement) {
@@ -1779,44 +4791,1059 @@ document.addEventListener('DOMContentLoaded', async () => {
                 nextRankElement.textContent = 'Legendary — max rank';
             }
         }
+
+        if (levelProgressElement) {
+            const levelCap = TOTAL_RANK_LEVELS;
+            const level = hasActivities
+                ? Math.min(rankProgressState.currentRankIndex + 1, levelCap)
+                : 0;
+
+            levelProgressElement.textContent = `(${level}/${levelCap})`;
+            levelProgressElement.setAttribute('aria-label', `Current level ${level} of ${levelCap}`);
+        } else {
+            console.warn("'level-progress' element not found in the DOM.");
+        }
     };
 
     updateRankProgressBar();
 
-    const renderRankModal = () => {
-        if (!rankModalListElement) {
+    const createEmptyCoinCounts = () => {
+        return COIN_EMOJIS.reduce((counts, emoji) => {
+            counts[emoji] = 0;
+            return counts;
+        }, {});
+    };
+
+    const formatRewardSnapshotRange = (start, end) => {
+        const hasValidStart = start instanceof Date && !Number.isNaN(start.getTime());
+        const hasValidEnd = end instanceof Date && !Number.isNaN(end.getTime());
+
+        if (!hasValidStart && !hasValidEnd) {
+            return 'Recent period';
+        }
+
+        const resolvedStart = hasValidStart ? start : end;
+        const resolvedEnd = hasValidEnd ? end : resolvedStart;
+
+        if (!resolvedStart || !resolvedEnd) {
+            return 'Recent period';
+        }
+
+        const sameDay = resolvedStart.toDateString() === resolvedEnd.toDateString();
+        const sameYear = resolvedStart.getFullYear() === resolvedEnd.getFullYear();
+        const sameMonth = sameYear && resolvedStart.getMonth() === resolvedEnd.getMonth();
+        const includeYear = !sameYear || resolvedStart.getFullYear() !== new Date().getFullYear();
+
+        const startOptions = { month: 'short', day: 'numeric' };
+        const endOptions = { month: 'short', day: 'numeric' };
+
+        if (includeYear) {
+            startOptions.year = 'numeric';
+            endOptions.year = 'numeric';
+        } else if (!sameMonth && !sameDay) {
+            endOptions.month = 'short';
+        }
+
+        const startLabel = resolvedStart.toLocaleDateString(undefined, startOptions);
+        if (sameDay) {
+            return startLabel;
+        }
+
+        const endLabel = resolvedEnd.toLocaleDateString(undefined, endOptions);
+        return `${startLabel} – ${endLabel}`;
+    };
+
+    const buildRankRewardSnapshotForPeriod = (activities, period, referenceDate = new Date()) => {
+        const now = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+            ? new Date(referenceDate)
+            : new Date();
+        const windowStart = new Date(now);
+        windowStart.setHours(0, 0, 0, 0);
+        windowStart.setDate(windowStart.getDate() - (Math.max(1, Number(period.days) || 1) - 1));
+
+        const coinCounts = createEmptyCoinCounts();
+        const accumulator = {
+            activities: 0,
+            hours: 0,
+            coinsTotal: 0,
+            coinValue: 0,
+            medalCount: 0,
+            coinCounts,
+            medalDetails: [],
+            windowStartTimestamp: null,
+            windowEndTimestamp: null,
+            distanceKm: 0,
+            elevationGain: 0,
+            calories: 0,
+            globeTrips: 0,
+            everestSummits: 0,
+            pizzaCount: 0,
+        };
+
+        const sourceActivities = Array.isArray(activities) ? activities : [];
+
+        sourceActivities.forEach((activity) => {
+            const rawDate = activity?.start_date_local || activity?.start_date;
+            if (!rawDate) {
+                return;
+            }
+
+            const activityDate = new Date(rawDate);
+            if (Number.isNaN(activityDate.getTime())) {
+                return;
+            }
+
+            if (activityDate < windowStart || activityDate > now) {
+                return;
+            }
+
+            accumulator.activities += 1;
+
+            const movingTimeSeconds = Number.isFinite(activity?.moving_time)
+                ? activity.moving_time
+                : 0;
+            accumulator.hours += movingTimeSeconds / 3600;
+
+            const coins = getActivityCoinRewards(activity);
+            if (Array.isArray(coins) && coins.length > 0) {
+                coins.forEach((emoji) => {
+                    if (emoji in accumulator.coinCounts) {
+                        accumulator.coinCounts[emoji] += 1;
+                    } else {
+                        accumulator.coinCounts[emoji] = 1;
+                    }
+                    accumulator.coinsTotal += 1;
+                    accumulator.coinValue += COIN_VALUE_MAP[emoji] || 0;
+                });
+            }
+
+            const medals = getActivityMedals(activity);
+            if (Array.isArray(medals) && medals.length > 0) {
+                accumulator.medalCount += medals.length;
+                medals.forEach((medal) => {
+                    if (!medal) {
+                        return;
+                    }
+                    if (accumulator.medalDetails.length >= 60) {
+                        return;
+                    }
+                    accumulator.medalDetails.push(medal);
+                });
+            }
+
+            const smallStats = computeActivitySmallStats(activity);
+            if (smallStats) {
+                accumulator.distanceKm += Number.isFinite(smallStats.distanceKm) ? smallStats.distanceKm : 0;
+                accumulator.elevationGain += Number.isFinite(smallStats.elevationGain) ? smallStats.elevationGain : 0;
+                accumulator.calories += Number.isFinite(smallStats.calories) ? smallStats.calories : 0;
+                accumulator.globeTrips += Number.isFinite(smallStats.globeTrips) ? smallStats.globeTrips : 0;
+                accumulator.everestSummits += Number.isFinite(smallStats.everestSummits) ? smallStats.everestSummits : 0;
+                accumulator.pizzaCount += Number.isFinite(smallStats.pizzaCount) ? smallStats.pizzaCount : 0;
+            }
+
+            const activityTimestamp = activityDate.getTime();
+            if (accumulator.windowStartTimestamp === null || activityTimestamp < accumulator.windowStartTimestamp) {
+                accumulator.windowStartTimestamp = activityTimestamp;
+            }
+            if (accumulator.windowEndTimestamp === null || activityTimestamp > accumulator.windowEndTimestamp) {
+                accumulator.windowEndTimestamp = activityTimestamp;
+            }
+        });
+
+        const medalValue = calculateMedalDollarValue(accumulator.medalDetails);
+        const startDate = accumulator.windowStartTimestamp !== null
+            ? new Date(accumulator.windowStartTimestamp)
+            : windowStart;
+        const endDate = accumulator.windowEndTimestamp !== null
+            ? new Date(accumulator.windowEndTimestamp)
+            : now;
+
+        return {
+            key: period.key,
+            label: period.label,
+            days: period.days,
+            activities: accumulator.activities,
+            hours: accumulator.hours,
+            coinsTotal: accumulator.coinsTotal,
+            coinValue: accumulator.coinValue,
+            medalCount: accumulator.medalCount,
+            medalValue,
+            totalValue: accumulator.coinValue + medalValue,
+            coinCounts: { ...accumulator.coinCounts },
+            medalDetails: accumulator.medalDetails.slice(),
+            startDate,
+            endDate,
+            rangeLabel: formatRewardSnapshotRange(startDate, endDate),
+            distanceKm: accumulator.distanceKm,
+            elevationGain: accumulator.elevationGain,
+            calories: accumulator.calories,
+            globeTrips: accumulator.globeTrips,
+            everestSummits: accumulator.everestSummits,
+            pizzaCount: accumulator.pizzaCount,
+        };
+    };
+
+    const buildRankRewardSnapshots = (activities) => {
+        const referenceDate = new Date();
+        return RANK_REWARD_PERIODS.map((period) =>
+            buildRankRewardSnapshotForPeriod(activities, period, referenceDate)
+        );
+    };
+
+    const sanitizeCarouselIdFragment = (value, fallback) => {
+        if (typeof value !== 'string') {
+            return fallback;
+        }
+
+        const normalized = value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+        return normalized || fallback;
+    };
+
+    function formatDistanceStatValue(km) {
+        const numeric = Number(km);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+
+        const safeValue = Math.max(0, numeric);
+        let fractionDigits = 2;
+
+        if (safeValue >= 100) {
+            fractionDigits = 0;
+        } else if (safeValue >= 10) {
+            fractionDigits = 1;
+        }
+
+        return `${safeValue.toLocaleString(undefined, {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+        })} km`;
+    }
+
+    function formatElevationStatValue(meters) {
+        const numeric = Number(meters);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+
+        const rounded = Math.round(numeric);
+        return `${rounded.toLocaleString()} m`;
+    }
+
+    function formatCaloriesStatValue(calories) {
+        const numeric = Number(calories);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '—';
+        }
+
+        const rounded = Math.round(numeric);
+        return `${rounded.toLocaleString()} kcal`;
+    }
+
+    function formatWorldCollectionStatValue(globeTrips) {
+        const numeric = Number(globeTrips);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '';
+        }
+
+        return `🌍 ${formatStatValue(numeric)}`;
+    }
+
+    function formatEverestClimbStatValue(everestSummits) {
+        const numeric = Number(everestSummits);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '';
+        }
+
+        return `🏔️ ${formatStatValue(numeric)}`;
+    }
+
+    function formatPizzaSliceStatValue(pizzaCount) {
+        const numeric = Number(pizzaCount);
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            return '';
+        }
+
+        return `🍕 ${formatStatValue(numeric)}`;
+    }
+
+    const createRankSnapshotSlide = (snapshot, index = 0, options = {}) => {
+        if (!snapshot || typeof snapshot !== 'object') {
+            return null;
+        }
+
+        const safeCoinValue = Number.isFinite(snapshot.coinValue) ? snapshot.coinValue : 0;
+        const safeMedalValue = Number.isFinite(snapshot.medalValue) ? snapshot.medalValue : 0;
+        const safeTotalValue = Number.isFinite(snapshot.totalValue)
+            ? snapshot.totalValue
+            : safeCoinValue + safeMedalValue;
+
+        const label = snapshot.label || 'Recent window';
+        const rangeLabel = snapshot.rangeLabel
+            || formatRewardSnapshotRange(snapshot.startDate, snapshot.endDate);
+
+        const idPrefix = typeof options.idPrefix === 'string' && options.idPrefix.trim()
+            ? options.idPrefix.trim()
+            : 'rank-modal';
+
+        const slide = document.createElement('section');
+        slide.className = 'rank-modal__snapshot';
+        const sanitizedKey = sanitizeCarouselIdFragment(
+            snapshot.key ? `snapshot-${snapshot.key}` : `snapshot-${index + 1}`,
+            `snapshot-${index + 1}`
+        );
+        const snapshotKey = typeof snapshot.key === 'string'
+            ? snapshot.key.trim().toLowerCase()
+            : '';
+        slide.dataset.rankSnapshot = 'true';
+        if (snapshotKey) {
+            slide.dataset.rankSnapshotKey = snapshotKey;
+        }
+        slide.id = `${idPrefix}-snapshot-${sanitizedKey}`;
+        slide.setAttribute('role', 'region');
+
+        const header = document.createElement('header');
+        header.className = 'rank-modal__snapshot-header';
+
+        const headerMeta = document.createElement('div');
+        headerMeta.className = 'rank-modal__snapshot-meta';
+
+        const labelElement = document.createElement('p');
+        labelElement.className = 'rank-modal__snapshot-label';
+        labelElement.textContent = label;
+
+        headerMeta.appendChild(labelElement);
+
+        const headingId = `${slide.id}-heading`;
+        labelElement.id = headingId;
+        slide.setAttribute('aria-labelledby', headingId);
+
+        if (rangeLabel) {
+            const rangeElement = document.createElement('p');
+            rangeElement.className = 'rank-modal__snapshot-range';
+            rangeElement.textContent = rangeLabel;
+            headerMeta.appendChild(rangeElement);
+        }
+
+        const totalGroup = document.createElement('div');
+        totalGroup.className = 'rank-modal__snapshot-total';
+
+        const totalValueElement = document.createElement('p');
+        totalValueElement.className = 'rank-modal__snapshot-total-value';
+        totalValueElement.textContent = usdCodeFormatter.format(safeTotalValue);
+
+        totalGroup.append(totalValueElement);
+
+        const baselineTotalValue = Number.isFinite(options.baselineTotalValue)
+            ? options.baselineTotalValue
+            : null;
+        if (baselineTotalValue && baselineTotalValue > 0) {
+            const sharePercent = (safeTotalValue / baselineTotalValue) * 100;
+            const deltaElement = document.createElement('p');
+            deltaElement.className = 'rank-modal__snapshot-total-delta';
+            const baselineLabel = options.baselineLabel || '1Y';
+            const formattedShare = `${sharePercent >= 0 ? '+' : ''}${sharePercent.toFixed(0)}%`;
+            deltaElement.textContent = `${formattedShare} of ${baselineLabel}`;
+            totalGroup.appendChild(deltaElement);
+        }
+        header.append(headerMeta, totalGroup);
+        slide.appendChild(header);
+
+        const coinBreakdownText = `Coins: ×${formatCount(snapshot.coinsTotal)} · ${usdCodeFormatter.format(safeCoinValue)}`;
+        const medalBreakdownText = `Medals: ×${formatCount(snapshot.medalCount)} · ${usdCodeFormatter.format(safeMedalValue)}`;
+
+        const metricsGrid = document.createElement('div');
+        metricsGrid.className = 'rank-modal__snapshot-metrics';
+
+        const fallbackGlobeTrips = Number.isFinite(snapshot.globeTrips)
+            ? snapshot.globeTrips
+            : (Number.isFinite(snapshot.distanceKm) ? snapshot.distanceKm / EARTH_CIRCUMFERENCE_KM : 0);
+        const fallbackEverests = Number.isFinite(snapshot.everestSummits)
+            ? snapshot.everestSummits
+            : (Number.isFinite(snapshot.elevationGain) ? snapshot.elevationGain / EVEREST_HEIGHT_M : 0);
+        const fallbackPizzas = Number.isFinite(snapshot.pizzaCount)
+            ? snapshot.pizzaCount
+            : (Number.isFinite(snapshot.calories) ? snapshot.calories / PIZZA_KCAL : 0);
+
+        const metrics = [
+            {
+                label: 'Activities',
+                value: formatCount(snapshot.activities),
+            },
+            {
+                label: 'Training hours',
+                value: Number.isFinite(snapshot.hours) && snapshot.hours > 0
+                    ? `${formatHoursDisplay(snapshot.hours)} h`
+                    : '—',
+            },
+            {
+                label: 'Distance covered',
+                value: formatDistanceStatValue(snapshot.distanceKm),
+                secondary: formatWorldCollectionStatValue(fallbackGlobeTrips),
+                inlineSecondary: true,
+            },
+            {
+                label: 'Elevation gain',
+                value: formatElevationStatValue(snapshot.elevationGain),
+                secondary: formatEverestClimbStatValue(fallbackEverests),
+                inlineSecondary: true,
+            },
+            {
+                label: 'Energy burned',
+                value: formatCaloriesStatValue(snapshot.calories),
+                secondary: formatPizzaSliceStatValue(fallbackPizzas),
+                inlineSecondary: true,
+            },
+        ];
+
+        metrics.forEach((metric) => {
+            const stat = document.createElement('div');
+            stat.className = 'rank-modal__snapshot-stat';
+
+            const statLabel = document.createElement('span');
+            statLabel.className = 'rank-modal__snapshot-stat-label';
+            statLabel.textContent = metric.label;
+
+            const statValue = document.createElement('span');
+            statValue.className = 'rank-modal__snapshot-stat-value';
+            const primaryValue = (metric.value ?? '—').toString();
+            const inlineParts = [];
+            if (primaryValue.trim()) {
+                inlineParts.push(primaryValue);
+            }
+            if (metric.inlineSecondary && metric.secondary) {
+                inlineParts.push(metric.secondary);
+            }
+            statValue.textContent = inlineParts.join(' ').trim() || '—';
+
+            stat.append(statLabel, statValue);
+
+            if (metric.secondary && !metric.inlineSecondary) {
+                const statSecondary = document.createElement('span');
+                statSecondary.className = 'rank-modal__snapshot-stat-secondary';
+                statSecondary.textContent = metric.secondary;
+                stat.appendChild(statSecondary);
+            }
+
+            metricsGrid.appendChild(stat);
+        });
+
+        slide.appendChild(metricsGrid);
+
+        const rewardsWrapper = document.createElement('div');
+        rewardsWrapper.className = 'rank-modal__snapshot-rewards';
+
+        const coinCountsSource = (snapshot.coinCounts && typeof snapshot.coinCounts === 'object')
+            ? snapshot.coinCounts
+            : (snapshot.coinBreakdown && typeof snapshot.coinBreakdown === 'object')
+                ? snapshot.coinBreakdown
+                : {};
+
+        const coinEntries = Object.entries(coinCountsSource)
+            .filter(([, value]) => {
+                const numericValue = Number(value);
+                return Number.isFinite(numericValue) && numericValue > 0;
+            })
+            .sort(([, aCount], [, bCount]) => Number(bCount) - Number(aCount));
+
+        const coinItems = coinEntries.map(([emoji, rawCount]) => {
+            const count = Number(rawCount);
+            const item = document.createElement('li');
+            item.className = 'rank-modal__snapshot-item';
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'rank-modal__snapshot-emoji';
+            emojiSpan.textContent = emoji;
+
+            const countSpan = document.createElement('span');
+            countSpan.className = 'rank-modal__snapshot-count';
+            countSpan.textContent = `×${formatCount(count)}`;
+
+            item.append(emojiSpan, countSpan);
+
+            const coinDollarValue = (COIN_VALUE_MAP[emoji] || 0) * count;
+            if (coinDollarValue > 0) {
+                const valueSpan = document.createElement('span');
+                valueSpan.className = 'rank-modal__snapshot-subvalue';
+                valueSpan.textContent = usdCodeFormatter.format(coinDollarValue);
+                item.appendChild(valueSpan);
+            }
+
+            return item;
+        });
+
+        const medalDetails = Array.isArray(snapshot.medalDetails) ? snapshot.medalDetails : [];
+        const medalCounts = new Map();
+
+        medalDetails.forEach((medal) => {
+            if (!medal || (typeof medal !== 'object')) {
+                return;
+            }
+
+            const emoji = typeof medal.emoji === 'string' && medal.emoji.trim()
+                ? medal.emoji.trim()
+                : '🏅';
+            const name = typeof medal.name === 'string' && medal.name.trim()
+                ? medal.name.trim()
+                : 'Medal';
+            const key = `${emoji}|${name}`;
+            const existing = medalCounts.get(key) || { emoji, label: name, count: 0 };
+            existing.count += 1;
+            medalCounts.set(key, existing);
+        });
+
+        const medalEntries = Array.from(medalCounts.values())
+            .sort((a, b) => b.count - a.count);
+
+        const medalItems = [];
+
+        const displayedMedals = medalEntries.length > 0
+            ? medalEntries
+            : (Number.isFinite(snapshot.medalCount) && snapshot.medalCount > 0
+                ? [{ emoji: '🏅', label: 'Medals', count: snapshot.medalCount }]
+                : []);
+
+        displayedMedals.forEach((entry) => {
+            const item = document.createElement('li');
+            item.className = 'rank-modal__snapshot-item';
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'rank-modal__snapshot-emoji';
+            emojiSpan.textContent = entry.emoji;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'rank-modal__snapshot-name';
+            nameSpan.textContent = entry.label;
+
+            const countSpan = document.createElement('span');
+            countSpan.className = 'rank-modal__snapshot-count';
+            countSpan.textContent = `×${formatCount(entry.count)}`;
+
+            item.append(emojiSpan, nameSpan, countSpan);
+            medalItems.push(item);
+        });
+
+        const buildBreakdownElement = (text, isMuted = false) => {
+            const element = document.createElement('p');
+            element.className = 'rank-modal__snapshot-total-breakdown';
+            element.textContent = text;
+            if (isMuted) {
+                element.classList.add('is-muted');
+            }
+            return element;
+        };
+
+        const buildSnapshotSection = (title, total, items, emptyLabel, breakdownElement, options = {}) => {
+            const section = document.createElement('section');
+            section.className = 'rank-modal__snapshot-section';
+
+            const sectionHeader = document.createElement('header');
+            sectionHeader.className = 'rank-modal__snapshot-section-header';
+
+            const totalBox = document.createElement('div');
+            totalBox.className = 'rank-modal__snapshot-section-totalbox';
+            totalBox.textContent = `${title}: ${total}`;
+
+            if (breakdownElement) {
+                totalBox.appendChild(breakdownElement);
+            }
+
+            sectionHeader.appendChild(totalBox);
+            section.appendChild(sectionHeader);
+
+            const list = document.createElement('ul');
+            list.className = 'rank-modal__snapshot-list';
+            if (options.listClassName) {
+                list.className = `${list.className} ${options.listClassName}`;
+            }
+
+            if (items.length > 0) {
+                items.forEach((item) => list.appendChild(item));
+            } else {
+                const emptyItem = document.createElement('li');
+                emptyItem.className = 'rank-modal__snapshot-empty';
+                emptyItem.textContent = emptyLabel;
+                list.appendChild(emptyItem);
+            }
+
+            section.appendChild(list);
+            return section;
+        };
+
+        rewardsWrapper.append(
+            buildSnapshotSection(
+                'Coins',
+                formatCount(snapshot.coinsTotal),
+                coinItems,
+                'No coins minted',
+                buildBreakdownElement(
+                    coinBreakdownText,
+                    safeCoinValue <= 0
+                ),
+                { listClassName: 'rank-modal__snapshot-list--scrollable' }
+            ),
+            buildSnapshotSection(
+                'Medals',
+                formatCount(snapshot.medalCount),
+                medalItems,
+                'No medals unlocked',
+                buildBreakdownElement(
+                    medalBreakdownText,
+                    safeMedalValue <= 0
+                ),
+                { listClassName: 'rank-modal__snapshot-list--scrollable' }
+            ),
+        );
+
+        slide.appendChild(rewardsWrapper);
+
+        return slide;
+    };
+
+    const createLeagueClassSlide = (leagueClass, options = {}) => {
+        if (!leagueClass) {
+            return null;
+        }
+
+        const idPrefix = typeof options.idPrefix === 'string' && options.idPrefix.trim()
+            ? options.idPrefix.trim()
+            : 'rank-modal';
+
+        const slide = document.createElement('section');
+        slide.className = 'rank-modal__snapshot rank-modal__snapshot--class';
+        slide.id = `${idPrefix}-class-panel`;
+        slide.setAttribute('role', 'region');
+
+        const header = document.createElement('header');
+        header.className = 'rank-modal__snapshot-header';
+
+        const headerMeta = document.createElement('div');
+        headerMeta.className = 'rank-modal__snapshot-meta';
+
+        const labelElement = document.createElement('p');
+        labelElement.className = 'rank-modal__snapshot-label';
+        labelElement.textContent = 'Classe della Compagnia';
+        const headingId = `${slide.id}-heading`;
+        labelElement.id = headingId;
+        slide.setAttribute('aria-labelledby', headingId);
+
+        const titleElement = document.createElement('h3');
+        titleElement.className = 'rank-modal__snapshot-title';
+        titleElement.textContent = `${leagueClass.emoji ? `${leagueClass.emoji} ` : ''}${leagueClass.name}`;
+
+        headerMeta.append(labelElement, titleElement);
+
+        const crestElement = document.createElement('span');
+        crestElement.className = 'rank-modal__snapshot-crest';
+        crestElement.textContent = leagueClass.emoji || LEAGUE_CLASS_EMOJIS.tier5;
+        crestElement.setAttribute('aria-hidden', 'true');
+
+        header.append(headerMeta, crestElement);
+
+        const body = document.createElement('div');
+        body.className = 'rank-modal__snapshot-body';
+
+        const description = document.createElement('p');
+        description.className = 'rank-modal__snapshot-description';
+        description.textContent = leagueClass.description || '';
+
+        body.appendChild(description);
+
+        if (Array.isArray(leagueClass.reasons) && leagueClass.reasons.length > 0) {
+            const reasonsList = document.createElement('ul');
+            reasonsList.className = 'rank-modal__snapshot-list';
+            leagueClass.reasons.forEach((reason) => {
+                const item = document.createElement('li');
+                item.textContent = reason;
+                reasonsList.appendChild(item);
+            });
+            body.appendChild(reasonsList);
+        }
+
+        slide.append(header, body);
+        return slide;
+    };
+
+    const renderHistoricalMedalProgress = (progressElement) => {
+        if (!progressElement) {
+            return;
+        }
+
+        progressElement.innerHTML = '';
+
+        const progressMedals = Array.isArray(historicalMedalInventory)
+            ? historicalMedalInventory.filter((medal) => {
+                const targetValue = medal?.progressStatus?.targetValue;
+                return medal?.progressStatus && Number.isFinite(targetValue) && targetValue > 0;
+            })
+            : [];
+
+        const ratioEntries = buildDisciplineRatioEntries();
+        const ratioEntryMap = new Map(
+            ratioEntries.map((entry) => [(entry.category || '').toLowerCase(), entry])
+        );
+
+        progressElement.hidden = false;
+        progressElement.setAttribute('aria-hidden', 'false');
+
+        const header = document.createElement('div');
+        header.className = 'rank-modal__progress-header';
+
+        const toggle = document.createElement('div');
+        toggle.className = 'rank-modal__progress-toggle';
+
+        progressDisciplineTabs.forEach((tab) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            const isActive = activeProgressDiscipline === tab.key;
+            button.className = `rank-modal__progress-toggle-button${isActive ? ' is-active' : ''}`;
+            button.textContent = `${tab.emoji} ${tab.key}`;
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            button.setAttribute('aria-label', `${tab.label}`);
+            button.addEventListener('click', () => {
+                if (activeProgressDiscipline !== tab.key) {
+                    activeProgressDiscipline = tab.key;
+                    renderHistoricalMedalProgress(progressElement);
+                }
+            });
+            toggle.appendChild(button);
+        });
+
+        header.appendChild(toggle);
+
+        const activeEntry = ratioEntryMap.get((activeProgressDiscipline || '').toLowerCase());
+        if (activeEntry) {
+            const pillRow = document.createElement('div');
+            pillRow.className = 'rank-modal__progress-pills';
+
+            const buildStatPill = (statConfig = {}) => {
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = 'profile-metric-pill profile-ratio-pill rank-modal__progress-pill';
+                pill.classList.add(`profile-ratio-pill--${(activeEntry.category || '').toLowerCase()}`);
+
+                const srLabel = document.createElement('span');
+                srLabel.className = 'sr-only';
+                srLabel.textContent = `${activeEntry.category || 'Discipline'} ${statConfig?.label || 'stat'}`;
+
+                const value = document.createElement('span');
+                value.className = 'profile-ratio-pill__value';
+                value.textContent = statConfig?.value || '—';
+
+                const detail = document.createElement('span');
+                detail.className = 'profile-ratio-pill__detail';
+                detail.textContent = statConfig?.detail || 'Not enough data yet.';
+
+                pill.append(srLabel, value, detail);
+
+                if (statConfig?.tooltipText) {
+                    attachTooltip(pill, statConfig.tooltipText);
+                }
+
+                return pill;
+            };
+
+            const buildStatEntries = () => {
+                const stats = [];
+                const metrics = activeEntry.metrics || {};
+                const disciplineLabel = activeEntry.category || 'Discipline';
+                const baseCountLabel = activeEntry.countLabel || '';
+                const hasDistance = Number.isFinite(metrics.avgDistanceKm) && metrics.avgDistanceKm > 0;
+                const distanceValue = hasDistance
+                    ? `${formatKilometersDisplay(metrics.avgDistanceKm)} km`
+                    : '—';
+                const speedLabel = activeEntry.speedLabel || '—';
+                const climbLabel = activeEntry.climbLabel || '—';
+                const hasPoolsMetric = Number.isFinite(metrics.avgPoolsPerActivity) && metrics.avgPoolsPerActivity > 0;
+
+                stats.push({
+                    key: 'distance',
+                    label: 'average length',
+                    value: distanceValue,
+                    detail: hasDistance ? 'Avg length' : 'No distance yet',
+                    tooltipText: [
+                        baseCountLabel,
+                        hasDistance
+                            ? `${disciplineLabel} average length ${distanceValue}.`
+                            : `No ${disciplineLabel.toLowerCase()} distance recorded yet.`,
+                    ].filter(Boolean).join(' '),
+                });
+
+                stats.push({
+                    key: 'velocity',
+                    label: 'velocity',
+                    value: speedLabel,
+                    detail: activeEntry.speedDescriptor === 'speed' ? 'Avg speed' : 'Avg pace',
+                    tooltipText: [
+                        baseCountLabel,
+                        speedLabel && speedLabel !== '—'
+                            ? `${disciplineLabel} average ${activeEntry.speedDescriptor || 'speed'} ${speedLabel}.`
+                            : `No ${disciplineLabel.toLowerCase()} pace data yet.`,
+                    ].filter(Boolean).join(' '),
+                });
+
+                stats.push({
+                    key: 'climb',
+                    label: hasPoolsMetric ? 'average pool count' : 'meters per km',
+                    value: climbLabel,
+                    detail: hasPoolsMetric ? 'Avg pools' : 'm climbed per km',
+                    tooltipText: [
+                        baseCountLabel,
+                        climbLabel && climbLabel !== '—'
+                            ? hasPoolsMetric
+                                ? `${disciplineLabel} average ${climbLabel}.`
+                                : `${disciplineLabel} elevation gain ${climbLabel}.`
+                            : `No ${disciplineLabel.toLowerCase()} elevation data yet.`,
+                    ].filter(Boolean).join(' '),
+                });
+
+                return stats;
+            };
+
+            buildStatEntries().forEach((stat) => {
+                pillRow.appendChild(buildStatPill(stat));
+            });
+
+            header.appendChild(pillRow);
+        }
+
+        const title = document.createElement('p');
+        title.className = 'rank-modal__progress-title';
+        title.textContent = 'Historical medals';
+        header.appendChild(title);
+        progressElement.appendChild(header);
+
+        if (progressMedals.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__progress-empty';
+            emptyState.textContent = 'Medal progression will appear once activities load.';
+            progressElement.appendChild(emptyState);
+            return;
+        }
+
+        const list = document.createElement('ul');
+        list.className = 'rank-modal__progress-list';
+        list.setAttribute('role', 'list');
+
+        const normalizedDiscipline = (activeProgressDiscipline || '').toLowerCase();
+        const filteredMedals = progressMedals.filter((medal) => {
+            const category = (medal?.milestoneCategory || medal?.category || '').toLowerCase();
+            if (!category) {
+                return true;
+            }
+            return category === normalizedDiscipline;
+        });
+
+        const orderedMedals = filteredMedals.slice().sort((a, b) => {
+            const orderA = medalOrderMap.get(a?.name) ?? Number.MAX_SAFE_INTEGER;
+            const orderB = medalOrderMap.get(b?.name) ?? Number.MAX_SAFE_INTEGER;
+            if (orderA === orderB) {
+                return (a?.name || '').localeCompare(b?.name || '');
+            }
+            return orderA - orderB;
+        });
+
+        if (orderedMedals.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__progress-empty';
+            emptyState.textContent = `${activeProgressDiscipline} progression will appear once activities load.`;
+            progressElement.appendChild(emptyState);
+            return;
+        }
+
+        orderedMedals.forEach((medal) => {
+            const item = document.createElement('li');
+            item.className = 'rank-modal__progress-item';
+
+            const itemHeader = document.createElement('div');
+            itemHeader.className = 'rank-modal__progress-item-header';
+
+            const medalCount = Math.max(0, toNonNegativeInteger(medal?.count));
+            const countSpan = document.createElement('span');
+            countSpan.className = 'rank-modal__progress-count';
+            countSpan.textContent = medalCount > 0
+                ? `${medalCount.toLocaleString()}×`
+                : 'Not yet';
+
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'rank-modal__progress-name';
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.textContent = medal.emoji || '🏅';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = medal.name || 'Progress medal';
+            nameGroup.append(countSpan, emojiSpan, nameSpan);
+
+            itemHeader.appendChild(nameGroup);
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'rank-modal__progress-bar';
+            progressBar.setAttribute('role', 'progressbar');
+
+            const progressFill = document.createElement('div');
+            progressFill.className = 'rank-modal__progress-bar-fill';
+            const percentComplete = Number.isFinite(medal.progressStatus?.percentComplete)
+                ? Math.min(100, Math.max(0, medal.progressStatus.percentComplete))
+                : 0;
+            progressFill.style.width = `${percentComplete}%`;
+            progressFill.setAttribute('aria-hidden', 'true');
+            progressBar.setAttribute('aria-valuemin', '0');
+            progressBar.setAttribute('aria-valuemax', '100');
+            progressBar.setAttribute('aria-valuenow', percentComplete.toFixed(1));
+            progressBar.setAttribute('aria-label', `${medal.name || 'Progress medal'} progress`);
+
+            const progressLabel = document.createElement('span');
+            progressLabel.className = 'rank-modal__progress-bar-label';
+            const roundedPercent = Math.round(percentComplete);
+            progressLabel.textContent = `${roundedPercent}%`;
+            progressBar.setAttribute('aria-valuetext', progressLabel.textContent);
+
+            progressBar.append(progressFill, progressLabel);
+
+            item.append(itemHeader, progressBar);
+            list.appendChild(item);
+        });
+
+        progressElement.appendChild(list);
+    };
+
+    const buildDisciplineRatioEntries = () => {
+        if (!disciplineRatioStats || typeof disciplineRatioStats !== 'object') {
+            return [];
+        }
+
+        const entries = [];
+
+        const buildDetail = (parts = [], fallback = 'Not enough data yet.') => {
+            const validParts = parts.filter((part) => typeof part === 'string' && part.trim() && part.trim() !== '—');
+            return validParts.length > 0
+                ? validParts.join(' · ')
+                : fallback;
+        };
+
+        const createCountLabel = (metrics, label) => {
+            if (!metrics || !Number.isFinite(metrics.count)) {
+                return '';
+            }
+            if (metrics.count > 0) {
+                return `${metrics.count.toLocaleString()} ${label}`;
+            }
+            return `No ${label} yet`;
+        };
+
+        const buildEntry = ({
+            category,
+            emoji,
+            metrics,
+            label,
+            speedLabel,
+            speedDescriptor = 'pace',
+            climbLabel,
+        }) => {
+            if (!metrics) {
+                return null;
+            }
+
+            const avgDistanceLabel = Number.isFinite(metrics.avgDistanceKm) && metrics.avgDistanceKm > 0
+                ? `${formatKilometersDisplay(metrics.avgDistanceKm)} km avg`
+                : 'No distance yet';
+            const detailLabel = buildDetail([
+                speedLabel,
+                climbLabel,
+            ]);
+            const tooltipParts = [
+                createCountLabel(metrics, label),
+                avgDistanceLabel !== 'No distance yet' ? `Avg distance ${avgDistanceLabel.replace(' avg', '')}.` : null,
+                speedLabel && speedLabel !== '—' ? `${category} ${speedDescriptor} ${speedLabel}.` : null,
+                climbLabel && climbLabel !== '—' ? `${climbLabel} gained per km.` : null,
+            ].filter(Boolean);
+
+            return {
+                category,
+                emoji,
+                count: metrics.count,
+                metrics,
+                countLabel: createCountLabel(metrics, label),
+                valueLabel: avgDistanceLabel,
+                detailLabel,
+                tooltipText: tooltipParts.join(' '),
+                speedLabel,
+                speedDescriptor,
+                climbLabel,
+            };
+        };
+
+        const runMetrics = disciplineRatioStats.run;
+        const runEntry = buildEntry({
+            category: 'Run',
+            emoji: '🏃',
+            metrics: runMetrics,
+            label: 'runs',
+            speedLabel: formatPace(runMetrics?.avgPaceSecondsPerKm),
+            climbLabel: formatMetersPerKilometer(runMetrics?.avgClimbPerKm),
+        });
+        if (runEntry) {
+            entries.push(runEntry);
+        }
+
+        const rideMetrics = disciplineRatioStats.ride;
+        const rideEntry = buildEntry({
+            category: 'Ride',
+            emoji: '🚴',
+            metrics: rideMetrics,
+            label: 'rides',
+            speedLabel: formatKilometersPerHour(rideMetrics?.avgSpeedKph),
+            speedDescriptor: 'speed',
+            climbLabel: formatMetersPerKilometer(rideMetrics?.avgClimbPerKm),
+        });
+        if (rideEntry) {
+            entries.push(rideEntry);
+        }
+
+        const swimMetrics = disciplineRatioStats.swim;
+        const swimEntry = buildEntry({
+            category: 'Swim',
+            emoji: '🏊',
+            metrics: swimMetrics,
+            label: 'swims',
+            speedLabel: formatSwimPace100m(swimMetrics?.avgPaceSecondsPerKm),
+            climbLabel: Number.isFinite(swimMetrics?.avgPoolsPerActivity) && swimMetrics.avgPoolsPerActivity > 0
+                ? `${swimMetrics.avgPoolsPerActivity.toFixed(1)} × 25m pools / swim`
+                : '—',
+        });
+        if (swimEntry) {
+            entries.push(swimEntry);
+        }
+
+        return entries;
+    };
+
+    const renderRankRewardModalContent = ({
+        summaryElement,
+        progressElement,
+        snapshotsElement,
+        listElement,
+        timelineElement,
+        idPrefix = 'rank-modal',
+    } = {}) => {
+        if (!listElement && !timelineElement) {
             return;
         }
 
         const config = Array.isArray(activeRankConfig) ? activeRankConfig : [];
-        rankModalListElement.innerHTML = '';
-
-        const currentHighLevelLabel = extractRankHighLevel(rankProgressState.currentRank?.name);
-        const { groups: timelineGroups, currentIndex: timelineCurrentIndex, maxHours: timelineMaxHours } = buildRankTimelineGroups(
-            config,
-            currentHighLevelLabel
-        );
-
-        rankTimelineGroups = timelineGroups;
-        rankTimelineMaxHours = timelineMaxHours;
-
-        const initialTimelineIndex = Number.isInteger(timelineCurrentIndex) && timelineCurrentIndex >= 0
-            ? timelineCurrentIndex
-            : 0;
-
-        const shouldResetTimelineSelection = !rankModalElement || rankModalElement.hidden;
-
-        if (
-            !Number.isInteger(rankTimelineSelectionIndex)
-            || rankTimelineSelectionIndex >= rankTimelineGroups.length
-            || shouldResetTimelineSelection
-        ) {
-            rankTimelineSelectionIndex = initialTimelineIndex;
+        if (listElement) {
+            listElement.innerHTML = '';
+        }
+        if (timelineElement?.dataset.timelineEmpty === 'true') {
+            timelineElement.innerHTML = '';
         }
 
-        renderRankTimeline();
-
-        if (rankModalSummaryElement) {
+        if (summaryElement) {
             const totalHours = Number.isFinite(rankProgressState.totalHours)
                 ? rankProgressState.totalHours
                 : 0;
@@ -1857,10 +5884,52 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `);
             }
 
-            rankModalSummaryElement.innerHTML = summaryFragments
+            summaryElement.innerHTML = summaryFragments
                 .map((fragment) => fragment.trim())
                 .join('');
-            rankModalSummaryElement.hidden = summaryFragments.length === 0;
+            summaryElement.hidden = summaryFragments.length === 0;
+        }
+
+        if (progressElement) {
+            renderHistoricalMedalProgress(progressElement);
+        }
+
+        const shouldRenderSnapshots = snapshotsElement && idPrefix !== 'rank-modal';
+
+        if (shouldRenderSnapshots) {
+            snapshotsElement.innerHTML = '';
+
+            const snapshots = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
+                ? rankRewardSnapshots
+                : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
+
+            const yearlySnapshot = snapshots.find((entry) => (entry?.key || '').toLowerCase() === 'yearly');
+            const baselineTotalValue = Number.isFinite(yearlySnapshot?.totalValue)
+                ? yearlySnapshot.totalValue
+                : null;
+            const baselineLabel = yearlySnapshot
+                ? (PROFILE_PERIOD_SHORT_LABELS_BY_KEY[(yearlySnapshot.key || '').toLowerCase()] || yearlySnapshot.label || '1Y')
+                : '1Y';
+
+            snapshots.forEach((snapshot, snapshotIndex) => {
+                const slide = createRankSnapshotSlide(snapshot, snapshotIndex, {
+                    idPrefix,
+                    baselineTotalValue,
+                    baselineLabel,
+                });
+                if (slide) {
+                    snapshotsElement.appendChild(slide);
+                }
+            });
+
+            snapshotsElement.classList.toggle(
+                'rank-modal__snapshots--empty',
+                !snapshotsElement.hasChildNodes()
+            );
+            snapshotsElement.hidden = false;
+        } else if (snapshotsElement) {
+            snapshotsElement.innerHTML = '';
+            snapshotsElement.hidden = true;
         }
 
         if (config.length === 0) {
@@ -1868,10 +5937,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             emptyState.textContent = 'Rank data is not available yet. Keep training to unlock your first crest!';
             emptyState.className = 'rank-modal__empty';
             emptyState.setAttribute('role', 'note');
-            rankModalListElement.appendChild(emptyState);
-            if (rankModalTimelineElement) {
-                rankModalTimelineElement.hidden = true;
-            }
+            const targetElement = timelineElement || listElement;
+            targetElement?.appendChild(emptyState);
+            return;
+        }
+
+        if (timelineElement && idPrefix === 'rank-modal') {
+            renderRankProgressTimeline(timelineElement, config);
+            return;
+        }
+
+        if (!listElement) {
             return;
         }
 
@@ -1883,7 +5959,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const item = document.createElement('div');
             item.className = 'rank-modal__item';
             item.setAttribute('role', 'listitem');
-            item.dataset.rankHighLevel = extractRankHighLevel(rank.name);
 
             const isCurrent = index === currentIndex;
 
@@ -1905,8 +5980,131 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <span class="rank-modal__hours">≥ ${formatHoursDisplay(rank.minHours)} h</span>
             `;
 
-            rankModalListElement.appendChild(item);
+            listElement.appendChild(item);
         });
+    };
+
+    const renderLeagueClassPanels = (leagueClass) => {
+        if (!rankModalClassElement) {
+            return;
+        }
+
+        rankModalClassElement.innerHTML = '';
+
+        const slide = createLeagueClassSlide(leagueClass, { idPrefix: 'rank-modal' });
+        if (slide) {
+            rankModalClassElement.appendChild(slide);
+            rankModalClassElement.classList.remove('rank-modal__snapshots--empty');
+        } else {
+            rankModalClassElement.classList.add('rank-modal__snapshots--empty');
+        }
+    };
+
+    const renderRankModal = () => {
+        if (rankModalSummaryElement) {
+            rankModalSummaryElement.innerHTML = '';
+            rankModalSummaryElement.style.display = 'none';
+        }
+
+        renderLeagueClassPanels(currentLeagueClass);
+        renderRankRewardModalContent({
+            summaryElement: null,
+            progressElement: rankModalProgressElement,
+            snapshotsElement: rankModalSnapshotsElement,
+            timelineElement: rankModalTimelineElement,
+            idPrefix: 'rank-modal',
+        });
+    };
+
+    const renderLeagueClassSummary = (leagueClass) => {
+        if (!leagueClassSummaryElement) {
+            return;
+        }
+
+        if (!leagueClass) {
+            leagueClassSummaryElement.hidden = true;
+            return;
+        }
+
+        leagueClassSummaryElement.hidden = false;
+        if (leagueClassEmojiElement) {
+            leagueClassEmojiElement.textContent = leagueClass.emoji || LEAGUE_CLASS_EMOJIS.tier5;
+        }
+        if (leagueClassNameElement) {
+            leagueClassNameElement.textContent = leagueClass.name || 'Classe della Compagnia';
+        }
+        if (leagueClassDescriptionElement) {
+            leagueClassDescriptionElement.textContent = leagueClass.description || '';
+        }
+        if (leagueClassReasonsElement) {
+            leagueClassReasonsElement.innerHTML = '';
+            (leagueClass.reasons || []).forEach((reason) => {
+                const item = document.createElement('li');
+                item.textContent = reason;
+                leagueClassReasonsElement.appendChild(item);
+            });
+            leagueClassReasonsElement.hidden = !(leagueClass.reasons || []).length;
+        }
+    };
+
+    const clearRankSnapshotHighlight = () => {
+        if (highlightedRankSnapshotElement) {
+            highlightedRankSnapshotElement.classList.remove('is-highlighted');
+            highlightedRankSnapshotElement = null;
+        }
+    };
+
+    const highlightRankSnapshot = (snapshotKey) => {
+        if (!rankModalSnapshotsElement || !snapshotKey) {
+            clearRankSnapshotHighlight();
+            return null;
+        }
+
+        const normalizedKey = snapshotKey.toLowerCase();
+        const target = Array.from(rankModalSnapshotsElement.querySelectorAll('[data-rank-snapshot="true"]'))
+            .find((section) => {
+                const key = (section.dataset.rankSnapshotKey || '').toLowerCase();
+                return key === normalizedKey;
+            });
+
+        clearRankSnapshotHighlight();
+
+        if (target) {
+            target.classList.add('is-highlighted');
+            highlightedRankSnapshotElement = target;
+        }
+
+        return target || null;
+    };
+
+    const clearWalletSnapshotHighlight = () => {
+        if (highlightedWalletSnapshotElement) {
+            highlightedWalletSnapshotElement.classList.remove('is-highlighted');
+            highlightedWalletSnapshotElement = null;
+        }
+    };
+
+    const highlightWalletSnapshot = (snapshotKey) => {
+        if (!walletModalSnapshotsElement || !snapshotKey) {
+            clearWalletSnapshotHighlight();
+            return null;
+        }
+
+        const normalizedKey = snapshotKey.toLowerCase();
+        const target = Array.from(walletModalSnapshotsElement.querySelectorAll('[data-rank-snapshot="true"]'))
+            .find((section) => {
+                const key = (section.dataset.rankSnapshotKey || '').toLowerCase();
+                return key === normalizedKey;
+            });
+
+        clearWalletSnapshotHighlight();
+
+        if (target) {
+            target.classList.add('is-highlighted');
+            highlightedWalletSnapshotElement = target;
+        }
+
+        return target || null;
     };
 
     const closeRankModal = () => {
@@ -1914,9 +6112,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        clearRankSnapshotHighlight();
         rankModalElement.hidden = true;
         rankModalElement.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('rank-modal-open');
+        if (!walletModalElement || walletModalElement.hidden) {
+            document.body.classList.remove('rank-modal-open');
+        }
         setRankTriggerExpanded(false);
 
         if (rankModalPreviouslyFocusedElement && typeof rankModalPreviouslyFocusedElement.focus === 'function') {
@@ -1929,10 +6130,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         rankModalPreviouslyFocusedElement = null;
     };
 
-    const openRankModal = () => {
+    const openRankModal = ({ snapshotKey = null } = {}) => {
         if (!rankModalElement) {
             return;
         }
+
+        viewingRankIndex = rankProgressState.currentRankIndex;
 
         rankModalPreviouslyFocusedElement = document.activeElement instanceof HTMLElement
             ? document.activeElement
@@ -1940,14 +6143,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         renderRankModal();
 
+        let highlightedElement = null;
+        if (snapshotKey) {
+            highlightedElement = highlightRankSnapshot(snapshotKey);
+        } else {
+            clearRankSnapshotHighlight();
+        }
+
         rankModalElement.hidden = false;
         rankModalElement.setAttribute('aria-hidden', 'false');
         document.body.classList.add('rank-modal-open');
         setRankTriggerExpanded(true);
 
-        const currentItem = rankModalListElement?.querySelector('.rank-modal__item.is-current');
-        if (currentItem && typeof currentItem.scrollIntoView === 'function') {
+        const currentItem = rankModalTimelineElement?.querySelector('.rank-modal__timeline-marker.is-current');
+        const ensureScrollTop = () => {
+            if (rankModalContentElement) {
+                rankModalContentElement.scrollTop = 0;
+            } else if (rankModalElement) {
+                rankModalElement.scrollTop = 0;
+            }
+        };
+
+        if (highlightedElement) {
+            requestAnimationFrame(() => {
+                try {
+                    highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } catch (scrollError) {
+                    console.warn('Unable to scroll highlighted snapshot into view:', scrollError);
+                }
+            });
+        } else if (currentItem && typeof currentItem.scrollIntoView === 'function') {
             currentItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } else {
+            ensureScrollTop();
         }
 
         const focusTarget = rankModalCloseButton || currentItem;
@@ -1957,8 +6185,379 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (error) {
                 console.warn('Unable to focus rank modal control:', error);
             }
+        } else {
+            ensureScrollTop();
         }
     };
+
+    const renderWalletModal = () => {
+        renderRankRewardModalContent({
+            summaryElement: walletModalSummaryElement,
+            snapshotsElement: walletModalSnapshotsElement,
+            listElement: walletModalListElement,
+            idPrefix: 'wallet-modal',
+        });
+    };
+
+    const closeWalletModal = () => {
+        if (!walletModalElement || walletModalElement.hidden) {
+            return;
+        }
+
+        clearWalletSnapshotHighlight();
+        walletModalElement.hidden = true;
+        walletModalElement.setAttribute('aria-hidden', 'true');
+
+        if (!rankModalElement || rankModalElement.hidden) {
+            document.body.classList.remove('rank-modal-open');
+        }
+
+        if (walletModalPreviouslyFocusedElement && typeof walletModalPreviouslyFocusedElement.focus === 'function') {
+            try {
+                walletModalPreviouslyFocusedElement.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to restore focus after closing wallet modal:', error);
+            }
+        }
+
+        walletModalPreviouslyFocusedElement = null;
+    };
+
+    const openWalletModal = ({ snapshotKey = null } = {}) => {
+        if (!walletModalElement) {
+            return;
+        }
+
+        walletModalPreviouslyFocusedElement = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+
+        renderWalletModal();
+
+        let highlightedElement = null;
+        if (snapshotKey) {
+            highlightedElement = highlightWalletSnapshot(snapshotKey);
+        } else {
+            clearWalletSnapshotHighlight();
+        }
+
+        walletModalElement.hidden = false;
+        walletModalElement.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('rank-modal-open');
+
+        const ensureScrollTop = () => {
+            if (walletModalContentElement) {
+                walletModalContentElement.scrollTop = 0;
+            } else if (walletModalElement) {
+                walletModalElement.scrollTop = 0;
+            }
+        };
+
+        if (highlightedElement) {
+            requestAnimationFrame(() => {
+                try {
+                    highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } catch (scrollError) {
+                    console.warn('Unable to scroll highlighted wallet snapshot into view:', scrollError);
+                }
+            });
+        } else {
+            ensureScrollTop();
+        }
+
+        const focusTarget = walletModalCloseButton || highlightedElement;
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            try {
+                focusTarget.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to focus wallet modal control:', error);
+                ensureScrollTop();
+            }
+        } else {
+            ensureScrollTop();
+        }
+    };
+
+    function getRankSnapshotForPeriodKey(periodKey) {
+        if (!periodKey) {
+            return null;
+        }
+
+        const normalizedKey = String(periodKey).toLowerCase();
+        const snapshotSource = Array.isArray(rankRewardSnapshots) && rankRewardSnapshots.length > 0
+            ? rankRewardSnapshots
+            : buildRankRewardSnapshots(Array.isArray(allData.activities) ? allData.activities : []);
+
+        return snapshotSource.find((snapshot) => (snapshot?.key || '').toLowerCase() === normalizedKey) || null;
+    }
+
+    const resolveProfilePeriodOption = (periodKey) => PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] || null;
+
+    const updateProfilePeriodToggleState = (periodKey) => {
+        if (!profilePeriodToggleButtons || profilePeriodToggleButtons.length === 0) {
+            return;
+        }
+
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+        profilePeriodToggleButtons.forEach((button) => {
+            const isActive = button.dataset.profilePeriodOption === normalizedKey;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+            button.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+    };
+
+    const setProfilePeriodModalPeriod = (periodKey, { label = '', summary = '' } = {}) => {
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey]
+            ? periodKey
+            : (PROFILE_PERIOD_OPTIONS_BY_KEY[profilePeriodModalActiveKey] ? profilePeriodModalActiveKey : 'yearly');
+
+        profilePeriodModalActiveKey = normalizedKey;
+        updateProfilePeriodToggleState(normalizedKey);
+
+        const option = resolveProfilePeriodOption(normalizedKey) || {};
+        const metadata = PROFILE_PERIOD_MODAL_METADATA[normalizedKey] || {};
+
+        renderProfilePeriodModal(normalizedKey, {
+            label: label || option.longLabel || metadata.title || '',
+            summary: summary || metadata.description || '',
+        });
+    };
+
+    function renderProfilePeriodModal(periodKey, { label = '', summary = '' } = {}) {
+        if (!profilePeriodModalContentElement) {
+            return;
+        }
+
+        profilePeriodModalContentElement.innerHTML = '';
+
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+        const snapshot = getRankSnapshotForPeriodKey(normalizedKey);
+        const metadata = PROFILE_PERIOD_MODAL_METADATA[normalizedKey] || {};
+        const titleText = metadata.title
+            || (label ? `${label} overview` : 'Wallet change overview');
+        const shortLabel = PROFILE_PERIOD_SHORT_LABELS_BY_KEY[normalizedKey] || '';
+
+        if (profilePeriodModalTitleElement) {
+            profilePeriodModalTitleElement.textContent = '';
+            profilePeriodModalTitleElement.hidden = true;
+            profilePeriodModalTitleElement.setAttribute('aria-hidden', 'true');
+        }
+
+        if (profilePeriodModalDescriptionElement) {
+            profilePeriodModalDescriptionElement.textContent = '';
+            profilePeriodModalDescriptionElement.hidden = true;
+            profilePeriodModalDescriptionElement.setAttribute('aria-hidden', 'true');
+        }
+
+        if (!snapshot) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'rank-modal__empty';
+            emptyState.textContent = 'Wallet change insights are still loading. Fetch the latest activities and try again.';
+            profilePeriodModalContentElement.appendChild(emptyState);
+            return;
+        }
+
+        const yearlySnapshot = getRankSnapshotForPeriodKey('yearly');
+        const baselineTotalValue = Number.isFinite(yearlySnapshot?.totalValue)
+            ? yearlySnapshot.totalValue
+            : null;
+        const baselineLabel = yearlySnapshot
+            ? (PROFILE_PERIOD_SHORT_LABELS_BY_KEY[(yearlySnapshot.key || '').toLowerCase()] || yearlySnapshot.label || '1Y')
+            : '1Y';
+
+        const slide = createRankSnapshotSlide(snapshot, 0, {
+            idPrefix: 'profile-period',
+            baselineTotalValue,
+            baselineLabel,
+        });
+        if (slide) {
+            const totalGroup = slide.querySelector('.rank-modal__snapshot-total');
+            if (profilePeriodToggleElement) {
+                let controlsRow = profilePeriodModalElement.querySelector('.profile-period__controls');
+                if (!controlsRow) {
+                    controlsRow = document.createElement('div');
+                    controlsRow.className = 'profile-period__controls';
+                    profilePeriodToggleElement.replaceWith(controlsRow);
+                    controlsRow.appendChild(profilePeriodToggleElement);
+                }
+
+                if (totalGroup) {
+                    controlsRow.querySelectorAll('.profile-period__total').forEach((existingTotal) => {
+                        existingTotal.remove();
+                    });
+                    controlsRow.appendChild(totalGroup);
+                    totalGroup.classList.add('profile-period__total');
+                }
+            }
+
+            profilePeriodModalContentElement.appendChild(slide);
+        }
+    }
+
+    function openProfilePeriodModal({ periodKey, trigger } = {}) {
+        if (!profilePeriodModalElement) {
+            return;
+        }
+
+        profilePeriodModalElement.setAttribute('aria-label', 'Balance overview');
+
+        const label = trigger?.dataset?.profilePeriodLabel || '';
+        const summary = trigger?.dataset?.profilePeriodSummary || '';
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+
+        setProfilePeriodModalPeriod(normalizedKey, { label, summary });
+
+        if (normalizedKey) {
+            profilePeriodModalElement.dataset.profilePeriodKey = normalizedKey;
+        } else {
+            delete profilePeriodModalElement.dataset.profilePeriodKey;
+        }
+
+        if (label) {
+            profilePeriodModalElement.dataset.profilePeriodLabel = label;
+        } else {
+            delete profilePeriodModalElement.dataset.profilePeriodLabel;
+        }
+
+        if (summary) {
+            profilePeriodModalElement.dataset.profilePeriodSummary = summary;
+        } else {
+            delete profilePeriodModalElement.dataset.profilePeriodSummary;
+        }
+
+        profilePeriodModalElement.hidden = false;
+        profilePeriodModalElement.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('rank-modal-open');
+
+        profilePeriodModalReturnFocusTo = trigger instanceof HTMLElement
+            ? trigger
+            : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+        profilePeriodModalActiveTrigger = trigger instanceof HTMLElement ? trigger : null;
+
+        if (profilePeriodModalActiveTrigger) {
+            profilePeriodModalActiveTrigger.setAttribute('aria-expanded', 'true');
+        }
+
+        const focusTarget = profilePeriodModalCloseButton
+            || profilePeriodModalElement.querySelector('[data-profile-period-dismiss]');
+
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            try {
+                focusTarget.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to focus profile period modal control:', error);
+            }
+        }
+    }
+
+    function closeProfilePeriodModal() {
+        if (!profilePeriodModalElement || profilePeriodModalElement.hidden) {
+            return;
+        }
+
+        profilePeriodModalElement.hidden = true;
+        profilePeriodModalElement.setAttribute('aria-hidden', 'true');
+
+        if ((!rankModalElement || rankModalElement.hidden) && (!walletModalElement || walletModalElement.hidden)) {
+            document.body.classList.remove('rank-modal-open');
+        }
+
+        if (profilePeriodModalActiveTrigger) {
+            profilePeriodModalActiveTrigger.setAttribute('aria-expanded', 'false');
+        }
+
+        const focusTarget = profilePeriodModalReturnFocusTo;
+        profilePeriodModalActiveTrigger = null;
+        profilePeriodModalReturnFocusTo = null;
+
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+            try {
+                focusTarget.focus({ preventScroll: true });
+            } catch (error) {
+                console.warn('Unable to restore focus after closing period modal:', error);
+            }
+        }
+    }
+
+    const bindProfilePeriodToggle = () => {
+        if (!profilePeriodToggleButtons || profilePeriodToggleButtons.length === 0) {
+            return;
+        }
+
+        profilePeriodToggleButtons.forEach((button) => {
+            if (button.dataset.profilePeriodBound === 'true') {
+                return;
+            }
+
+            const { profilePeriodOption: periodOption } = button.dataset;
+            button.dataset.profilePeriodBound = 'true';
+
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setProfilePeriodModalPeriod(periodOption);
+            });
+
+            button.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setProfilePeriodModalPeriod(periodOption);
+                }
+            });
+        });
+
+        updateProfilePeriodToggleState(profilePeriodModalActiveKey);
+    };
+
+    function bindProfilePeriodModal(element, { periodKey, longLabel, tooltipText } = {}) {
+        if (!element || !periodKey) {
+            return;
+        }
+
+        element.dataset.profilePeriodKey = periodKey;
+
+        if (longLabel) {
+            element.dataset.profilePeriodLabel = longLabel;
+        } else {
+            delete element.dataset.profilePeriodLabel;
+        }
+
+        if (tooltipText) {
+            element.dataset.profilePeriodSummary = tooltipText;
+        } else {
+            delete element.dataset.profilePeriodSummary;
+        }
+
+        element.setAttribute('aria-haspopup', 'dialog');
+        if (!element.hasAttribute('aria-expanded')) {
+            element.setAttribute('aria-expanded', 'false');
+        }
+
+        if (!element.dataset.profilePeriodBound) {
+            const activate = () => {
+                openProfilePeriodModal({
+                    periodKey: element.dataset.profilePeriodKey,
+                    trigger: element,
+                });
+            };
+
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                activate();
+            });
+
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    activate();
+                }
+            });
+
+            element.dataset.profilePeriodBound = 'true';
+        }
+    }
 
     const formatDistance = (km) => {
         if (!Number.isFinite(km)) return '0.00 km';
@@ -1967,6 +6566,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     const formatElevation = (meters) => {
         if (!Number.isFinite(meters)) return '0 m';
         return `${meters.toFixed(0)} m`;
+    };
+    const formatActivitySummary = (activity = {}) => {
+        const name = activity.name || activity.type;
+        const distanceKm = Number(activity.distance) / 1000;
+        const elevation = Number(activity.total_elevation_gain);
+        const movingSeconds = Number(activity.moving_time);
+        const parts = [];
+
+        if (Number.isFinite(distanceKm) && distanceKm > 0) {
+            parts.push(`${distanceKm.toFixed(1)} km`);
+        }
+        if (Number.isFinite(elevation) && elevation > 0) {
+            parts.push(`${Math.round(elevation)} m gain`);
+        }
+        if (Number.isFinite(movingSeconds) && movingSeconds > 0) {
+            const hours = movingSeconds / 3600;
+            parts.push(`${hours.toFixed(hours >= 10 ? 0 : 1)} h moving`);
+        }
+
+        if (!name && parts.length === 0) {
+            return '';
+        }
+
+        const label = name || 'Activity';
+        return parts.length > 0 ? `${label} — ${parts.join(' · ')}` : label;
+    };
+    const calculateMonthsBetween = (startDate, endDate) => {
+        if (!(startDate instanceof Date) || !(endDate instanceof Date)) {
+            return null;
+        }
+
+        const start = new Date(startDate.getTime());
+        const end = new Date(endDate.getTime());
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return null;
+        }
+
+        const years = end.getFullYear() - start.getFullYear();
+        const months = end.getMonth() - start.getMonth();
+        const days = end.getDate() - start.getDate();
+        const totalMonths = (years * 12) + months + (days / 30.5);
+
+        return totalMonths >= 0 ? totalMonths : null;
     };
     const formatCalories = (calories) => {
         if (!Number.isFinite(calories)) return '0 kcal';
@@ -2040,87 +6682,147 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!rawName || typeof rawName !== 'string') {
             return null;
         }
+
         const overrides = COIN_LABEL_OVERRIDES[rowLabel];
         if (overrides && overrides[rawName]) {
             return overrides[rawName];
         }
 
-        const formatted = rawName
-            .replace(/(\d+)(km|m|kcal)/gi, (_, value, unit) => {
-                const numericValue = Number(value);
-                const formattedValue = Number.isFinite(numericValue)
-                    ? numericValue.toLocaleString()
-                    : value;
-                const unitLower = unit.toLowerCase();
-                return `${formattedValue} ${unitLower}`;
-            })
-            .replace(/\/week/gi, ' week')
-            .replace(/\/month/gi, ' month')
-            .replace(/Activity/gi, 'activity')
-            .replace(/Run\b/gi, 'run')
-            .replace(/Ride\b/gi, 'ride')
-            .replace(/Elevation/gi, 'elevation')
+        const defaultUnit = COIN_ROW_DEFAULT_UNITS[rowLabel] || '';
+        let label = rawName.trim();
+        let timeframeSuffix = '';
+
+        const timeframeMatch = label.match(/\/(Week|Month|Activity)\b/i);
+        if (timeframeMatch) {
+            const timeframe = timeframeMatch[1].toLowerCase();
+            if (timeframe === 'activity') {
+                timeframeSuffix = '';
+            } else {
+                timeframeSuffix = `/${timeframe}`;
+            }
+            label = label.replace(/\/(Week|Month|Activity)\b/gi, '').trim();
+        }
+
+        label = label
+            .replace(/\b(Run|Ride|Climb|Elevation|Elevations|Calories|Calorie|Activity)\b/gi, '')
+            .replace(/\bkcal\b/gi, '')
             .trim();
 
-        return formatted || rawName;
+        label = label.replace(/(\d+(?:\.\d+)?)(k)\b/gi, (_, value, suffix) => {
+            const numericValue = Number(value);
+            const formattedValue = Number.isFinite(numericValue)
+                ? numericValue.toLocaleString(undefined, { maximumFractionDigits: Number.isInteger(numericValue) ? 0 : 1 })
+                : value;
+            return `${formattedValue}${suffix.toLowerCase()}`;
+        });
+
+        label = label.replace(/(\d{1,3}(?:,\d{3})*|\d+)(km|m)\b/gi, (_, value, unit) => {
+            const numericValue = Number(value.replace(/,/g, ''));
+            const formattedValue = Number.isFinite(numericValue)
+                ? numericValue.toLocaleString()
+                : value;
+            return `${formattedValue} ${unit.toLowerCase()}`;
+        });
+
+        label = label.replace(/(\d{1,3}(?:,\d{3})*|\d+)(?=(?:\s|$|\/))/g, (match) => {
+            const numericValue = Number(match.replace(/,/g, ''));
+            return Number.isFinite(numericValue) ? numericValue.toLocaleString() : match;
+        });
+
+        if (defaultUnit && /\d/.test(label) && !new RegExp(`\\b${defaultUnit}\\b`, 'i').test(label)) {
+            label = `${label} ${defaultUnit}`.trim();
+        }
+
+        label = label.replace(/\s{2,}/g, ' ').trim();
+
+        if (!label) {
+            label = rawName.trim();
+        }
+
+        const output = `${label}${timeframeSuffix}`.trim();
+        return output || rawName;
     };
 
-    const updateMedalFilterBanner = () => {
-        if (!medalFilterBanner) {
+    const formatMedalProgressText = (progressStatus) => {
+        if (!progressStatus || typeof progressStatus !== 'object') {
+            return '';
+        }
+        const detail = typeof progressStatus.detail === 'string'
+            ? progressStatus.detail.trim()
+            : '';
+        if (detail) {
+            return detail;
+        }
+
+        const label = typeof progressStatus.label === 'string' ? progressStatus.label.trim() : '';
+        const percentLabel = typeof progressStatus.percentLabel === 'string'
+            ? progressStatus.percentLabel.trim()
+            : '';
+        const hasPercent = Number.isFinite(progressStatus.percentComplete)
+            ? `${Math.round(progressStatus.percentComplete)}%`
+            : percentLabel;
+        const completedSets = Number.isFinite(progressStatus.completedSets)
+            ? Math.max(0, progressStatus.completedSets)
+            : 0;
+
+        const summaryParts = [];
+        if (completedSets > 0) {
+            summaryParts.push(`${completedSets.toLocaleString()}× earned`);
+        }
+        if (hasPercent) {
+            summaryParts.push(`${hasPercent} to next`);
+        }
+
+        if (summaryParts.length > 0) {
+            return summaryParts.join(' • ');
+        }
+
+        if (label && hasPercent) {
+            return `${label} (${hasPercent})`;
+        }
+        return label || hasPercent || '';
+    };
+
+    function updateActivitiesMedalInfo() {
+        if (!activitiesMedalInfo) {
             return;
         }
 
-        if (activeMedalFilter) {
-            medalFilterBanner.classList.remove('hidden');
-            const emojiValue = activeMedalMeta?.emoji || '';
-            const countValue = Number.isFinite(activeMedalMeta?.count)
-                ? activeMedalMeta.count.toLocaleString()
-                : '';
-            if (medalFilterLabel) {
-                const labelParts = [];
-                if (emojiValue) {
-                    labelParts.push(emojiValue);
-                }
-                if (activeMedalFilter) {
-                    labelParts.push(activeMedalFilter);
-                }
-                medalFilterLabel.textContent = labelParts.join(' ').trim();
-            }
-            if (medalFilterEmoji) {
-                medalFilterEmoji.textContent = emojiValue;
-                medalFilterEmoji.classList.toggle('hidden', !emojiValue);
-            }
-            if (medalFilterDescription) {
-                const descriptionParts = [];
-                if (countValue || emojiValue) {
-                    const summary = [countValue, emojiValue].filter(Boolean).join(' ').trim();
-                    if (summary) {
-                        descriptionParts.push(summary);
-                    }
-                }
-                const categoryLabel = activeMedalMeta?.category;
-                if (categoryLabel) {
-                    descriptionParts.push(categoryLabel);
-                }
-                const descriptionText = activeMedalMeta?.description?.trim();
-                if (descriptionText) {
-                    descriptionParts.push(descriptionText);
-                }
-                medalFilterDescription.textContent = descriptionParts.join(' — ') || 'Medal activity overview.';
-            }
-        } else {
-            medalFilterBanner.classList.add('hidden');
-            if (medalFilterLabel) {
-                medalFilterLabel.textContent = '';
-            }
-            if (medalFilterEmoji) {
-                medalFilterEmoji.textContent = '';
-                medalFilterEmoji.classList.add('hidden');
-            }
-            if (medalFilterDescription) {
-                medalFilterDescription.textContent = '';
-            }
+        activitiesMedalInfo.classList.add('hidden');
+        activitiesMedalInfo.setAttribute('aria-hidden', 'true');
+        if (activitiesMedalInfoEmoji) {
+            activitiesMedalInfoEmoji.textContent = '';
+            activitiesMedalInfoEmoji.classList.add('hidden');
         }
+        if (activitiesMedalInfoLabel) {
+            activitiesMedalInfoLabel.textContent = '';
+        }
+        if (activitiesMedalInfoDescription) {
+            activitiesMedalInfoDescription.textContent = '';
+            activitiesMedalInfoDescription.classList.add('hidden');
+        }
+    }
+
+    const updateMedalFilterBanner = () => {
+        if (medalFilterBanner) {
+            medalFilterBanner.classList.add('hidden');
+            medalFilterBanner.setAttribute('aria-hidden', 'true');
+        }
+
+        if (medalFilterLabel) {
+            medalFilterLabel.textContent = '';
+        }
+
+        if (medalFilterEmoji) {
+            medalFilterEmoji.textContent = '';
+            medalFilterEmoji.classList.add('hidden');
+        }
+
+        if (medalFilterDescription) {
+            medalFilterDescription.textContent = '';
+        }
+
+        updateActivitiesMedalInfo();
     };
 
     const updateMedalButtonStates = () => {
@@ -2130,24 +6832,207 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const buttons = medalsSection.querySelectorAll('button[data-medal-name]');
         buttons.forEach(button => {
-            if (button.dataset.medalName === activeMedalFilter) {
-                button.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
-            } else {
-                button.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
-            }
+            const isActive = button.dataset.medalName === activeMedalFilter;
+            button.classList.toggle('medals-list__button--active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            button.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-transparent');
         });
     };
 
+    const resolveMedalFromDataset = (button) => {
+        if (!button) {
+            return null;
+        }
+
+        const medalName = (button.dataset.medalName || '').trim();
+        if (!medalName) {
+            return null;
+        }
+
+        const inventoryMedal = Array.isArray(medalInventory)
+            ? medalInventory.find(entry => entry?.name === medalName)
+            : null;
+
+        const datasetCount = Number.parseInt(button.dataset.medalCount, 10);
+        const raritySource = button.dataset.medalRarityKey
+            || inventoryMedal?.rarityKey
+            || inventoryMedal?.rarity
+            || button.dataset.medalRarityLabel;
+        const rarityPayload = buildMedalRarityPayload(raritySource);
+        const rarityLabel = inventoryMedal?.rarityLabel
+            || button.dataset.medalRarityLabel
+            || rarityPayload.rarityLabel;
+        const legacyCategory = inventoryMedal?.legacyCategory
+            || button.dataset.medalLegacyCategory
+            || inventoryMedal?.category
+            || '';
+        const rarityDescription = inventoryMedal?.rarityDescription
+            || button.dataset.medalRarityDescription
+            || rarityPayload.rarityDescription
+            || '';
+
+        return {
+            name: medalName,
+            emoji: inventoryMedal?.emoji || button.dataset.medalEmoji || '',
+            description: inventoryMedal?.description || button.dataset.medalDescription || '',
+            category: rarityLabel || inventoryMedal?.category || button.dataset.medalCategory || '',
+            legacyCategory,
+            rarityKey: rarityPayload.rarityKey,
+            rarityLabel,
+            rarityDescription,
+            count: toNonNegativeInteger(inventoryMedal?.count ?? datasetCount),
+            progressStatus: inventoryMedal?.progressStatus || null,
+        };
+    };
+
+    const handleMedalButtonClick = (event) => {
+        const button = event?.currentTarget;
+        const resolvedMedal = resolveMedalFromDataset(button);
+        if (!resolvedMedal) {
+            return;
+        }
+
+        toggleMedalFilter(resolvedMedal);
+    };
+
+    const inferMedalDiscipline = (medal = {}) => {
+        const text = `${medal.name || ''} ${medal.description || ''} ${medal.legacyCategory || ''}`.toLowerCase();
+        const includesAny = (keywords = []) => keywords.some(keyword => text.includes(keyword));
+
+        if (includesAny(['swim', 'pool', 'open water', 'tri', 'aqua'])) {
+            return 'swim';
+        }
+
+        if (includesAny(['ride', 'bike', 'velo', 'cycle', 'climb', 'ascent', 'elevation', 'fondo', 'mtb', 'gravel'])) {
+            return 'ride';
+        }
+
+        if (includesAny(['run', 'marathon', 'mile', 'tempo', 'trail', 'half', '5k', '10k'])) {
+            return 'run';
+        }
+
+        return 'multi';
+    };
+
+    const ensureMedalRarityFilters = () => {
+        if (!(medalRarityFilters instanceof Set) || medalRarityFilters.size === 0) {
+            medalRarityFilters = buildDefaultMedalRarityFilter();
+        }
+    };
+
+    const renderMedalRarityToggles = () => {
+        ensureMedalRarityFilters();
+        const wrapper = document.createElement('div');
+        wrapper.className = 'medal-rarity-filter';
+        wrapper.setAttribute('role', 'group');
+        wrapper.setAttribute('aria-label', 'Filter medals by rarity');
+
+        MEDAL_RARITY_DISPLAY_ORDER.forEach((rarityKey) => {
+            const level = getMedalRarityMeta(rarityKey);
+            const button = document.createElement('button');
+            const isActive = medalRarityFilters.has(level.key);
+            const baseColor = MEDAL_RARITY_COLOR_MAP[level.key] || '#f59e0b';
+            button.type = 'button';
+            button.className = 'medal-rarity-filter__button';
+            button.dataset.rarityKey = level.key;
+            button.setAttribute('aria-pressed', String(isActive));
+            button.setAttribute('aria-label', `${level.emoji} ${level.name} rarity`);
+            button.title = level.description || `${level.name} medals`;
+
+            const label = document.createElement('span');
+            label.textContent = `${level.emoji} ${level.name}`;
+            button.appendChild(label);
+
+            if (isActive) {
+                button.classList.add('is-active');
+            }
+
+            button.style.borderColor = `${baseColor}55`;
+            button.style.background = isActive
+                ? `linear-gradient(135deg, ${baseColor}22, ${baseColor}44)`
+                : 'transparent';
+            button.style.color = isActive ? '#0f172a' : '';
+
+            button.addEventListener('click', () => {
+                medalRarityFilters = new Set([level.key]);
+                renderMedalsGrid();
+            });
+
+            wrapper.appendChild(button);
+        });
+
+        medalsSection.appendChild(wrapper);
+
+        return wrapper;
+    };
+
     const renderMedalsGrid = () => {
+        refreshAchievementTargets();
         if (!medalsSection) {
-            console.warn("'medals-section' element not found in the DOM.");
+            ensurePanel('medals');
+            refreshAchievementTargets();
+            if (!hasLoggedMissingMedalsSection) {
+                console.warn("'medals-section' element not found in the DOM.");
+                hasLoggedMissingMedalsSection = true;
+            }
             return;
         }
 
         medalsSection.innerHTML = '';
+        const rarityToggleWrapper = renderMedalRarityToggles();
 
-        if (!Array.isArray(medalInventory) || medalInventory.length === 0) {
-            medalsSection.innerHTML = '<p class="text-sm text-gray-500 col-span-full">No medals earned for the selected filters.</p>';
+        const resolveMedalDisplayCount = (medal) => {
+            const activityCount = toNonNegativeInteger(medalActivityCounts.get(medal?.name));
+            if (activityCount > 0) {
+                return activityCount;
+            }
+            return toNonNegativeInteger(medal?.count);
+        };
+
+        let filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
+
+        if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
+            const fallbackInventory = ensureCompleteMedalInventory([])
+                .map(hydrateMedalFromDefinition)
+                .filter(medal => medal && !isHistoricalMedal(medal))
+                .map(medal => ({
+                    ...medal,
+                    count: toNonNegativeInteger(medal?.count),
+                    discipline: medal?.discipline || resolveMedalDiscipline(medal),
+                }));
+
+            medalInventory = fallbackInventory;
+            filteredInventory = fallbackInventory;
+        }
+
+        ensureMedalRarityFilters();
+        const allowedRarities = medalRarityFilters.size > 0
+            ? medalRarityFilters
+            : new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
+        if (allowedRarities.size > 0 && allowedRarities.size < MEDAL_RARITY_LEVELS.length) {
+            filteredInventory = filteredInventory.filter((medal) => allowedRarities.has(
+                normalizeRarityKey(medal?.rarityKey || medal?.rarity || medal?.rarityLabel)
+            ));
+        }
+
+        filteredInventory = filteredInventory.slice().sort((a, b) => {
+            const countA = resolveMedalDisplayCount(a);
+            const countB = resolveMedalDisplayCount(b);
+            if (countA !== countB) {
+                return countB - countA;
+            }
+            const rarityOrderDiff = getMedalRarityDisplayIndex(a?.rarityKey) - getMedalRarityDisplayIndex(b?.rarityKey);
+            if (rarityOrderDiff !== 0) {
+                return rarityOrderDiff;
+            }
+            return (a?.name || '').localeCompare(b?.name || '');
+        });
+
+        if (!Array.isArray(filteredInventory) || filteredInventory.length === 0) {
+            const emptyState = document.createElement('p');
+            emptyState.className = 'text-sm text-gray-500 col-span-full';
+            emptyState.textContent = 'No medals available yet.';
+            medalsSection.appendChild(emptyState);
             if (medalsLoadMoreButton) {
                 medalsLoadMoreButton.classList.add('hidden');
                 medalsLoadMoreButton.disabled = true;
@@ -2157,75 +7042,190 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (!Number.isFinite(visibleMedalCount) || visibleMedalCount <= 0) {
-            visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, medalInventory.length);
+            visibleMedalCount = Math.min(MEDALS_PAGE_SIZE, filteredInventory.length);
         }
 
         if (activeMedalFilter) {
-            const activeIndex = medalInventory.findIndex(medal => medal.name === activeMedalFilter);
+            const activeIndex = filteredInventory.findIndex(medal => medal.name === activeMedalFilter);
             if (activeIndex >= 0 && activeIndex >= visibleMedalCount) {
                 visibleMedalCount = activeIndex + 1;
             }
         }
 
-        const sliceEnd = Math.min(visibleMedalCount, medalInventory.length);
-        const medalsToRender = medalInventory.slice(0, sliceEnd);
-        const categoryOrder = [];
-        const medalsByCategory = new Map();
+        const sliceEnd = Math.min(visibleMedalCount, filteredInventory.length);
+        const medalsToRender = filteredInventory.slice(0, sliceEnd);
+        const rarityOrder = [];
+        const medalsByRarity = new Map();
 
-        medalsToRender.forEach(medal => {
-            const categoryName = medal.category || 'Other Achievements';
-            if (!medalsByCategory.has(categoryName)) {
-                medalsByCategory.set(categoryName, []);
-                categoryOrder.push(categoryName);
+        medalsToRender.forEach((medal) => {
+            const rarityKey = normalizeRarityKey(medal?.rarityKey);
+            if (!medalsByRarity.has(rarityKey)) {
+                const meta = getMedalRarityMeta(rarityKey);
+                medalsByRarity.set(rarityKey, {
+                    meta,
+                    label: medal?.rarityLabel || formatMedalRarityLabel(rarityKey),
+                    medals: [],
+                });
+                rarityOrder.push(rarityKey);
             }
-            medalsByCategory.get(categoryName).push(medal);
+            medalsByRarity.get(rarityKey).medals.push(medal);
         });
 
-        categoryOrder.forEach(categoryName => {
+        const orderedRarities = rarityOrder.sort((a, b) => getMedalRarityDisplayIndex(a) - getMedalRarityDisplayIndex(b));
+
+        const createDescriptionSnippet = (description, limit = 120) => {
+            const trimmed = (description || '').trim();
+            if (!trimmed) {
+                return '';
+            }
+            if (trimmed.length <= limit) {
+                return trimmed;
+            }
+            const truncated = trimmed.slice(0, limit - 1);
+            const lastSpace = truncated.lastIndexOf(' ');
+            const safeSlice = lastSpace > 40 ? truncated.slice(0, lastSpace) : truncated;
+            return `${safeSlice.trimEnd()}…`;
+        };
+
+        orderedRarities.forEach((rarityKey) => {
+            const group = medalsByRarity.get(rarityKey);
+            if (!group) {
+                return;
+            }
+            const { meta, medals: groupedMedals } = group;
+            const displayLabel = group.label || formatMedalRarityLabel(rarityKey);
+
             const wrapper = document.createElement('div');
             wrapper.className = 'medals-category';
-            wrapper.dataset.category = categoryName;
+            wrapper.dataset.rarity = rarityKey;
 
-            const heading = document.createElement('h4');
+            const heading = document.createElement('div');
             heading.className = 'medals-category__title';
-            heading.textContent = categoryName;
+            heading.dataset.rarity = rarityKey;
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'medals-category__emoji';
+            emojiSpan.textContent = meta?.emoji || '🏅';
+            heading.appendChild(emojiSpan);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'medals-category__name';
+            nameSpan.textContent = meta?.name || displayLabel;
+            heading.appendChild(nameSpan);
+
+            if (meta?.tier) {
+                const tierSpan = document.createElement('span');
+                tierSpan.className = 'medals-category__tier';
+                tierSpan.textContent = meta.tier;
+                heading.appendChild(tierSpan);
+            }
+
             wrapper.appendChild(heading);
 
-            const grid = document.createElement('div');
-            grid.className = 'medals-grid';
+            const descriptionText = meta?.description || '';
+            if (descriptionText) {
+                const description = document.createElement('p');
+                description.className = 'medals-category__description';
+                description.textContent = descriptionText;
+                wrapper.appendChild(description);
+            }
 
-            medalsByCategory.get(categoryName).forEach(medal => {
+            const list = document.createElement('ol');
+            list.className = 'medals-list';
+            list.setAttribute('role', 'list');
+
+            groupedMedals.sort((a, b) => resolveMedalDisplayCount(b) - resolveMedalDisplayCount(a));
+
+            groupedMedals.forEach((medal) => {
+                const listItem = document.createElement('li');
+                listItem.className = 'medals-list__item';
+
                 const medalButton = document.createElement('button');
                 medalButton.type = 'button';
-                medalButton.className = 'tooltip-target medal-badge rounded-2xl bg-gray-100/90 dark:bg-gray-700/80 flex items-center justify-center gap-2 px-3.5 py-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 dark:focus:ring-offset-gray-900';
-                if (!medal.count) {
-                    medalButton.classList.add('medal-badge--unearned');
+                medalButton.className = 'tooltip-target medals-list__button';
+                const medalCount = resolveMedalDisplayCount(medal);
+                if (medalCount === 0) {
+                    medalButton.classList.add('medals-list__button--unearned');
                 }
-                medalButton.innerHTML = `
-                    <span class="text-sm font-semibold leading-none">${medal.count.toLocaleString()}</span>
-                    <span class="text-2xl leading-none">${medal.emoji}</span>
-                `;
+
+                const countWrapper = document.createElement('span');
+                countWrapper.className = 'medals-list__count-stack';
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'medals-list__count';
+                const countLabel = medalCount.toLocaleString();
+                countSpan.textContent = `${countLabel}×`;
+                countSpan.setAttribute('aria-label', `${countLabel} medals earned`);
+
+                const emojiSpan = document.createElement('span');
+                emojiSpan.className = 'medals-list__emoji';
+                emojiSpan.textContent = medal.emoji || '🏅';
+                countWrapper.append(countSpan, emojiSpan);
+
+                const textWrapper = document.createElement('span');
+                textWrapper.className = 'medals-list__text';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'medals-list__name';
+                nameSpan.textContent = medal.name;
+                textWrapper.appendChild(nameSpan);
+
+                const descriptionSnippet = createDescriptionSnippet(medal.description);
+                if (descriptionSnippet) {
+                    const descriptionSpan = document.createElement('span');
+                    descriptionSpan.className = 'medals-list__description';
+                    descriptionSpan.textContent = descriptionSnippet;
+                    textWrapper.appendChild(descriptionSpan);
+                }
+                const progressSummary = formatMedalProgressText(medal.progressStatus);
+                if (progressSummary) {
+                    const progressSpan = document.createElement('span');
+                    progressSpan.className = 'medals-list__description';
+                    progressSpan.textContent = `Progress ${progressSummary}`;
+                    textWrapper.appendChild(progressSpan);
+                }
+
+                const medalValue = getMedalRarityValue(medal) * medalCount;
+                const valueTag = document.createElement('span');
+                valueTag.className = 'medals-list__value';
+                const valueInThousands = medalValue / 1000;
+                valueTag.textContent = `Worth $${valueInThousands.toLocaleString()}k`;
+                textWrapper.appendChild(valueTag);
+
+                medalButton.append(countWrapper, textWrapper);
+
                 const descriptionText = (medal.description || '').trim();
-                const countLabel = medal.count.toLocaleString();
-                const earnedDescriptor = medal.count > 0 ? `${countLabel} earned` : 'Not earned yet';
-                const ariaDescription = descriptionText
-                    ? `${medal.name}: ${descriptionText} — ${earnedDescriptor}`
-                    : `${medal.name} — ${earnedDescriptor}`;
+                const earnedDescriptor = medalCount > 0
+                    ? `${countLabel} earned`
+                    : 'Not earned yet';
+                const tooltipParts = [medal.name];
+                if (descriptionText) {
+                    tooltipParts.push(descriptionText);
+                }
+                tooltipParts.push(earnedDescriptor);
+                if (progressSummary) {
+                    tooltipParts.push(`Progress ${progressSummary}`);
+                }
+                const ariaDescription = tooltipParts.join(' — ');
                 medalButton.setAttribute('aria-label', ariaDescription);
-                const medalTooltip = descriptionText
-                    ? `${medal.name} — ${descriptionText} — ${earnedDescriptor}`
-                    : `${medal.name} — ${earnedDescriptor}`;
-                attachTooltip(medalButton, medalTooltip);
+                attachTooltip(medalButton, ariaDescription);
                 medalButton.dataset.medalName = medal.name;
                 medalButton.dataset.medalEmoji = medal.emoji || '';
-                medalButton.dataset.medalCategory = medal.category || '';
-                medalButton.addEventListener('click', () => {
-                    toggleMedalFilter(medal);
-                });
-                grid.appendChild(medalButton);
+                const rarityLabel = medal.rarityLabel || displayLabel;
+                medalButton.dataset.medalCategory = rarityLabel;
+                medalButton.dataset.medalRarityKey = rarityKey;
+                medalButton.dataset.medalRarityLabel = rarityLabel;
+                medalButton.dataset.medalLegacyCategory = medal.legacyCategory || medal.category || '';
+                medalButton.dataset.medalRarityDescription = medal.rarityDescription || descriptionText || '';
+                medalButton.dataset.medalDescription = medal.description || '';
+                medalButton.dataset.medalCount = medalCount.toString();
+                medalButton.addEventListener('click', handleMedalButtonClick);
+
+                listItem.appendChild(medalButton);
+                list.appendChild(listItem);
             });
 
-            wrapper.appendChild(grid);
+            wrapper.appendChild(list);
             medalsSection.appendChild(wrapper);
         });
 
@@ -2237,7 +7237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 medalsLoadMoreButton.classList.remove('hidden');
                 medalsLoadMoreButton.disabled = false;
             } else {
-                const hasMore = sliceEnd < medalInventory.length;
+                const hasMore = sliceEnd < filteredInventory.length;
                 medalsLoadMoreButton.classList.toggle('hidden', !hasMore);
                 medalsLoadMoreButton.disabled = !hasMore;
             }
@@ -2252,8 +7252,54 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         medalFilteredActivities = sortedActivities.filter(activity => {
             const medalsForActivity = getActivityMedals(activity);
-            return medalsForActivity.some(medal => medal.name === activeMedalFilter);
+            if (medalsForActivity.some(medal => medal.name === activeMedalFilter)) {
+                return true;
+            }
+
+            const contributionMeta = medalContributionMap.get(activeMedalFilter);
+            if (!contributionMeta) {
+                return false;
+            }
+
+            const dateKey = getActivityDateKey(activity);
+            if (!dateKey) {
+                return false;
+            }
+
+            return contributionMeta.dates.has(dateKey);
         });
+    };
+
+    const buildMedalActivityCounts = (activities = []) => {
+        const counts = new Map();
+
+        activities.forEach((activity) => {
+            const seenNames = new Set();
+            const medalsForActivity = getActivityMedals(activity);
+
+            medalsForActivity.forEach((medal) => {
+                if (!medal?.name || seenNames.has(medal.name)) {
+                    return;
+                }
+                counts.set(medal.name, (counts.get(medal.name) || 0) + 1);
+                seenNames.add(medal.name);
+            });
+
+            const dateKey = getActivityDateKey(activity);
+            if (!dateKey || !medalContributionHighlightsByDate.has(dateKey)) {
+                return;
+            }
+
+            medalContributionHighlightsByDate.get(dateKey).forEach(({ medalName }) => {
+                if (!medalName || seenNames.has(medalName)) {
+                    return;
+                }
+                counts.set(medalName, (counts.get(medalName) || 0) + 1);
+                seenNames.add(medalName);
+            });
+        });
+
+        return counts;
     };
 
     const resetMedalFilterState = () => {
@@ -2351,34 +7397,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return false;
         }
 
-        if (key === 'coins') {
-            const coinBreakdown = dataset.coinBreakdown || {};
-            const medalBreakdown = dataset.medalBreakdown || [];
-            const coinTimeline = dataset.coinTimeline || {};
-            const timelineLabels = Array.isArray(dataset.timelineLabels) ? dataset.timelineLabels : [];
-
-            const hasCoinValues = Object.values(coinBreakdown).some(values =>
-                Array.isArray(values) && values.some(value => value > 0)
-            );
-            const hasMedalValues = Array.isArray(medalBreakdown) && medalBreakdown.some(entry =>
-                Array.isArray(entry?.data) && entry.data.some(value => value > 0)
-            );
-            const hasTimelineValues = timelineLabels.length > 0 && COIN_EMOJIS.some(emoji => {
-                const values = coinTimeline[emoji];
-                return Array.isArray(values) && values.some(value => value > 0);
-            });
-
-            return hasCoinValues || hasMedalValues || hasTimelineValues;
-        }
+        const values = Array.isArray(dataset.values) ? dataset.values : [];
+        const perPeriodValues = Array.isArray(dataset.perPeriodValues) ? dataset.perPeriodValues : [];
+        const hasPrimaryValues = values.some(value => Number.isFinite(value) && value !== 0)
+            || perPeriodValues.some(value => Number.isFinite(value) && value !== 0);
 
         if (key === 'balance') {
-            const hasValues = Array.isArray(dataset.values) && dataset.values.some(value => value > 0);
             const hasCompare = Array.isArray(dataset.compareDatasets)
-                && dataset.compareDatasets.some(entry => Array.isArray(entry?.data) && entry.data.some(value => value > 0));
-            return hasValues || hasCompare;
+                && dataset.compareDatasets.some(entry => Array.isArray(entry?.data) && entry.data.some(value => Number.isFinite(value) && value !== 0));
+            return hasPrimaryValues || hasCompare;
         }
 
-        return false;
+        return hasPrimaryValues;
     };
 
     const updateBalanceCompareToggleState = () => {
@@ -2409,383 +7439,1546 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const updateToggleStates = (activeKey) => {
-        const activeClasses = 'border-blue-500 bg-blue-600 text-white shadow-sm';
-        const inactiveClasses = 'border-transparent bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-gray-700';
-        const disabledClasses = 'border-dashed border-gray-300 bg-gray-100 text-gray-400 opacity-60 cursor-not-allowed dark:border-gray-600/60 dark:bg-gray-700/40 dark:text-gray-500';
-
         Object.entries(chartToggleButtons).forEach(([key, button]) => {
             if (!button) {
                 return;
             }
 
-            const baseClass = button.dataset.baseClass || '';
             const hasData = hasWalletChartData(key);
-
-            if (!hasData) {
-                button.disabled = true;
-                button.setAttribute('aria-pressed', 'false');
-                button.className = `${baseClass} ${disabledClasses}`.trim();
-                return;
-            }
-
-            button.disabled = false;
-            const isActive = key === activeKey;
-            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-            const stateClasses = isActive ? activeClasses : inactiveClasses;
-            button.className = `${baseClass} ${stateClasses}`.trim();
+            button.disabled = !hasData;
+            button.setAttribute('aria-pressed', hasData && key === activeKey ? 'true' : 'false');
+            button.classList.toggle('is-disabled', !hasData);
         });
 
         updateBalanceCompareToggleState();
     };
 
     const destroyWalletChart = () => {
+        walletChartClickSelection = null;
         if (walletChartInstance) {
             walletChartInstance.destroy();
             walletChartInstance = null;
         }
+        applyWalletOverlayState(null);
+        updateWalletZoomControlState();
     };
 
-    const renderWalletChart = (preferredKey = activeChartKey) => {
+    const getWalletOverlayChangeDetails = ({ dataset, rawValue, index, periodMeta, overlayRole }) => {
+        let percentChange = null;
+        let changeValue = null;
+
+        if (overlayRole === 'cumulative' && periodMeta) {
+            percentChange = periodMeta.cumulativeChangePercent
+                ?? periodMeta.periodChangePercent
+                ?? periodMeta.yearChangePercent
+                ?? periodMeta.quarterChangePercent
+                ?? null;
+            changeValue = periodMeta.cumulativeChangeValue;
+            if (!Number.isFinite(changeValue)
+                && Number.isFinite(periodMeta.cumulative)
+                && Number.isFinite(periodMeta.previousCumulative)) {
+                changeValue = periodMeta.cumulative - periodMeta.previousCumulative;
+            }
+        } else if (periodMeta) {
+            percentChange = periodMeta.periodChangePercent
+                ?? periodMeta.quarterChangePercent
+                ?? periodMeta.yearChangePercent
+                ?? null;
+            changeValue = periodMeta.periodChangeValue
+                ?? periodMeta.quarterChangeValue
+                ?? periodMeta.yearChangeValue
+                ?? null;
+        }
+
+        const datasetValues = Array.isArray(dataset?.data) ? dataset.data : [];
+        const previousValue = index > 0 ? datasetValues[index - 1] : null;
+        if (!Number.isFinite(percentChange) && Number.isFinite(previousValue) && previousValue !== 0) {
+            percentChange = calculatePercentChange(rawValue, previousValue);
+        }
+        if (!Number.isFinite(changeValue) && Number.isFinite(previousValue)) {
+            changeValue = rawValue - previousValue;
+        }
+
+        return { percentChange, changeValue };
+    };
+
+    const formatRankUnlockTooltip = (unlock = {}) => {
+        if (!unlock?.rank) {
+            return '';
+        }
+
+        const rankName = unlock.rank.name || 'Rank unlocked';
+        const emoji = unlock.rank.emoji || '';
+        let yearsToReach = Number.isFinite(unlock.monthsFromStart)
+            ? unlock.monthsFromStart / 12
+            : null;
+        if (!Number.isFinite(yearsToReach) && Number.isFinite(unlock.cumulativeHours)) {
+            yearsToReach = unlock.cumulativeHours / (24 * 365);
+        }
+        const yearsLabel = Number.isFinite(yearsToReach)
+            ? `${yearsToReach.toFixed(yearsToReach >= 1 ? 1 : 2)} years to reach`
+            : null;
+        const suffix = yearsLabel ? ` — ${yearsLabel}` : '';
+
+        return `${emoji} ${rankName}${suffix}`.trim();
+    };
+
+    const updateWalletOverlayFromElements = (elements, eventPosition = { x: 0, y: 0 }) => {
+        if (!walletChartInstance) {
+            return;
+        }
+
+        const primary = Array.isArray(elements) && elements.length > 0 ? elements[0] : null;
+        if (!primary || !Number.isInteger(primary.datasetIndex) || !Number.isInteger(primary.index)) {
+            applyWalletOverlayState(null);
+            return;
+        }
+
+        const dataset = walletChartInstance.data?.datasets?.[primary.datasetIndex];
+        const dataIndex = primary.index;
+        const rawValue = Array.isArray(dataset?.data) ? dataset.data[dataIndex] : null;
+        const periodMeta = Array.isArray(dataset?.periodMeta) ? dataset.periodMeta[dataIndex] : null;
+
+        const pointKey = `${primary.datasetIndex}-${dataIndex}`;
+        if (walletOverlayLastPointKey === pointKey) {
+            positionWalletOverlay(eventPosition);
+            return;
+        }
+        walletOverlayLastPointKey = pointKey;
+
+        const { percentChange, changeValue } = getWalletOverlayChangeDetails({
+            dataset,
+            rawValue,
+            index: dataIndex,
+            periodMeta,
+            overlayRole: dataset?.overlayRole,
+        });
+
+        const percentLabel = formatPercentLabel(percentChange);
+        const changeLabel = Number.isFinite(changeValue) ? formatSignedUsdValue(changeValue) : null;
+        const changeParts = [changeLabel, percentLabel].filter(Boolean);
+        const changeSuffix = changeParts.length ? ` (${changeParts.join(' · ')})` : '';
+        const valueLabel = formatWalletValueLabel(rawValue) || '—';
+        const balanceText = `Balance ${valueLabel}${changeSuffix}`;
+
+        const detailParts = [];
+        if (dataset?.isTopActivityHighlight && Array.isArray(periodMeta?.highlightReasons)) {
+            detailParts.push(...periodMeta.highlightReasons);
+            const highlightActivity = Array.isArray(periodMeta?.highlightActivities)
+                ? periodMeta.highlightActivities[0]
+                : null;
+            const topActivity = Array.isArray(periodMeta?.topActivities) ? periodMeta.topActivities[0] : null;
+            const activitySummary = formatActivitySummary(highlightActivity || topActivity || {});
+            if (activitySummary) {
+                detailParts.push(activitySummary);
+            }
+        }
+
+        if (Array.isArray(periodMeta?.rankUnlocks) && periodMeta.rankUnlocks.length > 0) {
+            periodMeta.rankUnlocks
+                .map(formatRankUnlockTooltip)
+                .filter(Boolean)
+                .forEach(entry => detailParts.push(entry));
+        }
+
+        const valueText = detailParts.length > 0
+            ? detailParts.join(' • ')
+            : (dataset?.label || walletOverlayDefaults.value);
+
+        applyWalletOverlayState({
+            visible: true,
+            label: periodMeta?.label || dataset?.label || 'Wallet insight',
+            balance: balanceText,
+            change: '',
+            value: valueText,
+            valueDirection: percentChange > 0 ? 'positive' : percentChange < 0 ? 'negative' : null,
+            position: eventPosition,
+        });
+    };
+
+    const updateWalletChartActiveElements = (elements, eventPosition = { x: 0, y: 0 }) => {
+        if (!walletChartInstance) {
+            return;
+        }
+
+        if (typeof walletChartInstance.setActiveElements === 'function') {
+            walletChartInstance.setActiveElements(elements);
+        }
+
+        if (walletChartInstance.tooltip?.setActiveElements) {
+            walletChartInstance.tooltip.setActiveElements(elements, eventPosition);
+        }
+
+        if (walletChartClickSelection && eventPosition && Number.isFinite(eventPosition.x) && Number.isFinite(eventPosition.y)) {
+            walletChartClickSelection.position = { x: eventPosition.x, y: eventPosition.y };
+        }
+
+        updateWalletOverlayFromElements(elements, eventPosition);
+
+        if (typeof walletChartInstance.update === 'function') {
+            walletChartInstance.update('none');
+        }
+    };
+
+    const clearWalletChartActiveElements = ({ preserveSelection = false } = {}) => {
+        if (!preserveSelection) {
+            walletChartClickSelection = null;
+        }
+        walletOverlayLastPointKey = null;
+        walletChartCrosshairPosition = null;
+        applyWalletOverlayState(null);
+        if (!walletChartInstance) {
+            return;
+        }
+        updateWalletChartActiveElements([], { x: 0, y: 0 });
+    };
+
+    function syncWalletTimeRangeChips() {
+        let matched = false;
+        walletChartRangeButtons.forEach((button) => {
+            if (!button) {
+                return;
+            }
+            const value = button.dataset.walletRange;
+            const isActive = value === walletSelectedTimeframe;
+            if (isActive) {
+                matched = true;
+            }
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            button.classList.toggle('is-active', isActive);
+        });
+        if (!matched) {
+            walletChartRangeButtons.forEach((button) => {
+                if (!button) {
+                    return;
+                }
+                const isDefault = button.dataset.walletRange === WALLET_TIMEFRAME_ALL;
+                button.setAttribute('aria-pressed', isDefault ? 'true' : 'false');
+                button.classList.toggle('is-active', isDefault);
+            });
+        }
+    }
+
+    const requestWalletTimeframeChange = (value) => {
+        if (!value) {
+            return;
+        }
+        walletSelectedTimeframe = value;
+        if (walletTimeframeSelect) {
+            walletTimeframeSelect.value = value;
+            walletTimeframeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            return;
+        }
+        renderWalletChart();
+    };
+
+    const applyWalletLayerPreferencesToChart = () => {
+        if (!walletChartInstance) {
+            return;
+        }
+        const { options } = walletChartInstance;
+        const scales = options?.scales || {};
+        if (scales.x?.grid) {
+            scales.x.grid.display = walletChartLayerPrefs.grid;
+        }
+        if (scales.y?.grid) {
+            scales.y.grid.display = walletChartLayerPrefs.grid;
+        }
+        if (scales.yMonthly?.grid) {
+            scales.yMonthly.grid.display = walletChartLayerPrefs.grid;
+        }
+        if (scales.yChange?.grid) {
+            scales.yChange.grid.display = walletChartLayerPrefs.grid;
+        }
+        const plugins = options?.plugins || {};
+        if (plugins.legend) {
+            plugins.legend.display = walletChartLayerPrefs.legend && walletChartLegendAvailable;
+        }
+        if (plugins.walletPointLabels) {
+            plugins.walletPointLabels.enabled = walletChartLayerPrefs.labels && walletChartPointLabelsAvailable;
+        }
+        walletChartInstance.update('none');
+    };
+
+    function updateWalletLayerToggleState() {
+        if (walletGridToggle) {
+            walletGridToggle.checked = walletChartLayerPrefs.grid;
+        }
+        if (walletLegendToggle) {
+            walletLegendToggle.checked = walletChartLayerPrefs.legend && walletChartLegendAvailable;
+            walletLegendToggle.disabled = !walletChartLegendAvailable;
+            walletLegendToggle.setAttribute('aria-disabled', walletChartLegendAvailable ? 'false' : 'true');
+        }
+        if (walletLabelsToggle) {
+            walletLabelsToggle.checked = walletChartLayerPrefs.labels && walletChartPointLabelsAvailable;
+            walletLabelsToggle.disabled = !walletChartPointLabelsAvailable;
+            walletLabelsToggle.setAttribute('aria-disabled', walletChartPointLabelsAvailable ? 'false' : 'true');
+        }
+    }
+
+    const setWalletAppearancePreference = (value) => {
+        const allowed = ['auto', 'light', 'dark'];
+        const nextValue = allowed.includes(value) ? value : 'auto';
+        if (walletAppearanceSelect && walletAppearanceSelect.value !== nextValue) {
+            walletAppearanceSelect.value = nextValue;
+        }
+        if (walletChartAppearancePreference === nextValue) {
+            return;
+        }
+        walletChartAppearancePreference = nextValue;
+        renderWalletChart();
+    };
+
+    const setWalletBottomSheetOpen = (open) => {
+        if (!walletBottomSheet) {
+            return;
+        }
+        walletBottomSheet.classList.toggle('is-open', open);
+        document.body.classList.toggle('wallet-sheet-open', open);
+        if (walletBottomSheetScrim) {
+            walletBottomSheetScrim.classList.toggle('is-visible', open);
+        }
+        if (walletChartSettingsButton) {
+            walletChartSettingsButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+    };
+
+    const toggleWalletBottomSheet = () => {
+        if (!walletBottomSheet) {
+            return;
+        }
+        const isOpen = walletBottomSheet.classList.contains('is-open');
+        setWalletBottomSheetOpen(!isOpen);
+    };
+
+    const ensureWalletChartEvents = () => {
+        if (walletChartEventsBound || !walletChartCanvas) {
+            return;
+        }
+
+        updateWalletChartTouchAction();
+
+        const getRelativeEventPosition = (event) => {
+            const rect = walletChartCanvas.getBoundingClientRect();
+            const clientX = event.clientX ?? (event.touches && event.touches[0]?.clientX);
+            const clientY = event.clientY ?? (event.touches && event.touches[0]?.clientY);
+            if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+                return { x: 0, y: 0 };
+            }
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top,
+            };
+        };
+
+        const normalizeEventForChart = (event) => {
+            if (event && typeof event.x === 'number' && typeof event.y === 'number' && !event.native) {
+                return { chartEvent: event, position: event };
+            }
+            if (!event) {
+                return null;
+            }
+            const position = getRelativeEventPosition(event);
+            return { chartEvent: event, position };
+        };
+
+        const performHighlight = (eventData, allowEmpty = false) => {
+            if (!walletChartInstance || walletChartClickSelection) {
+                return;
+            }
+            const chartEvent = eventData.chartEvent;
+            if (chartEvent?.type === 'pointermove' && chartEvent.buttons) {
+                return;
+            }
+            const elements = walletChartInstance.getElementsAtEventForMode(
+                chartEvent,
+                'index',
+                { intersect: false },
+                true,
+            ) || [];
+            if (!elements.length && !allowEmpty) {
+                return;
+            }
+            if (!elements.length) {
+                clearWalletChartActiveElements({ preserveSelection: true });
+                return;
+            }
+            updateWalletChartActiveElements(elements, eventData.position);
+        };
+
+        const scheduleHighlight = (eventData, { allowEmpty = false, throttle = false } = {}) => {
+            if (!throttle) {
+                performHighlight(eventData, allowEmpty);
+                return;
+            }
+            walletHighlightPending = { eventData, allowEmpty };
+            if (walletHighlightThrottleHandle) {
+                return;
+            }
+            walletHighlightThrottleHandle = window.setTimeout(() => {
+                walletHighlightThrottleHandle = null;
+                const pending = walletHighlightPending;
+                walletHighlightPending = null;
+                if (pending) {
+                    performHighlight(pending.eventData, pending.allowEmpty);
+                }
+            }, WALLET_PAN_THROTTLE_MS);
+        };
+
+        const highlightFromEvent = (event, options = {}) => {
+            const eventData = normalizeEventForChart(event);
+            if (!eventData) {
+                return;
+            }
+            scheduleHighlight(eventData, options);
+        };
+
+        const buildPointFromClient = (clientX, clientY) => {
+            const rect = walletChartCanvas.getBoundingClientRect();
+            const safeX = Number.isFinite(clientX) ? clientX : rect.left;
+            const safeY = Number.isFinite(clientY) ? clientY : rect.top;
+            return {
+                x: safeX - rect.left,
+                y: safeY - rect.top,
+            };
+        };
+
+        const clearTouchLongPress = () => {
+            walletTouchLongPressActive = false;
+        };
+
+        const trackTapForReset = (touch) => {
+            if (!touch) {
+                return false;
+            }
+            const now = Date.now();
+            const tapCoords = {
+                x: Number.isFinite(touch.clientX) ? touch.clientX : 0,
+                y: Number.isFinite(touch.clientY) ? touch.clientY : 0,
+            };
+            const elapsed = now - walletLastTapTime;
+            const travel = walletLastTapCoords
+                ? Math.hypot(tapCoords.x - walletLastTapCoords.x, tapCoords.y - walletLastTapCoords.y)
+                : Number.POSITIVE_INFINITY;
+            walletLastTapTime = now;
+            walletLastTapCoords = tapCoords;
+            return elapsed <= WALLET_DOUBLE_TAP_WINDOW_MS && travel <= WALLET_DOUBLE_TAP_DISTANCE_PX;
+        };
+
+        walletChartCanvas.addEventListener('click', (event) => {
+            if (!walletChartInstance) {
+                return;
+            }
+
+            const elements = walletChartInstance.getElementsAtEventForMode(
+                event,
+                'nearest',
+                { intersect: false },
+                true,
+            ) || [];
+
+            if (elements.length === 0) {
+                clearWalletChartActiveElements();
+                return;
+            }
+
+            const primary = elements[0];
+            const isSameSelection = walletChartClickSelection
+                && walletChartClickSelection.datasetIndex === primary.datasetIndex
+                && walletChartClickSelection.index === primary.index;
+
+            if (isSameSelection) {
+                clearWalletChartActiveElements();
+                return;
+            }
+
+            const dataset = walletChartInstance.data?.datasets?.[primary.datasetIndex];
+            const periodMeta = Array.isArray(dataset?.periodMeta)
+                ? dataset.periodMeta[primary.index]
+                : null;
+            if (dataset?.isTopActivityHighlight && periodMeta?.hasTopActivity) {
+                applyWalletPeriodFilterToActivities(periodMeta);
+                return;
+            }
+
+            const position = getRelativeEventPosition(event);
+            walletChartClickSelection = { datasetIndex: primary.datasetIndex, index: primary.index, position };
+            updateWalletChartActiveElements(elements, position);
+        });
+
+        walletChartCanvas.addEventListener('pointerenter', (event) => {
+            if (!walletChartInstance || event.pointerType === 'touch') {
+                return;
+            }
+            highlightFromEvent(event, { allowEmpty: true });
+        });
+
+        walletChartCanvas.addEventListener('pointermove', (event) => {
+            if (!walletChartInstance || event.pointerType === 'touch') {
+                return;
+            }
+            highlightFromEvent(event, { allowEmpty: true, throttle: true });
+        });
+
+        walletChartCanvas.addEventListener('touchstart', (event) => {
+            if (!event.touches || event.touches.length === 0) {
+                return;
+            }
+            if (event.touches.length > 1) {
+                clearTouchLongPress();
+                clearWalletChartActiveElements();
+                return;
+            }
+            walletChartClickSelection = null;
+            clearTouchLongPress();
+            const touch = event.touches[0];
+            const startX = Number.isFinite(touch.clientX) ? touch.clientX : 0;
+            const startY = Number.isFinite(touch.clientY) ? touch.clientY : 0;
+            walletTouchLongPressActive = true;
+            highlightFromEvent(buildPointFromClient(startX, startY));
+        }, { passive: true });
+
+        walletChartCanvas.addEventListener('touchmove', (event) => {
+            if (!event.touches || event.touches.length === 0) {
+                return;
+            }
+            if (event.touches.length > 1) {
+                clearTouchLongPress();
+                clearWalletChartActiveElements();
+                return;
+            }
+            const touch = event.touches[0];
+            if (!touch) {
+                return;
+            }
+            if (!walletTouchLongPressActive) {
+                return;
+            }
+            const point = buildPointFromClient(touch.clientX, touch.clientY);
+            highlightFromEvent(point, { allowEmpty: true, throttle: true });
+        }, { passive: true });
+
+        const endTouchInteraction = () => {
+            clearTouchLongPress();
+            walletChartClickSelection = null;
+            clearWalletChartActiveElements();
+        };
+
+        const handleTouchEnd = (event) => {
+            if (event.changedTouches && event.changedTouches.length === 1 && (!event.touches || event.touches.length === 0)) {
+                const touch = event.changedTouches[0];
+                if (touch && trackTapForReset(touch) && walletZoomPluginAvailable && walletChartInstance) {
+                    resetWalletChartZoom(walletChartInstance);
+                }
+            }
+            endTouchInteraction();
+        };
+
+        walletChartCanvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+        walletChartCanvas.addEventListener('touchcancel', endTouchInteraction, { passive: true });
+
+        walletChartCanvas.addEventListener('pointerleave', () => {
+            clearTouchLongPress();
+            if (walletChartInstance && walletChartClickSelection) {
+                const { datasetIndex, index, position } = walletChartClickSelection;
+                if (Number.isInteger(datasetIndex) && Number.isInteger(index)) {
+                    updateWalletChartActiveElements([
+                        { datasetIndex, index },
+                    ], position || { x: 0, y: 0 });
+                    return;
+                }
+            }
+            clearWalletChartActiveElements({ preserveSelection: true });
+        });
+
+        walletChartCanvas.addEventListener('dblclick', () => {
+            if (walletZoomPluginAvailable && walletChartInstance) {
+                resetWalletChartZoom(walletChartInstance);
+            }
+        });
+
+        walletChartEventsBound = true;
+    };
+
+    const walletPointLabelPlugin = {
+        id: 'walletPointLabels',
+        afterDatasetsDraw(chart) {
+            const pluginOptions = chart?.options?.plugins?.walletPointLabels;
+            if (!pluginOptions || !pluginOptions.enabled) {
+                return;
+            }
+
+            const ctx = chart.ctx;
+            const fontOptions = pluginOptions.font || {};
+            const fontWeight = fontOptions.weight || '600';
+            const fontSize = fontOptions.size || 11;
+            const fontFamily = fontOptions.family || 'sans-serif';
+            const paddingX = pluginOptions.paddingX ?? 6;
+            const paddingY = pluginOptions.paddingY ?? 4;
+            const offset = pluginOptions.offset ?? 12;
+            const minLabelSpacing = pluginOptions.minLabelSpacing ?? 64;
+            const textColor = pluginOptions.color || '#1f2937';
+            const backgroundColor = pluginOptions.backgroundColor || 'rgba(255, 255, 255, 0.92)';
+            const borderColor = pluginOptions.borderColor || 'rgba(148, 163, 184, 0.35)';
+            const borderWidth = pluginOptions.borderWidth ?? 1;
+            const borderRadius = pluginOptions.borderRadius ?? 6;
+            const formatter = typeof pluginOptions.formatter === 'function'
+                ? pluginOptions.formatter
+                : (value, meta) => formatWalletValueLabel(value);
+
+            const drawRoundedRect = (context, x, y, width, height, radius) => {
+                const safeRadius = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+                context.beginPath();
+                context.moveTo(x + safeRadius, y);
+                context.lineTo(x + width - safeRadius, y);
+                context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+                context.lineTo(x + width, y + height - safeRadius);
+                context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+                context.lineTo(x + safeRadius, y + height);
+                context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+                context.lineTo(x, y + safeRadius);
+                context.quadraticCurveTo(x, y, x + safeRadius, y);
+                context.closePath();
+            };
+
+            const chartArea = chart.chartArea || {};
+            const areaWidth = chartArea.width || chart.width || 0;
+            const chartLeft = chartArea.left ?? 0;
+            const chartRight = chartArea.right ?? chart.width ?? 0;
+            const chartTop = chartArea.top ?? 0;
+
+            chart.data.datasets.forEach((dataset, datasetIndex) => {
+                if (!dataset || dataset.type !== 'line') {
+                    return;
+                }
+
+                const meta = chart.getDatasetMeta(datasetIndex);
+                if (!meta || meta.hidden) {
+                    return;
+                }
+
+                const elements = meta.data || [];
+                const pointCount = elements.length;
+                const spacing = pointCount > 1 && areaWidth > 0
+                    ? areaWidth / (pointCount - 1)
+                    : areaWidth;
+                const skipStep = spacing > 0 && spacing < minLabelSpacing
+                    ? Math.ceil(minLabelSpacing / spacing)
+                    : 1;
+                const drawnBoxes = [];
+
+                elements.forEach((element, index) => {
+                    if (!element) {
+                        return;
+                    }
+
+                    const forceDraw = index === 0 || index === pointCount - 1;
+                    if (!forceDraw && skipStep > 1 && index % skipStep !== 0) {
+                        return;
+                    }
+
+                    const rawValue = Array.isArray(dataset.data) ? dataset.data[index] : null;
+                    if (!Number.isFinite(rawValue)) {
+                        return;
+                    }
+
+                    const label = formatter(rawValue, Array.isArray(dataset.periodMeta) ? dataset.periodMeta[index] : null);
+                    if (!label) {
+                        return;
+                    }
+
+                    const position = typeof element.tooltipPosition === 'function'
+                        ? element.tooltipPosition()
+                        : element;
+
+                    const x = position?.x;
+                    const y = position?.y;
+                    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                        return;
+                    }
+
+                    ctx.save();
+                    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    const metrics = ctx.measureText(label);
+                    const rectWidth = metrics.width + paddingX * 2;
+                    const rectHeight = fontSize + paddingY * 2;
+                    const baseY = y - offset;
+                    let rectX = x - rectWidth / 2;
+                    let rectY = baseY - rectHeight;
+
+                    if (rectX < chartLeft) {
+                        rectX = chartLeft;
+                    }
+                    if (rectX + rectWidth > chartRight) {
+                        rectX = chartRight - rectWidth;
+                    }
+                    const minY = chartTop + 4;
+                    if (rectY < minY) {
+                        rectY = minY;
+                    }
+                    const textX = rectX + rectWidth / 2;
+                    const textY = rectY + rectHeight / 2;
+
+                    const currentBox = {
+                        left: rectX,
+                        right: rectX + rectWidth,
+                        top: rectY,
+                        bottom: rectY + rectHeight,
+                    };
+                    const overlaps = drawnBoxes.some(box => (
+                        currentBox.left < box.right
+                        && currentBox.right > box.left
+                        && currentBox.top < box.bottom
+                        && currentBox.bottom > box.top
+                    ));
+
+                    if (overlaps && !forceDraw) {
+                        ctx.restore();
+                        return;
+                    }
+
+                    drawnBoxes.push(currentBox);
+
+                    ctx.fillStyle = backgroundColor;
+                    drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, borderRadius);
+                    ctx.fill();
+
+                    if (borderWidth > 0 && borderColor) {
+                        ctx.strokeStyle = borderColor;
+                        ctx.lineWidth = borderWidth;
+                        ctx.stroke();
+                    }
+
+                    ctx.fillStyle = textColor;
+                    ctx.fillText(label, textX, textY);
+                    ctx.restore();
+                });
+            });
+        }
+    };
+
+    const walletBarOverlayPlugin = {
+        id: 'walletBarOverlay',
+        afterDatasetsDraw(chart) {
+            const pluginOptions = chart?.options?.plugins?.walletBarOverlay;
+            if (!pluginOptions || !pluginOptions.enabled) {
+                return;
+            }
+
+            const tooltip = chart?.tooltip;
+            const activeElements = typeof tooltip?.getActiveElements === 'function'
+                ? tooltip.getActiveElements()
+                : (Array.isArray(tooltip?._active) ? tooltip._active : []);
+
+            if (!Array.isArray(activeElements) || activeElements.length === 0) {
+                return;
+            }
+
+            const active = activeElements[0];
+            const datasetIndex = active?.datasetIndex;
+            const dataIndex = active?.index;
+
+            if (!Number.isInteger(datasetIndex) || !Number.isInteger(dataIndex)) {
+                return;
+            }
+
+            const dataset = chart.data?.datasets?.[datasetIndex];
+            if (!dataset || dataset.type !== 'bar') {
+                return;
+            }
+
+            const meta = chart.getDatasetMeta(datasetIndex);
+            if (!meta || !Array.isArray(meta.data) || !meta.data[dataIndex]) {
+                return;
+            }
+
+            const element = meta.data[dataIndex];
+            if (!element) {
+                return;
+            }
+
+            const rawValue = Array.isArray(dataset.data) ? dataset.data[dataIndex] : null;
+            if (!Number.isFinite(rawValue)) {
+                return;
+            }
+
+            const formatter = typeof pluginOptions.formatter === 'function'
+                ? pluginOptions.formatter
+                : (value, metaInfo) => {
+                    const label = formatSignedUsdValue(value);
+                    if (metaInfo?.label) {
+                        return `${metaInfo.label}: ${label}`;
+                    }
+                    return label;
+                };
+
+            const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta[dataIndex] : null;
+            const label = formatter(rawValue, periodMeta);
+            if (!label) {
+                return;
+            }
+
+            const ctx = chart.ctx;
+            const fontOptions = pluginOptions.font || {};
+            const fontWeight = fontOptions.weight || '600';
+            const fontSize = fontOptions.size || 12;
+            const fontFamily = fontOptions.family || 'sans-serif';
+            const paddingX = pluginOptions.paddingX ?? 10;
+            const paddingY = pluginOptions.paddingY ?? 6;
+            const offset = pluginOptions.offset ?? 12;
+            const textColor = pluginOptions.color || '#0f172a';
+            const backgroundColor = pluginOptions.backgroundColor || 'rgba(255, 255, 255, 0.95)';
+            const borderColor = pluginOptions.borderColor || 'rgba(148, 163, 184, 0.45)';
+            const borderWidth = pluginOptions.borderWidth ?? 1;
+            const borderRadius = pluginOptions.borderRadius ?? 8;
+
+            const chartArea = chart.chartArea || {};
+            const chartLeft = chartArea.left ?? 0;
+            const chartRight = chartArea.right ?? chart.width ?? 0;
+            const chartTop = chartArea.top ?? 0;
+
+            const drawRoundedRect = (context, x, y, width, height, radius) => {
+                const safeRadius = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+                context.beginPath();
+                context.moveTo(x + safeRadius, y);
+                context.lineTo(x + width - safeRadius, y);
+                context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+                context.lineTo(x + width, y + height - safeRadius);
+                context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+                context.lineTo(x + safeRadius, y + height);
+                context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+                context.lineTo(x, y + safeRadius);
+                context.quadraticCurveTo(x, y, x + safeRadius, y);
+                context.closePath();
+            };
+
+            const position = typeof element.tooltipPosition === 'function'
+                ? element.tooltipPosition()
+                : element;
+
+            const x = position?.x;
+            const y = position?.y;
+            const base = position?.base ?? y;
+            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                return;
+            }
+
+            ctx.save();
+            ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const metrics = ctx.measureText(label);
+            const rectWidth = metrics.width + paddingX * 2;
+            const rectHeight = fontSize + paddingY * 2;
+            let rectX = x - rectWidth / 2;
+            if (rectX < chartLeft) {
+                rectX = chartLeft;
+            }
+            if (rectX + rectWidth > chartRight) {
+                rectX = chartRight - rectWidth;
+            }
+
+            const isPositive = (base ?? 0) > y;
+            let rectY = (isPositive ? y : base) - rectHeight - offset;
+            if (rectY < chartTop + 4) {
+                rectY = chartTop + 4;
+            }
+
+            const textX = rectX + rectWidth / 2;
+            const textY = rectY + rectHeight / 2;
+
+            ctx.fillStyle = backgroundColor;
+            drawRoundedRect(ctx, rectX, rectY, rectWidth, rectHeight, borderRadius);
+            ctx.fill();
+
+            if (borderWidth > 0 && borderColor) {
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = borderWidth;
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = textColor;
+            ctx.fillText(label, textX, textY);
+            ctx.restore();
+        }
+    };
+
+    const walletCrosshairPlugin = {
+        id: 'walletCrosshair',
+        afterDatasetsDraw(chart) {
+            if (!walletChartCrosshairPosition) {
+                return;
+            }
+            const chartArea = chart?.chartArea;
+            if (!chartArea) {
+                return;
+            }
+            const { x, y } = walletChartCrosshairPosition;
+            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                return;
+            }
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            const strokeColor = chart.options?.scales?.y?.grid?.color || 'rgba(148, 163, 184, 0.45)';
+            ctx.strokeStyle = strokeColor;
+            ctx.beginPath();
+            ctx.moveTo(x, chartArea.top);
+            ctx.lineTo(x, chartArea.bottom);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(chartArea.left, y);
+            ctx.lineTo(chartArea.right, y);
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
+
+    const walletRankUnlockPlugin = {
+        id: 'walletRankUnlock',
+        afterDatasetsDraw(chart) {
+            const options = chart?.options?.plugins?.walletRankUnlock;
+            if (!options || !options.enabled) {
+                return;
+            }
+
+            const ctx = chart.ctx;
+            const font = options.font || {};
+            const fontWeight = font.weight || '700';
+            const fontSize = font.size || 14;
+            const fontFamily = font.family || 'sans-serif';
+            const offset = options.offset ?? 14;
+            const seenRankEmojis = new Set();
+
+            ctx.save();
+            ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            chart.data.datasets.forEach((dataset, datasetIndex) => {
+                if (!dataset || dataset.type !== 'line') {
+                    return;
+                }
+                const meta = chart.getDatasetMeta(datasetIndex);
+                if (!meta || meta.hidden) {
+                    return;
+                }
+                const elements = meta.data || [];
+                elements.forEach((element, index) => {
+                    const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta[index] : null;
+                    const unlocks = Array.isArray(periodMeta?.rankUnlocks) ? periodMeta.rankUnlocks : [];
+                    const unlockToShow = unlocks.find((unlock) => {
+                        const emoji = unlock?.rank?.emoji;
+                        return emoji && !seenRankEmojis.has(emoji);
+                    });
+                    const emoji = unlockToShow?.rank?.emoji;
+                    if (!emoji) {
+                        return;
+                    }
+                    seenRankEmojis.add(emoji);
+
+                    const position = typeof element.tooltipPosition === 'function'
+                        ? element.tooltipPosition()
+                        : element;
+                    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) {
+                        return;
+                    }
+
+                    ctx.fillText(emoji, position.x, position.y - offset);
+                });
+            });
+
+            ctx.restore();
+        }
+    };
+
+    const renderWalletChart = () => {
         if (!walletChartCanvas) {
-            setWalletChartStatus('Charts unavailable.');
             return;
         }
 
         if (typeof Chart === 'undefined') {
             walletChartCanvas.classList.add('hidden');
-            setWalletChartStatus('Charts unavailable.');
+            setWalletChartSkeletonVisible(false);
+            applyWalletOverlayState(null);
             updateToggleStates(null);
             return;
         }
 
-        const availableKey = hasWalletChartData(preferredKey)
-            ? preferredKey
-            : (hasWalletChartData('balance') ? 'balance' : (hasWalletChartData('coins') ? 'coins' : null));
-
-        if (!availableKey) {
+        if (!hasWalletChartData('balance')) {
             destroyWalletChart();
             walletChartCanvas.classList.add('hidden');
-            setWalletChartStatus('No wallet data available for this view.');
+            setWalletChartSkeletonVisible(false);
+            applyWalletOverlayState(null);
             updateToggleStates(null);
             return;
         }
 
-        activeChartKey = availableKey;
-        const dataset = walletChartData[availableKey];
+        activeChartKey = 'balance';
+        const dataset = walletChartData.balance;
 
         walletChartCanvas.classList.remove('hidden');
-        setWalletChartStatus(null);
+        setWalletChartSkeletonVisible(false);
 
         destroyWalletChart();
+        applyWalletOverlayState(null);
 
-        const isDarkMode = document.body.classList.contains('dark');
+        const isDarkMode = walletChartAppearancePreference === 'dark'
+            || (walletChartAppearancePreference === 'auto' && document.body.classList.contains('dark'));
+        const showLineSeries = true;
+        const showBarSeries = true;
+        const isAllTimeRange = walletSelectedTimeframe === WALLET_TIMEFRAME_ALL;
         const axisColor = isDarkMode ? '#cbd5f5' : '#475569';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.2)';
         const fontFamily = "'Roboto', 'Helvetica Neue', 'Arial', sans-serif";
         const tickFont = { family: fontFamily, size: 13, weight: '600' };
-        const tooltipBodyFont = { family: fontFamily, size: 13 };
-        const tooltipTitleFont = { family: fontFamily, size: 12, weight: '600' };
 
-        if (availableKey === 'coins') {
-            const timelineLabels = Array.isArray(dataset.timelineLabels) ? dataset.timelineLabels : [];
-            const coinTimeline = dataset.coinTimeline || {};
-            const hasTimelineData = timelineLabels.length > 0 && COIN_EMOJIS.some(emoji => {
-                const values = coinTimeline[emoji];
-                return Array.isArray(values) && values.some(value => value > 0);
-            });
+        const hasCompareData = Array.isArray(dataset.compareDatasets) && dataset.compareDatasets.length > 1;
+        const useComparison = Boolean(balanceCompareYears && hasCompareData);
+        const periodMeta = Array.isArray(dataset.periodMeta) ? dataset.periodMeta : [];
+        const barBorderColors = Array.isArray(dataset.barBorderColors) && dataset.barBorderColors.length === periodMeta.length
+            ? dataset.barBorderColors
+            : periodMeta.map(() => '#16a34a');
+        const perPeriodLabel = dataset.perPeriodLabel || 'Balance change';
 
-            if (coinChartMode === 'timeline' && hasTimelineData) {
-                const lineDatasets = COIN_EMOJIS.map(emoji => {
-                    const values = Array.isArray(coinTimeline[emoji]) ? coinTimeline[emoji] : [];
-                    if (!values.some(value => value > 0)) {
-                        return null;
-                    }
-                    return {
-                        label: `${emoji} Coins`,
-                        data: values,
-                        borderColor: COIN_COLOR_MAP[emoji] || '#2563eb',
-                        backgroundColor: (COIN_COLOR_MAP[emoji] || '#2563eb') + '33',
-                        tension: 0.25,
-                        borderWidth: 3,
-                        pointRadius: 2.5,
-                        fill: false
-                    };
-                }).filter(Boolean);
+        const buildMonthlyPeriodMeta = (yearLabel, colors) => MONTH_COMPARISON_LABELS.map((monthLabel, monthIndex) => {
+            const numericYear = Number(yearLabel);
+            return {
+                label: `${monthLabel} ${yearLabel}`.trim(),
+                year: Number.isFinite(numericYear) ? numericYear : null,
+                month: monthIndex + 1,
+                colors,
+            };
+        });
 
-                walletChartInstance = new Chart(walletChartCanvas, {
+        const buildBarGradient = (context) => {
+            const chart = context.chart;
+            const area = chart.chartArea;
+            if (!area) {
+                return isDarkMode ? 'rgba(74, 222, 128, 0.6)' : 'rgba(34, 197, 94, 0.85)';
+            }
+            const gradient = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+            gradient.addColorStop(0, isDarkMode ? 'rgba(74, 222, 128, 0.9)' : 'rgba(34, 197, 94, 0.95)');
+            gradient.addColorStop(1, isDarkMode ? 'rgba(22, 163, 74, 0.35)' : 'rgba(187, 247, 208, 0.35)');
+            return gradient;
+        };
+
+        const changeAxisId = useComparison ? 'yMonthly' : 'yChange';
+
+        const comparisonLineDatasets = useComparison
+            ? dataset.compareDatasets.map(entry => ({
+                type: 'line',
+                label: entry.label || 'Balance',
+                data: Array.isArray(entry.data) ? entry.data : [],
+                borderColor: entry.borderColor || '#16a34a',
+                backgroundColor: 'transparent',
+                fill: false,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                yAxisID: 'y',
+                order: 1,
+                overlayRole: 'cumulative',
+                hidden: !showLineSeries,
+                borderWidth: 2.5,
+                periodMeta: buildMonthlyPeriodMeta(entry.label || '', {
+                    border: entry.borderColor || '#16a34a',
+                    background: entry.backgroundColor || 'rgba(34, 197, 94, 0.18)',
+                }),
+            }))
+            : [];
+
+        const comparisonMonthlyDatasets = useComparison
+            ? (Array.isArray(dataset.compareMonthlyDatasets) ? dataset.compareMonthlyDatasets : []).map(entry => ({
+                type: 'bar',
+                label: entry.label || entry.baseLabel || 'Year',
+                data: Array.isArray(entry.data) ? entry.data : [],
+                backgroundColor: (context) => buildBarGradient(context),
+                borderColor: entry.borderColor || '#16a34a',
+                hoverBackgroundColor: (context) => buildBarGradient(context),
+                borderRadius: 6,
+                maxBarThickness: 40,
+                yAxisID: changeAxisId,
+                order: 2,
+                overlayRole: 'per-period',
+                hidden: !showBarSeries,
+                comparisonYear: entry.baseLabel || entry.label || '',
+                periodMeta: buildMonthlyPeriodMeta(entry.baseLabel || entry.label || '', {
+                    border: entry.borderColor || '#16a34a',
+                    background: entry.backgroundColor || 'rgba(34, 197, 94, 0.18)',
+                }),
+            }))
+            : [];
+
+        const chartLabels = useComparison
+            ? (Array.isArray(dataset.compareLabels) && dataset.compareLabels.length > 0
+                ? dataset.compareLabels
+                : MONTH_COMPARISON_LABELS)
+            : dataset.labels;
+
+        const chartDatasets = useComparison
+            ? [...comparisonMonthlyDatasets, ...comparisonLineDatasets]
+            : [
+                ...(showBarSeries ? [{
+                    type: 'bar',
+                    label: perPeriodLabel,
+                    data: Array.isArray(dataset.perPeriodValues) ? dataset.perPeriodValues : [],
+                    borderColor: barBorderColors,
+                    backgroundColor: (context) => buildBarGradient(context),
+                    hoverBackgroundColor: (context) => buildBarGradient(context),
+                    borderRadius: 6,
+                    maxBarThickness: 40,
+                    yAxisID: changeAxisId,
+                    order: 2,
+                    overlayRole: 'per-period',
+                    periodMeta,
+                    hidden: false,
+                }] : []),
+                ...(showLineSeries ? [{
                     type: 'line',
-                    data: {
-                        labels: timelineLabels,
-                        datasets: lineDatasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                            padding: { top: 18, right: 18, bottom: 12, left: 18 }
-                        },
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: axisColor,
-                                    font: tickFont
-                                }
-                            },
-                            tooltip: {
-                                bodyFont: tooltipBodyFont,
-                                titleFont: tooltipTitleFont,
-                                callbacks: {
-                                    label: (context) => {
-                                        const value = context.parsed.y || 0;
-                                        const label = context.dataset.label || '';
-                                        return `${label}: ${value.toLocaleString()}`;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                ticks: {
-                                    color: axisColor,
-                                    font: tickFont,
-                                    maxRotation: 45,
-                                    minRotation: 0
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    color: axisColor,
-                                    precision: 0,
-                                    font: tickFont
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            }
-                        }
-                    }
-                });
-            } else {
-                coinChartMode = 'stacked';
-                const datasets = [];
+                    label: 'Balance',
+                    data: Array.isArray(dataset.values) ? dataset.values : [],
+                    borderColor: isDarkMode ? '#4ade80' : '#16a34a',
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    tension: 0.4,
+                    pointBackgroundColor: isDarkMode ? '#4ade80' : '#16a34a',
+                    pointBorderColor: isDarkMode ? '#4ade80' : '#16a34a',
+                    pointBorderWidth: 0,
+                    pointRadius: 3,
+                    pointHoverRadius: 7,
+                    yAxisID: 'y',
+                    order: 1,
+                    borderWidth: 2.5,
+                    overlayRole: 'cumulative',
+                    periodMeta,
+                }] : []),
+            ];
 
-                COIN_EMOJIS.forEach(emoji => {
-                    const values = Array.isArray(dataset.coinBreakdown?.[emoji])
-                        ? dataset.coinBreakdown[emoji]
-                        : [];
-                    datasets.push({
-                        label: `${emoji} Coins`,
-                        data: values,
-                        backgroundColor: COIN_COLOR_MAP[emoji] || '#2563eb',
-                        stack: 'coins',
-                        yAxisID: 'yCoins',
-                        borderRadius: 6,
-                        borderSkipped: false,
-                        maxBarThickness: 44
-                    });
-                });
+        let highlightValues = [];
+        if (!useComparison && showLineSeries && Array.isArray(dataset.values) && Array.isArray(periodMeta)) {
+            const highlightWinners = new Map();
+            const highlightDetailsByIndex = new Map();
 
-                (dataset.medalBreakdown || []).forEach(entry => {
-                    if (!entry || !Array.isArray(entry.data)) {
+            periodMeta.forEach((meta, index) => {
+                (meta?.highlightMetrics || []).forEach((metric) => {
+                    if (!metric || !Number.isFinite(metric.value)) {
                         return;
                     }
-                    datasets.push({
-                        label: entry.label,
-                        data: entry.data,
-                        backgroundColor: entry.color || getMedalColor(entry.label, { isOther: entry.isOther }),
-                        stack: 'medals',
-                        yAxisID: 'yMedals',
-                        borderRadius: 6,
-                        borderSkipped: false,
-                        maxBarThickness: 44
-                    });
-                });
-
-                walletChartInstance = new Chart(walletChartCanvas, {
-                    type: 'bar',
-                    data: {
-                        labels: dataset.labels,
-                        datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                            padding: { top: 18, right: 16, bottom: 12, left: 16 }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                bodyFont: tooltipBodyFont,
-                                titleFont: tooltipTitleFont,
-                                callbacks: {
-                                    label: (context) => {
-                                        const value = context.parsed.y || 0;
-                                        const label = context.dataset.label || '';
-                                        return `${label}: ${value.toLocaleString()}`;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                stacked: true,
-                                ticks: {
-                                    color: axisColor,
-                                    font: tickFont,
-                                    padding: 8
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            yCoins: {
-                                stacked: true,
-                                beginAtZero: true,
-                                type: 'linear',
-                                position: 'left',
-                                ticks: {
-                                    color: axisColor,
-                                    precision: 0,
-                                    font: tickFont,
-                                    padding: 6
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
-                            },
-                            yMedals: {
-                                stacked: true,
-                                beginAtZero: true,
-                                type: 'linear',
-                                position: 'right',
-                                ticks: {
-                                    color: axisColor,
-                                    precision: 0,
-                                    font: tickFont,
-                                    padding: 6
-                                },
-                                grid: {
-                                    color: gridColor,
-                                    drawOnChartArea: false
-                                }
-                            }
-                        }
+                    const current = highlightWinners.get(metric.key);
+                    if (!current || metric.value > current.value) {
+                        highlightWinners.set(metric.key, { ...metric, index });
                     }
                 });
-            }
-        } else {
-            const hasCompareData = Array.isArray(dataset.compareDatasets) && dataset.compareDatasets.length > 1;
-            const useComparison = Boolean(balanceCompareYears && hasCompareData);
+            });
 
-            const comparisonDatasets = useComparison
-                ? dataset.compareDatasets.map(entry => ({
-                    label: entry.label || 'Balance',
-                    data: Array.isArray(entry.data) ? entry.data : [],
-                    borderColor: entry.borderColor || '#2563eb',
-                    backgroundColor: entry.backgroundColor || 'rgba(37, 99, 235, 0.18)',
-                    fill: false,
-                    tension: 0.3,
-                    pointRadius: 3,
-                    pointHoverRadius: 4,
-                }))
-                : [];
-
-            const chartLabels = useComparison
-                ? (Array.isArray(dataset.compareLabels) && dataset.compareLabels.length > 0
-                    ? dataset.compareLabels
-                    : MONTH_COMPARISON_LABELS)
-                : dataset.labels;
-
-            const chartDatasets = useComparison
-                ? comparisonDatasets
-                : [
-                    {
-                        label: 'Cumulative balance',
-                        data: dataset.values,
-                        borderColor: '#16a34a',
-                        backgroundColor: 'rgba(22, 163, 74, 0.2)',
-                        fill: true,
-                        tension: 0.35,
-                        pointRadius: 3,
-                        pointHoverRadius: 4,
-                    }
-                ];
-
-            walletChartInstance = new Chart(walletChartCanvas, {
-                type: 'line',
-                data: {
-                    labels: chartLabels,
-                    datasets: chartDatasets,
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: {
-                        padding: { top: 18, right: 16, bottom: 12, left: 16 }
-                    },
-                    plugins: {
-                        legend: {
-                            display: useComparison,
-                            labels: {
-                                usePointStyle: true,
-                                font: tickFont,
-                            }
-                        },
-                        tooltip: {
-                            bodyFont: tooltipBodyFont,
-                            titleFont: tooltipTitleFont,
-                            callbacks: {
-                                label: (context) => {
-                                    const value = context.parsed.y || 0;
-                                    const label = context.dataset?.label || 'Balance';
-                                    return useComparison
-                                        ? `${label}: ${formatMillions(value)}`
-                                        : `Balance: ${formatMillions(value)}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: axisColor,
-                                font: tickFont,
-                                padding: 8
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                color: axisColor,
-                                font: tickFont,
-                                padding: 6,
-                                callback: (value) => {
-                                    if (!Number.isFinite(value)) {
-                                        return '$0.0M';
-                                    }
-                                    return `$${(value / 1_000_000).toFixed(1)}M`;
-                                }
-                            },
-                            grid: {
-                                color: gridColor
-                            }
-                        }
-                    }
+            const buildHighlightLabel = (metricKey, fallbackLabel) => {
+                if (fallbackLabel) {
+                    return fallbackLabel;
                 }
+                switch (metricKey) {
+                    case 'longestRun':
+                        return 'Longest run';
+                    case 'runElevation':
+                        return 'Most elevation on a run';
+                    case 'elevation':
+                        return 'Biggest vert day';
+                    case 'movingTime':
+                        return 'Longest moving time';
+                    case 'distance':
+                    default:
+                        return 'Featured activity';
+                }
+            };
+
+            highlightWinners.forEach((entry) => {
+                const reasons = highlightDetailsByIndex.get(entry.index) || [];
+                reasons.push({
+                    label: buildHighlightLabel(entry.key, entry.label),
+                    activity: entry.activity,
+                });
+                highlightDetailsByIndex.set(entry.index, reasons);
+            });
+
+            highlightValues = dataset.values.map((value, index) => {
+                const reasons = highlightDetailsByIndex.get(index);
+                if (reasons && periodMeta[index]) {
+                    periodMeta[index].highlightReasons = reasons.map(reason => reason.label).filter(Boolean);
+                    periodMeta[index].highlightActivities = reasons
+                        .map(reason => reason.activity)
+                        .filter(Boolean);
+                }
+                return reasons ? value : null;
+            });
+        }
+        const hasHighlights = highlightValues.some(value => Number.isFinite(value));
+        if (hasHighlights) {
+            chartDatasets.push({
+                type: 'line',
+                label: 'Featured activity',
+                data: highlightValues,
+                borderColor: 'transparent',
+                backgroundColor: 'transparent',
+                pointBackgroundColor: '#ef4444',
+                pointBorderColor: '#b91c1c',
+                pointRadius: 8,
+                pointHoverRadius: 11,
+                showLine: false,
+                pointStyle: 'circle',
+                yAxisID: 'y',
+                overlayRole: 'cumulative',
+                periodMeta,
+                isTopActivityHighlight: true,
             });
         }
 
+        const chartPlugins = [walletBarOverlayPlugin, walletRankUnlockPlugin];
+        const lineValueCount = Array.isArray(dataset.values) ? dataset.values.length : 0;
+        const shouldDecimate = lineValueCount > 100;
+        const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+        const prefersReducedMotion = Boolean(reduceMotionQuery?.matches);
+        const hardwareConcurrency = Number.isFinite(window.navigator?.hardwareConcurrency)
+            ? window.navigator.hardwareConcurrency
+            : null;
+        const isLowEndDevice = Number.isFinite(hardwareConcurrency) && hardwareConcurrency <= 4;
+        const animationDuration = prefersReducedMotion || isLowEndDevice ? 0 : 800;
+        const chartHasBars = chartDatasets.some(datasetEntry => datasetEntry.type === 'bar' && !datasetEntry.hidden);
+        walletChartLegendAvailable = useComparison;
+        walletChartPointLabelsAvailable = false;
+
+        const buildWalletYearTicks = (scale) => {
+            if (useComparison || !Array.isArray(periodMeta) || periodMeta.length === 0) {
+                return scale.ticks;
+            }
+            const yearTicks = [];
+            scale.ticks.forEach((tick) => {
+                const meta = periodMeta[tick.value];
+                const previousMeta = tick.value > 0 ? periodMeta[tick.value - 1] : null;
+                const isNewYear = meta && Number.isInteger(meta.year)
+                    && (!previousMeta || previousMeta?.year !== meta.year);
+                if (isNewYear) {
+                    yearTicks.push({ ...tick, label: String(meta.year) });
+                }
+            });
+            return yearTicks.length > 0 ? yearTicks : scale.ticks;
+        };
+
+        walletChartInstance = new Chart(walletChartCanvas, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: chartDatasets,
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: animationDuration === 0
+                    ? false
+                    : { duration: animationDuration, easing: 'easeOutCubic' },
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                hover: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                layout: {
+                    padding: { top: 18, right: 12, bottom: 16, left: 12 }
+                },
+                plugins: {
+                    legend: {
+                        display: useComparison && walletChartLayerPrefs.legend,
+                        labels: {
+                            usePointStyle: true,
+                            font: tickFont,
+                        }
+                    },
+                    tooltip: {
+                        enabled: false,
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: (context) => {
+                                const [first] = context || [];
+                                const dataIndex = Number.isInteger(first?.dataIndex)
+                                    ? first.dataIndex
+                                    : null;
+                                const datasetMeta = first?.dataset?.periodMeta;
+                                if (Array.isArray(datasetMeta) && Number.isInteger(dataIndex) && datasetMeta[dataIndex]?.label) {
+                                    return datasetMeta[dataIndex].label;
+                                }
+                                if (Number.isInteger(dataIndex) && walletChartInstance?.data?.labels?.[dataIndex]) {
+                                    return walletChartInstance.data.labels[dataIndex];
+                                }
+                                return 'Wallet insight';
+                            },
+                            label: (context) => {
+                                const rawValue = context.parsed?.y;
+                                const dataset = context.dataset || {};
+                                const label = dataset.label || 'Value';
+                                const formatter = dataset.overlayRole === 'cumulative'
+                                    ? formatWalletValueLabel
+                                    : formatSignedUsdValue;
+                                const dataIndex = Number.isInteger(context.dataIndex) ? context.dataIndex : null;
+                                const periodMetaEntry = Array.isArray(dataset.periodMeta) && Number.isInteger(dataIndex)
+                                    ? dataset.periodMeta[dataIndex]
+                                    : null;
+                                if (!Number.isFinite(rawValue)) {
+                                    return label;
+                                }
+                                const { percentChange } = getWalletOverlayChangeDetails({
+                                    dataset,
+                                    rawValue,
+                                    index: dataIndex,
+                                    periodMeta: periodMetaEntry,
+                                    overlayRole: dataset.overlayRole,
+                                });
+                                const percentLabel = formatPercentLabel(percentChange);
+                                const formattedValue = formatter(rawValue);
+                                if (percentLabel) {
+                                    return `${label}: ${formattedValue} (${percentLabel})`;
+                                }
+                                return `${label}: ${formattedValue}`;
+                            },
+                            afterBody: (context) => {
+                                const [first] = context || [];
+                                if (!first) {
+                                    return [];
+                                }
+                                const dataset = first.dataset || {};
+                                const dataIndex = Number.isInteger(first.dataIndex) ? first.dataIndex : null;
+                                const periodMetaEntry = Array.isArray(dataset.periodMeta) && Number.isInteger(dataIndex)
+                                    ? dataset.periodMeta[dataIndex]
+                                    : null;
+
+                                const lines = [];
+                                if (dataset.isTopActivityHighlight && Array.isArray(periodMetaEntry?.highlightReasons)) {
+                                    lines.push(...periodMetaEntry.highlightReasons.map(reason => `• ${reason}`));
+                                    const topActivity = Array.isArray(periodMetaEntry?.highlightActivities)
+                                        ? periodMetaEntry.highlightActivities[0]
+                                        : null;
+                                    const activitySummary = formatActivitySummary(topActivity || {});
+                                    if (activitySummary) {
+                                        lines.push(activitySummary);
+                                    }
+                                }
+
+                                if (Array.isArray(periodMetaEntry?.rankUnlocks) && periodMetaEntry.rankUnlocks.length > 0) {
+                                    periodMetaEntry.rankUnlocks
+                                        .map(formatRankUnlockTooltip)
+                                        .filter(Boolean)
+                                        .forEach((entry) => lines.push(entry));
+                                }
+
+                                return lines;
+                            }
+                        }
+                    },
+                    decimation: {
+                        enabled: shouldDecimate,
+                        algorithm: 'lttb',
+                        samples: 200,
+                    },
+                    walletPointLabels: {
+                        enabled: walletChartLayerPrefs.labels && !useComparison,
+                        color: isDarkMode ? '#0f172a' : '#1f2937',
+                        backgroundColor: isDarkMode ? 'rgba(248, 250, 252, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+                        borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.35)',
+                        borderWidth: 1,
+                        paddingX: 10,
+                        paddingY: 6,
+                        offset: 16,
+                        minLabelSpacing: 72,
+                    },
+                    walletRankUnlock: {
+                        enabled: true,
+                        font: { family: fontFamily, size: 16, weight: '700' },
+                        offset: 18,
+                    },
+                    walletBarOverlay: {
+                        enabled: chartHasBars,
+                        color: isDarkMode ? '#e2e8f0' : '#0f172a',
+                        backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.86)' : 'rgba(255, 255, 255, 0.95)',
+                        borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.5)' : 'rgba(148, 163, 184, 0.45)',
+                        font: { family: fontFamily, size: 12, weight: '600' },
+                        offset: 14,
+                        formatter: (value, metaInfo) => {
+                            if (!Number.isFinite(value)) {
+                                return '';
+                            }
+                            const baseLabel = formatSignedUsdValue(value);
+                            if (metaInfo?.label) {
+                                return `${metaInfo.label}: ${baseLabel}`;
+                            }
+                            return baseLabel;
+                        }
+                    },
+                    zoom: buildWalletZoomOptions(chartLabels.length)
+                },
+                scales: {
+                    x: {
+                        afterBuildTicks: (scale) => {
+                            const yearTicks = buildWalletYearTicks(scale);
+                            // eslint-disable-next-line no-param-reassign
+                            scale.ticks = yearTicks;
+                            return yearTicks;
+                        },
+                        ticks: {
+                            autoSkip: false,
+                            color: axisColor,
+                            font: tickFont,
+                            padding: 8,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            align: 'center',
+                            crossAlign: 'center',
+                            callback: (value, index, ticks) => {
+                                if (useComparison) {
+                                    return chartLabels[index] || value;
+                                }
+                                const tick = ticks?.[index];
+                                if (tick?.label) {
+                                    return tick.label;
+                                }
+                                const dataIndex = Number.isFinite(tick?.value) ? tick.value : index;
+                                const meta = periodMeta[dataIndex];
+                                if (!meta) {
+                                    return chartLabels[index] || value;
+                                }
+                                const previousMeta = dataIndex > 0 ? periodMeta[dataIndex - 1] : null;
+                                if (isAllTimeRange && Number.isInteger(meta.year)) {
+                                    if (!previousMeta || previousMeta.year !== meta.year) {
+                                        return String(meta.year);
+                                    }
+                                    return '';
+                                }
+                                if (Object.prototype.hasOwnProperty.call(meta, 'tickLabel')) {
+                                    return meta.tickLabel || '';
+                                }
+                                if (meta.shouldDisplayTickLabel || dataIndex === 0) {
+                                    return meta.year ?? chartLabels[index] ?? value;
+                                }
+                                return chartLabels[index] || '';
+                            }
+                        },
+                        grid: {
+                            color: gridColor,
+                            drawOnChartArea: false,
+                            display: walletChartLayerPrefs.grid,
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        position: 'right',
+                        ticks: {
+                            color: axisColor,
+                            font: tickFont,
+                            padding: 6,
+                            align: 'inner',
+                            crossAlign: 'near',
+                            callback: (value) => {
+                                if (!Number.isFinite(value)) {
+                                    return '$0.0M';
+                                }
+                                return `$${(value / 1_000_000).toFixed(1)}M`;
+                            }
+                        },
+                        grid: {
+                            color: gridColor,
+                            display: walletChartLayerPrefs.grid,
+                        },
+                        border: {
+                            display: false,
+                        }
+                    },
+                    ...(useComparison
+                        ? {
+                            [changeAxisId]: {
+                                position: 'left',
+                                beginAtZero: true,
+                                display: false,
+                                ticks: {
+                                    display: false,
+                                    color: axisColor,
+                                    font: tickFont,
+                                    padding: 6,
+                                    align: 'inner',
+                                    crossAlign: 'near',
+                                    callback: (value) => {
+                                        if (!Number.isFinite(value)) {
+                                            return '$0';
+                                        }
+                                        const absolute = Math.abs(value);
+                                        if (absolute >= 1_000_000) {
+                                            return `$${(absolute / 1_000_000).toFixed(1)}M`;
+                                        }
+                                        if (absolute >= 1_000) {
+                                            return `$${Math.round(absolute / 1_000)}k`;
+                                        }
+                                        return usdCodeFormatter.format(absolute);
+                                    }
+                                },
+                                grid: {
+                                    color: gridColor,
+                                    drawOnChartArea: false,
+                                    display: false,
+                                },
+                                border: {
+                                    display: false,
+                                }
+                            }
+                        }
+                        : {
+                            [changeAxisId]: {
+                                position: 'left',
+                                beginAtZero: true,
+                                display: false,
+                                ticks: {
+                                    display: false,
+                                    color: axisColor,
+                                    font: tickFont,
+                                    padding: 6,
+                                    align: 'inner',
+                                    crossAlign: 'near',
+                                    callback: (value) => {
+                                        if (!Number.isFinite(value)) {
+                                            return '$0';
+                                        }
+                                        const absolute = Math.abs(value);
+                                        if (absolute >= 1_000_000) {
+                                            return `$${(absolute / 1_000_000).toFixed(1)}M`;
+                                        }
+                                        if (absolute >= 1_000) {
+                                            return `$${Math.round(absolute / 1_000)}k`;
+                                        }
+                                        return usdCodeFormatter.format(absolute);
+                                    }
+                                },
+                                grid: {
+                                    color: gridColor,
+                                    drawOnChartArea: false,
+                                    display: false,
+                                },
+                                border: {
+                                    display: false,
+                                }
+                            }
+                        })
+                }
+            },
+            plugins: chartPlugins
+        });
+        storeWalletChartScaleDefaults(walletChartInstance);
+        updateWalletZoomControlState();
+        updateWalletLayerToggleState();
+
+        ensureWalletChartEvents();
         updateToggleStates(activeChartKey);
     };
 
@@ -2803,25 +8996,1625 @@ document.addEventListener('DOMContentLoaded', async () => {
             const coins = getActivityCoinRewards(activity, stats);
             const medals = getActivityMedals(activity);
             const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
-            const medalValue = medals.length * MEDAL_DOLLAR_VALUE;
+            const medalValue = calculateMedalDollarValue(medals);
+            const activityName = activity.name || 'Activity';
+            const activityType = activity.type || 'Activity';
+            const balanceActivity = {
+                id: activity.id ?? null,
+                name: activityName,
+                type: activityType,
+                date,
+                start_date: activity.start_date || null,
+                distance: activity.distance || 0,
+                moving_time: activity.moving_time || 0,
+                total_elevation_gain: activity.total_elevation_gain || 0,
+                totalValue: coinValue + medalValue,
+                coinValue,
+                medalValue,
+                distanceKm: stats.distanceKm,
+                elevationGain: stats.elevationGain,
+                calories: stats.calories,
+                kilojoules: activity.kilojoules || 0,
+                average_heartrate: activity.average_heartrate || 0,
+            };
 
             return {
                 date,
                 coins,
                 medals,
                 coinValue,
-                medalValue
+                medalValue,
+                activityId: activity.id ?? null,
+                activityName,
+                activityType,
+                balanceActivity,
             };
         }).filter(Boolean);
     };
 
-    const updateWalletChartData = ({ activities = [], lifetimeActivities = [], selectedYear = 'all' } = {}) => {
-        const metricsForFiltered = buildWalletMetrics(activities);
+    const WALLET_DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+    const getStartOfWeek = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const start = new Date(date.getTime());
+        const day = start.getDay();
+        const diff = (day + 6) % 7;
+        start.setDate(start.getDate() - diff);
+        start.setHours(0, 0, 0, 0);
+        return start;
+    };
+
+    const buildWalletWeekKey = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const buildWalletBucketInfo = (date, bucketType) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        const year = date.getFullYear();
+        const monthIndex = date.getMonth();
+        if (!Number.isFinite(year) || !Number.isInteger(monthIndex)) {
+            return null;
+        }
+        if (bucketType === 'week') {
+            const weekStart = getStartOfWeek(date);
+            if (!weekStart) {
+                return null;
+            }
+            const key = buildWalletWeekKey(weekStart);
+            const axisLabel = weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const label = `Week of ${axisLabel}`;
+            const tickLabel = weekStart.getDate() <= 7
+                ? weekStart.toLocaleDateString(undefined, { month: 'short' })
+                : '';
+            return {
+                key,
+                label,
+                axisLabel,
+                tickLabel,
+                year: weekStart.getFullYear(),
+                monthIndex: weekStart.getMonth(),
+                quarter: Math.floor(weekStart.getMonth() / 3) + 1,
+                weekStart,
+            };
+        }
+        if (bucketType === 'two-week') {
+            const weekStart = getStartOfWeek(date);
+            if (!weekStart) {
+                return null;
+            }
+            const anchorYear = weekStart.getFullYear();
+            const anchorStart = getStartOfWeek(new Date(anchorYear, 0, 1));
+            if (!anchorStart) {
+                return null;
+            }
+            const diffWeeks = Math.floor((weekStart.getTime() - anchorStart.getTime()) / (7 * WALLET_DAY_IN_MS));
+            const biWeekIndex = Number.isFinite(diffWeeks)
+                ? Math.floor(Math.max(0, diffWeeks) / 2)
+                : 0;
+            const rangeStart = new Date(anchorStart.getTime() + biWeekIndex * 2 * 7 * WALLET_DAY_IN_MS);
+            rangeStart.setHours(0, 0, 0, 0);
+            const rangeEnd = new Date(rangeStart.getTime() + 13 * WALLET_DAY_IN_MS);
+            const axisLabel = rangeStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const endLabel = rangeEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const label = `${axisLabel} – ${endLabel}`;
+            const tickLabel = rangeStart.getDate() <= 7
+                ? rangeStart.toLocaleDateString(undefined, { month: 'short' })
+                : '';
+            return {
+                key: `${anchorYear}-BW${String(biWeekIndex + 1).padStart(2, '0')}`,
+                label,
+                axisLabel,
+                tickLabel,
+                year: anchorYear,
+                monthIndex: rangeStart.getMonth(),
+                quarter: Math.floor(rangeStart.getMonth() / 3) + 1,
+                weekStart: rangeStart,
+                rangeStart,
+                rangeEnd,
+                biWeekIndex,
+            };
+        }
+        if (bucketType === 'month') {
+            const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+            const axisLabel = date.toLocaleDateString(undefined, { month: 'short' });
+            return {
+                key,
+                label: `${axisLabel} ${year}`,
+                axisLabel,
+                tickLabel: axisLabel,
+                year,
+                monthIndex,
+                quarter: Math.floor(monthIndex / 3) + 1,
+                weekStart: new Date(year, monthIndex, 1),
+            };
+        }
+        if (bucketType === 'two-month') {
+            const pairIndex = Math.floor(monthIndex / 2);
+            const startMonthIndex = pairIndex * 2;
+            const startDate = new Date(year, startMonthIndex, 1);
+            const endDate = new Date(year, startMonthIndex + 2, 0);
+            const startLabel = startDate.toLocaleDateString(undefined, { month: 'short' });
+            const endLabel = new Date(year, startMonthIndex + 1, 1).toLocaleDateString(undefined, { month: 'short' });
+            return {
+                key: `${year}-BM${String(pairIndex + 1).padStart(2, '0')}`,
+                label: `${startLabel} – ${endLabel} ${year}`,
+                axisLabel: `${startLabel}–${endLabel}`,
+                tickLabel: startLabel,
+                year,
+                monthIndex: startMonthIndex,
+                quarter: Math.floor(startMonthIndex / 3) + 1,
+                weekStart: startDate,
+                rangeStart: startDate,
+                rangeEnd: endDate,
+                biMonthIndex: pairIndex,
+            };
+        }
+        const quarter = Math.floor(monthIndex / 3) + 1;
+        return {
+            key: `${year}-Q${quarter}`,
+            label: `Q${quarter} ${year}`,
+            axisLabel: `Q${quarter}`,
+            tickLabel: null,
+            year,
+            monthIndex,
+            quarter,
+            weekStart: new Date(year, quarter * 3 - 3, 1),
+        };
+    };
+
+    const getWalletBucketTypeForTimeframe = (timeframe) => {
+        if (
+            timeframe === WALLET_TIMEFRAME_DAY
+            || timeframe === WALLET_TIMEFRAME_WEEK
+            || timeframe === WALLET_TIMEFRAME_3_MONTH
+        ) {
+            return 'week';
+        }
+        if (timeframe === WALLET_TIMEFRAME_6_MONTH) {
+            return 'two-week';
+        }
+        if (timeframe === WALLET_TIMEFRAME_MONTH || timeframe === WALLET_TIMEFRAME_LAST_12_MONTHS) {
+            return 'month';
+        }
+        if (timeframe === WALLET_TIMEFRAME_2_YEAR) {
+            return 'two-month';
+        }
+        if (typeof timeframe === 'string' && timeframe.startsWith('year-')) {
+            return 'month';
+        }
+        return 'quarter';
+    };
+
+    const getWalletBucketDateRange = (bucket = {}, bucketType = 'quarter') => {
+        const start = bucket.rangeStart
+            || bucket.weekStart
+            || (Number.isInteger(bucket.monthIndex) && Number.isInteger(bucket.year)
+                ? new Date(bucket.year, bucket.monthIndex, 1)
+                : null);
+        if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+            return { start: null, end: null };
+        }
+
+        const end = bucket.rangeEnd
+            || (() => {
+                if (bucketType === 'week') {
+                    const weekEnd = new Date(start.getTime());
+                    weekEnd.setDate(weekEnd.getDate() + 6);
+                    return weekEnd;
+                }
+                if (bucketType === 'two-week') {
+                    const periodEnd = new Date(start.getTime());
+                    periodEnd.setDate(periodEnd.getDate() + 13);
+                    return periodEnd;
+                }
+                if (bucketType === 'two-month') {
+                    const periodEnd = new Date(start.getTime());
+                    periodEnd.setMonth(periodEnd.getMonth() + 2);
+                    periodEnd.setDate(0);
+                    return periodEnd;
+                }
+                if (bucketType === 'month') {
+                    const monthEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+                    return monthEnd;
+                }
+                const quarterEnd = new Date(start.getFullYear(), start.getMonth() + 3, 0);
+                return quarterEnd;
+            })();
+
+        return { start, end };
+    };
+
+    const buildRankUnlockMoments = (activities = [], rankConfig = []) => {
+        if (!Array.isArray(activities) || activities.length === 0 || !Array.isArray(rankConfig)) {
+            return [];
+        }
+
+        const sortedActivities = [...activities]
+            .filter(activity => activity && (activity.start_date || activity.start_date_local))
+            .sort((a, b) => new Date(a.start_date || a.start_date_local) - new Date(b.start_date || b.start_date_local));
+
+        if (sortedActivities.length === 0) {
+            return [];
+        }
+
+        const firstActivityDate = new Date(sortedActivities[0].start_date || sortedActivities[0].start_date_local);
+        const unlocks = [];
+        let cumulativeHours = 0;
+        let nextRankIndex = 0;
+        const ranks = [...rankConfig].sort((a, b) => (a.minHours || 0) - (b.minHours || 0));
+
+        sortedActivities.forEach((activity) => {
+            const activityDate = new Date(activity.start_date || activity.start_date_local);
+            if (Number.isNaN(activityDate.getTime())) {
+                return;
+            }
+
+            const movingSeconds = Number(activity.moving_time) || 0;
+            cumulativeHours += movingSeconds / 3600;
+
+            while (nextRankIndex < ranks.length && cumulativeHours >= (ranks[nextRankIndex]?.minHours ?? Infinity)) {
+                const monthsFromStart = calculateMonthsBetween(firstActivityDate, activityDate);
+                unlocks.push({
+                    date: activityDate,
+                    rank: ranks[nextRankIndex],
+                    cumulativeHours,
+                    monthsFromStart,
+                });
+                nextRankIndex += 1;
+            }
+        });
+
+        return unlocks;
+    };
+
+
+    const walletHeatmapEntryMap = new WeakMap();
+    let walletHistoricalMedalMonths = new Set();
+
+    const buildMonthKeyFromDate = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+
+    const buildMonthKeyFromDateKey = (dateKey) => {
+        if (typeof dateKey !== 'string' || dateKey.length < 7) {
+            return null;
+        }
+        const [year, month] = dateKey.split('-');
+        if (!year || !month) {
+            return null;
+        }
+        return `${year}-${month}`;
+    };
+
+    const updateHistoricalMedalMonths = (metrics = [], contributions = medalContributionHighlightsByDate) => {
+        const next = new Set();
+
+        if (contributions && typeof contributions.forEach === 'function') {
+            contributions.forEach((_, dateKey) => {
+                const monthKey = buildMonthKeyFromDateKey(dateKey);
+                if (monthKey) {
+                    next.add(monthKey);
+                }
+            });
+        }
+
+        (Array.isArray(metrics) ? metrics : []).forEach(metric => {
+            const monthKey = buildMonthKeyFromDate(metric?.date);
+            if (!monthKey) {
+                return;
+            }
+            const medals = Array.isArray(metric?.medals) ? metric.medals : [];
+            if (medals.some(isHistoricalMedal)) {
+                next.add(monthKey);
+            }
+        });
+
+        walletHistoricalMedalMonths = next;
+    };
+
+    const buildHeatmapActivitySnapshot = (metric = {}) => {
+        const date = metric?.date instanceof Date ? metric.date : null;
+        const monthKey = buildMonthKeyFromDate(date);
+        if (!monthKey) {
+            return null;
+        }
+
+        const activityInfo = metric?.balanceActivity || {};
+        const coins = Array.isArray(activityInfo.coins)
+            ? activityInfo.coins
+            : (Array.isArray(metric.coins) ? metric.coins : []);
+        const medals = Array.isArray(activityInfo.medals)
+            ? activityInfo.medals
+            : (Array.isArray(metric.medals) ? metric.medals : []);
+        const totalValue = Number.isFinite(activityInfo?.totalValue)
+            ? activityInfo.totalValue
+            : (Number(metric.coinValue) + Number(metric.medalValue));
+
+        return {
+            id: activityInfo.id ?? metric.activityId ?? null,
+            name: activityInfo.name || metric.activityName || 'Activity',
+            type: activityInfo.type || metric.activityType || 'Activity',
+            date,
+            monthKey,
+            start_date: activityInfo.start_date || null,
+            distance: activityInfo.distance || 0,
+            moving_time: activityInfo.moving_time || 0,
+            total_elevation_gain: activityInfo.total_elevation_gain || 0,
+            calories: activityInfo.calories || 0,
+            kilojoules: activityInfo.kilojoules || 0,
+            average_heartrate: activityInfo.average_heartrate || 0,
+            totalValue: Number.isFinite(totalValue) ? totalValue : 0,
+            coinValue: Number(metric.coinValue) || 0,
+            medalValue: Number(metric.medalValue) || 0,
+            coins,
+            medals,
+        };
+    };
+
+    const buildMonthlyHeatmapMatrix = (metrics = [], historicalMonthSet = walletHistoricalMedalMonths) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return { rows: [], maxValue: 0 };
+        }
+
+        const bucketMap = new Map();
+        metrics.forEach(metric => {
+            const bucket = buildWalletBucketInfo(metric?.date, 'month');
+            if (!bucket) {
+                return;
+            }
+
+            const key = bucket.key;
+            const existing = bucketMap.get(key) || {
+                ...bucket,
+                totalValue: 0,
+                hasHistoricalMedals: false,
+                hasDiamondCoin: false,
+                hasCrowdCoin: false,
+                coinCounts: new Map(),
+                medalCounts: new Map(),
+                activities: [],
+                topActivities: [],
+            };
+
+            const value = Number(metric.coinValue) + Number(metric.medalValue);
+            const numericValue = Number.isFinite(value) ? value : 0;
+            existing.totalValue += numericValue;
+
+            const coins = Array.isArray(metric.coins) ? metric.coins : [];
+            coins.forEach((emoji) => {
+                existing.coinCounts.set(emoji, (existing.coinCounts.get(emoji) || 0) + 1);
+                if (emoji === DIAMOND_COIN_EMOJI) {
+                    existing.hasDiamondCoin = true;
+                }
+                if (emoji === CROWD_COIN_EMOJI) {
+                    existing.hasCrowdCoin = true;
+                }
+            });
+
+            const medals = Array.isArray(metric.medals) ? metric.medals : [];
+            medals.forEach((medal) => {
+                const medalName = medal?.name || medal?.emoji || 'Medal';
+                const current = existing.medalCounts.get(medalName) || {
+                    count: 0,
+                    emoji: medal?.emoji || '🏅',
+                    name: medalName,
+                    historical: false,
+                };
+                current.count += 1;
+                if (isHistoricalMedal(medal)) {
+                    current.historical = true;
+                    existing.hasHistoricalMedals = true;
+                }
+                existing.medalCounts.set(medalName, current);
+            });
+
+            const activitySnapshot = buildHeatmapActivitySnapshot(metric);
+            if (activitySnapshot) {
+                existing.activities.push(activitySnapshot);
+            }
+
+            const monthKey = buildMonthKeyFromDate(bucket.weekStart);
+            if (historicalMonthSet?.has(monthKey)) {
+                existing.hasHistoricalMedals = true;
+            }
+
+            bucketMap.set(key, existing);
+        });
+
+        if (bucketMap.size === 0) {
+            return { rows: [], maxValue: 0 };
+        }
+
+        const years = Array.from(bucketMap.values()).reduce((set, entry) => {
+            if (Number.isFinite(entry?.year)) {
+                set.add(entry.year);
+            }
+            return set;
+        }, new Set());
+
+        if (years.size === 0) {
+            return { rows: [], maxValue: 0 };
+        }
+
+        const minYear = Math.min(...years);
+        const maxYear = Math.max(...years);
+
+            const createEmptyEntry = (year, monthIndex) => {
+                const monthName = MONTH_COMPARISON_LABELS[monthIndex] || '';
+                const monthKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+                return {
+                    key: monthKey,
+                    monthKey,
+                    label: `${monthName} ${year}`,
+                    axisLabel: monthName,
+                    tickLabel: monthName,
+                    year,
+                    monthIndex,
+                    quarter: Math.floor(monthIndex / 3) + 1,
+                    weekStart: new Date(year, monthIndex, 1),
+                    totalValue: 0,
+                    hasHistoricalMedals: false,
+                    hasDiamondCoin: false,
+                    hasCrowdCoin: false,
+                    coinCounts: new Map(),
+                    medalCounts: new Map(),
+                    activities: [],
+                    topActivities: [],
+                };
+            };
+
+        const rows = [];
+        let maxValue = 0;
+
+        for (let year = minYear; year <= maxYear; year += 1) {
+            const months = [];
+            for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+                const key = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+                const entry = bucketMap.get(key) || createEmptyEntry(year, monthIndex);
+                if (historicalMonthSet?.has(entry.monthKey)) {
+                    entry.hasHistoricalMedals = true;
+                }
+                months.push(entry);
+                maxValue = Math.max(maxValue, Number(entry?.totalValue) || 0);
+            }
+            rows.push({ year, months });
+        }
+
+        rows.forEach(row => {
+            row.months.forEach(entry => {
+                if (entry.activities.length > 0) {
+                    entry.activities.sort((a, b) => b.totalValue - a.totalValue);
+                    entry.topActivities = entry.activities.slice(0, 3);
+                }
+            });
+        });
+
+        return { rows, maxValue };
+    };
+
+    const resolveHeatmapColor = (value, maxValue) => {
+        if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0 || value <= 0) {
+            return null;
+        }
+
+        const factor = clamp01(value / maxValue);
+        const midPoint = 0.55;
+
+        const interpolateStop = (start, end, localFactor) => {
+            const r = Math.round(interpolate(start.r, end.r, localFactor));
+            const g = Math.round(interpolate(start.g, end.g, localFactor));
+            const b = Math.round(interpolate(start.b, end.b, localFactor));
+            return { r, g, b };
+        };
+
+        const { r, g, b } = factor <= midPoint
+            ? interpolateStop(HEATMAP_COLOR_START, HEATMAP_COLOR_MID, factor / midPoint)
+            : interpolateStop(HEATMAP_COLOR_MID, HEATMAP_COLOR_END, (factor - midPoint) / (1 - midPoint));
+
+        return `rgb(${r}, ${g}, ${b})`;
+    };
+
+    let walletHeatmapActiveCell = null;
+    let walletHeatmapSelectedCell = null;
+    const walletHeatmapDefaultPreview = 'Hover a month to see what was collected.';
+
+    const ensureWalletHeatmapBackdrop = () => {
+        if (!walletHeatmapBackdrop && walletHeatmapContainer) {
+            walletHeatmapBackdrop = document.createElement('div');
+            walletHeatmapBackdrop.id = 'wallet-heatmap-backdrop';
+            walletHeatmapBackdrop.className = 'wallet-heatmap__backdrop hidden';
+            walletHeatmapContainer.appendChild(walletHeatmapBackdrop);
+        }
+        if (walletHeatmapBackdrop && !walletHeatmapBackdrop.dataset.bound) {
+            walletHeatmapBackdrop.addEventListener('click', hideWalletHeatmapPopover);
+            walletHeatmapBackdrop.dataset.bound = 'true';
+        }
+    };
+
+    const shouldUseFullscreenHeatmap = (triggerEvent) => {
+        if (triggerEvent && 'type' in triggerEvent) {
+            return true;
+        }
+        return window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 1024px)').matches;
+    };
+
+    const hideWalletHeatmapPopover = () => {
+        if (!walletHeatmapPopover) {
+            return;
+        }
+        walletHeatmapPopover.classList.add('hidden');
+        walletHeatmapPopover.innerHTML = '';
+        walletHeatmapPopover.style.removeProperty('left');
+        walletHeatmapPopover.style.removeProperty('top');
+        walletHeatmapPopover.classList.remove('wallet-heatmap__popover--fullscreen');
+        if (walletHeatmapBackdrop) {
+            walletHeatmapBackdrop.classList.add('hidden');
+        }
+        if (walletHeatmapContainer) {
+            walletHeatmapContainer.classList.remove('is-popover-open');
+        }
+        walletHeatmapActiveCell = null;
+    };
+
+    const summarizeHeatmapCounts = (entry = {}) => {
+        const totalCoins = Array.from(entry.coinCounts?.values?.() || []).reduce((sum, count) => sum + (count || 0), 0);
+        const totalMedals = Array.from(entry.medalCounts?.values?.() || []).reduce((sum, medal) => sum + (medal?.count || 0), 0);
+        return { totalCoins, totalMedals };
+    };
+
+    const updateWalletHeatmapPreview = (entry = null) => {
+        if (!walletHeatmapPreview) {
+            return;
+        }
+        if (!entry) {
+            walletHeatmapPreview.textContent = walletHeatmapDefaultPreview;
+            return;
+        }
+        const { totalCoins, totalMedals } = summarizeHeatmapCounts(entry);
+        const detailParts = [];
+        if (totalCoins > 0) {
+            detailParts.push(`${totalCoins} coin${totalCoins === 1 ? '' : 's'}`);
+        }
+        if (totalMedals > 0) {
+            detailParts.push(`${totalMedals} medal${totalMedals === 1 ? '' : 's'}`);
+        }
+        const valueLabel = formatWalletValue(entry.totalValue);
+        const detailSuffix = detailParts.length ? ` · ${detailParts.join(' · ')}` : '';
+        walletHeatmapPreview.textContent = `${entry.label || 'Monthly period'} • ${valueLabel}${detailSuffix}`;
+    };
+
+    const clearWalletHeatmapSelection = () => {
+        if (walletHeatmapSelectedCell) {
+            walletHeatmapSelectedCell.classList.remove('is-selected');
+        }
+        walletHeatmapSelectedCell = null;
+    };
+
+    const selectWalletHeatmapCell = (cell, entry) => {
+        if (!cell || !entry) {
+            return;
+        }
+        if (walletHeatmapSelectedCell && walletHeatmapSelectedCell !== cell) {
+            walletHeatmapSelectedCell.classList.remove('is-selected');
+        }
+        walletHeatmapSelectedCell = cell;
+        walletHeatmapSelectedCell.classList.add('is-selected');
+        walletHeatmapActiveCell = cell;
+        updateWalletHeatmapPreview(entry);
+    };
+
+    const resetWalletHeatmapPreview = () => {
+        if (walletHeatmapSelectedCell) {
+            updateWalletHeatmapPreview(walletHeatmapEntryMap.get(walletHeatmapSelectedCell));
+            return;
+        }
+        updateWalletHeatmapPreview();
+    };
+
+    const positionWalletHeatmapPopover = (cell) => {
+        if (!walletHeatmapPopover || !walletHeatmapWrapper || !cell) {
+            return;
+        }
+
+        const wrapperRect = walletHeatmapWrapper.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const popoverRect = walletHeatmapPopover.getBoundingClientRect();
+        const scrollLeft = walletHeatmapWrapper.scrollLeft || 0;
+        const scrollTop = walletHeatmapWrapper.scrollTop || 0;
+
+        const preferredLeft = (cellRect.left - wrapperRect.left) + scrollLeft + (cellRect.width / 2) - (popoverRect.width / 2);
+        const maxLeft = Math.max(0, walletHeatmapWrapper.scrollWidth - popoverRect.width);
+        const clampedLeft = Math.min(Math.max(0, preferredLeft), maxLeft);
+
+        const spaceAbove = cellRect.top - wrapperRect.top;
+        const preferredTop = spaceAbove > popoverRect.height + 12
+            ? spaceAbove - popoverRect.height - 8
+            : spaceAbove + cellRect.height + 8;
+
+        walletHeatmapPopover.style.left = `${clampedLeft}px`;
+        walletHeatmapPopover.style.top = `${preferredTop + scrollTop}px`;
+    };
+
+    const buildHeatmapChip = (label, className = '') => {
+        const chip = document.createElement('span');
+        chip.className = `wallet-heatmap__chip${className ? ` ${className}` : ''}`;
+        chip.textContent = label;
+        return chip;
+    };
+
+    const renderWalletHeatmapPopover = (entry, cell, triggerEvent) => {
+        if (!walletHeatmapPopover || !entry) {
+            return;
+        }
+
+        ensureWalletHeatmapBackdrop();
+        walletHeatmapPopover.innerHTML = '';
+
+        const coinEntries = Array.from(entry.coinCounts.entries()).sort((a, b) => b[1] - a[1]);
+        const medalEntries = Array.from(entry.medalCounts.values()).sort((a, b) => b.count - a.count);
+        const historicalMedals = medalEntries.filter((medal) => medal.historical);
+        const crowdCoinCount = entry.coinCounts.get(CROWD_COIN_EMOJI) || 0;
+        const diamondCoinCount = entry.coinCounts.get(DIAMOND_COIN_EMOJI) || 0;
+
+        const buildHeatmapActivityCard = (activity = {}) => {
+            const card = document.createElement('div');
+            card.className = 'activity-card wallet-heatmap__activity-card rounded-lg p-4 flex flex-col gap-4 shadow-sm sm:flex-row sm:items-start sm:justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 activity-card--interactive';
+
+            const activityId = activity.id || activity.external_id;
+            const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '';
+            const titleText = activity.name || activity.type || 'Activity';
+
+            const infoWrapper = document.createElement('div');
+            infoWrapper.className = 'flex-1 space-y-3';
+
+            const headerRow = document.createElement('div');
+            headerRow.className = 'flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between';
+
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'activity-card__title text-lg font-semibold';
+            if (activityUrl) {
+                const titleLink = document.createElement('a');
+                titleLink.className = 'activity-card__title-link';
+                titleLink.href = activityUrl;
+                titleLink.target = '_blank';
+                titleLink.rel = 'noopener noreferrer';
+                titleLink.textContent = titleText;
+                titleLink.setAttribute('aria-label', `Open ${titleText} on Strava`);
+                titleContainer.appendChild(titleLink);
+            } else {
+                titleContainer.textContent = titleText;
+            }
+
+            const stats = computeActivitySmallStats(activity);
+            const coinRewards = getActivityCoinRewards(activity, stats);
+            const medalRewards = getActivityMedals(activity);
+            const coinCounts = coinRewards.reduce((acc, emoji) => {
+                acc[emoji] = (acc[emoji] || 0) + 1;
+                return acc;
+            }, {});
+            const totalCoinValueDollars = Object.entries(coinCounts).reduce((sum, [emoji, count]) => {
+                return sum + count * (COIN_VALUE_MAP[emoji] || 0);
+            }, 0);
+            const medalValue = calculateMedalDollarValue(medalRewards);
+            const totalValueDollars = totalCoinValueDollars + medalValue;
+
+            if (totalValueDollars > 0) {
+                const breakdownLines = Object.entries(coinCounts)
+                    .filter(([, count]) => count > 0)
+                    .map(([emoji, count]) => `${count.toLocaleString()}× ${emoji} = ${usdCodeFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
+                const tooltipLines = [];
+
+                if (breakdownLines.length > 0) {
+                    tooltipLines.push(...breakdownLines);
+                } else {
+                    tooltipLines.push('No coins minted in this activity.');
+                }
+
+                if (medalRewards.length > 0) {
+                    tooltipLines.push(`${medalRewards.length.toLocaleString()} 🏅 = ${usdCodeFormatter.format(medalValue)}`);
+                }
+
+                tooltipLines.push(`Total haul: ${usdCodeFormatter.format(totalValueDollars)}.`);
+
+                const valueTag = document.createElement('span');
+                valueTag.className = 'activity-card__value-tag tooltip-target';
+                valueTag.textContent = `+${usdCodeFormatter.format(totalValueDollars)}`;
+                valueTag.setAttribute('aria-label', `Value collected ${usdCodeFormatter.format(totalValueDollars)}`);
+                attachTooltip(valueTag, tooltipLines.join('\\n'));
+                titleContainer.appendChild(valueTag);
+            }
+
+            const details = document.createElement('div');
+            details.className = 'activity-card__details text-sm text-gray-600 dark:text-gray-300 sm:leading-5';
+            const metaSummary = formatActivityMetaSummary(activity);
+            const typeLabel = formatActivityTypeLabel(activity.type);
+            const metaText = document.createElement('span');
+            metaText.className = 'activity-card__details-text';
+            metaText.textContent = [metaSummary, typeLabel].filter(Boolean).join(' • ');
+            details.appendChild(metaText);
+
+            headerRow.appendChild(titleContainer);
+            headerRow.appendChild(details);
+            infoWrapper.appendChild(headerRow);
+
+            const createBadge = ({ icon = null, valueText, subtitleText = null, tooltipText, className, ariaLabel = null }) => {
+                const badge = document.createElement('button');
+                badge.type = 'button';
+                badge.className = `tooltip-target inline-flex flex-col items-center justify-center px-2.5 py-1.5 rounded-full font-semibold text-xs sm:text-sm text-center gap-0.5 ${className}`;
+
+                const topRow = document.createElement('div');
+                topRow.className = icon ? 'flex items-center gap-1 leading-none' : 'flex items-center leading-none';
+                if (icon) {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.textContent = icon;
+                    topRow.appendChild(iconSpan);
+                }
+                const valueSpan = document.createElement('span');
+                valueSpan.textContent = valueText;
+                topRow.appendChild(valueSpan);
+                badge.appendChild(topRow);
+
+                if (subtitleText) {
+                    const subtitle = document.createElement('span');
+                    subtitle.className = 'text-[10px] font-medium opacity-80';
+                    subtitle.textContent = subtitleText;
+                    badge.appendChild(subtitle);
+                }
+
+                if (ariaLabel) {
+                    badge.setAttribute('aria-label', ariaLabel);
+                }
+
+                attachTooltip(badge, tooltipText);
+                return badge;
+            };
+
+            const createEmojiSpan = (emoji, extraClass = '') => {
+                const span = document.createElement('span');
+                span.className = ['activity-card__emoji', extraClass].filter(Boolean).join(' ');
+                span.textContent = emoji;
+                return span;
+            };
+
+            const statsRow = document.createElement('div');
+            statsRow.className = 'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center';
+
+            const smallStatsGroup = document.createElement('div');
+            smallStatsGroup.className = 'activity-card__stats-group flex flex-wrap items-center gap-2';
+
+            const appendBadgeBreak = () => {
+                if (smallStatsGroup.childElementCount === 0) {
+                    return;
+                }
+                const lastChild = smallStatsGroup.lastElementChild;
+                if (lastChild instanceof HTMLElement && lastChild.classList.contains('activity-card__badge-break')) {
+                    return;
+                }
+                const breakElement = document.createElement('span');
+                breakElement.className = 'activity-card__badge-break';
+                smallStatsGroup.appendChild(breakElement);
+            };
+
+            smallStatsGroup.appendChild(createBadge({
+                icon: '🏔️',
+                valueText: formatStatValue(stats.everestSummits),
+                tooltipText: `Elevation gain of ${formatElevation(stats.elevationGain)} — ${formatStatValue(stats.everestSummits)} Everest climbs`,
+                className: 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200'
+            }));
+            smallStatsGroup.appendChild(createBadge({
+                icon: '🍕',
+                valueText: formatStatValue(stats.pizzaCount),
+                tooltipText: `Energy burned: ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzaCount)}`,
+                className: 'bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200'
+            }));
+
+            const achievementHighlights = getActivityAchievementHighlights(activity, stats);
+            if (achievementHighlights.length > 0) {
+                appendBadgeBreak();
+                const emojiCounts = new Map();
+                const emojiDescriptions = new Map();
+
+                achievementHighlights.forEach(highlight => {
+                    const { emoji, description } = highlight;
+                    emojiCounts.set(emoji, (emojiCounts.get(emoji) || 0) + 1);
+                    const existingDescriptions = emojiDescriptions.get(emoji) || new Set();
+                    if (description) {
+                        existingDescriptions.add(description);
+                    }
+                    emojiDescriptions.set(emoji, existingDescriptions);
+                });
+
+                emojiCounts.forEach((count, emoji) => {
+                    const badge = document.createElement('button');
+                    badge.type = 'button';
+                    badge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-slate-200/80 px-2.5 py-1 text-base font-semibold text-slate-800 shadow-sm dark:bg-slate-800/60 dark:text-slate-100';
+                    const emojiSpan = createEmojiSpan(emoji);
+
+                    const countSpan = document.createElement('span');
+                    countSpan.className = 'text-[10px] font-semibold';
+                    countSpan.textContent = count.toLocaleString();
+
+                    badge.appendChild(countSpan);
+                    badge.appendChild(emojiSpan);
+                    const tooltipLines = Array.from(emojiDescriptions.get(emoji) || []);
+                    const tooltipText = tooltipLines.length > 0
+                        ? tooltipLines.join('\\n')
+                        : 'Achievement unlocked';
+                    const ariaLabelText = tooltipLines.length > 0
+                        ? tooltipLines.join(' ')
+                        : 'Achievement unlocked';
+                    badge.setAttribute('aria-label', ariaLabelText);
+                    attachTooltip(badge, tooltipText);
+                    smallStatsGroup.appendChild(badge);
+                });
+            }
+
+            statsRow.appendChild(smallStatsGroup);
+            infoWrapper.appendChild(statsRow);
+            card.appendChild(infoWrapper);
+
+            if (activityUrl) {
+                const openActivity = () => {
+                    if (activityUrl) {
+                        window.open(activityUrl, '_blank', 'noopener,noreferrer');
+                    }
+                };
+
+                card.setAttribute('role', 'link');
+                card.tabIndex = 0;
+                card.addEventListener('click', (event) => {
+                    if (event.target.closest('a, button')) {
+                        return;
+                    }
+                    openActivity();
+                });
+                card.addEventListener('keydown', (event) => {
+                    if ((event.key === 'Enter' || event.key === ' ') && event.target === card) {
+                        event.preventDefault();
+                        openActivity();
+                    }
+                });
+            }
+
+            return card;
+        };
+
+        const header = document.createElement('div');
+        header.className = 'wallet-heatmap__popover-header';
+
+        const titleWrap = document.createElement('div');
+        const title = document.createElement('h5');
+        title.className = 'wallet-heatmap__popover-title';
+        title.textContent = entry.label || 'Month overview';
+        const subtitle = document.createElement('p');
+        subtitle.className = 'wallet-heatmap__popover-subtitle';
+        subtitle.textContent = 'Monthly wallet snapshot';
+        const dateFilterButton = document.createElement('button');
+        dateFilterButton.type = 'button';
+        dateFilterButton.className = 'wallet-heatmap__popover-date';
+        dateFilterButton.textContent = entry.label || 'View month in activities';
+        dateFilterButton.addEventListener('click', () => {
+            applyHeatmapMonthFilterToActivities(entry);
+            hideWalletHeatmapPopover();
+        });
+        const value = document.createElement('p');
+        value.className = 'wallet-heatmap__popover-value';
+        value.textContent = `+${formatWalletCompactValue(entry.totalValue)}`;
+        value.setAttribute('aria-label', `Collected ${formatWalletCompactValue(entry.totalValue)} this month`);
+        titleWrap.appendChild(title);
+        titleWrap.appendChild(subtitle);
+        titleWrap.appendChild(dateFilterButton);
+        titleWrap.appendChild(value);
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'wallet-heatmap__popover-close';
+        closeButton.setAttribute('aria-label', 'Close heatmap details');
+        closeButton.innerHTML = '✕';
+        closeButton.addEventListener('click', hideWalletHeatmapPopover);
+
+        header.appendChild(titleWrap);
+        header.appendChild(closeButton);
+        walletHeatmapPopover.appendChild(header);
+
+        if (Array.isArray(entry.topActivities) && entry.topActivities.length > 0) {
+            const topActivitiesSection = document.createElement('div');
+            topActivitiesSection.className = 'wallet-heatmap__popover-section wallet-heatmap__popover-section--cards';
+
+            const activityLabel = document.createElement('p');
+            activityLabel.className = 'wallet-heatmap__popover-label';
+            activityLabel.textContent = 'Top balance activities';
+            topActivitiesSection.appendChild(activityLabel);
+
+            const cards = document.createElement('div');
+            cards.className = 'wallet-heatmap__activity-list';
+            entry.topActivities.slice(0, 3).forEach((activity) => {
+                cards.appendChild(buildHeatmapActivityCard(activity));
+            });
+
+            topActivitiesSection.appendChild(cards);
+            walletHeatmapPopover.appendChild(topActivitiesSection);
+        }
+
+        const highlights = [];
+        historicalMedals.forEach((medal) => {
+            highlights.push(`${medal.emoji || '🏅'} ${medal.name} (historical ×${medal.count})`);
+        });
+        if (diamondCoinCount > 0) {
+            highlights.push(`💎 Diamond coin ×${diamondCoinCount}`);
+        }
+        if (crowdCoinCount > 0) {
+            highlights.push(`${CROWD_COIN_EMOJI} Crowd coin ×${crowdCoinCount}`);
+        }
+        if (highlights.length === 0 && entry.hasHistoricalMedals) {
+            highlights.push('🔴 Historical medal collected');
+        }
+
+        const highlightSection = document.createElement('div');
+        highlightSection.className = 'wallet-heatmap__popover-section';
+        const highlightLabel = document.createElement('p');
+        highlightLabel.className = 'wallet-heatmap__popover-label';
+        highlightLabel.textContent = 'Highlights';
+        const highlightList = document.createElement('ul');
+        highlightList.className = 'wallet-heatmap__chip-row wallet-heatmap__chip-row--stacked';
+
+        if (highlights.length === 0) {
+            const item = document.createElement('li');
+            item.className = 'wallet-heatmap__chip wallet-heatmap__chip--muted wallet-heatmap__chip--pill';
+            item.textContent = 'No special highlights this month';
+            highlightList.appendChild(item);
+        } else {
+            highlights.forEach(label => {
+                const item = document.createElement('li');
+                item.className = 'wallet-heatmap__chip wallet-heatmap__chip--pill';
+                item.textContent = label;
+                highlightList.appendChild(item);
+            });
+        }
+
+        highlightSection.appendChild(highlightLabel);
+        highlightSection.appendChild(highlightList);
+        walletHeatmapPopover.appendChild(highlightSection);
+
+        const coinSection = document.createElement('div');
+        coinSection.className = 'wallet-heatmap__popover-section';
+        const coinLabel = document.createElement('p');
+        coinLabel.className = 'wallet-heatmap__popover-label';
+        coinLabel.textContent = 'Coins collected';
+        const coinRow = document.createElement('div');
+        coinRow.className = 'wallet-heatmap__chip-row';
+        if (coinEntries.length === 0) {
+            coinRow.appendChild(buildHeatmapChip('No coins', 'wallet-heatmap__chip--muted'));
+        } else {
+            coinEntries.forEach(([emoji, count]) => {
+                const label = emoji === CROWD_COIN_EMOJI
+                    ? `${emoji} ×${count} · crowd`
+                    : `${emoji} ×${count}`;
+                coinRow.appendChild(buildHeatmapChip(label));
+            });
+        }
+        coinSection.appendChild(coinLabel);
+        coinSection.appendChild(coinRow);
+        walletHeatmapPopover.appendChild(coinSection);
+
+        const medalSection = document.createElement('div');
+        medalSection.className = 'wallet-heatmap__popover-section';
+        const medalLabel = document.createElement('p');
+        medalLabel.className = 'wallet-heatmap__popover-label';
+        medalLabel.textContent = 'Medals earned';
+        const medalRow = document.createElement('div');
+        medalRow.className = 'wallet-heatmap__chip-row';
+        if (medalEntries.length === 0) {
+            medalRow.appendChild(buildHeatmapChip('No medals', 'wallet-heatmap__chip--muted'));
+        } else {
+            medalEntries.forEach(medal => {
+                const chip = buildHeatmapChip(
+                    `${medal.emoji || '🏅'} ${medal.name} ×${medal.count}${medal.historical ? ' • historical' : ''}`,
+                    medal.historical ? 'wallet-heatmap__chip--muted' : '',
+                );
+                medalRow.appendChild(chip);
+            });
+        }
+        medalSection.appendChild(medalLabel);
+        medalSection.appendChild(medalRow);
+        walletHeatmapPopover.appendChild(medalSection);
+
+        const useFullscreen = shouldUseFullscreenHeatmap(triggerEvent);
+        walletHeatmapPopover.classList.toggle('wallet-heatmap__popover--fullscreen', useFullscreen);
+        walletHeatmapPopover.classList.remove('hidden');
+        if (walletHeatmapBackdrop) {
+            walletHeatmapBackdrop.classList.toggle('hidden', !useFullscreen);
+        }
+        if (walletHeatmapContainer) {
+            walletHeatmapContainer.classList.add('is-popover-open');
+        }
+
+        walletHeatmapActiveCell = cell || walletHeatmapActiveCell;
+        if (useFullscreen) {
+            walletHeatmapPopover.style.removeProperty('left');
+            walletHeatmapPopover.style.removeProperty('top');
+        } else {
+            requestAnimationFrame(() => positionWalletHeatmapPopover(walletHeatmapActiveCell));
+        }
+    };
+
+    const applyHeatmapMonthFilterToActivities = (entry) => {
+        if (!entry || !Number.isInteger(entry.year) || !Number.isInteger(entry.monthIndex)) {
+            return;
+        }
+        const startDate = normalizeFilterDate(new Date(entry.year, entry.monthIndex, 1));
+        const endDate = normalizeFilterDate(new Date(entry.year, entry.monthIndex + 1, 0), { endOfDay: true });
+
+        currentActivityFilters.startDate = startDate;
+        currentActivityFilters.endDate = endDate;
+        currentActivityFilters.sortBy = 'balance-desc';
+        currentActivityFilters.topShortcut = false;
+
+        if (activitySortSelect) {
+            setSelectValue(activitySortSelect, 'balance-desc');
+        }
+        if (yearSelect) {
+            yearSelect.value = String(entry.year);
+        }
+
+        clearFilterShortcutSelection();
+        clearQuickFilterSelection();
+        requestActivitiesRender({ preserveVisibleCount: false });
+        navigateToActivitiesPanel();
+    };
+
+    const applyWalletPeriodFilterToActivities = (periodMeta = {}) => {
+        if (!periodMeta) {
+            return;
+        }
+
+        const bucketType = periodMeta.bucketType || getWalletBucketTypeForTimeframe(walletSelectedTimeframe);
+        const { start, end } = getWalletBucketDateRange(periodMeta, bucketType);
+
+        if (!(start instanceof Date) || Number.isNaN(start.getTime())) {
+            return;
+        }
+
+        const rangeEnd = end instanceof Date && !Number.isNaN(end.getTime()) ? end : start;
+
+        currentActivityFilters.startDate = normalizeFilterDate(start);
+        currentActivityFilters.endDate = normalizeFilterDate(rangeEnd, { endOfDay: true });
+        currentActivityFilters.sortBy = 'balance-desc';
+        currentActivityFilters.topShortcut = false;
+
+        if (activitySortSelect) {
+            setSelectValue(activitySortSelect, 'balance-desc');
+        }
+        if (yearSelect && periodMeta.year) {
+            yearSelect.value = String(periodMeta.year);
+        }
+
+        clearFilterShortcutSelection();
+        clearQuickFilterSelection();
+        requestActivitiesRender({ preserveVisibleCount: false });
+        navigateToActivitiesPanel();
+    };
+
+    const handleHeatmapCellHover = (cell) => {
+        if (!cell) {
+            return;
+        }
+        const entry = walletHeatmapEntryMap.get(cell);
+        if (!entry) {
+            return;
+        }
+        updateWalletHeatmapPreview(entry);
+    };
+
+    const handleHeatmapCellInteraction = (cell, triggerEvent) => {
+        if (!cell) {
+            return;
+        }
+        const entry = walletHeatmapEntryMap.get(cell);
+        if (!entry) {
+            return;
+        }
+
+        const popoverOpen = walletHeatmapPopover && !walletHeatmapPopover.classList.contains('hidden');
+        if (popoverOpen && walletHeatmapActiveCell && walletHeatmapActiveCell !== cell) {
+            hideWalletHeatmapPopover();
+        }
+
+        selectWalletHeatmapCell(cell, entry);
+        renderWalletHeatmapPopover(entry, cell, triggerEvent);
+    };
+
+    const renderWalletHeatmap = (metrics = []) => {
+        if (!walletHeatmapGrid || !walletHeatmapEmptyState || !walletHeatmapContainer) {
+            return;
+        }
+
+        walletHeatmapGrid.innerHTML = '';
+        walletHeatmapGrid.classList.remove('is-empty');
+        walletHeatmapEmptyState.classList.add('hidden');
+        hideWalletHeatmapPopover();
+        clearWalletHeatmapSelection();
+        updateWalletHeatmapPreview();
+
+        const { rows, maxValue } = buildMonthlyHeatmapMatrix(metrics);
+        if (!rows.length) {
+            walletHeatmapGrid.classList.add('is-empty');
+            walletHeatmapEmptyState.textContent = 'No balance data available for the monthly view.';
+            walletHeatmapEmptyState.classList.remove('hidden');
+            return;
+        }
+
+        walletHeatmapWrapper = walletHeatmapGrid.parentElement;
+
+        const fragment = document.createDocumentFragment();
+
+        rows.forEach(row => {
+            row.months.forEach(entry => {
+                const cell = document.createElement('div');
+                cell.className = 'wallet-heatmap__cell';
+                cell.dataset.monthKey = entry.key;
+                cell.dataset.year = String(entry.year);
+                cell.setAttribute('role', 'button');
+                cell.tabIndex = 0;
+                cell.textContent = '';
+
+                const value = Number(entry?.totalValue) || 0;
+                if (value > 0) {
+                    const color = resolveHeatmapColor(value, maxValue);
+                    if (color) {
+                        cell.style.setProperty('--wallet-heatmap-color', color);
+                    }
+                    cell.dataset.value = String(value);
+                } else {
+                    cell.classList.add('is-empty');
+                }
+
+                if (entry?.hasHistoricalMedals) {
+                    cell.classList.add('wallet-heatmap__cell--historical');
+                }
+                if (entry?.hasDiamondCoin) {
+                    cell.classList.add('wallet-heatmap__cell--diamond');
+                }
+                if (entry?.hasCrowdCoin) {
+                    cell.classList.add('wallet-heatmap__cell--crowd');
+                }
+
+                const detailParts = [];
+                if (entry?.hasHistoricalMedals) {
+                    detailParts.push('Historical medals earned');
+                }
+                if (entry?.hasDiamondCoin) {
+                    detailParts.push('Diamond coin collected');
+                }
+                if (entry?.hasCrowdCoin) {
+                    detailParts.push('Crowd coin collected');
+                }
+                const valueLabel = formatWalletCompactValue(value);
+                const detailSuffix = detailParts.length ? ` (${detailParts.join(' · ')})` : '';
+                const accessibilityLabel = `${entry?.label || 'Monthly period'}: ${valueLabel}${detailSuffix}`;
+                cell.title = accessibilityLabel;
+                cell.setAttribute('aria-label', accessibilityLabel);
+
+                walletHeatmapEntryMap.set(cell, entry);
+                cell.addEventListener('mouseenter', () => handleHeatmapCellHover(cell));
+                cell.addEventListener('focus', () => handleHeatmapCellHover(cell));
+                cell.addEventListener('mouseleave', resetWalletHeatmapPreview);
+                cell.addEventListener('blur', resetWalletHeatmapPreview);
+                cell.addEventListener('click', (event) => handleHeatmapCellInteraction(cell, event));
+                cell.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleHeatmapCellInteraction(cell, event);
+                    }
+                });
+
+                fragment.appendChild(cell);
+            });
+        });
+
+        walletHeatmapGrid.appendChild(fragment);
+    };
+
+    document.addEventListener('click', (event) => {
+        if (!walletHeatmapPopover || walletHeatmapPopover.classList.contains('hidden')) {
+            return;
+        }
+        const target = event.target;
+        if (!(target instanceof Element)) {
+            return;
+        }
+        const withinCell = target.closest('.wallet-heatmap__cell');
+        const withinPopover = target.closest('#wallet-heatmap-popover');
+        if (!withinCell && !withinPopover) {
+            hideWalletHeatmapPopover();
+        }
+    });
+
+    const buildWalletChartSeries = (
+        metrics = [],
+        {
+            timeframe = WALLET_TIMEFRAME_ALL,
+            yearColorAssignments = new Map(),
+            topActivityIds = new Set(),
+            rankUnlocks = [],
+        } = {},
+    ) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return {
+                labels: [],
+                cumulativeValues: [],
+                perPeriodValues: [],
+                periodMeta: [],
+                barBorderColors: [],
+                bucketType: 'quarter',
+                changeLabel: 'Balance change',
+            };
+        }
+
+        const bucketType = getWalletBucketTypeForTimeframe(timeframe);
+        const bucketTotals = new Map();
+
+        metrics.forEach(metric => {
+            const bucket = buildWalletBucketInfo(metric?.date, bucketType);
+            if (!bucket) {
+                return;
+            }
+            const value = Number(metric.coinValue) + Number(metric.medalValue);
+            const numericValue = Number.isFinite(value) ? value : 0;
+            const existing = bucketTotals.get(bucket.key) || {
+                ...bucket,
+                total: 0,
+                activities: [],
+                topActivities: [],
+            };
+            existing.total += numericValue;
+
+            const activityId = metric.activityId
+                || metric.balanceActivity?.id
+                || metric.balanceActivity?.external_id
+                || null;
+            const snapshot = buildHeatmapActivitySnapshot(metric);
+            if (snapshot) {
+                existing.activities.push(snapshot);
+                const isFeaturedActivity = topActivityIds instanceof Set
+                    && topActivityIds.size > 0
+                    && activityId
+                    && topActivityIds.has(String(activityId));
+                if (isFeaturedActivity) {
+                    existing.topActivities.push(snapshot);
+                }
+            }
+            bucketTotals.set(bucket.key, existing);
+        });
+
+        if (bucketTotals.size === 0) {
+            return {
+                labels: [],
+                cumulativeValues: [],
+                perPeriodValues: [],
+                periodMeta: [],
+                barBorderColors: [],
+                bucketType,
+                changeLabel: 'Balance change',
+            };
+        }
+
+        const sortedKeys = Array.from(bucketTotals.keys()).sort();
+        const perPeriodValues = [];
+        const cumulativeValues = [];
+        const periodMeta = [];
+        const labels = [];
+        let runningTotal = 0;
+        const defaultColors = { border: '#16a34a', background: 'rgba(34, 197, 94, 0.28)', hover: 'rgba(34, 197, 94, 0.32)' };
+
+        const quarterCountsByYear = new Map();
+        if (bucketType === 'quarter') {
+            sortedKeys.forEach((key) => {
+                const [yearStr] = key.split('-Q');
+                const numericYear = Number(yearStr);
+                if (Number.isFinite(numericYear)) {
+                    quarterCountsByYear.set(numericYear, (quarterCountsByYear.get(numericYear) || 0) + 1);
+                }
+            });
+        }
+
+        const getPriorYearKey = (bucket) => {
+            if (!bucket) {
+                return null;
+            }
+            if (bucketType === 'quarter' && Number.isFinite(bucket.quarter)) {
+                return `${bucket.year - 1}-Q${bucket.quarter}`;
+            }
+            if (bucketType === 'month' && Number.isInteger(bucket.monthIndex)) {
+                return `${bucket.year - 1}-${String(bucket.monthIndex + 1).padStart(2, '0')}`;
+            }
+            if (bucketType === 'two-month' && Number.isInteger(bucket.biMonthIndex)) {
+                return `${bucket.year - 1}-BM${String(bucket.biMonthIndex + 1).padStart(2, '0')}`;
+            }
+            if (bucketType === 'week' && bucket.weekStart instanceof Date) {
+                const priorYear = new Date(bucket.weekStart.getTime());
+                priorYear.setFullYear(priorYear.getFullYear() - 1);
+                return buildWalletWeekKey(getStartOfWeek(priorYear));
+            }
+            if (bucketType === 'two-week' && Number.isInteger(bucket.biWeekIndex)) {
+                return `${bucket.year - 1}-BW${String(bucket.biWeekIndex + 1).padStart(2, '0')}`;
+            }
+            return null;
+        };
+
+        sortedKeys.forEach((key, index) => {
+            const bucket = bucketTotals.get(key);
+            if (!bucket) {
+                return;
+            }
+            runningTotal += bucket.total;
+            perPeriodValues.push(bucket.total);
+            cumulativeValues.push(runningTotal);
+            labels.push(bucket.axisLabel || bucket.label || key);
+
+            const previousPeriodValue = index > 0 ? perPeriodValues[index - 1] : null;
+            const previousCumulativeValue = index > 0 ? cumulativeValues[index - 1] : null;
+            const colors = yearColorAssignments.get(bucket.year) || defaultColors;
+
+            const meta = {
+                key,
+                label: bucket.label,
+                axisLabel: bucket.axisLabel,
+                year: bucket.year,
+                month: Number.isInteger(bucket.monthIndex) ? bucket.monthIndex + 1 : null,
+                quarter: bucket.quarter,
+                weekStart: bucket.weekStart,
+                bucketType,
+                colors,
+                value: bucket.total,
+                cumulative: runningTotal,
+                previousCumulative: previousCumulativeValue,
+                cumulativeChangeValue: Number.isFinite(previousCumulativeValue) ? runningTotal - previousCumulativeValue : null,
+                cumulativeChangePercent: Number.isFinite(previousCumulativeValue) ? calculatePercentChange(runningTotal, previousCumulativeValue) : null,
+                quarterChangeValue: Number.isFinite(previousPeriodValue) ? bucket.total - previousPeriodValue : null,
+                quarterChangePercent: Number.isFinite(previousPeriodValue) ? calculatePercentChange(bucket.total, previousPeriodValue) : null,
+                periodChangeValue: Number.isFinite(previousPeriodValue) ? bucket.total - previousPeriodValue : null,
+                periodChangePercent: Number.isFinite(previousPeriodValue) ? calculatePercentChange(bucket.total, previousPeriodValue) : null,
+            };
+
+            const { start: periodStart, end: periodEnd } = getWalletBucketDateRange(bucket, bucketType);
+            meta.dateRangeStart = periodStart;
+            meta.dateRangeEnd = periodEnd;
+            const bucketActivities = Array.isArray(bucket.activities) ? [...bucket.activities] : [];
+            bucketActivities.sort((a, b) => (Number(b?.totalValue) || 0) - (Number(a?.totalValue) || 0));
+            const featuredActivities = bucket.topActivities && bucket.topActivities.length > 0
+                ? bucket.topActivities
+                : bucketActivities.slice(0, 1);
+            meta.topActivities = featuredActivities;
+            meta.hasTopActivity = featuredActivities.length > 0;
+
+            const selectTopActivity = (activities, metricAccessor) => activities.reduce((best, activity) => {
+                const value = metricAccessor(activity);
+                if (!Number.isFinite(value)) {
+                    return best;
+                }
+                if (!best || value > best.value) {
+                    return { activity, value };
+                }
+                return best;
+            }, null);
+
+            const highlightMetrics = [];
+            const topDistance = selectTopActivity(bucketActivities, activity => Number(activity.distance) || 0);
+            const topElevation = selectTopActivity(bucketActivities, activity => Number(activity.total_elevation_gain) || 0);
+            const topMovingTime = selectTopActivity(bucketActivities, activity => Number(activity.moving_time) || 0);
+            const runActivities = bucketActivities.filter(activity => typeof activity?.type === 'string'
+                && activity.type.toLowerCase().includes('run'));
+            const topRunDistance = selectTopActivity(runActivities, activity => Number(activity.distance) || 0);
+            const topRunElevation = selectTopActivity(runActivities, activity => Number(activity.total_elevation_gain) || 0);
+
+            if (topDistance?.value) {
+                highlightMetrics.push({
+                    key: 'distance',
+                    value: topDistance.value,
+                    label: 'Farthest day',
+                    activity: topDistance.activity,
+                });
+            }
+            if (topElevation?.value) {
+                highlightMetrics.push({
+                    key: 'elevation',
+                    value: topElevation.value,
+                    label: 'Biggest vert day',
+                    activity: topElevation.activity,
+                });
+            }
+            if (topMovingTime?.value) {
+                highlightMetrics.push({
+                    key: 'movingTime',
+                    value: topMovingTime.value,
+                    label: 'Longest moving time',
+                    activity: topMovingTime.activity,
+                });
+            }
+            if (topRunDistance?.value) {
+                highlightMetrics.push({
+                    key: 'longestRun',
+                    value: topRunDistance.value,
+                    label: 'Longest run',
+                    activity: topRunDistance.activity,
+                });
+            }
+            if (topRunElevation?.value) {
+                highlightMetrics.push({
+                    key: 'runElevation',
+                    value: topRunElevation.value,
+                    label: 'Most elevation on a run',
+                    activity: topRunElevation.activity,
+                });
+            }
+
+            meta.highlightMetrics = highlightMetrics;
+            meta.highlightReasons = [];
+
+            const unlocksForBucket = Array.isArray(rankUnlocks)
+                ? rankUnlocks.filter((unlock) => (
+                    unlock?.date instanceof Date
+                    && !Number.isNaN(unlock.date.getTime())
+                    && periodStart instanceof Date
+                    && periodEnd instanceof Date
+                    && unlock.date >= periodStart
+                    && unlock.date <= periodEnd
+                ))
+                : [];
+            meta.rankUnlocks = unlocksForBucket;
+
+            const priorYearKey = getPriorYearKey(bucket);
+            if (priorYearKey && bucketTotals.has(priorYearKey)) {
+                const priorEntry = bucketTotals.get(priorYearKey);
+                if (Number.isFinite(priorEntry?.total)) {
+                    meta.yearChangeValue = bucket.total - priorEntry.total;
+                    meta.yearChangePercent = calculatePercentChange(bucket.total, priorEntry.total);
+                }
+            }
+
+            if (bucketType === 'quarter') {
+                const quarterCount = quarterCountsByYear.get(bucket.year) || 0;
+                let shouldDisplayTickLabel = index === 0;
+                if (Number.isFinite(bucket.quarter)) {
+                    if (quarterCount <= 1) {
+                        shouldDisplayTickLabel = true;
+                    } else {
+                        const midpointQuarter = Math.ceil(quarterCount / 2);
+                        shouldDisplayTickLabel = bucket.quarter === midpointQuarter;
+                    }
+                }
+                meta.shouldDisplayTickLabel = shouldDisplayTickLabel;
+                meta.tickLabel = shouldDisplayTickLabel ? String(bucket.year) : '';
+            } else if (Object.prototype.hasOwnProperty.call(bucket, 'tickLabel')) {
+                meta.tickLabel = bucket.tickLabel;
+            }
+
+            periodMeta.push(meta);
+        });
+
+        const barBorderColors = periodMeta.map(entry => entry.colors?.border || '#16a34a');
+        const changeLabel = 'Balance change';
+
+        return {
+            labels,
+            cumulativeValues,
+            perPeriodValues,
+            periodMeta,
+            barBorderColors,
+            bucketType,
+            changeLabel,
+        };
+    };
+
+    const buildQuarterlyValueSeries = (metrics = []) => {
+        const quarterlyAggregation = new Map();
+
+        metrics.forEach(metric => {
+            const year = metric?.date instanceof Date ? metric.date.getFullYear() : null;
+            const monthIndex = metric?.date instanceof Date ? metric.date.getMonth() : null;
+            if (!Number.isInteger(year) || !Number.isInteger(monthIndex)) {
+                return;
+            }
+
+            const quarterIndex = Math.floor(monthIndex / 3) + 1;
+            const key = `${year}-Q${quarterIndex}`;
+            const value = Number(metric.coinValue) + Number(metric.medalValue);
+            const numericValue = Number.isFinite(value) ? value : 0;
+            quarterlyAggregation.set(key, (quarterlyAggregation.get(key) || 0) + numericValue);
+        });
+
+        const sortedQuarters = Array.from(quarterlyAggregation.keys()).sort();
+        const cumulativeValues = [];
+        const perPeriodValues = [];
+        const series = [];
+        let runningTotal = 0;
+
+        sortedQuarters.forEach(key => {
+            const periodValue = quarterlyAggregation.get(key) || 0;
+            runningTotal += periodValue;
+            perPeriodValues.push(periodValue);
+            const [yearStr, quarterStr] = key.split('-Q');
+            const year = Number(yearStr);
+            const quarter = Number(quarterStr);
+            const monthIndex = Math.max(quarter - 1, 0) * 3;
+            const date = Number.isFinite(year) && Number.isFinite(monthIndex)
+                ? new Date(year, monthIndex, 1)
+                : null;
+            cumulativeValues.push(runningTotal);
+            series.push({ key, date, value: runningTotal });
+        });
+
+        const latestEntry = series.length > 0 ? series[series.length - 1] : null;
+        const previousEntry = series.length > 1 ? series[series.length - 2] : null;
+        let yearAgoEntry = null;
+
+        if (latestEntry?.date instanceof Date && !Number.isNaN(latestEntry.date.getTime())) {
+            const yearAgoThreshold = new Date(latestEntry.date);
+            yearAgoThreshold.setFullYear(yearAgoThreshold.getFullYear() - 1);
+            for (let index = series.length - 1; index >= 0; index -= 1) {
+                const candidate = series[index];
+                if (candidate.date instanceof Date && candidate.date <= yearAgoThreshold) {
+                    yearAgoEntry = candidate;
+                    break;
+                }
+            }
+        }
+
+        return {
+            sortedQuarters,
+            cumulativeValues,
+            perPeriodValues,
+            series,
+            latestEntry,
+            previousEntry,
+            yearAgoEntry,
+        };
+    };
+
+    const updateWalletChartData = ({
+        activities = [],
+        lifetimeActivities = [],
+        selectedYear = 'all',
+        walletTimeframe = null,
+    } = {}) => {
+        const lifetimeMetrics = getWalletMetricsForActivities(lifetimeActivities);
         const isAllYearsSelected = !selectedYear || selectedYear === 'all';
         const shouldReuseFilteredMetrics = isAllYearsSelected && activities.length === lifetimeActivities.length;
+        const metricsForFiltered = shouldReuseFilteredMetrics
+            ? lifetimeMetrics
+            : buildWalletMetrics(activities);
         const metricsForYearly = shouldReuseFilteredMetrics
             ? metricsForFiltered
-            : buildWalletMetrics(lifetimeActivities);
+            : lifetimeMetrics;
+
+        if (typeof walletTimeframe === 'string' && walletTimeframe) {
+            walletSelectedTimeframe = walletTimeframe;
+        }
+
+        const availableMetrics = Array.isArray(metricsForYearly) ? metricsForYearly : [];
+        latestWalletMetrics = Array.isArray(availableMetrics) ? [...availableMetrics] : [];
+        updateHistoricalMedalMonths(latestWalletMetrics);
+        populateWalletTimeframeSelect(availableMetrics);
+        const metricsForAggregation = filterMetricsForWalletTimeframe(availableMetrics, walletSelectedTimeframe);
+
+        if (walletTimeframeSelect && walletTimeframeSelect.value !== walletSelectedTimeframe) {
+            walletTimeframeSelect.value = walletSelectedTimeframe;
+        }
+        syncWalletTimeRangeChips();
 
         const yearlyAggregation = new Map();
         const monthlyTotalsByYear = new Map();
@@ -2834,7 +10627,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }, {}),
             medalCounts: new Map()
         });
-        metricsForYearly.forEach(metric => {
+        metricsForAggregation.forEach(metric => {
             const year = metric.date.getFullYear();
             if (!Number.isFinite(year)) {
                 return;
@@ -2867,6 +10660,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const sortedYears = Array.from(yearlyAggregation.keys()).sort((a, b) => a - b);
+        const walletGradientPalette = buildWalletGradientPalette(sortedYears.length);
+        const yearColorAssignments = new Map();
+        sortedYears.forEach((year, index) => {
+            const paletteEntry = walletGradientPalette[index] || getWalletGradientForIndex(index, sortedYears.length);
+            yearColorAssignments.set(year, {
+                border: paletteEntry.border,
+                background: paletteEntry.background,
+                hover: paletteEntry.hover || paletteEntry.background,
+            });
+        });
         const coinBreakdown = COIN_EMOJIS.reduce((acc, emoji) => {
             acc[emoji] = sortedYears.map(year => {
                 const entry = yearlyAggregation.get(year);
@@ -2899,7 +10702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return acc;
         }, {});
         const timelineBuckets = new Map();
-        metricsForYearly.forEach(metric => {
+        metricsForAggregation.forEach(metric => {
             const year = metric.date.getFullYear();
             const monthIndex = metric.date.getMonth();
             if (!Number.isFinite(year) || !Number.isInteger(monthIndex)) {
@@ -2956,102 +10759,95 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        walletChartData.coins = {
-            labels: sortedYears.map(year => String(year)),
-            coinBreakdown,
-            medalBreakdown,
-            timelineLabels,
-            coinTimeline
-        };
-
         const compareDatasets = [];
+        const compareMonthlyDatasets = [];
         sortedYears.forEach((year, index) => {
             const totals = monthlyTotalsByYear.get(year) || Array(12).fill(0);
-            let runningTotal = 0;
-            const cumulative = totals.map(value => {
+            const monthlyTotals = totals.map(value => {
                 const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
-                runningTotal += numericValue;
-                return runningTotal;
+                return numericValue;
             });
 
-            if (!cumulative.some(value => value > 0)) {
+            if (!monthlyTotals.some(value => value > 0)) {
                 return;
             }
 
-            const paletteEntry = BALANCE_YEAR_COLOR_PALETTE[index % BALANCE_YEAR_COLOR_PALETTE.length];
+            let runningTotal = 0;
+            const cumulative = monthlyTotals.map(value => {
+                runningTotal += value;
+                return runningTotal;
+            });
+
+            const paletteEntry = walletGradientPalette[index] || getWalletGradientForIndex(index, sortedYears.length);
+            const yearLabel = String(year);
             compareDatasets.push({
-                label: String(year),
+                label: yearLabel,
                 data: cumulative,
                 borderColor: paletteEntry.border,
                 backgroundColor: paletteEntry.background,
             });
+            compareMonthlyDatasets.push({
+                label: yearLabel,
+                baseLabel: yearLabel,
+                data: monthlyTotals,
+                backgroundColor: paletteEntry.background,
+                borderColor: paletteEntry.border,
+                hoverBackgroundColor: paletteEntry.hover || paletteEntry.background,
+            });
         });
 
-        const monthlyAggregation = new Map();
-        metricsForFiltered.forEach(metric => {
-            const year = metric.date.getFullYear();
-            const month = metric.date.getMonth() + 1;
-            if (!Number.isFinite(year) || !Number.isFinite(month)) {
-                return;
-            }
+        const lifetimeQuarterly = buildQuarterlyValueSeries(availableMetrics);
 
-            const key = `${year}-${String(month).padStart(2, '0')}`;
-            monthlyAggregation.set(key, (monthlyAggregation.get(key) || 0) + metric.coinValue + metric.medalValue);
-        });
-
-        const sortedMonths = Array.from(monthlyAggregation.keys()).sort();
-        let runningTotal = 0;
-        const balanceValues = sortedMonths.map(key => {
-            runningTotal += monthlyAggregation.get(key) || 0;
-            return runningTotal;
-        });
-        const monthlySeries = sortedMonths.map((key, index) => {
-            const [yearStr, monthStr] = key.split('-');
-            const date = new Date(Number(yearStr), Number(monthStr) - 1, 1);
-            return { date, value: balanceValues[index] };
-        }).filter(entry => Number.isFinite(entry.value));
-        const latestEntry = monthlySeries.length > 0 ? monthlySeries[monthlySeries.length - 1] : null;
-        const previousEntry = monthlySeries.length > 1 ? monthlySeries[monthlySeries.length - 2] : null;
-        let yearAgoEntry = null;
-        if (latestEntry?.date instanceof Date && !Number.isNaN(latestEntry.date.getTime())) {
-            const yearAgoThreshold = new Date(latestEntry.date);
-            yearAgoThreshold.setFullYear(yearAgoThreshold.getFullYear() - 1);
-            for (let index = monthlySeries.length - 1; index >= 0; index -= 1) {
-                const candidate = monthlySeries[index];
-                if (candidate.date <= yearAgoThreshold) {
-                    yearAgoEntry = candidate;
-                    break;
-                }
-            }
-        }
-        const monthPercentChange = calculatePercentChange(latestEntry?.value, previousEntry?.value);
-        const yearPercentChange = calculatePercentChange(latestEntry?.value, yearAgoEntry?.value);
+        const lifetimeLatest = lifetimeQuarterly.latestEntry;
+        const lifetimePrevious = lifetimeQuarterly.previousEntry;
+        const lifetimeYearAgo = lifetimeQuarterly.yearAgoEntry;
+        const quarterPercentChange = calculatePercentChange(lifetimeLatest?.value, lifetimePrevious?.value);
+        const yearPercentChange = calculatePercentChange(lifetimeLatest?.value, lifetimeYearAgo?.value);
+        const quarterChangeValue = Number.isFinite(lifetimeLatest?.value) && Number.isFinite(lifetimePrevious?.value)
+            ? lifetimeLatest.value - lifetimePrevious.value
+            : null;
+        const yearChangeValue = Number.isFinite(lifetimeLatest?.value) && Number.isFinite(lifetimeYearAgo?.value)
+            ? lifetimeLatest.value - lifetimeYearAgo.value
+            : null;
         walletGrowthStats = {
-            currentTotal: Number.isFinite(latestEntry?.value) ? latestEntry.value : 0,
-            monthChangePct: monthPercentChange,
-            yearChangePct: yearPercentChange
+            currentTotal: Number.isFinite(lifetimeLatest?.value) ? lifetimeLatest.value : 0,
+            quarterChangePct: quarterPercentChange,
+            yearChangePct: yearPercentChange,
+            quarterChangeValue,
+            yearChangeValue
         };
-        const monthLabels = sortedMonths.map(key => {
-            const [yearStr, monthStr] = key.split('-');
-            const date = new Date(Number(yearStr), Number(monthStr) - 1, 1);
-            if (Number.isNaN(date.getTime())) {
-                return key;
-            }
-            return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+        const topActivityIds = topPerformanceActivityHighlights instanceof Map
+            ? new Set(Array.from(topPerformanceActivityHighlights.keys()).map(key => key.toString()))
+            : new Set();
+        const rankUnlocks = buildRankUnlockMoments(lifetimeActivities, activeRankConfig);
+
+        const chartSeries = buildWalletChartSeries(metricsForAggregation, {
+            timeframe: walletSelectedTimeframe,
+            yearColorAssignments,
+            topActivityIds,
+            rankUnlocks,
         });
-        const normalizedBalance = normalizeSeriesLength(monthLabels, balanceValues, 15);
+
         walletChartData.balance = {
-            labels: normalizedBalance.labels,
-            values: normalizedBalance.values,
+            labels: chartSeries.labels,
+            values: chartSeries.cumulativeValues,
+            perPeriodValues: chartSeries.perPeriodValues,
             compareLabels: MONTH_COMPARISON_LABELS,
             compareDatasets,
+            compareMonthlyDatasets,
+            periodMeta: chartSeries.periodMeta,
+            barBorderColors: chartSeries.barBorderColors,
+            perPeriodLabel: chartSeries.changeLabel,
+            bucketType: chartSeries.bucketType,
         };
+
+        renderWalletHeatmap(availableMetrics);
 
         const nextChartKey = hasWalletChartData(activeChartKey)
             ? activeChartKey
-            : (hasWalletChartData('balance') ? 'balance' : (hasWalletChartData('coins') ? 'coins' : null));
-        activeChartKey = nextChartKey || activeChartKey;
-        renderWalletChart(activeChartKey);
+            : (hasWalletChartData('balance') ? 'balance' : null);
+        activeChartKey = nextChartKey || 'balance';
+        requestWalletRender();
 
         updateRankProgressBar();
     };
@@ -3101,7 +10897,73 @@ document.addEventListener('DOMContentLoaded', async () => {
             globeTrips,
             everestSummits,
             pizzaCount,
-            likes
+            likes,
+        };
+    }
+
+    const resolvePositiveNumber = (value) => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) && numeric > 0 ? numeric : 0;
+    };
+
+    function computeLifetimeFunStats({ activities = [], totals = {}, countrySummary = null } = {}) {
+        const aggregated = Array.isArray(activities)
+            ? activities.reduce((acc, activity) => {
+                const stats = computeActivitySmallStats(activity);
+                acc.distanceKm += stats.distanceKm;
+                acc.elevationGain += stats.elevationGain;
+                acc.calories += stats.calories;
+                acc.likes += stats.likes;
+                return acc;
+            }, {
+                distanceKm: 0,
+                elevationGain: 0,
+                calories: 0,
+                likes: 0,
+            })
+            : {
+                distanceKm: 0,
+                elevationGain: 0,
+                calories: 0,
+                likes: 0,
+            };
+
+        const totalDistanceMeters = resolvePositiveNumber(totals?.distance);
+        if (totalDistanceMeters > 0) {
+            aggregated.distanceKm = totalDistanceMeters / 1000;
+        }
+
+        const totalElevationGain = resolvePositiveNumber(totals?.elevation);
+        if (totalElevationGain > 0) {
+            aggregated.elevationGain = totalElevationGain;
+        }
+
+        const totalCalories = resolvePositiveNumber(totals?.calories);
+        if (totalCalories > 0) {
+            aggregated.calories = totalCalories;
+        }
+
+        const globeTrips = aggregated.distanceKm / EARTH_CIRCUMFERENCE_KM;
+        const everestSummits = aggregated.elevationGain / EVEREST_HEIGHT_M;
+        const pizzas = aggregated.calories / PIZZA_KCAL;
+        const summaryCountryStats = buildCountryStatsFromSummary(countrySummary);
+        const derivedCountryStats = summaryCountryStats.length > 0
+            ? summaryCountryStats
+            : buildCountryStatsFromActivities(activities);
+        const countryCount = derivedCountryStats.length;
+        const topCountries = derivedCountryStats.slice(0, 3);
+
+        return {
+            distanceKm: aggregated.distanceKm,
+            elevationGain: aggregated.elevationGain,
+            calories: aggregated.calories,
+            globeTrips: Number.isFinite(globeTrips) && globeTrips > 0 ? globeTrips : 0,
+            everestSummits: Number.isFinite(everestSummits) && everestSummits > 0 ? everestSummits : 0,
+            pizzas: Number.isFinite(pizzas) && pizzas > 0 ? pizzas : 0,
+            likes: aggregated.likes,
+            countryCount,
+            topCountries,
+            countryStats: derivedCountryStats,
         };
     }
 
@@ -3423,7 +11285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!weeklySnapshotModalQueued || hasShownWeeklySnapshot || !weeklySnapshotModal || !weeklySnapshotData) {
             return;
         }
-        if (loadingSpinner && !loadingSpinner.classList.contains('hidden') && !loadingSpinner.classList.contains('opacity-0')) {
+        if (isShellLoading()) {
             return;
         }
 
@@ -3450,7 +11312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         weeklySnapshotModalQueued = true;
-        if (weeklySnapshotData && (!loadingSpinner || loadingSpinner.classList.contains('hidden') || loadingSpinner.classList.contains('opacity-0'))) {
+        if (weeklySnapshotData && !isShellLoading()) {
             showWeeklySnapshotModal();
         }
     };
@@ -3557,7 +11419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setMetric('calories', formatWeeklyMetric(Math.round(weeklyStats.calories), { suffix: 'kcal' }));
         setMetric('kudos', weeklyStats.kudos > 0 ? weeklyStats.kudos.toLocaleString() : '—');
 
-        const medalValue = weeklyStats.medalCount * MEDAL_DOLLAR_VALUE;
+        const medalValue = calculateMedalDollarValue(weeklyStats.medalDetails);
         const totalValue = weeklyStats.coinValue + medalValue;
 
         weeklySnapshotData = {
@@ -3587,7 +11449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        if (weeklySnapshotModalQueued && (!loadingSpinner || loadingSpinner.classList.contains('hidden') || loadingSpinner.classList.contains('opacity-0'))) {
+        if (weeklySnapshotModalQueued && !isShellLoading()) {
             showWeeklySnapshotModal();
         }
 
@@ -3596,100 +11458,59 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Function to fade out the spinner
     const fadeOutSpinner = () => {
-        if (loadingSpinner) {
-            loadingSpinner.classList.remove('opacity-100');
-            loadingSpinner.classList.add('opacity-0');
-            loadingSpinner.classList.add('pointer-events-none');
-            loadingSpinner.setAttribute('aria-hidden', 'true');
-
-            const finalizeHide = () => {
-                if (!loadingSpinner.classList.contains('opacity-0')) {
-                    loadingSpinner.removeEventListener('transitionend', finalizeHide);
-                    return;
-                }
-                if (spinnerHideTimeout) {
-                    clearTimeout(spinnerHideTimeout);
-                    spinnerHideTimeout = null;
-                }
-                loadingSpinner.classList.add('hidden');
-                loadingSpinner.classList.add('pointer-events-none');
-                loadingSpinner.classList.remove('opacity-100');
-                loadingSpinner.setAttribute('aria-hidden', 'true');
-                loadingSpinner.removeEventListener('transitionend', finalizeHide);
-                if (weeklySnapshotModalQueued) {
-                    showWeeklySnapshotModal();
-                }
-            };
-
-            loadingSpinner.addEventListener('transitionend', finalizeHide, { once: true });
-
-            // Fallback in case the transition event does not fire
-            if (spinnerHideTimeout) {
-                clearTimeout(spinnerHideTimeout);
-            }
-            spinnerHideTimeout = setTimeout(finalizeHide, 600);
+        setShellLoadingState(false);
+        setWalletChartSkeletonVisible(false);
+        if (weeklySnapshotModalQueued && !isShellLoading()) {
+            showWeeklySnapshotModal();
         }
     };
 
     // Function to show the spinner with fade-in effect
     const showSpinner = () => {
-        if (loadingSpinner) {
-            if (spinnerHideTimeout) {
-                clearTimeout(spinnerHideTimeout);
-                spinnerHideTimeout = null;
-            }
-            loadingSpinner.classList.remove('hidden');
-            loadingSpinner.classList.remove('pointer-events-none');
-            loadingSpinner.classList.remove('opacity-0');
-            // Trigger reflow to ensure the transition works
-            void loadingSpinner.offsetWidth;
-            loadingSpinner.classList.add('opacity-100');
-            loadingSpinner.setAttribute('aria-hidden', 'false');
-            if (!hasInitializedLoadingProgress) {
-                initializeLoadingProgress();
-            }
+        setShellLoadingState(true);
+        setWalletChartSkeletonVisible(true);
+        if (!hasInitializedLoadingProgress) {
+            initializeLoadingProgress();
         }
     };
 
     const readDashboardCache = () => {
         try {
-            const container = loadDashboardCacheContainer();
-            const lookupKeys = getDashboardCacheLookupKeys(container);
-
-            for (const key of lookupKeys) {
-                if (!key) {
-                    continue;
+            const attemptedKeys = new Set();
+            const tryRead = (key) => {
+                if (!key || attemptedKeys.has(key)) {
+                    return null;
                 }
 
-                const entry = container.entries?.[key];
-                if (entry?.data) {
-                    return entry.data;
-                }
-            }
+                attemptedKeys.add(key);
+                return readCacheEntry(key, CACHE_TTL.DASHBOARD);
+            };
 
-            if (isSharedView && sharedUserId) {
-                const fallbackKey = Object.keys(container.entries || {}).find(candidate => candidate.endsWith(`:${sharedUserId}`));
-                if (fallbackKey) {
-                    const entry = container.entries[fallbackKey];
-                    if (entry?.data) {
-                        return entry.data;
+            if (isSharedView) {
+                if (sharedUserId) {
+                    const sharedEntry = tryRead(CACHE_KEYS.DASHBOARD(sharedUserId));
+                    if (sharedEntry?.data) {
+                        return sharedEntry.data;
                     }
                 }
+
+                return null;
             }
 
-            if (!isSharedView && container.metadata?.lastActiveKey) {
-                const activeEntry = container.entries?.[container.metadata.lastActiveKey];
-                if (activeEntry?.data) {
-                    return activeEntry.data;
+            const selfKey = CACHE_KEYS.DASHBOARD('self');
+            const selfEntry = tryRead(selfKey);
+            if (selfEntry?.data) {
+                return selfEntry.data;
+            }
+
+            if (selfEntry?.userId && selfEntry.userId !== 'self') {
+                const aliasEntry = tryRead(CACHE_KEYS.DASHBOARD(selfEntry.userId));
+                if (aliasEntry?.data) {
+                    return aliasEntry.data;
                 }
             }
-
-            const entriesArray = Object.values(container.entries || {});
-            if (entriesArray.length === 1 && entriesArray[0]?.data) {
-                return entriesArray[0].data;
-            }
         } catch (error) {
-            console.warn('Unable to read dashboard cache:', error);
+            console.warn('Cache read failed:', error);
         }
 
         return null;
@@ -3701,61 +11522,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
-            const container = loadDashboardCacheContainer();
-            const cacheKey = resolveDashboardCacheKey(payload);
-
-            if (!cacheKey) {
+            const resolvedUserId = isSharedView ? sharedUserId : (payload?.athlete?.id ?? 'self');
+            const userId = resolvedUserId || 'self';
+            const sanitizedPayload = sanitizeDashboardCachePayload(payload);
+            if (!sanitizedPayload) {
                 return;
             }
-
-            container.entries[cacheKey] = {
+            const entry = {
                 timestamp: Date.now(),
-                data: payload,
+                userId,
+                version: DASHBOARD_CACHE_VERSION,
+                data: sanitizedPayload,
             };
 
-            if (!container.metadata || typeof container.metadata !== 'object') {
-                container.metadata = {};
+            if (isSharedView) {
+                writeCacheEntry(CACHE_KEYS.DASHBOARD(userId), entry);
+            } else {
+                writeCacheEntry(CACHE_KEYS.DASHBOARD('self'), entry);
+                if (userId !== 'self') {
+                    writeCacheEntry(CACHE_KEYS.DASHBOARD(userId), entry);
+                }
             }
-
-            container.metadata.lastActiveKey = cacheKey;
-            enforceDashboardCacheSizeLimit(container, cacheKey);
-            persistDashboardCacheContainer(container);
         } catch (error) {
-            console.warn('Unable to cache dashboard payload:', error);
+            console.warn('Cache write failed:', error);
         }
     };
 
     const clearDashboardCache = () => {
         try {
-            const container = loadDashboardCacheContainer();
-            const keysToRemove = [];
+            const keysToClear = new Set();
 
-            if (isSharedView && sharedUserId) {
-                keysToRemove.push(`shared:${sharedUserId}`);
-            } else if (container.metadata?.lastActiveKey) {
-                keysToRemove.push(container.metadata.lastActiveKey);
-            } else {
-                keysToRemove.push('self:unknown');
-            }
-
-            let mutated = false;
-            keysToRemove.forEach((key) => {
-                if (key && container.entries?.[key]) {
-                    delete container.entries[key];
-                    mutated = true;
+            if (isSharedView) {
+                if (sharedUserId) {
+                    keysToClear.add(CACHE_KEYS.DASHBOARD(sharedUserId));
                 }
-            });
-
-            if (mutated) {
-                persistDashboardCacheContainer(container);
+            } else {
+                keysToClear.add(CACHE_KEYS.DASHBOARD('self'));
+                const selfEntry = readCacheEntry(CACHE_KEYS.DASHBOARD('self'), CACHE_TTL.DASHBOARD);
+                if (selfEntry?.userId && selfEntry.userId !== 'self') {
+                    keysToClear.add(CACHE_KEYS.DASHBOARD(selfEntry.userId));
+                }
             }
+
+            keysToClear.forEach((key) => removeCacheEntry(key));
         } catch (error) {
             console.warn('Unable to clear dashboard cache:', error);
-            try {
-                sessionStorage.removeItem(DASHBOARD_CACHE_STORAGE_KEY);
-            } catch (storageError) {
-                console.warn('Unable to reset dashboard cache storage:', storageError);
-            }
         }
     };
 
@@ -3771,7 +11582,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             ingestResponseData(cachedPayload, { isLoadMore: false });
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
             updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
             updateInitialLoadingState('snapshot', 'complete', 'Loaded cached dashboard snapshot');
             updateInitialLoadingState('fetch', 'complete', 'Restored cached dashboard data');
@@ -3834,10 +11645,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const sortActivitiesDescending = (activities = []) => {
         return activities.slice().sort((a, b) => {
-            const dateA = new Date(a?.start_date || a?.start_date_local || 0);
-            const dateB = new Date(b?.start_date || b?.start_date_local || 0);
-            const timeA = Number.isFinite(dateA.getTime()) ? dateA.getTime() : 0;
-            const timeB = Number.isFinite(dateB.getTime()) ? dateB.getTime() : 0;
+            const timeA = getActivityTimestamp(a) || 0;
+            const timeB = getActivityTimestamp(b) || 0;
             return timeB - timeA;
         });
     };
@@ -4283,7 +12092,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             category.achievements.forEach(achievement => {
                 const emoji = achievement?.emoji;
-                const count = Number.isFinite(achievement?.count) ? achievement.count : 0;
+                const count = toNonNegativeInteger(achievement?.count);
                 if (COIN_EMOJIS.includes(emoji) && count > 0) {
                     totals[emoji] += count;
                 }
@@ -4293,22 +12102,466 @@ document.addEventListener('DOMContentLoaded', async () => {
         return totals;
     };
 
+    const parseCalendarReference = (rawDate) => {
+        if (typeof rawDate !== 'string') {
+            return null;
+        }
+
+        const trimmed = rawDate.trim();
+        if (!trimmed) {
+            return null;
+        }
+
+        const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            const [year, month, day] = isoMatch.slice(1, 4).map(Number);
+            const hasValidParts = [year, month, day].every(value => Number.isInteger(value));
+            const inRange = month >= 1 && month <= 12 && day >= 1 && day <= 31;
+            if (hasValidParts && inRange) {
+                return {
+                    year,
+                    dayKey: `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+                };
+            }
+        }
+
+        const fallbackDate = new Date(trimmed);
+        if (Number.isNaN(fallbackDate.getTime())) {
+            return null;
+        }
+
+        const year = fallbackDate.getFullYear();
+        const month = fallbackDate.getMonth() + 1;
+        const day = fallbackDate.getDate();
+
+        return {
+            year,
+            dayKey: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        };
+    };
+
+    const getActivityCalendarReference = (activity) => {
+        if (!activity) {
+            return null;
+        }
+
+        return parseCalendarReference(activity.start_date_local) || parseCalendarReference(activity.start_date);
+    };
+
+    const normalizeMonthDayToken = (value) => {
+        if (typeof value !== 'string') {
+            return null;
+        }
+
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return null;
+        }
+
+        const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+            return `${isoMatch[2]}-${isoMatch[3]}`;
+        }
+
+        const monthDayMatch = trimmed.match(/^(\d{2})-(\d{2})$/);
+        if (monthDayMatch) {
+            return trimmed;
+        }
+
+        const parsed = new Date(trimmed);
+        if (Number.isNaN(parsed.getTime())) {
+            return null;
+        }
+
+        return parsed.toISOString().slice(5, 10);
+    };
+
+    const getActivityDateKey = (activity) => {
+        const reference = getActivityCalendarReference(activity);
+        return reference ? reference.dayKey : null;
+    };
+
+    const calculateConsecutiveStreakLength = (dateKeys = []) => {
+        if (!Array.isArray(dateKeys) || dateKeys.length === 0) {
+            return 0;
+        }
+
+        const uniqueSortedDates = Array.from(new Set(dateKeys)).sort();
+        let longest = 0;
+        let current = 0;
+        let previousDate = null;
+
+        uniqueSortedDates.forEach((dateKey) => {
+            const currentDate = new Date(`${dateKey}T00:00:00Z`);
+            if (Number.isNaN(currentDate.getTime())) {
+                return;
+            }
+
+            if (previousDate) {
+                const diffDays = Math.round((currentDate - previousDate) / (1000 * 60 * 60 * 24));
+                current = diffDays === 1 ? current + 1 : 1;
+            } else {
+                current = 1;
+            }
+
+            longest = Math.max(longest, current);
+            previousDate = currentDate;
+        });
+
+        return longest;
+    };
+
+    const matchesActivityType = (activityType, target, matchMode = 'includes') => {
+        if (!target) {
+            return true;
+        }
+
+        const normalizedActivityType = (activityType || '').toUpperCase();
+        if (!normalizedActivityType) {
+            return false;
+        }
+
+        const normalizedTarget = target.toUpperCase();
+        if (matchMode === 'equals') {
+            return normalizedActivityType === normalizedTarget;
+        }
+
+        return normalizedActivityType.includes(normalizedTarget);
+    };
+
+    const computeStreakAwardStats = (activityList, {
+        minLength = 0,
+        awardInterval,
+        activityType,
+        matchMode = 'includes',
+    } = {}) => {
+        if (!Array.isArray(activityList) || activityList.length === 0 || !Number.isFinite(minLength) || minLength <= 0) {
+            return { longest: 0, awardCount: 0 };
+        }
+
+        const targetTypes = Array.isArray(activityType)
+            ? activityType.filter(Boolean)
+            : (activityType ? [activityType] : null);
+
+        const dateKeys = activityList
+            .filter(activity => {
+                if (!targetTypes) {
+                    return true;
+                }
+
+                const normalizedType = (activity.type || '').toUpperCase();
+                const normalizedSportType = (activity.sport_type || '').toUpperCase();
+                return targetTypes.some(target => {
+                    return matchesActivityType(normalizedType, target, matchMode)
+                        || matchesActivityType(normalizedSportType, target, matchMode);
+                });
+            })
+            .map(getActivityDateKey)
+            .filter(Boolean);
+
+        const longest = calculateConsecutiveStreakLength(dateKeys);
+        const interval = Number.isFinite(awardInterval) && awardInterval > 0 ? awardInterval : minLength;
+        const awardCount = longest >= minLength ? Math.floor(longest / interval) : 0;
+
+        return { longest, awardCount };
+    };
+
+    const MONTHLY_CHALLENGE_REWARD_VALUE = 25000;
+    const MONTHLY_CHALLENGE_BONUS_VALUE = 250000;
+
+    const randomWithinRange = (randomFn, min = 0, max = 1) => {
+        const value = typeof randomFn === 'function' ? randomFn() : Math.random();
+        return min + (max - min) * value;
+    };
+
+    const roundToStep = (value, step = 1) => {
+        if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) {
+            return 0;
+        }
+        return Math.round(value / step) * step;
+    };
+
+    const buildMonthlyChallengeStats = (activityList = [], monthKey) => {
+        const stats = {
+            monthKey,
+            totalDistanceKm: 0,
+            rideDistanceKm: 0,
+            runDistanceKm: 0,
+            swimDistanceKm: 0,
+            totalHours: 0,
+            elevationM: 0,
+            activityCount: 0,
+            yogaSessions: 0,
+            rideCount: 0,
+            runCount: 0,
+            swimCount: 0,
+            activeDays: 0,
+            yogaRunComboDays: 0,
+            multiDisciplineDays: 0,
+        };
+
+        if (!Array.isArray(activityList) || !monthKey) {
+            return stats;
+        }
+
+        const dailyTypes = new Map();
+
+        activityList.forEach((activity) => {
+            const reference = getActivityCalendarReference(activity);
+            if (!reference || !reference.dayKey || !reference.dayKey.startsWith(monthKey)) {
+                return;
+            }
+
+            const normalizedType = (activity.type || activity.sport_type || '').toUpperCase();
+            const distanceKm = Number.isFinite(activity.distance) ? activity.distance / METERS_IN_KILOMETER : 0;
+            const elevation = Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+            const movingHours = Number.isFinite(activity.moving_time) ? activity.moving_time / 3600 : 0;
+
+            stats.totalDistanceKm += distanceKm;
+            stats.totalHours += movingHours;
+            stats.elevationM += elevation;
+            stats.activityCount += 1;
+
+            const dayEntry = dailyTypes.get(reference.dayKey) || { types: new Set() };
+
+            if (normalizedType.includes('RIDE')) {
+                stats.rideDistanceKm += distanceKm;
+                stats.rideCount += 1;
+                dayEntry.types.add('RIDE');
+            }
+            if (normalizedType.includes('RUN')) {
+                stats.runDistanceKm += distanceKm;
+                stats.runCount += 1;
+                dayEntry.types.add('RUN');
+            }
+            if (normalizedType.includes('SWIM')) {
+                stats.swimDistanceKm += distanceKm;
+                stats.swimCount += 1;
+                dayEntry.types.add('SWIM');
+            }
+            if (normalizedType.includes('YOGA')) {
+                stats.yogaSessions += 1;
+                dayEntry.types.add('YOGA');
+            }
+            if (!dayEntry.types.size) {
+                dayEntry.types.add('OTHER');
+            }
+
+            dailyTypes.set(reference.dayKey, dayEntry);
+        });
+
+        stats.activeDays = dailyTypes.size;
+
+        dailyTypes.forEach((entry) => {
+            if (entry.types.has('YOGA') && entry.types.has('RUN')) {
+                stats.yogaRunComboDays += 1;
+            }
+            if (entry.types.size >= 2) {
+                stats.multiDisciplineDays += 1;
+            }
+        });
+
+        return stats;
+    };
+
+    const MONTHLY_CHALLENGE_TEMPLATES = [
+        {
+            key: 'distance-all',
+            emoji: '🧭',
+            title: 'Distance drive',
+            unit: 'km',
+            description: (target) => `Cover ${target} km across any sport this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 220, 480), 10),
+            progress: (stats) => stats.totalDistanceKm,
+        },
+        {
+            key: 'elevation',
+            emoji: '⛰️',
+            title: 'Elevation focus',
+            unit: 'm',
+            description: (target) => `Climb ${target.toLocaleString()} m of vert this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3000, 9000), 100),
+            progress: (stats) => stats.elevationM,
+        },
+        {
+            key: 'hours',
+            emoji: '⏱️',
+            title: 'Hours in motion',
+            unit: 'h',
+            description: (target) => `Log ${target} hours of moving time this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 18, 48), 1),
+            progress: (stats) => stats.totalHours,
+        },
+        {
+            key: 'activities',
+            emoji: '📆',
+            title: 'Activity streaker',
+            unit: 'activities',
+            description: (target) => `Complete ${target} activities before the month ends.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 12, 28), 1),
+            progress: (stats) => stats.activityCount,
+        },
+        {
+            key: 'ride-distance',
+            emoji: '🚴',
+            title: 'Ride mileage',
+            unit: 'km',
+            description: (target) => `Ride ${target} km this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 180, 520), 10),
+            progress: (stats) => stats.rideDistanceKm,
+        },
+        {
+            key: 'run-distance',
+            emoji: '🏃',
+            title: 'Run mileage',
+            unit: 'km',
+            description: (target) => `Run ${target} km this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 80, 220), 5),
+            progress: (stats) => stats.runDistanceKm,
+        },
+        {
+            key: 'swim-distance',
+            emoji: '🏊',
+            title: 'Swim push',
+            unit: 'km',
+            description: (target) => `Swim ${target} km this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 6, 20), 0.5),
+            progress: (stats) => stats.swimDistanceKm,
+        },
+        {
+            key: 'yoga-sessions',
+            emoji: '🧘',
+            title: 'Yoga reset',
+            unit: 'sessions',
+            description: (target) => `Log ${target} yoga sessions this month.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 6, 14), 1),
+            progress: (stats) => stats.yogaSessions,
+        },
+        {
+            key: 'yoga-run-combo',
+            emoji: '🧘🏃',
+            title: 'Yoga + run stack',
+            unit: 'days',
+            description: (target) => `Stack yoga and a run on ${target} different days.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3, 7), 1),
+            progress: (stats) => stats.yogaRunComboDays,
+        },
+        {
+            key: 'multi-discipline',
+            emoji: '✨',
+            title: 'Mixed-mode days',
+            unit: 'days',
+            description: (target) => `Log ${target} days with 2+ activity types.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 4, 10), 1),
+            progress: (stats) => stats.multiDisciplineDays,
+        },
+    ];
+
+    const formatMonthlyChallengeValue = (value, unit) => {
+        const normalizedValue = Number.isFinite(value) ? value : 0;
+        switch (unit) {
+            case 'km':
+                return `${formatKilometersDisplay(normalizedValue)} km`;
+            case 'm':
+                return `${Math.round(normalizedValue).toLocaleString()} m`;
+            case 'h':
+                return `${formatHoursDisplay(normalizedValue)} h`;
+            case 'activities':
+            case 'sessions':
+            case 'days':
+                return `${Math.round(normalizedValue)} ${unit}`;
+            default:
+                return `${Math.round(normalizedValue)}`;
+        }
+    };
+
+    const buildMonthlyChallengeSet = (activityList = [], now = new Date()) => {
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthLabel = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        const stats = buildMonthlyChallengeStats(activityList, monthKey);
+        const seededRandom = createSeededRandom(`${monthKey}-star-challenges`);
+
+        const shuffledTemplates = MONTHLY_CHALLENGE_TEMPLATES.slice().sort(() => seededRandom() - 0.5);
+        const selectedTemplates = shuffledTemplates.slice(0, 5);
+
+        const challenges = selectedTemplates.map((template) => {
+            const rawTarget = template.target(stats, seededRandom, monthLabel);
+            const targetValue = Math.max(1, Math.round(rawTarget * 100) / 100);
+            const currentValue = Math.max(0, Number(template.progress(stats)) || 0);
+            const progressPercent = Math.max(0, Math.min(100, Math.round((currentValue / targetValue) * 100)));
+
+            const progressLabel = `${formatMonthlyChallengeValue(currentValue, template.unit)} / ${formatMonthlyChallengeValue(targetValue, template.unit)}`;
+
+            return {
+                key: `${monthKey}-${template.key}`,
+                emoji: template.emoji,
+                title: template.title,
+                description: template.description(targetValue),
+                targetValue,
+                currentValue,
+                progressPercent,
+                progressLabel,
+                monthLabel,
+                monthKey,
+                unit: template.unit,
+                rewardValue: MONTHLY_CHALLENGE_REWARD_VALUE,
+                completed: currentValue >= targetValue,
+                medalName: `${monthLabel} Star — ${template.title}`,
+                discipline: 'multi',
+            };
+        });
+
+        const completedChallenges = challenges.filter(challenge => challenge.completed).length;
+        const allComplete = challenges.length > 0 && completedChallenges === challenges.length;
+
+        const completionMedal = {
+            name: `${monthLabel} 25 Completion`,
+            emoji: '🌟',
+            description: 'Completed all five monthly star challenges.',
+            rarityKey: 'star',
+            valueOverride: MONTHLY_CHALLENGE_BONUS_VALUE,
+            count: allComplete ? 1 : 0,
+            category: 'Star Medals',
+            legacyCategory: 'Star Medals',
+            discipline: 'multi',
+        };
+
+        return {
+            monthKey,
+            monthLabel,
+            challenges,
+            completedChallenges,
+            totalChallenges: challenges.length,
+            completionMedal,
+        };
+    };
+
     const computePremiumAchievements = (lifetimeActivities = []) => {
         if (!Array.isArray(lifetimeActivities) || lifetimeActivities.length === 0) {
             return [];
         }
 
         let marathonCount = 0;
-        const dayBuckets = new Map();
         const yearlyDistance = {};
         const yearlyHours = {};
         const yearlyElevation = {};
+        const yearlyRunDistance = {};
+        const yearlyRideDistance = {};
+        const yearlyDollars = {};
+        const monthlyRunDistance = {};
+        const monthlyRideDistance = {};
+        const monthlyDollars = {};
+        let totalActivities = 0;
 
         lifetimeActivities.forEach(activity => {
-            const activityDate = new Date(activity.start_date);
-            if (Number.isNaN(activityDate.getTime())) {
+            const calendarReference = getActivityCalendarReference(activity);
+            if (!calendarReference) {
                 return;
             }
+
+            const { year } = calendarReference;
+            const dayKey = calendarReference.dayKey || null;
+            const monthKey = dayKey ? dayKey.slice(0, 7) : null;
 
             const distanceMeters = Number.isFinite(activity.distance) ? activity.distance : 0;
             const movingTimeSeconds = Number.isFinite(activity.moving_time) ? activity.moving_time : 0;
@@ -4316,9 +12569,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const normalizedType = (activity.type || '').toUpperCase();
             const isRun = normalizedType.includes('RUN');
             const isRide = normalizedType.includes('RIDE');
-            const isSwim = normalizedType.includes('SWIM');
 
-            const year = activityDate.getUTCFullYear();
+            totalActivities += 1;
+
             yearlyDistance[year] = (yearlyDistance[year] || 0) + (distanceMeters / 1000);
             yearlyHours[year] = (yearlyHours[year] || 0) + (movingTimeSeconds / 3600);
             yearlyElevation[year] = (yearlyElevation[year] || 0) + elevationGain;
@@ -4327,21 +12580,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 marathonCount += 1;
             }
 
-            const bucketKey = activityDate.toISOString().slice(0, 10);
-            if (!dayBuckets.has(bucketKey)) {
-                dayBuckets.set(bucketKey, { run: 0, ride: 0, swim: 0 });
-            }
-            const bucket = dayBuckets.get(bucketKey);
             if (isRun) {
-                bucket.run += distanceMeters;
+                yearlyRunDistance[year] = (yearlyRunDistance[year] || 0) + (distanceMeters / 1000);
+                if (monthKey) {
+                    monthlyRunDistance[monthKey] = (monthlyRunDistance[monthKey] || 0) + (distanceMeters / 1000);
+                }
             }
+
             if (isRide) {
-                bucket.ride += distanceMeters;
+                yearlyRideDistance[year] = (yearlyRideDistance[year] || 0) + (distanceMeters / 1000);
+                if (monthKey) {
+                    monthlyRideDistance[monthKey] = (monthlyRideDistance[monthKey] || 0) + (distanceMeters / 1000);
+                }
             }
-            if (isSwim) {
-                bucket.swim += distanceMeters;
+
+            const dollarsEarned = Math.max(0, (movingTimeSeconds / 3600) * 10);
+            yearlyDollars[year] = (yearlyDollars[year] || 0) + dollarsEarned;
+            if (monthKey) {
+                monthlyDollars[monthKey] = (monthlyDollars[monthKey] || 0) + dollarsEarned;
             }
         });
+
+        const aggregateContext = createAggregateContext(lifetimeActivities);
 
         let halfIronmanCount = 0;
         let fullIronmanCount = 0;
@@ -4349,22 +12609,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const meetsHalfIronman = (bucket) => {
             const standardThreshold =
-                meetsWithFlex(bucket.swim, 1900) &&
-                meetsWithFlex(bucket.ride, 90000) &&
-                meetsWithFlex(bucket.run, 21100);
+                meetsWithFlex(bucket.swimDistance, 1900) &&
+                meetsWithFlex(bucket.rideDistance, 90000) &&
+                meetsWithFlex(bucket.runDistance, 21100);
             const relaxedThreshold =
-                bucket.swim >= 1700 &&
-                bucket.ride >= 80000 &&
-                bucket.run >= 20000;
+                bucket.swimDistance >= 1700 &&
+                bucket.rideDistance >= 80000 &&
+                bucket.runDistance >= 20000;
             return standardThreshold || relaxedThreshold;
         };
 
-        dayBuckets.forEach(bucket => {
+        aggregateContext.dailySummaries.forEach(bucket => {
             const meetsHalf = meetsHalfIronman(bucket);
             const meetsFull =
-                meetsWithFlex(bucket.swim, 3700) &&
-                meetsWithFlex(bucket.ride, 175000) &&
-                meetsWithFlex(bucket.run, 40000);
+                meetsWithFlex(bucket.swimDistance, 3700) &&
+                meetsWithFlex(bucket.rideDistance, 175000) &&
+                meetsWithFlex(bucket.runDistance, 40000);
 
             if (meetsFull) {
                 fullIronmanCount += 1;
@@ -4433,6 +12693,84 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
+        const millionDollarYears = Object.values(yearlyDollars).filter(total => Math.round(total) >= 1_000_000).length;
+        if (millionDollarYears > 0) {
+            achievements.push({
+                emoji: '🤑',
+                label: 'Million Dollar Year',
+                description: 'Earned at least $1,000,000 in estimated training value within a calendar year.',
+                count: millionDollarYears
+            });
+        }
+
+        const run1000KmYears = Object.values(yearlyRunDistance).filter(km => km >= 1000).length;
+        if (run1000KmYears > 0) {
+            achievements.push({
+                emoji: '🏃‍♂️',
+                label: '1,000 km Run Year',
+                description: 'Ran at least 1,000 km in a calendar year.',
+                count: run1000KmYears
+            });
+        }
+
+        const run2500KmYears = Object.values(yearlyRunDistance).filter(km => km >= 2500).length;
+        if (run2500KmYears > 0) {
+            achievements.push({
+                emoji: '🏃‍♂️🔥',
+                label: '2,500 km Run Year',
+                description: 'Ran at least 2,500 km in a calendar year.',
+                count: run2500KmYears
+            });
+        }
+
+        const ride5000KmYears = Object.values(yearlyRideDistance).filter(km => km >= 5000).length;
+        if (ride5000KmYears > 0) {
+            achievements.push({
+                emoji: '🚴‍♂️',
+                label: '5,000 km Ride Year',
+                description: 'Rode at least 5,000 km in a calendar year.',
+                count: ride5000KmYears
+            });
+        }
+
+        if (totalActivities >= 1000) {
+            achievements.push({
+                emoji: '📈',
+                label: '1,000 Activities Lifetime',
+                description: 'Logged at least 1,000 activities overall.',
+                count: 1
+            });
+        }
+
+        if (totalActivities >= 2500) {
+            achievements.push({
+                emoji: '🌟',
+                label: '2,500 Activities Lifetime',
+                description: 'Logged at least 2,500 activities overall.',
+                count: 1
+            });
+        }
+
+        const run400KmMonths = Object.values(monthlyRunDistance).filter(km => km >= 400).length;
+        if (run400KmMonths > 0) {
+            achievements.push({
+                emoji: '🏃‍♂️📆',
+                label: '400 km Run Month',
+                description: 'Ran at least 400 km within a single calendar month.',
+                count: run400KmMonths
+            });
+        }
+
+        const hundredKDollarMonths = Object.values(monthlyDollars).filter(total => Math.round(total) >= 100_000).length;
+        if (hundredKDollarMonths > 0) {
+            achievements.push({
+                emoji: '🤑📆',
+                label: '100k Dollar Month',
+                description: 'Earned at least $100,000 in estimated training value within a calendar month.',
+                count: hundredKDollarMonths
+            });
+        }
+
         return achievements;
     };
 
@@ -4454,7 +12792,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.setAttribute('aria-label', 'Super achievements');
 
         achievements.forEach((achievement) => {
-            const countValue = Number.isFinite(achievement.count) ? achievement.count : 1;
+            const normalizedCount = toNonNegativeInteger(achievement.count);
+            const countValue = normalizedCount > 0 ? normalizedCount : 1;
             const countSummary = `${countValue.toLocaleString()}×`;
             const badge = document.createElement('div');
             badge.className = 'profile-card__badge-item';
@@ -4484,12 +12823,1064 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const renderMonthlyChallengesCarousel = (container, monthlySummary = null) => {
+        if (!container) {
+            return;
+        }
+
+        const track = container.querySelector('[data-monthly-challenges-track]');
+        if (!track) {
+            return;
+        }
+
+        track.innerHTML = '';
+        if (monthlyChallengesInterval) {
+            clearInterval(monthlyChallengesInterval);
+            monthlyChallengesInterval = null;
+        }
+
+        const challenges = Array.isArray(monthlySummary?.challenges) ? monthlySummary.challenges : [];
+        if (!monthlySummary || challenges.length === 0) {
+            if (monthlyChallengesSection) {
+                monthlyChallengesSection.classList.add('hidden');
+            }
+            return;
+        }
+
+        if (monthlyChallengesSection) {
+            monthlyChallengesSection.classList.remove('hidden');
+        }
+
+        const completedChallenges = Number(monthlySummary.completedChallenges) || 0;
+        const totalChallenges = Number(monthlySummary.totalChallenges) || challenges.length;
+        const monthLabel = monthlySummary.monthLabel || 'This month';
+        const bonusUnlocked = Number(monthlySummary?.completionMedal?.count) > 0;
+
+        if (monthlyChallengesMonth) {
+            monthlyChallengesMonth.textContent = monthLabel;
+        }
+        if (monthlyChallengesSummaryElement) {
+            monthlyChallengesSummaryElement.textContent = `Completed ${completedChallenges} of ${totalChallenges} star challenges so far.`;
+        }
+        if (monthlyChallengesBonus) {
+            monthlyChallengesBonus.textContent = bonusUnlocked
+                ? '$250k ⭐ bonus secured — amazing!'
+                : 'Complete all five for a $250k ⭐ bonus';
+        }
+
+        const slides = challenges.map((challenge) => {
+            const slide = document.createElement('article');
+            slide.className = 'profile-monthly-challenges__slide';
+
+            const header = document.createElement('div');
+            header.className = 'profile-monthly-challenges__slide-header';
+
+            const icon = document.createElement('span');
+            icon.className = 'profile-monthly-challenges__icon';
+            icon.textContent = challenge.emoji || '⭐';
+
+            const title = document.createElement('h4');
+            title.className = 'profile-monthly-challenges__slide-title';
+            title.textContent = challenge.title || 'Monthly challenge';
+
+            header.append(icon, title);
+
+            const description = document.createElement('p');
+            description.className = 'profile-monthly-challenges__slide-description';
+            description.textContent = challenge.description || 'Track your progress and grab the star medal.';
+
+            const progress = document.createElement('div');
+            progress.className = 'profile-monthly-challenges__progress';
+
+            const bar = document.createElement('div');
+            bar.className = 'profile-monthly-challenges__progress-bar';
+
+            const fill = document.createElement('div');
+            fill.className = 'profile-monthly-challenges__progress-fill';
+            const percent = Math.max(0, Math.min(100, Number(challenge.progressPercent) || 0));
+            fill.style.width = `${percent}%`;
+            bar.appendChild(fill);
+
+            const meta = document.createElement('div');
+            meta.className = 'profile-monthly-challenges__progress-meta';
+
+            const progressLabel = document.createElement('span');
+            progressLabel.textContent = challenge.progressLabel || `${percent}% complete`;
+
+            const rewardLabel = document.createElement('span');
+            rewardLabel.className = 'profile-monthly-challenges__reward';
+            const rewardValue = Number.isFinite(challenge.rewardValue)
+                ? challenge.rewardValue
+                : MONTHLY_CHALLENGE_REWARD_VALUE;
+            rewardLabel.innerHTML = `<span aria-hidden="true">⭐</span>$${rewardValue.toLocaleString('en-US')}`;
+
+            meta.append(progressLabel, rewardLabel);
+
+            progress.append(bar, meta);
+            slide.append(header, description, progress);
+            track.appendChild(slide);
+            return slide;
+        });
+
+        let currentIndex = 0;
+        const activateSlide = (index) => {
+            slides.forEach((slide, idx) => {
+                slide.classList.toggle('is-active', idx === index);
+            });
+            track.style.transform = `translateX(-${index * 100}%)`;
+        };
+
+        activateSlide(currentIndex);
+
+        if (slides.length > 1) {
+            monthlyChallengesInterval = window.setInterval(() => {
+                currentIndex = (currentIndex + 1) % slides.length;
+                activateSlide(currentIndex);
+            }, 5200);
+        }
+    };
+
+    const renderTopAchievementsCarousel = (container, achievements = []) => {
+        if (!container) {
+            return;
+        }
+
+        const track = container.querySelector('[data-top-achievements-track]');
+        if (!track) {
+            return;
+        }
+
+        track.innerHTML = '';
+        if (topAchievementsInterval) {
+            clearInterval(topAchievementsInterval);
+            topAchievementsInterval = null;
+        }
+
+        const visibleAchievements = achievements.slice(0, 6);
+        if (visibleAchievements.length === 0) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+
+        const slides = visibleAchievements.map((achievement) => {
+            const slide = document.createElement('article');
+            slide.className = 'profile-top-achievements__slide';
+
+            const title = document.createElement('span');
+            title.className = 'profile-top-achievements__slide-title';
+            const countValue = Number.isFinite(achievement.count) && achievement.count > 0
+                ? achievement.count
+                : 1;
+            title.innerHTML = `<span class="profile-top-achievements__slide-count">${countValue}x</span><span class="profile-top-achievements__slide-emoji">${achievement.emoji || '⭐️'}</span>${achievement.label}`;
+
+            const description = document.createElement('span');
+            description.className = 'profile-top-achievements__slide-description';
+            description.textContent = achievement.description || 'Unlocked milestone.';
+
+            slide.append(title, description);
+            track.appendChild(slide);
+            return slide;
+        });
+
+        let currentIndex = 0;
+        const activateSlide = (index) => {
+            slides.forEach((slide, idx) => {
+                slide.classList.toggle('is-active', idx === index);
+            });
+            track.style.transform = `translateX(-${index * 100}%)`;
+        };
+
+        activateSlide(currentIndex);
+
+        if (slides.length > 1) {
+            topAchievementsInterval = window.setInterval(() => {
+                currentIndex = (currentIndex + 1) % slides.length;
+                activateSlide(currentIndex);
+            }, 4800);
+        }
+    };
+
+    const renderActivityHistorySummary = (container, activities = []) => {
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            const emptyMessage = document.createElement('p');
+            emptyMessage.className = 'profile-activity-history__value';
+            emptyMessage.textContent = 'No activity history yet.';
+            container.appendChild(emptyMessage);
+            return;
+        }
+
+        const validDates = activities
+            .map(activity => new Date(activity.start_date))
+            .filter(date => !Number.isNaN(date.getTime()))
+            .sort((a, b) => a - b);
+
+        const formatDate = (date) => date.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+
+        const appendRow = (label, value) => {
+            const row = document.createElement('div');
+            row.className = 'profile-activity-history__row';
+
+            const labelEl = document.createElement('span');
+            labelEl.className = 'profile-activity-history__label';
+            labelEl.textContent = label;
+
+            const valueEl = document.createElement('span');
+            valueEl.className = 'profile-activity-history__value';
+            valueEl.textContent = value;
+
+            row.append(labelEl, valueEl);
+            container.appendChild(row);
+        };
+
+        if (validDates.length > 0) {
+            appendRow('First activity', formatDate(validDates[0]));
+            appendRow('Latest activity', formatDate(validDates[validDates.length - 1]));
+        }
+    };
+
     const destroyCoinMixChart = () => {
         if (coinMixChartInstance) {
             coinMixChartInstance.destroy();
             coinMixChartInstance = null;
         }
     };
+
+    function destroyEnduranceChart() {
+        if (enduranceChartInstances && enduranceChartInstances.size > 0) {
+            enduranceChartInstances.forEach((chart) => {
+                if (chart?.destroy) {
+                    chart.destroy();
+                }
+            });
+        }
+        enduranceChartInstances = new Map();
+    }
+
+    const resolveActivityDiscipline = (activity = {}) => {
+        const typeText = `${activity.sport_type || ''} ${activity.type || ''}`.toLowerCase();
+
+        if (typeText.includes('swim')) {
+            return 'swim';
+        }
+
+        if (typeText.includes('ride') || typeText.includes('bike') || typeText.includes('cycle') || typeText.includes('velo')) {
+            return 'ride';
+        }
+
+        if (typeText.includes('run')) {
+            return 'run';
+        }
+
+        return 'multi';
+    };
+
+    const buildDailyEnduranceSeries = (activities = []) => {
+        const buckets = new Map();
+
+        activities.forEach((activity) => {
+            const parsedDate = new Date(activity?.start_date || activity?.start_date_local);
+            if (Number.isNaN(parsedDate.getTime())) {
+                return;
+            }
+
+            const key = parsedDate.toISOString().slice(0, 10);
+            const bucket = buckets.get(key) || {
+                date: parsedDate,
+                distanceKm: 0,
+                elevationGain: 0,
+                movingHours: 0,
+            };
+
+            const distanceMeters = Number(activity?.distance) || 0;
+            const elevationGain = Number(activity?.total_elevation_gain ?? activity?.elev_gain) || 0;
+            const movingSeconds = Number(activity?.moving_time) || 0;
+
+            bucket.distanceKm += distanceMeters / 1000;
+            bucket.elevationGain += elevationGain;
+            bucket.movingHours += movingSeconds / 3600;
+
+            buckets.set(key, bucket);
+        });
+
+        return Array.from(buckets.values())
+            .sort((a, b) => a.date - b.date)
+            .map((entry) => ({
+                ...entry,
+                label: entry.date.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: '2-digit',
+                }),
+            }));
+    };
+
+    const getEnduranceActivitiesFromTimeline = (activities = []) => {
+        const timelineMetrics = filterMetricsForWalletTimeframe(latestWalletMetrics, walletSelectedTimeframe);
+        const timelineActivities = Array.isArray(timelineMetrics)
+            ? timelineMetrics
+                .map((metric) => metric?.balanceActivity)
+                .filter((activity) => activity && (activity.start_date || activity.start_date_local))
+            : [];
+
+        if (timelineActivities.length > 0) {
+            return timelineActivities;
+        }
+
+        return activities;
+    };
+
+    const computeMovingAverageSeries = (values = [], windowSize = 1) => {
+        if (!Array.isArray(values) || values.length === 0) {
+            return [];
+        }
+
+        if (windowSize <= 1) {
+            return [...values];
+        }
+
+        const averages = [];
+        let runningSum = 0;
+
+        values.forEach((value, index) => {
+            const numericValue = Number.isFinite(value) ? value : 0;
+            runningSum += numericValue;
+
+            if (index >= windowSize) {
+                const exitValue = Number.isFinite(values[index - windowSize]) ? values[index - windowSize] : 0;
+                runningSum -= exitValue;
+            }
+
+            if (index >= windowSize - 1) {
+                averages.push(Number((runningSum / windowSize).toFixed(2)));
+            } else {
+                averages.push(null);
+            }
+        });
+
+        return averages;
+    };
+
+    const updateEnduranceChart = (activities = []) => {
+        const canvases = enduranceChartCanvases ? Object.values(enduranceChartCanvases) : [];
+        const hideEnduranceCanvases = () => {
+            canvases.forEach((canvas) => {
+                if (canvas) {
+                    canvas.classList.add('hidden');
+                }
+            });
+        };
+
+        if (!canvases.some(Boolean)) {
+            return;
+        }
+
+        enduranceChartSource = Array.isArray(activities) ? activities : [];
+        const hasChartLibrary = typeof Chart !== 'undefined';
+        const historicalActivities = Array.isArray(allData?.activities) ? allData.activities : [];
+        const hasCompleteHistory = historicalActivities.length > 0 && !hasMoreActivities;
+        const activitySource = hasCompleteHistory
+            ? historicalActivities
+            : getEnduranceActivitiesFromTimeline(enduranceChartSource);
+        const isAllTimeRange = walletSelectedTimeframe === WALLET_TIMEFRAME_ALL;
+
+        if (!hasCompleteHistory && hasMoreActivities) {
+            destroyEnduranceChart();
+            setEnduranceChartSkeletonVisible(true);
+            hideEnduranceCanvases();
+            return;
+        }
+
+        const metricConfig = [
+            {
+                key: 'distance',
+                label: 'Distance',
+                unit: ' km',
+                palette: { base: '#0ea5e9', variants: ['#0ea5e9', '#1d4ed8', '#38bdf8'] },
+                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 1 }),
+            },
+            {
+                key: 'elevation',
+                label: 'Elevation',
+                unit: ' m',
+                palette: { base: '#f97316', variants: ['#f97316', '#c2410c', '#fb923c'] },
+                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+            },
+            {
+                key: 'movingTime',
+                label: 'Moving time',
+                unit: ' hrs',
+                palette: { base: '#22c55e', variants: ['#22c55e', '#15803d', '#4ade80'] },
+                tickFormatter: (value) => value.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+            },
+        ];
+
+        const metricConfigMap = new Map(metricConfig.map((config) => [config.key, config]));
+        const disciplines = [
+            { key: 'run', label: 'Run', paletteKey: 'run' },
+            { key: 'ride', label: 'Ride', paletteKey: 'ride' },
+        ];
+
+        const allActivities = activitySource
+            .concat(...Array.from(enduranceComparisonProfiles.values()).map((profile) => profile.activities || []));
+        const masterSeries = buildDailyEnduranceSeries(allActivities);
+        const hasData = masterSeries.length > 0;
+        const labels = masterSeries.map((entry) => entry.label);
+        const masterKeys = masterSeries.map((entry) => entry.date.toISOString().slice(0, 10));
+        const enduranceTickMeta = masterSeries.map((entry) => ({
+            label: entry.label,
+            year: entry?.date?.getFullYear?.(),
+            month: entry?.date?.getMonth?.(),
+            day: entry?.date?.getDate?.(),
+        }));
+        const movingAverageWindow = 50;
+
+        if (!hasChartLibrary || !hasData) {
+            destroyEnduranceChart();
+            setEnduranceChartSkeletonVisible(false);
+            hideEnduranceCanvases();
+            return;
+        }
+
+        const profiles = [
+            { key: 'self', label: 'You', activities: activitySource },
+            ...Array.from(enduranceComparisonProfiles.values()),
+        ];
+
+        const profileColorPalette = ['#0ea5e9', '#a855f7', '#f59e0b', '#10b981', '#6366f1', '#ef4444', '#14b8a6'];
+        const profileColorMap = new Map();
+        profiles.forEach((profile, index) => {
+            const paletteIndex = index % profileColorPalette.length;
+            const key = profile?.key || `profile-${index}`;
+            profileColorMap.set(key, profileColorPalette[paletteIndex]);
+        });
+
+        const movingAverageSeries = new Map();
+        const rawSeriesMap = new Map();
+        const firstValidIndices = [];
+
+        const alignSeriesForDiscipline = (activities, disciplineKey) => {
+            const disciplineActivities = (activities || []).filter((activity) => resolveActivityDiscipline(activity) === disciplineKey);
+            const series = buildDailyEnduranceSeries(disciplineActivities);
+            const seriesMap = new Map(series.map((entry) => [entry.date.toISOString().slice(0, 10), entry]));
+            return masterKeys.map((key) => {
+                const entry = seriesMap.get(key) || {};
+                return {
+                    distanceKm: Number((entry?.distanceKm ?? 0).toFixed(2)),
+                    elevationGain: Number((entry?.elevationGain ?? 0).toFixed(0)),
+                    movingHours: Number((entry?.movingHours ?? 0).toFixed(2)),
+                };
+            });
+        };
+
+        profiles.forEach((profile, profileIndex) => {
+            const profileKey = profile?.key || `profile-${profileIndex}`;
+            movingAverageSeries.set(profileKey, new Map());
+            rawSeriesMap.set(profileKey, new Map());
+
+            disciplines.forEach((discipline) => {
+                const alignedSeries = alignSeriesForDiscipline(profile.activities, discipline.key);
+                const disciplineMovingAverage = new Map();
+                const disciplineRaw = new Map();
+
+                metricConfig.forEach((config) => {
+                    const values = alignedSeries.map((entry) => {
+                        if (config.key === 'distance') {
+                            return entry.distanceKm;
+                        }
+
+                        if (config.key === 'elevation') {
+                            return entry.elevationGain;
+                        }
+
+                        if (config.key === 'movingTime') {
+                            return entry.movingHours;
+                        }
+
+                        return 0;
+                    });
+
+                    disciplineRaw.set(config.key, values);
+                    const maSeries = computeMovingAverageSeries(values, movingAverageWindow);
+                    disciplineMovingAverage.set(config.key, maSeries);
+
+                    const validIndex = maSeries.findIndex(Number.isFinite);
+                    if (validIndex >= 0) {
+                        firstValidIndices.push(validIndex);
+                    }
+                });
+
+                movingAverageSeries.get(profileKey).set(discipline.key, disciplineMovingAverage);
+                rawSeriesMap.get(profileKey).set(discipline.key, disciplineRaw);
+            });
+        });
+
+        if (firstValidIndices.length === 0) {
+            destroyEnduranceChart();
+            setEnduranceChartSkeletonVisible(false);
+            hideEnduranceCanvases();
+            return;
+        }
+
+        let visibleStart = Math.min(...firstValidIndices);
+        if (!isAllTimeRange && masterSeries.length > 0) {
+            const latestDate = masterSeries[masterSeries.length - 1]?.date;
+            if (latestDate instanceof Date && !Number.isNaN(latestDate.getTime())) {
+                const cutoff = new Date(latestDate);
+                if (walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH) {
+                    cutoff.setMonth(cutoff.getMonth() - 3);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_6_MONTH) {
+                    cutoff.setMonth(cutoff.getMonth() - 6);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_LAST_12_MONTHS) {
+                    cutoff.setMonth(cutoff.getMonth() - 12);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_2_YEAR) {
+                    cutoff.setMonth(cutoff.getMonth() - 24);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_WEEK) {
+                    cutoff.setDate(cutoff.getDate() - 7);
+                } else if (walletSelectedTimeframe === WALLET_TIMEFRAME_DAY) {
+                    cutoff.setDate(cutoff.getDate() - 1);
+                }
+
+                const timeframeStartIndex = masterSeries.findIndex((entry) => entry?.date >= cutoff);
+                if (timeframeStartIndex >= 0) {
+                    visibleStart = Math.max(visibleStart, timeframeStartIndex);
+                }
+            }
+        }
+        const visibleLabels = labels.slice(visibleStart);
+
+        const isDarkMode = document.body.classList.contains('dark');
+        const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
+        const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.35)';
+        const tickFont = { family: 'Rubik, system-ui, -apple-system, sans-serif', size: 12, weight: '600' };
+        let runPlotActive = false;
+        let ridePlotActive = false;
+
+        destroyEnduranceChart();
+        setEnduranceChartSkeletonVisible(false);
+
+        const buildEnduranceYearTicks = (scale) => {
+            const yearTicks = [];
+            scale.ticks.forEach((tick) => {
+                const sourceIndex = visibleStart + tick.value;
+                const meta = enduranceTickMeta[sourceIndex];
+                const previousMeta = sourceIndex > 0 ? enduranceTickMeta[sourceIndex - 1] : null;
+                const isNewYear = meta && Number.isInteger(meta.year)
+                    && (!previousMeta || previousMeta?.year !== meta.year);
+                if (isNewYear) {
+                    yearTicks.push({ ...tick, label: String(meta.year) });
+                }
+            });
+            return yearTicks.length > 0 ? yearTicks : scale.ticks;
+        };
+
+        metricConfig.forEach((config) => {
+            const canvas = enduranceChartCanvases?.[config.key];
+            if (!canvas) {
+                return;
+            }
+
+            const datasets = [];
+            profiles.forEach((profile, profileIndex) => {
+                const profileKey = profile?.key || `profile-${profileIndex}`;
+                const profileLabel = profile?.label || `Athlete ${profileIndex + 1}`;
+
+                disciplines.forEach((discipline) => {
+                    const maSeries = movingAverageSeries.get(profileKey)?.get(discipline.key)?.get(config.key) || [];
+                    const rawSeries = rawSeriesMap.get(profileKey)?.get(discipline.key)?.get(config.key) || [];
+                    const slicedSeries = maSeries.slice(visibleStart);
+                    if (!slicedSeries.some(Number.isFinite)) {
+                        return;
+                    }
+
+                    const baseColor = profileColorMap.get(profileKey) || config.palette.base;
+                    const isRunDiscipline = discipline.key === 'run';
+                    const lineColor = isRunDiscipline ? lightenHexColor(baseColor, 0.28) : baseColor;
+                    const fillColor = hexToRgba(lineColor, 0.18);
+
+                    datasets.push({
+                        label: `${config.label} · ${discipline.label} · ${profileLabel} · ${movingAverageWindow}d MA`,
+                        data: slicedSeries,
+                        borderColor: lineColor,
+                        backgroundColor: fillColor,
+                        borderWidth: 4,
+                        borderDash: isRunDiscipline ? [8, 4] : undefined,
+                        tension: 0.32,
+                        spanGaps: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 7,
+                        pointHitRadius: 16,
+                        pointBackgroundColor: lineColor,
+                        pointBorderColor: lineColor,
+                        pointBorderWidth: 0,
+                        rawSeries: rawSeries.slice(visibleStart),
+                        yAxisID: isRunDiscipline ? 'yRun' : 'yRide',
+                    });
+
+                    if (isRunDiscipline) {
+                        runPlotActive = true;
+                    } else {
+                        ridePlotActive = true;
+                    }
+                });
+            });
+
+            const hasMetricData = datasets.some((dataset) => dataset.data.some(Number.isFinite));
+            const shouldUseSparseTicks = walletSelectedTimeframe === WALLET_TIMEFRAME_3_MONTH
+                || walletSelectedTimeframe === WALLET_TIMEFRAME_6_MONTH;
+
+            if (!hasMetricData) {
+                canvas.classList.add('hidden');
+                return;
+            }
+
+            canvas.classList.remove('hidden');
+
+            const tooltipCallbacks = {
+                title: (context) => {
+                    const [first] = context || [];
+                    const sourceIndex = visibleStart + (first?.dataIndex ?? 0);
+                    const seriesEntry = masterSeries[sourceIndex];
+                    return seriesEntry?.label || 'Daily total';
+                },
+                label: (context) => {
+                    const value = Number.isFinite(context.parsed?.y)
+                        ? context.parsed.y
+                        : null;
+                    if (!Number.isFinite(value)) {
+                        return '';
+                    }
+
+                    const formatter = typeof config.tickFormatter === 'function'
+                        ? config.tickFormatter
+                        : (val) => val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                    const formatted = formatter(value);
+                    const unit = config?.unit || '';
+                    return `${formatted}${unit}`.trim();
+                },
+            };
+
+            enduranceChartInstances.set(config.key, new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: visibleLabels,
+                    datasets,
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'nearest',
+                        intersect: false,
+                        axis: 'x',
+                    },
+                    hover: {
+                        mode: 'nearest',
+                        intersect: false,
+                        axis: 'x',
+                    },
+                    layout: {
+                        padding: { top: 8, right: 14, bottom: 16, left: 8 },
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            mode: 'nearest',
+                            intersect: false,
+                            displayColors: false,
+                            backgroundColor: isDarkMode ? '#0b1221' : '#0f172a',
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#e2e8f0',
+                            padding: 12,
+                            titleFont: { ...tickFont, size: 13, weight: '700' },
+                            bodyFont: { ...tickFont, size: 16, weight: '700' },
+                            callbacks: tooltipCallbacks,
+                        },
+                    },
+                    scales: {
+                        x: {
+                            afterBuildTicks: (scale) => {
+                                if (shouldUseSparseTicks) {
+                                    return scale.ticks;
+                                }
+
+                                return buildEnduranceYearTicks(scale);
+                            },
+                            ticks: {
+                                maxRotation: 0,
+                                maxTicksLimit: shouldUseSparseTicks ? 6 : 12,
+                                autoSkip: !isAllTimeRange,
+                                color: axisColor,
+                                font: tickFont,
+                                callback(value, index, ticks) {
+                                    const tick = ticks?.[index];
+                                    const sourceIndex = visibleStart + (Number.isFinite(tick?.value) ? tick.value : index);
+                                    const meta = enduranceTickMeta[sourceIndex];
+                                    const previousMeta = sourceIndex > 0 ? enduranceTickMeta[sourceIndex - 1] : null;
+
+                                    if (!meta) {
+                                        return this.getLabelForValue(value);
+                                    }
+
+                                    if (isAllTimeRange && Number.isInteger(meta.year)) {
+                                        return (!previousMeta || previousMeta.year !== meta.year)
+                                            ? String(meta.year)
+                                            : '';
+                                    }
+
+                                    const isNewMonth = !previousMeta || meta.month !== previousMeta.month;
+                                    const preferredLabel = isNewMonth ? meta.label : '';
+
+                                    if (shouldUseSparseTicks && ticks.length > 6) {
+                                        const visibleTicks = Math.max(3, Math.min(7, ticks.length));
+                                        const spacing = Math.max(1, Math.floor(ticks.length / visibleTicks));
+                                        return index % spacing === 0 ? (preferredLabel || meta.label) : '';
+                                    }
+
+                                    return preferredLabel || meta.label || this.getLabelForValue(value);
+                                },
+                            },
+                            grid: {
+                                color: gridColor,
+                            },
+                            beginAtZero: true,
+                            title: {
+                                display: false,
+                            },
+                        },
+                        yRide: {
+                            position: 'left',
+                            grid: {
+                                color: gridColor,
+                            },
+                            ticks: {
+                                color: axisColor,
+                                font: tickFont,
+                                callback(value) {
+                                    return config.tickFormatter ? config.tickFormatter(value) : value;
+                                },
+                            },
+                            beginAtZero: true,
+                            title: { display: false },
+                        },
+                        yRun: {
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            ticks: {
+                                color: axisColor,
+                                font: tickFont,
+                                callback(value) {
+                                    return config.tickFormatter ? config.tickFormatter(value) : value;
+                                },
+                            },
+                            beginAtZero: true,
+                            title: { display: false },
+                        },
+                    },
+                },
+            }));
+        });
+
+        if (enduranceChartElement) {
+            enduranceChartElement.dataset.runActive = runPlotActive ? 'true' : 'false';
+            enduranceChartElement.dataset.rideActive = ridePlotActive ? 'true' : 'false';
+        }
+
+    };
+
+    const setEnduranceCompareStatus = (message = '') => {
+        if (!enduranceCompareStatus) {
+            return;
+        }
+        enduranceCompareStatus.textContent = message;
+    };
+
+    const isMobileEnduranceViewport = () => Boolean(enduranceFullscreenMediaQuery?.matches);
+
+    const lockEnduranceOrientation = async () => {
+        if (typeof screen?.orientation?.lock !== 'function') {
+            enduranceOrientationLocked = false;
+            return;
+        }
+        try {
+            await screen.orientation.lock('landscape');
+            enduranceOrientationLocked = true;
+        } catch (error) {
+            enduranceOrientationLocked = false;
+            console.warn('Unable to lock orientation:', error);
+        }
+    };
+
+    const unlockEnduranceOrientation = async () => {
+        if (!enduranceOrientationLocked) {
+            return;
+        }
+        try {
+            if (typeof screen?.orientation?.unlock === 'function') {
+                screen.orientation.unlock();
+            }
+        } catch (error) {
+            console.warn('Unable to unlock orientation:', error);
+        }
+        enduranceOrientationLocked = false;
+    };
+
+    const requestEnduranceNativeFullscreen = async (targetElement) => {
+        if (!targetElement || typeof targetElement.requestFullscreen !== 'function') {
+            return false;
+        }
+
+        try {
+            await targetElement.requestFullscreen({ navigationUI: 'hide' });
+            return true;
+        } catch (error) {
+            console.warn('Fullscreen request failed:', error);
+            return false;
+        }
+    };
+
+    const exitEnduranceNativeFullscreen = async () => {
+        if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
+            try {
+                await document.exitFullscreen();
+            } catch (error) {
+                console.warn('Fullscreen exit failed:', error);
+            }
+        }
+    };
+
+    const syncEnduranceFullscreenButtons = () => {
+        const buttons = Array.from(document.querySelectorAll('[data-endurance-fullscreen-toggle]'));
+        buttons.forEach((button) => {
+            const target = button.dataset.targetPlot
+                || button.closest('[data-endurance-plot]')?.dataset.endurancePlot
+                || '';
+            const isActive = enduranceFullscreenPlot === target;
+            button.dataset.state = isActive ? 'collapse' : 'expand';
+            button.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+            const icon = button.querySelector('.endurance-multiplot__fullscreen-icon');
+            const label = button.querySelector('.sr-only');
+            const chartTitle = button.closest('[data-endurance-plot]')?.querySelector('.endurance-multiplot__title')?.textContent?.trim();
+            const baseLabel = chartTitle ? `${chartTitle} chart` : 'chart';
+            if (icon) {
+                icon.textContent = isActive ? '⤡' : '⤢';
+            }
+            if (label) {
+                label.textContent = isActive ? `Collapse ${baseLabel}` : `Expand ${baseLabel}`;
+            }
+        });
+    };
+
+    const setEndurancePlotFullscreen = async (plotKey = '', enable = false, options = {}) => {
+        const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
+        const shouldEnable = Boolean(enable && normalizedKey);
+        const skipNativeFullscreen = options?.skipNativeFullscreen;
+
+        if (shouldEnable && !isMobileEnduranceViewport()) {
+            return;
+        }
+
+        const plots = Array.from(document.querySelectorAll('[data-endurance-plot]'));
+        let targetPlotElement = null;
+
+        plots.forEach((plot) => {
+            const isTarget = shouldEnable && plot.dataset.endurancePlot === normalizedKey;
+            if (isTarget) {
+                targetPlotElement = plot;
+            }
+            plot.classList.toggle('endurance-multiplot__plot--fullscreen', isTarget);
+        });
+
+        enduranceFullscreenPlot = shouldEnable ? normalizedKey : null;
+        document.body.classList.toggle('endurance-fullscreen-active', shouldEnable);
+        syncEnduranceFullscreenButtons();
+
+        const activeChart = shouldEnable ? enduranceChartInstances.get(normalizedKey) : null;
+
+        if (shouldEnable) {
+            if (!skipNativeFullscreen) {
+                await requestEnduranceNativeFullscreen(targetPlotElement || document.documentElement);
+            }
+            await lockEnduranceOrientation();
+            if (activeChart) {
+                setTimeout(() => activeChart.resize(), 80);
+            }
+        } else {
+            await unlockEnduranceOrientation();
+            if (!skipNativeFullscreen) {
+                await exitEnduranceNativeFullscreen();
+            }
+            if (!shouldEnable) {
+                enduranceChartInstances.forEach((chart) => chart.resize());
+            }
+        }
+    };
+
+    const toggleEndurancePlotFullscreen = async (plotKey = '') => {
+        const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
+        if (!isMobileEnduranceViewport()) {
+            await setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+            return;
+        }
+        const enable = enduranceFullscreenPlot !== normalizedKey;
+        await setEndurancePlotFullscreen(normalizedKey, enable);
+    };
+
+    function bindEnduranceFullscreenControls() {
+        const buttons = Array.from(document.querySelectorAll('[data-endurance-fullscreen-toggle]'));
+        if (!buttons.length) {
+            return;
+        }
+
+        buttons.forEach((button) => {
+            const target = button.dataset.targetPlot
+                || button.closest('[data-endurance-plot]')?.dataset.endurancePlot
+                || '';
+
+            button.addEventListener('click', () => toggleEndurancePlotFullscreen(target));
+        });
+
+        if (typeof enduranceFullscreenMediaQuery?.addEventListener === 'function') {
+            enduranceFullscreenMediaQuery.addEventListener('change', async (event) => {
+                if (!event.matches && enduranceFullscreenPlot) {
+                    await setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+                }
+            });
+        } else if (typeof enduranceFullscreenMediaQuery?.addListener === 'function') {
+            enduranceFullscreenMediaQuery.addListener(async (event) => {
+                if (!event.matches && enduranceFullscreenPlot) {
+                    await setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+                }
+            });
+        }
+
+        document.addEventListener('fullscreenchange', async () => {
+            if (!document.fullscreenElement && enduranceFullscreenPlot) {
+                await setEndurancePlotFullscreen(enduranceFullscreenPlot, false, { skipNativeFullscreen: true });
+            }
+        });
+
+        if (typeof screen?.orientation?.addEventListener === 'function') {
+            screen.orientation.addEventListener('change', () => {
+                if (enduranceFullscreenPlot) {
+                    enduranceChartInstances.forEach((chart) => chart.resize());
+                }
+            });
+        }
+
+        syncEnduranceFullscreenButtons();
+    }
+
+    const addEnduranceComparison = async (userId, labelHint = '') => {
+        const resolvedId = typeof userId === 'string'
+            ? (leaderboardNameToIdMap.get(userId.toLowerCase()) || userId)
+            : '';
+        const trimmedId = typeof resolvedId === 'string' ? resolvedId.trim() : '';
+        if (!trimmedId) {
+            setEnduranceCompareStatus('Select a leaderboard athlete or provide a Strava athlete ID to compare.');
+            return;
+        }
+
+        const knownLabel = leaderboardComparisonOptions.get(trimmedId) || labelHint || userId;
+        if (enduranceComparisonProfiles.has(trimmedId)) {
+            const existingLabel = enduranceComparisonProfiles.get(trimmedId)?.label || knownLabel || trimmedId;
+            setEnduranceCompareStatus(`${existingLabel} is already on the chart.`);
+            return;
+        }
+
+        setEnduranceCompareStatus('Loading athlete snapshot...');
+
+        try {
+            const payload = await fetchAndValidateJson(
+                () => fetch(`/api/user-snapshot/${encodeURIComponent(trimmedId)}`, { cache: 'no-store' }),
+                {
+                    attempts: 2,
+                    retryDelay: 500,
+                    validate: isValidStravaPayload,
+                    allowNotFound: true,
+                }
+            );
+
+            if (!payload) {
+                setEnduranceCompareStatus('No shared snapshot available for that athlete yet.');
+                return;
+            }
+
+            const activities = Array.isArray(payload.activities) ? payload.activities : [];
+            const profileLabel = payload?.athlete?.username
+                || `${payload?.athlete?.firstname || ''} ${payload?.athlete?.lastname || ''}`.trim()
+                || knownLabel
+                || trimmedId;
+
+            enduranceComparisonProfiles.set(trimmedId, {
+                key: trimmedId,
+                label: profileLabel,
+                activities,
+            });
+
+            if (enduranceCompareSelect) {
+                enduranceCompareSelect.value = '';
+            }
+
+            if (enduranceCompareInput) {
+                enduranceCompareInput.value = '';
+            }
+
+            updateEnduranceChart(enduranceChartSource);
+            setEnduranceCompareStatus(`Added ${profileLabel} to the comparison chart.`);
+        } catch (error) {
+            console.error('Failed to add comparison athlete:', error);
+            setEnduranceCompareStatus('Unable to load that athlete right now. Try again later.');
+        }
+    };
+
+    function bindEnduranceCompareForm() {
+        if (!enduranceCompareForm || enduranceCompareForm.dataset.bound === 'true') {
+            return;
+        }
+
+        enduranceCompareForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const typedName = enduranceCompareInput?.value?.trim() || '';
+            const typedAthleteId = extractAthleteIdFromInput(typedName);
+            const selectedOption = enduranceCompareSelect?.selectedOptions?.[0];
+            const selectedValue = enduranceCompareSelect?.value || '';
+            const normalizedSelectedValue = typeof selectedValue === 'string' ? selectedValue.trim() : '';
+            const selectedLabel = typedName || selectedOption?.textContent || normalizedSelectedValue || typedAthleteId;
+            const leaderboardLookup = typedName ? leaderboardNameToIdMap.get(typedName.toLowerCase()) : '';
+            const athleteIdLookup = typedAthleteId ? leaderboardNameToIdMap.get(typedAthleteId.toLowerCase()) : '';
+            const resolvedId = leaderboardLookup
+                || athleteIdLookup
+                || selectedOption?.dataset?.userId
+                || leaderboardNameToIdMap.get(normalizedSelectedValue.toLowerCase())
+                || typedAthleteId
+                || normalizedSelectedValue;
+            const targetUserId = resolvedId || '';
+            const selectionLabel = selectedLabel || targetUserId || typedAthleteId || normalizedSelectedValue;
+            if (typedName && !leaderboardLookup && !athleteIdLookup && !typedAthleteId) {
+                setEnduranceCompareStatus(`No leaderboard or athlete ID match found for "${typedName}". Try a saved dashboard user or paste the Strava athlete ID.`);
+                return;
+            }
+            addEnduranceComparison(targetUserId, selectionLabel);
+        });
+
+        enduranceCompareForm.dataset.bound = 'true';
+    }
 
     const destroyMedalMixChart = () => {
         if (medalMixChartInstance) {
@@ -4642,41 +14033,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const updateCoinSummaryFromWallet = (achievementCategories = [], medalSummary = { count: 0, value: 0 }, medalBreakdown = []) => {
-        const totals = computeWalletCoinTotals(achievementCategories);
-        const elementMap = {
-            '💲': 'coin-dollar',
-            '💰': 'coin-money',
-            '🧈': 'coin-butter',
-            '💎': 'coin-diamond',
-            '👑': 'coin-king'
+        const sanitizedCategories = Array.isArray(achievementCategories)
+            ? achievementCategories.filter(category => category && !EXCLUDED_WALLET_CATEGORIES.has(category.name))
+            : [];
+        const sanitizedMedalBreakdown = Array.isArray(medalBreakdown)
+            ? medalBreakdown.map(medal => ({
+                ...medal,
+                count: toNonNegativeInteger(medal?.count),
+            }))
+            : [];
+
+        const medalSummaryFromBreakdown = calculateMedalValueSummary(sanitizedMedalBreakdown);
+        const sanitizedMedalSummary = {
+            count: toNonNegativeInteger(medalSummary?.count ?? medalSummaryFromBreakdown.totalCount),
+            value: Number.isFinite(medalSummary?.value)
+                ? medalSummary.value
+                : medalSummaryFromBreakdown.totalValue,
+            historicalCount: toNonNegativeInteger(
+                medalSummary?.historicalCount ?? medalSummaryFromBreakdown.historicalCount,
+            ),
+            historicalValue: Number.isFinite(medalSummary?.historicalValue)
+                ? medalSummary.historicalValue
+                : medalSummaryFromBreakdown.historicalValue,
+            standardValue: Number.isFinite(medalSummary?.standardValue)
+                ? medalSummary.standardValue
+                : medalSummaryFromBreakdown.standardValue,
         };
 
-        Object.entries(elementMap).forEach(([emoji, elementId]) => {
-            const element = document.getElementById(elementId);
-            if (!element) {
-                return;
-            }
-            const targetValue = totals[emoji] || 0;
-            const currentValue = Number.parseInt(element.textContent, 10) || 0;
-            if (currentValue !== targetValue) {
-                element.textContent = targetValue;
-            }
-            const parentButton = element.closest('button[data-coin-type]');
-            if (parentButton) {
-                parentButton.setAttribute('aria-label', `${targetValue.toLocaleString()} ${emoji} minted`);
-            }
-        });
+        latestWalletSummaryPayload = {
+            categories: sanitizedCategories.map(category => ({
+                name: category.name,
+                achievements: Array.isArray(category.achievements)
+                    ? category.achievements.map(achievement => ({
+                        ...achievement,
+                        count: toNonNegativeInteger(achievement?.count),
+                    }))
+                    : [],
+            })),
+            medalSummary: sanitizedMedalSummary,
+            medalBreakdown: sanitizedMedalBreakdown,
+        };
 
+        const totals = computeWalletCoinTotals(latestWalletSummaryPayload.categories);
         const totalCoinValue = Object.entries(totals).reduce((sum, [emoji, count]) => {
+            const normalizedCount = toNonNegativeInteger(count);
             const coinValue = COIN_VALUE_MAP[emoji] || 0;
-            return sum + (coinValue * count);
+            return sum + (coinValue * normalizedCount);
         }, 0);
 
-        const medalValue = Number.isFinite(medalSummary?.value) ? medalSummary.value : 0;
-        const medalCount = Number.isFinite(medalSummary?.count) ? medalSummary.count : 0;
+        const medalCount = sanitizedMedalSummary.count;
+        const medalValue = sanitizedMedalSummary.value;
         const combinedValue = totalCoinValue + medalValue;
 
-        const totalCoinCount = Object.values(totals).reduce((sum, count) => sum + count, 0);
+        const totalCoinCount = Object.values(totals).reduce(
+            (sum, count) => sum + toNonNegativeInteger(count),
+            0,
+        );
 
         if (walletSummaryElements.coinsCount) {
             walletSummaryElements.coinsCount.textContent = totalCoinCount.toLocaleString();
@@ -4698,9 +14110,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const aggregatedMedals = new Map();
-        if (Array.isArray(medalBreakdown)) {
-            medalBreakdown.forEach(medal => {
-                const count = Number.isFinite(medal?.count) ? medal.count : 0;
+        if (Array.isArray(latestWalletSummaryPayload.medalBreakdown)) {
+            latestWalletSummaryPayload.medalBreakdown.forEach(medal => {
+                const count = toNonNegativeInteger(medal?.count);
                 if (count <= 0) {
                     return;
                 }
@@ -4747,10 +14159,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        applyPercentChangeToElement(walletBalanceChangeElements.month, walletGrowthStats?.monthChangePct ?? null, '30d');
-        applyPercentChangeToElement(walletBalanceChangeElements.year, walletGrowthStats?.yearChangePct ?? null, '365d');
+        applyWalletChangeToElement(
+            walletBalanceChangeElements.year,
+            walletGrowthStats?.yearChangeValue ?? null,
+            walletGrowthStats?.yearChangePct ?? null,
+            { shortLabel: '1Y', longLabel: 'One-year' }
+        );
 
         return totals;
+    };
+
+    const reapplyAchievementSummaries = () => {
+        renderFunStats();
+        renderProfileDisciplineRatios();
+        if (!latestWalletSummaryPayload) {
+            return;
+        }
+        updateCoinSummaryFromWallet(
+            latestWalletSummaryPayload.categories,
+            latestWalletSummaryPayload.medalSummary,
+            latestWalletSummaryPayload.medalBreakdown,
+        );
     };
 
     const ensureInsightAnchor = (element) => {
@@ -4879,6 +14308,124 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.classList.add('tooltip-target');
     };
 
+    const focusCountryFilterSection = () => {
+        const target = countryFilterList || countryFilterEmptyState;
+        if (!target) {
+            return;
+        }
+
+        const scrollTarget = target.closest?.('.filter-field') || target;
+        if (scrollTarget instanceof HTMLElement && typeof scrollTarget.scrollIntoView === 'function') {
+            scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        if (target instanceof HTMLElement) {
+            target.focus({ preventScroll: true });
+        }
+    };
+
+    function bindCountryStatButton() {
+        if (!countryStatButton) {
+            return;
+        }
+        if (countryStatButton.dataset.countryMapBound === 'true') {
+            return;
+        }
+        countryStatButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            hideTooltip();
+            openActivitiesFilterModal();
+            window.requestAnimationFrame(() => {
+                focusCountryFilterSection();
+            });
+        });
+        countryStatButton.dataset.countryMapBound = 'true';
+    }
+
+    bindCountryStatButton();
+
+    renderFunStats = (stats = latestFunStats, context = latestFunStatsContext) => {
+        if (!stats) {
+            return;
+        }
+
+        const hasActivities = Boolean(context?.hasActivities);
+        latestCountryStats = Array.isArray(stats.countryStats) ? stats.countryStats : [];
+        updateCountryMapSummary();
+        refreshCountryMapIfVisible();
+
+        if (globeTotalElement) {
+            globeTotalElement.textContent = formatStatValue(stats.globeTrips);
+        }
+        if (everestTotalElement) {
+            everestTotalElement.textContent = formatStatValue(stats.everestSummits);
+        }
+        if (pizzaTotalElement) {
+            pizzaTotalElement.textContent = formatStatValue(stats.pizzas);
+        }
+        if (countryTotalElement) {
+            countryTotalElement.textContent = formatCount(Number.isFinite(stats.countryCount) ? stats.countryCount : 0);
+        }
+
+        if (globeStatButton) {
+            const message = hasActivities
+                ? `Total distance ${formatDistance(stats.distanceKm)} — ${formatStatValue(stats.globeTrips)} globe trips.`
+                : 'No distance recorded for the selected period.';
+            attachTooltip(globeStatButton, message);
+        }
+        if (everestStatButton) {
+            const message = hasActivities
+                ? `Total elevation ${formatElevation(stats.elevationGain)} — ${formatStatValue(stats.everestSummits)} Everest climbs.`
+                : 'No elevation recorded for the selected period.';
+            attachTooltip(everestStatButton, message);
+        }
+        if (pizzaStatButton) {
+            const message = hasActivities
+                ? `Energy burned ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzas)}.`
+                : 'No heart rate data to estimate calories for this period.';
+            attachTooltip(pizzaStatButton, message);
+        }
+            if (countryStatButton) {
+                const countryCount = Number.isFinite(stats.countryCount) ? stats.countryCount : 0;
+                const topCountries = Array.isArray(stats.topCountries) ? stats.topCountries : [];
+                const highlights = topCountries.slice(0, 3)
+                    .map((entry) => {
+                        const name = entry?.name || getCountryDisplayName(entry?.code);
+                        const countText = Number.isFinite(entry?.count) && entry.count > 0
+                            ? ` (${formatCount(entry.count)})`
+                            : '';
+                        return `${name}${countText}`;
+                    })
+                    .join(' · ');
+            const message = countryCount > 0
+                ? `${formatCount(countryCount)} countries explored.${highlights ? ` Top stops: ${highlights}.` : ''}`
+                : 'Country metadata will appear once activities are synced.';
+            countryStatButton.setAttribute('aria-label', message);
+            countryStatButton.setAttribute('title', message);
+        }
+        if (likesTotalElement) {
+            likesTotalElement.textContent = formatCount(stats.likes);
+        }
+        if (likesStatButton) {
+            const totalLikes = stats.likes;
+            const message = hasActivities
+                ? `${formatCount(totalLikes)} kudos collected across all visible activities.`
+                : 'No kudos recorded for the selected period.';
+            likesStatButton.setAttribute('aria-label', message);
+            attachTooltip(likesStatButton, message);
+        }
+    };
+
+    renderProfileDisciplineRatios = () => {
+        if (disciplineRatioRowElement) {
+            disciplineRatioRowElement.innerHTML = '';
+        }
+
+        if (disciplineRatioSection) {
+            disciplineRatioSection.hidden = true;
+            disciplineRatioSection.setAttribute('aria-hidden', 'true');
+        }
+    };
     document.addEventListener('click', (event) => {
         if (!event.target.closest('.insight-anchor')) {
             hideTooltip();
@@ -4935,6 +14482,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             .replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
+    const normalizeFilterDate = (value, { endOfDay = false } = {}) => {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+
+        const resolved = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(resolved.getTime())) {
+            return null;
+        }
+
+        const normalized = new Date(resolved);
+        normalized.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+        return normalized;
+    };
+
     const setSelectValue = (selectElement, targetValue) => {
         if (!selectElement || typeof targetValue !== 'string') {
             return;
@@ -4947,19 +14509,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const extractActivityCountry = (activity = {}) => {
-        if (!activity || typeof activity !== 'object') {
-            return DEFAULT_COUNTRY_LABEL;
-        }
-
-        const rawCountry = (activity.location_country || activity.country || '').trim();
-        if (rawCountry) {
-            return rawCountry;
-        }
-
-        return DEFAULT_COUNTRY_LABEL;
-    };
-
     const getActivityFilterValues = () => {
         const filters = { ...DEFAULT_ACTIVITY_FILTERS };
 
@@ -4968,9 +14517,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             filters.type = typeValue.length > 0 ? typeValue : 'all';
         }
 
-        if (activityCountryFilter) {
-            const countryValue = (activityCountryFilter.value || '').trim();
-            filters.country = countryValue.length > 0 ? countryValue : 'all';
+        if (activitySortSelect) {
+            const sortValue = (activitySortSelect.value || '').trim();
+            const normalizedSort = sortValue.length > 0 ? sortValue : 'date-desc';
+            filters.sortBy = ALLOWED_ACTIVITY_SORTS.has(normalizedSort)
+                ? normalizedSort
+                : 'date-desc';
+        }
+
+        if (!ALLOWED_ACTIVITY_SORTS.has(filters.sortBy)) {
+            filters.sortBy = 'date-desc';
         }
 
         filters.minHours = parseNumberInputValue(activityHoursMinInput);
@@ -4991,23 +14547,141 @@ document.addEventListener('DOMContentLoaded', async () => {
             [filters.minElevation, filters.maxElevation] = [filters.maxElevation, filters.minElevation];
         }
 
+        filters.startDate = normalizeFilterDate(currentActivityFilters.startDate);
+        filters.endDate = normalizeFilterDate(currentActivityFilters.endDate, { endOfDay: true });
+
+        if (currentActivityFilters?.coinEmoji && COIN_EMOJIS.includes(currentActivityFilters.coinEmoji)) {
+            filters.coinEmoji = currentActivityFilters.coinEmoji;
+        } else {
+            filters.coinEmoji = null;
+        }
+
+        if (raceFilterSelect) {
+            const selectedRace = (raceFilterSelect.value || '').trim();
+            filters.raceRequestId = selectedRace || null;
+        } else if (currentActivityFilters?.raceRequestId) {
+            filters.raceRequestId = currentActivityFilters.raceRequestId;
+        }
+
+        if (climbFilterSelect) {
+            const selectedClimb = (climbFilterSelect.value || '').trim();
+            filters.climbSegmentId = selectedClimb || null;
+        } else if (currentActivityFilters?.climbSegmentId) {
+            filters.climbSegmentId = currentActivityFilters.climbSegmentId;
+        }
+
+        filters.countries = Array.from(countryFilterSelection);
+
+        filters.topShortcut = topFilterShortcutActive;
+
         return filters;
+    };
+
+    const renderCountryFilterChips = (stats = []) => {
+        lastCountryFilterStats = Array.isArray(stats) ? stats.slice() : [];
+        if (!countryFilterList) {
+            return;
+        }
+
+        const selection = new Set(countryFilterSelection);
+        const visibleEntries = [];
+        const seenCodes = new Set();
+
+        lastCountryFilterStats.forEach((entry) => {
+            if (!entry?.code || visibleEntries.length >= MAX_COUNTRY_FILTER_CHIPS) {
+                return;
+            }
+            visibleEntries.push(entry);
+            seenCodes.add(entry.code);
+        });
+
+        selection.forEach((code) => {
+            const normalized = normalizeCountryCode(code);
+            if (!normalized || seenCodes.has(normalized)) {
+                return;
+            }
+            const matchingEntry = lastCountryFilterStats.find(entry => entry.code === normalized);
+            visibleEntries.push(matchingEntry || {
+                code: normalized,
+                count: 0,
+                name: getCountryDisplayName(normalized),
+                flag: countryCodeToFlagEmoji(normalized),
+            });
+            seenCodes.add(normalized);
+        });
+
+        countryFilterList.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        visibleEntries.forEach((entry) => {
+            const isSelected = selection.has(entry.code);
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'filter-chip filter-chip--country';
+            chip.dataset.countryCode = entry.code;
+            chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            chip.setAttribute('aria-label', `Filter by ${entry.name || entry.code}`);
+            if (isSelected) {
+                chip.classList.add('is-active');
+            }
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'filter-chip__label';
+            labelSpan.textContent = entry.name || entry.code;
+            chip.appendChild(labelSpan);
+
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'filter-chip__meta';
+            const countText = Number.isFinite(entry.count) && entry.count > 0
+                ? `${formatCount(entry.count)} ${entry.count === 1 ? 'activity' : 'activities'}`
+                : 'No matches';
+            metaSpan.textContent = countText;
+            chip.appendChild(metaSpan);
+
+            fragment.appendChild(chip);
+        });
+
+        countryFilterList.appendChild(fragment);
+        if (countryFilterEmptyState) {
+            const hasEntries = visibleEntries.length > 0;
+            countryFilterEmptyState.classList.toggle('hidden', hasEntries || selection.size > 0);
+            countryFilterEmptyState.setAttribute('aria-hidden', hasEntries ? 'true' : 'false');
+        }
+    };
+
+    const clearCountryFilterSelection = () => {
+        if (countryFilterSelection.size === 0) {
+            return false;
+        }
+        countryFilterSelection.clear();
+        currentActivityFilters.countries = [];
+        renderCountryFilterChips(lastCountryFilterStats);
+        return true;
+    };
+
+    const toggleCountryFilterSelection = (code) => {
+        const normalized = normalizeCountryCode(code);
+        if (!normalized) {
+            return false;
+        }
+        if (countryFilterSelection.has(normalized)) {
+            countryFilterSelection.delete(normalized);
+        } else {
+            countryFilterSelection.add(normalized);
+        }
+        currentActivityFilters.countries = Array.from(countryFilterSelection);
+        renderCountryFilterChips(lastCountryFilterStats);
+        return true;
     };
 
     const updateActivityFilterOptions = (activities = []) => {
         const availableTypes = new Set();
-        const availableCountries = new Set();
 
         activities.forEach((activity) => {
             const typeValue = typeof activity?.type === 'string' ? activity.type.trim() : '';
             if (typeValue) {
                 availableTypes.add(typeValue);
             }
-
-            const countryValue = extractActivityCountry(activity);
-            if (countryValue) {
-                availableCountries.add(countryValue);
-            }
+            registerActivityCountryMetadata(activity);
         });
 
         if (activityTypeFilter) {
@@ -5043,35 +14717,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        if (activityCountryFilter) {
-            const currentCountryValue = (activityCountryFilter.value || '').trim() || 'all';
-            if (currentCountryValue !== 'all' && !availableCountries.has(currentCountryValue)) {
-                availableCountries.add(currentCountryValue);
-            }
+        renderCountryFilterChips(buildCountryStatsFromActivities(activities));
 
-            const sortedCountries = Array.from(availableCountries).sort((a, b) => a.localeCompare(b));
+    };
 
-            const countryFragment = document.createDocumentFragment();
-            const allCountriesOption = document.createElement('option');
-            allCountriesOption.value = 'all';
-            allCountriesOption.textContent = 'All nations';
-            countryFragment.appendChild(allCountriesOption);
+    const setActiveFilterShortcut = (shortcutKey = null) => {
+        activeFilterShortcut = shortcutKey || null;
+        topFilterShortcutActive = activeFilterShortcut === 'top';
+        currentActivityFilters.topShortcut = topFilterShortcutActive;
+    };
 
-            sortedCountries.forEach((country) => {
-                const option = document.createElement('option');
-                option.value = country;
-                option.textContent = country;
-                countryFragment.appendChild(option);
-            });
+    const clearFilterShortcutSelection = () => {
+        setActiveFilterShortcut(null);
+    };
 
-            activityCountryFilter.innerHTML = '';
-            activityCountryFilter.appendChild(countryFragment);
+    const clearQuickFilterSelection = () => {
+        activeQuickFilter = null;
+        quickFilterButtons.forEach((button) => {
+            button.classList.remove('is-active');
+            button.setAttribute('aria-pressed', 'false');
+        });
+    };
 
-            if (currentCountryValue === 'all' || sortedCountries.includes(currentCountryValue)) {
-                activityCountryFilter.value = currentCountryValue;
-            } else {
-                activityCountryFilter.value = 'all';
-            }
+    const setTopPerformancesVisibility = (isVisible) => {
+        if (topPerformancesSection) {
+            topPerformancesSection.toggleAttribute('hidden', !isVisible);
+        }
+
+        if (!isVisible && bestActivitiesContainer) {
+            bestActivitiesContainer.innerHTML = '';
+        }
+
+        if (!isVisible && topPerformancesEmptyState) {
+            topPerformancesEmptyState.classList.add('hidden');
         }
     };
 
@@ -5083,43 +14761,201 @@ document.addEventListener('DOMContentLoaded', async () => {
         const formatValue = (value) => formatNumberWithDecimals(value, decimals) + unitSuffix;
 
         if (minValue !== null && maxValue !== null) {
-            return `${label}: ${formatValue(minValue)}–${formatValue(maxValue)}`;
+            return `${label} · ${formatValue(minValue)}–${formatValue(maxValue)}`;
         }
 
         if (minValue !== null) {
-            return `${label}: ≥ ${formatValue(minValue)}`;
+            return `${label} · ≥ ${formatValue(minValue)}`;
         }
 
-        return `${label}: ≤ ${formatValue(maxValue)}`;
+        return `${label} · ≤ ${formatValue(maxValue)}`;
     };
 
     const describeActivityFilters = (filters = DEFAULT_ACTIVITY_FILTERS) => {
-        const descriptions = [];
+        const descriptors = [];
 
         if (filters.type && filters.type !== 'all') {
-            descriptions.push(`Type: ${formatActivityTypeLabel(filters.type)}`);
+            descriptors.push({
+                label: `Type · ${formatActivityTypeLabel(filters.type)}`,
+                onRemove: () => {
+                    currentActivityFilters.type = 'all';
+                    if (activityTypeFilter) {
+                        setSelectValue(activityTypeFilter, 'all');
+                    }
+                    clearQuickFilterSelection();
+                    return true;
+                }
+            });
         }
 
-        if (filters.country && filters.country !== 'all') {
-            descriptions.push(`Nation: ${filters.country}`);
+        if (filters.sortBy && filters.sortBy !== 'date-desc') {
+            const sortLabels = {
+                'distance-desc': 'Distance',
+                'balance-desc': 'Balance',
+                'elevation-desc': 'Elevation',
+            };
+            const sortLabel = sortLabels[filters.sortBy] || 'Custom order';
+            descriptors.push({
+                label: `Sort · ${sortLabel}`,
+                onRemove: () => {
+                    currentActivityFilters.sortBy = 'date-desc';
+                    if (activitySortSelect) {
+                        setSelectValue(activitySortSelect, 'date-desc');
+                    }
+                    clearQuickFilterSelection();
+                    return true;
+                }
+            });
         }
 
-        const hoursDescription = formatRangeDescription(filters.minHours, filters.maxHours, 'Hours', 1, 'h');
-        if (hoursDescription) {
-            descriptions.push(hoursDescription);
+        const startDateFilter = normalizeFilterDate(filters.startDate);
+        const endDateFilter = normalizeFilterDate(filters.endDate, { endOfDay: true });
+        if (startDateFilter || endDateFilter) {
+            const startLabel = startDateFilter
+                ? startDateFilter.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Any time';
+            const endLabel = endDateFilter
+                ? endDateFilter.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Present';
+            const sameMonth = startDateFilter
+                && endDateFilter
+                && startDateFilter.getFullYear() === endDateFilter.getFullYear()
+                && startDateFilter.getMonth() === endDateFilter.getMonth();
+            const periodLabel = sameMonth
+                ? startDateFilter.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+                : `${startLabel} – ${endLabel}`;
+
+            descriptors.push({
+                label: `Period · ${periodLabel}`,
+                onRemove: () => {
+                    currentActivityFilters.startDate = null;
+                    currentActivityFilters.endDate = null;
+                    return true;
+                }
+            });
         }
 
-        const distanceDescription = formatRangeDescription(filters.minDistance, filters.maxDistance, 'Distance', 0, ' km');
-        if (distanceDescription) {
-            descriptions.push(distanceDescription);
+        if (filters.topShortcut) {
+            descriptors.push({
+                label: 'Shortcut · Top',
+                onRemove: () => {
+                    setSelectValue(activitySortSelect, 'date-desc');
+                    clearFilterShortcutSelection();
+                    currentActivityFilters.topShortcut = false;
+                    return true;
+                }
+            });
         }
 
-        const elevationDescription = formatRangeDescription(filters.minElevation, filters.maxElevation, 'Elevation', 0, ' m');
-        if (elevationDescription) {
-            descriptions.push(elevationDescription);
+        const addRangeDescriptor = ({ label, minKey, maxKey, decimals = 0, unitSuffix = '', minInput = null, maxInput = null }) => {
+            const description = formatRangeDescription(filters[minKey], filters[maxKey], label, decimals, unitSuffix);
+            if (!description) {
+                return;
+            }
+
+            descriptors.push({
+                label: description,
+                onRemove: () => {
+                    currentActivityFilters[minKey] = null;
+                    currentActivityFilters[maxKey] = null;
+                    if (minInput) {
+                        minInput.value = '';
+                    }
+                    if (maxInput) {
+                        maxInput.value = '';
+                    }
+                    clearQuickFilterSelection();
+                    return true;
+                }
+            });
+        };
+
+        addRangeDescriptor({
+            label: 'Hours',
+            minKey: 'minHours',
+            maxKey: 'maxHours',
+            decimals: 1,
+            unitSuffix: 'h',
+            minInput: activityHoursMinInput,
+            maxInput: activityHoursMaxInput
+        });
+
+        addRangeDescriptor({
+            label: 'Distance',
+            minKey: 'minDistance',
+            maxKey: 'maxDistance',
+            unitSuffix: ' km',
+            minInput: activityDistanceMinInput,
+            maxInput: activityDistanceMaxInput
+        });
+
+        addRangeDescriptor({
+            label: 'Elevation',
+            minKey: 'minElevation',
+            maxKey: 'maxElevation',
+            unitSuffix: ' m',
+            minInput: activityElevationMinInput,
+            maxInput: activityElevationMaxInput
+        });
+
+        if (filters.coinEmoji && COIN_EMOJIS.includes(filters.coinEmoji)) {
+            descriptors.push({
+                label: `Coin · Minted ${filters.coinEmoji}`,
+                onRemove: () => {
+                    currentActivityFilters.coinEmoji = null;
+                    return true;
+                }
+            });
         }
 
-        return descriptions;
+        if (filters.raceRequestId && raceRequestMap.has(filters.raceRequestId)) {
+            const raceEntry = raceRequestMap.get(filters.raceRequestId);
+            descriptors.push({
+                label: `Race · ${raceEntry.label}`,
+                onRemove: () => {
+                    currentActivityFilters.raceRequestId = null;
+                    if (raceFilterSelect) {
+                        raceFilterSelect.value = '';
+                    }
+                    return true;
+                }
+            });
+        }
+
+        if (filters.climbSegmentId && climbRequestMap.has(filters.climbSegmentId)) {
+            const climbEntry = climbRequestMap.get(filters.climbSegmentId);
+            descriptors.push({
+                label: `Climb · ${climbEntry.label}`,
+                onRemove: () => {
+                    currentActivityFilters.climbSegmentId = null;
+                    if (climbFilterSelect) {
+                        climbFilterSelect.value = '';
+                        renderClimbAttemptsDetail(null);
+                    }
+                    return true;
+                }
+            });
+        }
+
+        if (Array.isArray(filters.countries) && filters.countries.length > 0) {
+            const formattedCountries = filters.countries
+                .map(code => getCountryFilterLabel(code))
+                .filter(Boolean);
+            if (formattedCountries.length > 0) {
+                const maxPreview = 2;
+                const preview = formattedCountries.slice(0, maxPreview).join(', ');
+                const remaining = formattedCountries.length - maxPreview;
+                const labelText = remaining > 0
+                    ? `${preview} +${remaining}`
+                    : preview;
+                descriptors.push({
+                    label: `Country · ${labelText}`,
+                    onRemove: () => clearCountryFilterSelection(),
+                });
+            }
+        }
+
+        return descriptors;
     };
 
     const updateActivityFilterActiveText = () => {
@@ -5127,20 +14963,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const descriptions = describeActivityFilters(currentActivityFilters);
+        const descriptors = describeActivityFilters(currentActivityFilters);
 
         if (activeMedalFilter) {
             const medalDescription = activeMedalMeta?.emoji
-                ? `Medal: ${activeMedalMeta.emoji} ${activeMedalFilter}`
-                : `Medal: ${activeMedalFilter}`;
-            descriptions.push(medalDescription);
+                ? `Medal · ${activeMedalMeta.emoji} ${activeMedalFilter}`
+                : `Medal · ${activeMedalFilter}`;
+            descriptors.push({
+                label: medalDescription,
+                onRemove: () => resetMedalFilterState()
+            });
         }
 
-        if (descriptions.length === 0) {
-            activityFilterActive.textContent = 'No additional filters applied.';
-        } else {
-            activityFilterActive.textContent = `Filters active · ${descriptions.join(' · ')}`;
+        activityFilterActive.innerHTML = '';
+        const hasDescriptions = descriptors.length > 0;
+        activityFilterActive.classList.toggle('hidden', !hasDescriptions);
+        if (!hasDescriptions) {
+            activityFilterActive.setAttribute('aria-hidden', 'true');
+            return;
         }
+
+        activityFilterActive.removeAttribute('aria-hidden');
+
+        const fragment = document.createDocumentFragment();
+        descriptors.forEach(({ label, onRemove }) => {
+            const pill = document.createElement('span');
+            pill.className = 'filter-active-tags__pill';
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'filter-active-tags__pill-text';
+            textSpan.textContent = label;
+            pill.appendChild(textSpan);
+
+            if (typeof onRemove === 'function') {
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'filter-active-tags__pill-remove';
+                removeButton.setAttribute('aria-label', `Remove filter ${label}`);
+                removeButton.textContent = '×';
+                removeButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (filterApplyTimeout) {
+                        clearTimeout(filterApplyTimeout);
+                        filterApplyTimeout = null;
+                    }
+                    const removalResult = onRemove();
+                    if (removalResult !== false) {
+                        requestActivitiesRender({ preserveVisibleCount: false });
+                    } else {
+                        updateActivityFilterActiveText();
+                    }
+                });
+                pill.appendChild(removeButton);
+            }
+
+            fragment.appendChild(pill);
+        });
+
+        activityFilterActive.appendChild(fragment);
     };
 
     const updateActivityFilterSummary = (displayedCount = 0, totalCount = 0) => {
@@ -5167,23 +15048,68 @@ document.addEventListener('DOMContentLoaded', async () => {
             activityFilterSummary.textContent = baseSummary;
         }
 
-        const filterDescriptions = describeActivityFilters(currentActivityFilters);
-        if (activeMedalFilter) {
-            const medalDescription = activeMedalMeta?.emoji
-                ? `Medal: ${activeMedalMeta.emoji} ${activeMedalFilter}`
-                : `Medal: ${activeMedalFilter}`;
-            filterDescriptions.push(medalDescription);
+    };
+
+    const requestActivitiesRender = (options = {}) => {
+        pendingActivitiesOptions = options;
+        lastActivitiesRenderOptions = { ...options };
+
+        if (!Array.isArray(allData.activities)) {
+            return;
         }
 
-        const summaryLines = [];
-        summaryLines.push(activityFilterSummary.textContent);
-        if (filterDescriptions.length > 0) {
-            summaryLines.push(`Filters: ${filterDescriptions.join(' · ')}`);
+        applyFilters(options);
+
+        if (activePanelName === 'activities') {
+            pendingActivitiesOptions = null;
+        }
+    };
+
+    const requestWalletRender = () => {
+        pendingWalletRender = true;
+        if (activePanelName === 'wallet') {
+            renderWalletChart();
+            pendingWalletRender = false;
+        }
+    };
+
+    const openActivitiesFilterModal = () => {
+        if (!activitiesFilterModal) {
+            return;
         }
 
-        activityFilterSummary.innerHTML = summaryLines
-            .map(line => `<span class="panel-card__summary-line">${escapeHtml(line)}</span>`)
-            .join('');
+        activitiesFilterReturnFocusTo = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        activitiesFilterModal.hidden = false;
+        activitiesFilterModal.setAttribute('aria-hidden', 'false');
+        if (activitiesFilterOpenButton) {
+            activitiesFilterOpenButton.setAttribute('aria-expanded', 'true');
+        }
+        document.body.classList.add('is-filter-modal-open');
+        const sheet = activitiesFilterModal.querySelector('.filter-modal__sheet');
+        if (sheet instanceof HTMLElement) {
+            sheet.focus({ preventScroll: true });
+        }
+    };
+
+    const closeActivitiesFilterModal = () => {
+        if (!activitiesFilterModal) {
+            return;
+        }
+
+        activitiesFilterModal.setAttribute('aria-hidden', 'true');
+        if (activitiesFilterOpenButton) {
+            activitiesFilterOpenButton.setAttribute('aria-expanded', 'false');
+        }
+        window.setTimeout(() => {
+            activitiesFilterModal.hidden = true;
+            if (activitiesFilterReturnFocusTo instanceof HTMLElement) {
+                activitiesFilterReturnFocusTo.focus({ preventScroll: true });
+            }
+            activitiesFilterReturnFocusTo = null;
+        }, 180);
+        document.body.classList.remove('is-filter-modal-open');
     };
 
     const setShareFeedback = (message = '') => {
@@ -5191,6 +15117,330 @@ document.addEventListener('DOMContentLoaded', async () => {
             shareFeedbackElement.textContent = message;
         }
     };
+
+    const isShareModalVisible = () => Boolean(shareModalElement && !shareModalElement.hidden && shareModalElement.classList.contains('is-visible'));
+
+    const openShareModal = () => {
+        if (!shareModalElement) {
+            return;
+        }
+
+        shareModalReturnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        shareModalElement.hidden = false;
+        shareModalElement.setAttribute('aria-hidden', 'false');
+        window.requestAnimationFrame(() => {
+            shareModalElement.classList.add('is-visible');
+        });
+        document.body.classList.add('is-share-modal-open');
+
+        const initialFocusTarget = shareModalElement.querySelector('[data-share-modal-initial]');
+        if (initialFocusTarget instanceof HTMLElement) {
+            initialFocusTarget.focus();
+        } else if (shareModalDialog instanceof HTMLElement) {
+            shareModalDialog.focus();
+        }
+    };
+
+    const closeShareModal = () => {
+        if (!shareModalElement) {
+            return;
+        }
+
+        shareModalElement.classList.remove('is-visible');
+        shareModalElement.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('is-share-modal-open');
+
+        window.setTimeout(() => {
+            if (shareModalElement && !shareModalElement.classList.contains('is-visible')) {
+                shareModalElement.hidden = true;
+                if (shareModalReturnFocusTo instanceof HTMLElement) {
+                    shareModalReturnFocusTo.focus();
+                }
+                shareModalReturnFocusTo = null;
+            }
+        }, 260);
+    };
+
+    const isCountryMapModalVisible = () => Boolean(countryMapModalElement
+        && !countryMapModalElement.hidden
+        && countryMapModalElement.classList.contains('is-visible'));
+
+    const setCountryMapStatus = (message = '') => {
+        if (countryMapStatusElement) {
+            countryMapStatusElement.textContent = message;
+        }
+    };
+
+    const toggleCountryMapLoading = (isLoading) => {
+        if (!countryMapLoadingElement) {
+            return;
+        }
+        countryMapLoadingElement.hidden = !isLoading;
+    };
+
+    updateCountryMapSummary = () => {
+        if (!countryMapSummaryElement) {
+            return;
+        }
+
+        if (!Array.isArray(latestCountryStats) || latestCountryStats.length === 0) {
+            countryMapSummaryElement.textContent = 'Country metadata will appear once activities are synced.';
+            if (countryMapEmptyElement) {
+                countryMapEmptyElement.hidden = false;
+            }
+            return;
+        }
+
+        const totalCountries = latestCountryStats.length;
+        const totalActivities = latestCountryStats.reduce((sum, entry) => {
+            const count = Number.isFinite(entry?.count) ? entry.count : 0;
+            return sum + count;
+        }, 0);
+        const highlights = latestCountryStats.slice(0, 3)
+            .map((entry) => {
+                const name = entry?.name || getCountryDisplayName(entry?.code);
+                const count = Number.isFinite(entry?.count) ? entry.count : 0;
+                const countSuffix = count > 0 ? ` (${formatCount(count)})` : '';
+                return `${name}${countSuffix}`;
+            })
+            .join(' · ');
+
+        const summaryParts = [`${formatCount(totalCountries)} countries tracked`];
+        if (Number.isFinite(totalActivities) && totalActivities > 0) {
+            summaryParts.push(`${formatCount(totalActivities)} logged activities`);
+        }
+        const summaryText = `${summaryParts.join(' · ')}${highlights ? ` — Top stops: ${highlights}` : ''}`;
+        countryMapSummaryElement.textContent = summaryText;
+        if (countryMapEmptyElement) {
+            countryMapEmptyElement.hidden = true;
+        }
+    };
+    updateCountryMapSummary();
+
+    const updateCountryMapLegend = (maxValue = 0) => {
+        if (!countryMapLegendElement) {
+            return;
+        }
+
+        if (!maxValue || maxValue <= 0) {
+            countryMapLegendElement.hidden = true;
+            return;
+        }
+
+        countryMapLegendElement.hidden = false;
+        if (countryMapLegendMinElement) {
+            countryMapLegendMinElement.textContent = 'Fewer activities';
+        }
+        if (countryMapLegendMaxElement) {
+            countryMapLegendMaxElement.textContent = `${formatCount(maxValue)} activities`;
+        }
+    };
+
+    const destroyCountryMapChart = () => {
+        if (countryMapChart) {
+            countryMapChart.destroy();
+            countryMapChart = null;
+        }
+    };
+
+    const loadCountryMapFeatures = () => {
+        if (countryMapFeaturesPromise) {
+            return countryMapFeaturesPromise;
+        }
+        if (!countryMapCanvas || typeof window.ChartGeo === 'undefined' || !window.ChartGeo.topojson) {
+            return Promise.resolve(null);
+        }
+        countryMapFeaturesPromise = fetch(COUNTRY_MAP_TOPOJSON_URL)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Failed to load map (${response.status})`);
+                }
+                return response.json();
+            })
+            .then((topology) => {
+                const featureCollection = window.ChartGeo.topojson.feature(topology, topology.objects.countries);
+                return Array.isArray(featureCollection?.features) ? featureCollection.features : null;
+            })
+            .catch((error) => {
+                console.error('Unable to fetch world map data', error);
+                countryMapFeaturesPromise = null;
+                return null;
+            });
+        return countryMapFeaturesPromise;
+    };
+
+    const renderCountryMapVisualization = async () => {
+        updateCountryMapSummary();
+
+        if (!countryMapCanvas) {
+            return;
+        }
+
+        if (!Array.isArray(latestCountryStats) || latestCountryStats.length === 0) {
+            destroyCountryMapChart();
+            updateCountryMapLegend(0);
+            if (countryMapEmptyElement) {
+                countryMapEmptyElement.hidden = false;
+            }
+            setCountryMapStatus('');
+            return;
+        }
+
+        if (countryMapEmptyElement) {
+            countryMapEmptyElement.hidden = true;
+        }
+
+        toggleCountryMapLoading(true);
+        setCountryMapStatus('Loading map renderer…');
+        const renderersReady = await ensureCountryMapRenderers();
+        if (!renderersReady) {
+            toggleCountryMapLoading(false);
+            setCountryMapStatus('Unable to load the map renderer right now. Please try again later.');
+            return;
+        }
+
+        setCountryMapStatus('');
+        const features = await loadCountryMapFeatures();
+        toggleCountryMapLoading(false);
+
+        if (!features || !Array.isArray(features)) {
+            setCountryMapStatus('Unable to load the world map right now.');
+            destroyCountryMapChart();
+            return;
+        }
+
+        const statsLookup = new Map(latestCountryStats.map((entry) => [entry.code, entry]));
+        const dataset = features.map((feature) => {
+            const rawCode = feature?.properties?.iso_a2 || feature?.properties?.abbrev || feature?.id || '';
+            const code = normalizeCountryCode(String(rawCode));
+            const stat = code ? statsLookup.get(code) : null;
+            const value = Number.isFinite(stat?.count) ? stat.count : 0;
+            const name = stat?.name || feature?.properties?.name || (code || 'Unknown');
+            return { feature, value, name };
+        });
+        const maxValue = dataset.reduce((max, entry) => Math.max(max, entry.value), 0);
+        updateCountryMapLegend(maxValue);
+
+        if (maxValue <= 0) {
+            setCountryMapStatus('Activities have been recorded, but country-level data is still being aggregated.');
+        }
+
+        const chartData = {
+            labels: dataset.map((entry) => entry.name),
+            datasets: [{
+                label: 'Activities by country',
+                outline: features,
+                data: dataset,
+            }],
+        };
+
+        const chartOptions = {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const raw = context?.raw;
+                            const value = Number.isFinite(raw?.value) ? raw.value : 0;
+                            const label = raw?.name || context?.label || 'Unknown';
+                            return `${label}: ${formatCount(value)} activities`;
+                        },
+                    },
+                },
+            },
+            scales: {
+                projection: {
+                    axis: 'x',
+                    projection: 'equalEarth',
+                },
+                color: {
+                    axis: 'y',
+                    quantize: 6,
+                    legend: { position: 'bottom-right' },
+                    interpolate: 'blues',
+                },
+            },
+        };
+
+        if (countryMapChart) {
+            countryMapChart.data = chartData;
+            countryMapChart.options = chartOptions;
+            countryMapChart.update();
+        } else {
+            const context = countryMapCanvas.getContext('2d');
+            countryMapChart = new window.Chart(context, {
+                type: 'choropleth',
+                data: chartData,
+                options: chartOptions,
+            });
+        }
+    };
+
+    const openCountryMapModal = () => {
+        if (!countryMapModalElement) {
+            return;
+        }
+
+        countryMapModalReturnFocusTo = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        countryMapModalElement.hidden = false;
+        countryMapModalElement.setAttribute('aria-hidden', 'false');
+        window.requestAnimationFrame(() => {
+            countryMapModalElement.classList.add('is-visible');
+        });
+        document.body.classList.add('is-country-map-open');
+
+        if (countryMapDialog instanceof HTMLElement) {
+            countryMapDialog.focus({ preventScroll: true });
+        }
+
+        renderCountryMapVisualization();
+    };
+
+    const closeCountryMapModal = () => {
+        if (!countryMapModalElement) {
+            return;
+        }
+
+        countryMapModalElement.classList.remove('is-visible');
+        countryMapModalElement.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('is-country-map-open');
+
+        window.setTimeout(() => {
+            if (countryMapModalElement && !countryMapModalElement.classList.contains('is-visible')) {
+                countryMapModalElement.hidden = true;
+                if (countryMapModalReturnFocusTo instanceof HTMLElement) {
+                    countryMapModalReturnFocusTo.focus({ preventScroll: true });
+                }
+                countryMapModalReturnFocusTo = null;
+            }
+        }, 240);
+    };
+
+    refreshCountryMapIfVisible = () => {
+        if (isCountryMapModalVisible()) {
+            renderCountryMapVisualization();
+        }
+    };
+
+    countryMapDismissElements.forEach((element) => {
+        element.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeCountryMapModal();
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && isCountryMapModalVisible()) {
+            event.preventDefault();
+            closeCountryMapModal();
+        }
+    });
+
+    renderFunStats();
+    renderProfileDisciplineRatios();
 
     const buildShareSummary = () => {
         const athleteName = (athleteNameElement?.textContent || 'League athlete').trim() || 'League athlete';
@@ -5302,8 +15552,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (activityTypeFilter) {
             activityTypeFilter.value = 'all';
         }
-        if (activityCountryFilter) {
-            activityCountryFilter.value = 'all';
+        if (activitySortSelect) {
+            activitySortSelect.value = 'date-desc';
         }
         [
             activityHoursMinInput,
@@ -5317,12 +15567,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 input.value = '';
             }
         });
+        if (raceFilterSelect) {
+            raceFilterSelect.value = '';
+        }
+        if (climbFilterSelect) {
+            climbFilterSelect.value = '';
+            renderClimbAttemptsDetail(null);
+        }
+        clearCountryFilterSelection();
         currentActivityFilters = { ...DEFAULT_ACTIVITY_FILTERS };
-        activeQuickFilter = null;
-        quickFilterButtons.forEach(button => {
-            button.classList.remove('is-active');
-            button.setAttribute('aria-pressed', 'false');
-        });
+        clearFilterShortcutSelection();
+        clearQuickFilterSelection();
     };
 
     const quickFilterHandlers = {
@@ -5355,21 +15610,517 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const filterShortcutHandlers = {
+        top: () => {
+            setSelectValue(activitySortSelect, 'date-desc');
+        },
+        money: () => {
+            setSelectValue(activitySortSelect, 'balance-desc');
+        },
+        ride: () => {
+            setSelectValue(activityTypeFilter, 'ride');
+        },
+        swim: () => {
+            setSelectValue(activityTypeFilter, 'swim');
+        },
+        bike: () => {
+            setSelectValue(activityTypeFilter, 'ride');
+        }
+    };
+
+    const applyFilterShortcut = (shortcutKey) => {
+        const normalizedKey = (shortcutKey || '').toLowerCase();
+        const handler = filterShortcutHandlers[normalizedKey];
+        if (typeof handler === 'function') {
+            handler();
+            setActiveFilterShortcut(normalizedKey);
+        } else {
+            clearFilterShortcutSelection();
+        }
+
+        if (filterApplyTimeout) {
+            clearTimeout(filterApplyTimeout);
+            filterApplyTimeout = null;
+        }
+
+        clearQuickFilterSelection();
+        activeQuickFilter = null;
+        requestActivitiesRender({ preserveVisibleCount: false });
+        closeActivitiesFilterModal();
+        navigateToActivitiesPanel();
+    };
+
+    const buildRaceRequestEntry = (request = {}) => {
+        const requestId = (request.requestUid || request.timestamp || `race-${Math.random().toString(36).slice(2)}`).toString();
+        const raceDate = request.raceDate ? new Date(request.raceDate) : null;
+        const formattedDate = raceDate && !Number.isNaN(raceDate.getTime())
+            ? raceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : null;
+        const labelParts = [
+            (request.raceType || '').replace(/_/g, ' ').trim(),
+            formattedDate,
+            request.raceStartLocation,
+        ].filter(Boolean);
+        return {
+            id: requestId,
+            label: labelParts.join(' · ') || 'Race focus',
+            raceDate,
+            minDistance: Number.isFinite(request.raceDistanceMinKm) ? request.raceDistanceMinKm : null,
+            maxDistance: Number.isFinite(request.raceDistanceMaxKm) ? request.raceDistanceMaxKm : null,
+            minElevation: Number.isFinite(request.raceElevationMinM) ? request.raceElevationMinM : null,
+            maxElevation: Number.isFinite(request.raceElevationMaxM) ? request.raceElevationMaxM : null,
+            activityType: typeof request.metadata?.raceActivityType === 'string'
+                ? request.metadata.raceActivityType.toLowerCase()
+                : null,
+        };
+    };
+
+    const buildClimbRequestEntry = (request = {}) => {
+        const segmentId = (request.climbSegmentId || '').toString();
+        if (!segmentId) {
+            return null;
+        }
+        const label = request.climbSegmentName || `Segment ${segmentId}`;
+        return {
+            id: segmentId,
+            label,
+        };
+    };
+
+    const normalizeCompletionEntry = (entry) => {
+        if (!entry) {
+            return null;
+        }
+
+        if (typeof entry === 'string') {
+            return { startDate: entry, activityId: null };
+        }
+
+        if (typeof entry === 'object') {
+            const startDate = entry.startDate || entry.start_date || entry.timestamp || null;
+            const activityId = entry.activityId || entry.activity_id || null;
+            const elapsedTime = Number(entry.elapsedTime ?? entry.elapsed_time);
+            const distance = Number(entry.distance);
+            return {
+                startDate,
+                activityId: activityId ? activityId.toString() : null,
+                elapsedTime: Number.isFinite(elapsedTime) ? elapsedTime : null,
+                distance: Number.isFinite(distance) ? distance : null,
+            };
+        }
+
+        return null;
+    };
+
+    const buildClimbAttemptsLookup = (segments = []) => {
+        const lookup = new Map();
+        segments.forEach(segment => {
+            if (!segment || segment.id === undefined) {
+                return;
+            }
+            const segmentId = segment.id.toString();
+            const completions = Array.isArray(segment.completions)
+                ? segment.completions.map(normalizeCompletionEntry).filter(Boolean)
+                : [];
+            lookup.set(segmentId, completions);
+        });
+        return lookup;
+    };
+
+    const buildClimbSegmentMetadata = (segments = []) => {
+        const metadataMap = new Map();
+        segments.forEach(segment => {
+            if (!segment || segment.id === undefined) {
+                return;
+            }
+            const segmentId = segment.id.toString();
+            const distance = Number(segment.distance);
+            const elevationGain = Number(segment.elevationGain ?? segment.total_elevation_gain);
+            const averageGrade = Number(segment.averageGrade ?? segment.average_grade);
+            const maximumGrade = Number(segment.maximumGrade ?? segment.maximum_grade);
+            const climbCategory = Number(segment.climbCategory ?? segment.climb_category);
+
+            metadataMap.set(segmentId, {
+                id: segmentId,
+                name: segment.name || `Segment ${segmentId}`,
+                distance: Number.isFinite(distance) ? distance : null,
+                elevationGain: Number.isFinite(elevationGain) ? elevationGain : null,
+                averageGrade: Number.isFinite(averageGrade) ? averageGrade : null,
+                maximumGrade: Number.isFinite(maximumGrade) ? maximumGrade : null,
+                climbCategory: Number.isFinite(climbCategory) ? climbCategory : null,
+                city: segment.city || null,
+                state: segment.state || null,
+                country: segment.country || null,
+            });
+        });
+
+        return metadataMap;
+    };
+
+    const buildClimbSegmentActivityMatches = (attemptsLookup = new Map(), activities = []) => {
+        const segmentToActivities = new Map();
+        const activityToSegments = new Map();
+
+        if (!(attemptsLookup instanceof Map) || attemptsLookup.size === 0 || !Array.isArray(activities) || activities.length === 0) {
+            return { segmentToActivities, activityToSegments };
+        }
+
+        const normalizedActivities = activities
+            .map(activity => {
+                if (!activity || typeof activity !== 'object') {
+                    return null;
+                }
+                if (activity.id === undefined || activity.id === null) {
+                    return null;
+                }
+                const activityId = activity.id.toString();
+                const timestamp = getActivityTimestamp(activity);
+                if (!Number.isFinite(timestamp) || timestamp <= 0) {
+                    return { id: activityId, timestamp: null };
+                }
+                return { id: activityId, timestamp };
+            })
+            .filter(Boolean);
+
+        if (normalizedActivities.length === 0) {
+            return { segmentToActivities, activityToSegments };
+        }
+
+        const activityIdSet = new Set(normalizedActivities.map(entry => entry.id));
+        const activitiesWithTimestamp = normalizedActivities.filter(entry => Number.isFinite(entry.timestamp));
+        const MAX_ATTEMPT_TIME_DIFF_MS = 3 * 60 * 60 * 1000;
+
+        const linkSegmentAndActivity = (segmentId, activityId) => {
+            if (!segmentToActivities.has(segmentId)) {
+                segmentToActivities.set(segmentId, new Set());
+            }
+            segmentToActivities.get(segmentId).add(activityId);
+
+            if (!activityToSegments.has(activityId)) {
+                activityToSegments.set(activityId, new Set());
+            }
+            activityToSegments.get(activityId).add(segmentId);
+        };
+
+        attemptsLookup.forEach((attempts = [], rawSegmentId) => {
+            if (!attempts || attempts.length === 0) {
+                return;
+            }
+
+            const segmentId = rawSegmentId != null ? rawSegmentId.toString() : null;
+            if (!segmentId) {
+                return;
+            }
+
+            attempts.forEach(attempt => {
+                if (!attempt) {
+                    return;
+                }
+
+                const resolvedActivityIds = new Set();
+
+                if (attempt.activityId && activityIdSet.has(attempt.activityId)) {
+                    resolvedActivityIds.add(attempt.activityId);
+                } else if (attempt.startDate) {
+                    const attemptTimestamp = Date.parse(attempt.startDate);
+                    if (Number.isFinite(attemptTimestamp)) {
+                        activitiesWithTimestamp.forEach(activityEntry => {
+                            const diff = Math.abs(activityEntry.timestamp - attemptTimestamp);
+                            if (diff <= MAX_ATTEMPT_TIME_DIFF_MS) {
+                                resolvedActivityIds.add(activityEntry.id);
+                            }
+                        });
+                    }
+                }
+
+                resolvedActivityIds.forEach(activityId => linkSegmentAndActivity(segmentId, activityId));
+            });
+        });
+
+        return { segmentToActivities, activityToSegments };
+    };
+
+    const formatClimbMetricParts = (segmentMetadata = null) => {
+        if (!segmentMetadata) {
+            return [];
+        }
+
+        const parts = [];
+        if (Number.isFinite(segmentMetadata.distance) && segmentMetadata.distance > 0) {
+            const distanceKm = segmentMetadata.distance / 1000;
+            const formattedDistance = distanceKm >= 10
+                ? distanceKm.toFixed(1)
+                : distanceKm.toFixed(2);
+            parts.push(`${formattedDistance} km`);
+        }
+        if (Number.isFinite(segmentMetadata.elevationGain) && segmentMetadata.elevationGain > 0) {
+            parts.push(`+${Math.round(segmentMetadata.elevationGain)} m`);
+        }
+        if (Number.isFinite(segmentMetadata.averageGrade)) {
+            parts.push(`${segmentMetadata.averageGrade.toFixed(1)}% avg`);
+        }
+        return parts;
+    };
+
+    const activityMatchesRaceRequest = (activity = {}, raceEntry = null) => {
+        if (!raceEntry) {
+            return true;
+        }
+
+        if (raceEntry.activityType) {
+            const activityType = (activity.type || '').toLowerCase();
+            if (activityType !== raceEntry.activityType) {
+                return false;
+            }
+        }
+
+        const distanceKm = Number(activity.distance || 0) / 1000;
+        if (raceEntry.minDistance !== null && distanceKm < raceEntry.minDistance) {
+            return false;
+        }
+        if (raceEntry.maxDistance !== null && distanceKm > raceEntry.maxDistance) {
+            return false;
+        }
+
+        const elevationGain = Number(activity.total_elevation_gain || 0);
+        if (raceEntry.minElevation !== null && elevationGain < raceEntry.minElevation) {
+            return false;
+        }
+        if (raceEntry.maxElevation !== null && elevationGain > raceEntry.maxElevation) {
+            return false;
+        }
+
+        if (raceEntry.raceDate instanceof Date && !Number.isNaN(raceEntry.raceDate.getTime())) {
+            const activityDate = getActivityDate(activity);
+            if (!activityDate) {
+                return false;
+            }
+            const diffHours = Math.abs(activityDate.getTime() - raceEntry.raceDate.getTime()) / (1000 * 60 * 60);
+            if (diffHours > 36) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const activityMatchesClimbFilter = (activity = {}, segmentId = null) => {
+        if (!segmentId) {
+            return true;
+        }
+
+        const normalizedSegmentId = segmentId.toString();
+        const attempts = climbAttemptsBySegment.get(normalizedSegmentId);
+        if (!attempts || attempts.length === 0) {
+            return false;
+        }
+
+        const activityId = activity?.id != null ? activity.id.toString() : null;
+        if (activityId) {
+            const matchedSegments = activityClimbMatches.get(activityId);
+            if (matchedSegments instanceof Set && matchedSegments.has(normalizedSegmentId)) {
+                return true;
+            }
+
+            const matchedActivities = climbSegmentActivityMatches.get(normalizedSegmentId);
+            if (matchedActivities instanceof Set && matchedActivities.has(activityId)) {
+                return true;
+            }
+
+            return attempts.some(attempt => attempt.activityId === activityId);
+        }
+
+        const activityDate = getActivityDate(activity);
+        if (!activityDate) {
+            return false;
+        }
+
+        return attempts.some(attempt => {
+            if (!attempt.startDate) {
+                return false;
+            }
+            const attemptDate = new Date(attempt.startDate);
+            if (Number.isNaN(attemptDate.getTime())) {
+                return false;
+            }
+            const diffHours = Math.abs(attemptDate.getTime() - activityDate.getTime()) / (1000 * 60 * 60);
+            return diffHours <= 3;
+        });
+    };
+
+    const renderClimbAttemptsDetail = (segmentId = null) => {
+        if (!climbAttemptsDetail || !climbAttemptsSummary || !climbAttemptsList) {
+            return;
+        }
+
+        const normalizedSegmentId = segmentId ? segmentId.toString() : null;
+        const attempts = normalizedSegmentId ? (climbAttemptsBySegment.get(normalizedSegmentId) || []) : [];
+        if (!normalizedSegmentId || attempts.length === 0) {
+            climbAttemptsDetail.hidden = true;
+            climbAttemptsList.innerHTML = '';
+            climbAttemptsSummary.textContent = '';
+            return;
+        }
+
+        const climbEntry = climbRequestMap.get(normalizedSegmentId);
+        const metadata = climbSegmentMetadata.get(normalizedSegmentId);
+        const label = climbEntry?.label || metadata?.name || `Segment ${normalizedSegmentId}`;
+        const attemptsLabel = `${attempts.length} recorded attempt${attempts.length === 1 ? '' : 's'}`;
+        const summaryParts = [attemptsLabel];
+        if (label) {
+            summaryParts.unshift(label);
+        }
+        const metricParts = formatClimbMetricParts(metadata);
+        if (metricParts.length > 0) {
+            summaryParts.push(metricParts.join(' • '));
+        }
+        climbAttemptsSummary.textContent = summaryParts.join(' — ');
+
+        const latestAttempts = attempts.slice(-5).reverse();
+        climbAttemptsList.innerHTML = latestAttempts
+            .map(attempt => {
+                const date = attempt.startDate ? new Date(attempt.startDate) : null;
+                const labelText = date && !Number.isNaN(date.getTime())
+                    ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Attempt';
+                const detailsParts = [];
+                if (Number.isFinite(attempt.elapsedTime) && attempt.elapsedTime > 0) {
+                    detailsParts.push(formatDurationShort(attempt.elapsedTime));
+                }
+                if (Number.isFinite(attempt.distance) && attempt.distance > 0) {
+                    const attemptDistanceKm = attempt.distance / 1000;
+                    const formattedDistance = attemptDistanceKm >= 10
+                        ? attemptDistanceKm.toFixed(1)
+                        : attemptDistanceKm.toFixed(2);
+                    detailsParts.push(`${formattedDistance} km`);
+                }
+                const detailText = detailsParts.length > 0
+                    ? `<span class="activities-panel__attempt-detail">${escapeHtml(detailsParts.join(' • '))}</span>`
+                    : '';
+                return `<li class="activities-panel__attempt">${escapeHtml(labelText)}${detailText}</li>`;
+            })
+            .join('');
+        climbAttemptsDetail.hidden = false;
+    };
+
+    const updateRequestFilterUI = (requests = [], segments = [], activities = []) => {
+        const contactRequests = Array.isArray(requests) ? requests : [];
+        const approvedRaces = contactRequests.filter(request => request && request.requestType === 'race' && request.approved);
+        const approvedClimbs = contactRequests.filter(request => request && request.requestType === 'climb' && request.approved);
+
+        raceRequestMap = new Map();
+        approvedRaces.forEach(request => {
+            const raceEntry = buildRaceRequestEntry(request);
+            raceRequestMap.set(raceEntry.id, raceEntry);
+        });
+
+        climbRequestMap = new Map();
+        approvedClimbs.forEach(request => {
+            const climbEntry = buildClimbRequestEntry(request);
+            if (climbEntry && climbEntry.id) {
+                climbRequestMap.set(climbEntry.id.toString(), climbEntry);
+            }
+        });
+
+        climbSegmentMetadata = buildClimbSegmentMetadata(segments);
+        const segmentOptions = new Map();
+        segments.forEach(segment => {
+            if (!segment || segment.id === undefined) {
+                return;
+            }
+            const segmentId = segment.id.toString();
+            const segmentLabel = segment.name || `Segment ${segmentId}`;
+            if (segmentLabel) {
+                segmentOptions.set(segmentId, {
+                    id: segmentId,
+                    label: segmentLabel,
+                });
+            }
+
+            if (climbRequestMap.has(segmentId)) {
+                const existingEntry = climbRequestMap.get(segmentId);
+                if (segmentLabel && (!existingEntry.label || existingEntry.label === existingEntry.id)) {
+                    climbRequestMap.set(segmentId, { ...existingEntry, label: segmentLabel });
+                }
+            }
+        });
+
+        segmentOptions.forEach((segmentEntry, segmentId) => {
+            if (!climbRequestMap.has(segmentId)) {
+                climbRequestMap.set(segmentId, segmentEntry);
+            }
+        });
+
+        climbAttemptsBySegment = buildClimbAttemptsLookup(segments);
+        const { segmentToActivities, activityToSegments } = buildClimbSegmentActivityMatches(climbAttemptsBySegment, activities);
+        climbSegmentActivityMatches = segmentToActivities;
+        activityClimbMatches = activityToSegments;
+
+        if (raceFilterWrapper && raceFilterSelect) {
+            const hasRaces = raceRequestMap.size > 0;
+            raceFilterWrapper.hidden = !hasRaces;
+            raceFilterSelect.innerHTML = '<option value="">All races</option>'
+                + Array.from(raceRequestMap.values())
+                    .map(race => `<option value="${race.id}">${escapeHtml(race.label)}</option>`)
+                    .join('');
+            if (!hasRaces) {
+                currentActivityFilters.raceRequestId = null;
+                raceFilterSelect.value = '';
+            }
+        }
+
+        if (climbFilterWrapper && climbFilterSelect) {
+            const hasClimbs = climbRequestMap.size > 0;
+            climbFilterWrapper.hidden = !hasClimbs;
+            const climbOptions = Array.from(climbRequestMap.values())
+                .sort((a, b) => {
+                    const aLabel = a.label || '';
+                    const bLabel = b.label || '';
+                    return aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' });
+                });
+            climbFilterSelect.innerHTML = '<option value="">All climbs</option>'
+                + climbOptions
+                    .map(climb => `<option value="${climb.id}">${escapeHtml(climb.label)}</option>`)
+                    .join('');
+            if (!hasClimbs) {
+                currentActivityFilters.climbSegmentId = null;
+                climbFilterSelect.value = '';
+            } else if (currentActivityFilters.climbSegmentId && climbRequestMap.has(currentActivityFilters.climbSegmentId)) {
+                climbFilterSelect.value = currentActivityFilters.climbSegmentId;
+            } else {
+                currentActivityFilters.climbSegmentId = null;
+                climbFilterSelect.value = '';
+            }
+        }
+
+        if (requestFilterContainer) {
+            const shouldShowContainer = (raceRequestMap.size > 0) || (climbRequestMap.size > 0);
+            requestFilterContainer.hidden = !shouldShowContainer;
+        }
+
+        renderClimbAttemptsDetail(currentActivityFilters.climbSegmentId);
+    };
+
     const activityMatchesFilters = (activity = {}, filters = DEFAULT_ACTIVITY_FILTERS) => {
         if (!activity || typeof activity !== 'object') {
+            return false;
+        }
+
+        const activityDate = getActivityDate(activity);
+        if (!activityDate) {
+            return false;
+        }
+
+        if (filters.startDate instanceof Date && activityDate < filters.startDate) {
+            return false;
+        }
+        if (filters.endDate instanceof Date && activityDate > filters.endDate) {
             return false;
         }
 
         const normalizedType = typeof activity.type === 'string' ? activity.type.toLowerCase() : '';
         if (filters.type && filters.type !== 'all') {
             if (normalizedType !== filters.type.toLowerCase()) {
-                return false;
-            }
-        }
-
-        if (filters.country && filters.country !== 'all') {
-            const activityCountry = extractActivityCountry(activity);
-            if (activityCountry !== filters.country) {
                 return false;
             }
         }
@@ -5409,6 +16160,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             return false;
         }
 
+        if (filters.raceRequestId) {
+            const raceEntry = raceRequestMap.get(filters.raceRequestId);
+            if (!activityMatchesRaceRequest(activity, raceEntry)) {
+                return false;
+            }
+        }
+
+        if (filters.climbSegmentId) {
+            if (!activityMatchesClimbFilter(activity, filters.climbSegmentId)) {
+                return false;
+            }
+        }
+
+        if (filters.coinEmoji && COIN_EMOJIS.includes(filters.coinEmoji)) {
+            const rewardedCoins = getActivityCoinRewards(activity);
+            if (!rewardedCoins.includes(filters.coinEmoji)) {
+                return false;
+            }
+        }
+
+        if (Array.isArray(filters.countries) && filters.countries.length > 0) {
+            const activityCountry = getActivityCountryCode(activity);
+            if (!activityCountry) {
+                return false;
+            }
+            const normalizedFilters = filters.countries
+                .map(code => normalizeCountryCode(code))
+                .filter(Boolean);
+            if (normalizedFilters.length > 0 && !normalizedFilters.includes(activityCountry)) {
+                return false;
+            }
+        }
+
         return true;
     };
 
@@ -5420,6 +16204,164 @@ document.addEventListener('DOMContentLoaded', async () => {
             acc.calories += calculateActivityCalories(activity);
             return acc;
         }, { hours: 0, distance: 0, elevation: 0, calories: 0 });
+    };
+
+    const normalizeActivityType = (activity) => {
+        const type = (activity?.sport_type || activity?.type || '').trim();
+        if (!type) {
+            return '';
+        }
+
+        if (type.toLowerCase().includes('run')) {
+            return activity?.sport_type || activity?.type || 'Run';
+        }
+
+        if (type.toLowerCase().includes('ride') || type.toLowerCase().includes('bike')) {
+            return 'Ride';
+        }
+
+        if (type.toLowerCase().includes('swim')) {
+            return 'Swim';
+        }
+
+        return activity?.sport_type || activity?.type || type;
+    };
+
+    const calculateLongestActivityStreak = (activities = []) => {
+        const dateKeys = activities
+            .map(getActivityDateKey)
+            .filter(Boolean);
+
+        return calculateConsecutiveStreakLength(dateKeys);
+    };
+
+    const buildLeagueClassStats = (activities = []) => {
+        const stats = {
+            is_league_leader: false,
+            max_single_dist_run: 0,
+            max_single_dist_ride: 0,
+            max_single_dist_swim: 0,
+            max_single_elev: 0,
+            max_single_kcal: 0,
+            max_single_suffer: 0,
+            max_single_duration: 0,
+            total_dist_ride: 0,
+            total_elev: 0,
+            total_kcal: 0,
+            activity_count: activities.length,
+            streak_days: 0,
+            workout_types: [],
+            avg_start_hour: 0,
+            avg_pace_run: 0,
+            active_locations: 0,
+            tier3_run_count_week: 0,
+        };
+
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return stats;
+        }
+
+        const weekCutoff = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+        const workoutTypes = [];
+        const startHours = [];
+        const runPaces = [];
+        const locationKeys = new Set();
+        let weekActivityCounter = 0;
+
+        activities.forEach((activity) => {
+            const normalizedType = normalizeActivityType(activity);
+            if (normalizedType) {
+                workoutTypes.push(normalizedType);
+            }
+
+            const distanceMeters = Number(activity?.distance || 0);
+            const elevation = Number(activity?.total_elevation_gain || 0);
+            const kcal = calculateActivityCalories(activity);
+            const sufferScore = Number(activity?.suffer_score || 0);
+            const movingHours = Number(activity?.moving_time || 0) / 3600;
+            const startDate = getActivityDate(activity);
+            const isWeekActivity = startDate && startDate >= weekCutoff;
+
+            if (startDate) {
+                startHours.push(startDate.getHours());
+                if (activity?.location_country) {
+                    locationKeys.add(String(activity.location_country));
+                } else if (activity?.location_state) {
+                    locationKeys.add(String(activity.location_state));
+                } else if (activity?.location_city) {
+                    locationKeys.add(String(activity.location_city));
+                }
+            }
+
+            if (movingHours > stats.max_single_duration) {
+                stats.max_single_duration = movingHours;
+            }
+
+            if (sufferScore > stats.max_single_suffer) {
+                stats.max_single_suffer = sufferScore;
+            }
+
+            if (elevation > stats.max_single_elev) {
+                stats.max_single_elev = elevation;
+            }
+
+            if (kcal > stats.max_single_kcal) {
+                stats.max_single_kcal = kcal;
+            }
+
+            if (normalizedType.toLowerCase().includes('run')) {
+                const distanceKm = distanceMeters / 1000;
+                if (distanceKm > stats.max_single_dist_run) {
+                    stats.max_single_dist_run = distanceKm;
+                }
+                if (distanceKm > 0 && movingHours > 0) {
+                    const paceMinPerKm = (movingHours * 60) / distanceKm;
+                    runPaces.push(paceMinPerKm);
+                }
+                if (isWeekActivity) {
+                    stats.tier3_run_count_week += 1;
+                }
+            }
+
+            if (normalizedType.toLowerCase().includes('ride')) {
+                const distanceKm = distanceMeters / 1000;
+                stats.total_dist_ride += distanceKm;
+                if (distanceKm > stats.max_single_dist_ride) {
+                    stats.max_single_dist_ride = distanceKm;
+                }
+            }
+
+            if (normalizedType.toLowerCase().includes('swim')) {
+                if (distanceMeters > stats.max_single_dist_swim) {
+                    stats.max_single_dist_swim = distanceMeters;
+                }
+            }
+
+            stats.total_elev += elevation;
+            stats.total_kcal += kcal;
+
+            if (isWeekActivity) {
+                weekActivityCounter += 1;
+                stats.total_elev_week = (stats.total_elev_week || 0) + elevation;
+                stats.total_dist_ride_week = (stats.total_dist_ride_week || 0) + (normalizedType.toLowerCase().includes('ride')
+                    ? distanceMeters / 1000
+                    : 0);
+                stats.total_kcal_week = (stats.total_kcal_week || 0) + kcal;
+            }
+        });
+
+        stats.workout_types = workoutTypes;
+        stats.avg_start_hour = startHours.length > 0
+            ? startHours.reduce((acc, val) => acc + val, 0) / startHours.length
+            : 0;
+        stats.avg_pace_run = runPaces.length > 0
+            ? runPaces.reduce((acc, val) => acc + val, 0) / runPaces.length
+            : 0;
+        stats.active_locations = locationKeys.size;
+        stats.streak_days = calculateLongestActivityStreak(activities);
+        stats.week_activity_count = weekActivityCounter;
+
+        return stats;
     };
 
     const calculateRecentMonthlyHours = (activities = [], referenceDate = new Date()) => {
@@ -5437,8 +16379,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         let previousMonth = 0;
 
         activities.forEach((activity) => {
-            const startDate = new Date(activity?.start_date || activity?.start_date_local || 0);
-            if (Number.isNaN(startDate.getTime())) {
+            const startDate = getActivityDate(activity);
+            if (!startDate) {
                 return;
             }
 
@@ -5451,6 +16393,311 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         return { currentMonth, previousMonth };
+    };
+
+    const calculateRecentWeeklyHours = (activities = [], referenceDate = new Date()) => {
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return 0;
+        }
+
+        const now = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+            ? new Date(referenceDate)
+            : new Date();
+        const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        let total = 0;
+
+        activities.forEach((activity) => {
+            const startDate = getActivityDate(activity);
+            if (!startDate || startDate < cutoff) {
+                return;
+            }
+
+            const hours = Number(activity?.moving_time || 0) / 3600;
+            if (Number.isFinite(hours) && hours > 0) {
+                total += hours;
+            }
+        });
+
+        return total;
+    };
+
+    const resolveLeagueClass = (stats = {}) => {
+        const reasons = [];
+
+        if (stats.is_league_leader) {
+            return {
+                name: 'Il Re Ritornato',
+                description: 'Hai ottenuto il punteggio globale più alto della Lega.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Leader assoluto della Lega.'],
+                tier: 'tier1',
+            };
+        }
+
+        if (stats.max_single_duration > LEAGUE_CLASS_THRESHOLDS.tier1_duration_hours) {
+            return {
+                name: "L'Immortale",
+                description: `Hai completato un'attività epica > ${LEAGUE_CLASS_THRESHOLDS.tier1_duration_hours} ore.`,
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Sessione ultra estesa.'],
+                tier: 'tier1',
+            };
+        }
+
+        if (stats.streak_days >= LEAGUE_CLASS_THRESHOLDS.tier1_streak_days) {
+            return {
+                name: 'Il Viaggiatore Scalzo',
+                description: `Sei attivo da ${LEAGUE_CLASS_THRESHOLDS.tier1_streak_days} giorni consecutivi.`,
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Streak epica mantenuta.'],
+                tier: 'tier1',
+            };
+        }
+
+        if (stats.max_single_suffer > LEAGUE_CLASS_THRESHOLDS.tier1_suffer_score) {
+            return {
+                name: 'Il Portatore del Fardello',
+                description: 'Hai sopportato una sofferenza cardiaca estremamente alta.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier1,
+                reasons: ['Sforzo cardiaco oltre soglia.'],
+                tier: 'tier1',
+            };
+        }
+
+        const tier2Matches = [];
+
+        if (stats.max_single_elev > LEAGUE_CLASS_THRESHOLDS.tier2_elev_single) {
+            tier2Matches.push({ id: 'mountain_king', name: 'Il Guardiano della Montagna', reason: `D+ > ${LEAGUE_CLASS_THRESHOLDS.tier2_elev_single}m` });
+        }
+        if (stats.max_single_dist_ride > LEAGUE_CLASS_THRESHOLDS.tier2_dist_bike_single) {
+            tier2Matches.push({ id: 'bike_lord', name: 'Il Cavaliere del Marchio', reason: `Bici > ${LEAGUE_CLASS_THRESHOLDS.tier2_dist_bike_single}km` });
+        }
+        if (stats.max_single_dist_run > LEAGUE_CLASS_THRESHOLDS.tier2_dist_run_single) {
+            tier2Matches.push({ id: 'distance_run', name: 'Il Ramingo del Nord', reason: `Corsa > ${LEAGUE_CLASS_THRESHOLDS.tier2_dist_run_single}km` });
+        }
+        if (stats.max_single_kcal > LEAGUE_CLASS_THRESHOLDS.tier2_kcal_single) {
+            tier2Matches.push({ id: 'kcal_tank', name: 'Il Berserker della Fossa', reason: `Kcal > ${LEAGUE_CLASS_THRESHOLDS.tier2_kcal_single}` });
+        }
+        if (stats.max_single_dist_swim > LEAGUE_CLASS_THRESHOLDS.tier2_dist_swim_single
+            && (stats.workout_types || []).some(type => type.toLowerCase().includes('swim'))) {
+            tier2Matches.push({ id: 'water_lord', name: 'Il Navigatore dei Porti', reason: 'Nuoto elite' });
+        }
+
+        if (tier2Matches.length === 1) {
+            const match = tier2Matches[0];
+            return {
+                name: match.name,
+                description: match.reason,
+                emoji: LEAGUE_CLASS_EMOJIS.tier2,
+                reasons: [match.reason],
+                tier: 'tier2',
+            };
+        }
+
+        if (tier2Matches.length > 1) {
+            const ids = new Set(tier2Matches.slice(0, 2).map(match => match.id));
+            const fusionEntry = Array.from(LEAGUE_CLASS_FUSIONS.entries())
+                .find(([key]) => key.size === ids.size && Array.from(key).every(value => ids.has(value)));
+
+            if (fusionEntry) {
+                const fusion = fusionEntry[1];
+                return {
+                    name: fusion.name,
+                    description: fusion.description,
+                    emoji: LEAGUE_CLASS_EMOJIS.tier2,
+                    reasons: tier2Matches.map(match => match.reason),
+                    tier: 'tier2',
+                };
+            }
+
+            const n1 = tier2Matches[0].name.replace(/^Il\s+/i, '').replace(/^Lo\s+/i, '');
+            const n2 = tier2Matches[1].name.replace(/^Il\s+/i, '').replace(/^Lo\s+/i, '');
+            return {
+                name: `Il Signore ${n1} e ${n2}`,
+                description: 'Una doppia specializzazione rara.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier2,
+                reasons: tier2Matches.map(match => match.reason),
+                tier: 'tier2',
+            };
+        }
+
+        const tier3Matches = [];
+        const weekElev = stats.total_elev_week ?? stats.total_elev;
+        const weekRideDist = stats.total_dist_ride_week ?? stats.total_dist_ride;
+        const weekActivityCount = (stats.week_activity_count ?? stats.activity_count) || 0;
+        const weekKcalAvg = weekActivityCount > 0
+            ? (stats.total_kcal_week ?? stats.total_kcal) / weekActivityCount
+            : 0;
+
+        if (weekElev > LEAGUE_CLASS_THRESHOLDS.tier3_elev_week) {
+            tier3Matches.push('Scavatore di Abissi');
+        }
+        if (weekRideDist > LEAGUE_CLASS_THRESHOLDS.tier3_dist_bike_week) {
+            tier3Matches.push('Scudiero delle Praterie');
+        }
+        if (stats.tier3_run_count_week >= LEAGUE_CLASS_THRESHOLDS.tier3_run_count_week) {
+            tier3Matches.push('Inseguitore Instancabile');
+        }
+        if (weekKcalAvg > LEAGUE_CLASS_THRESHOLDS.tier3_avg_kcal_intensity) {
+            tier3Matches.push('Devastatore');
+        }
+
+        if ((stats.workout_types || []).some(type => type.toLowerCase() === 'trail run')
+            && weekElev > 1000) {
+            tier3Matches.push('Esploratore delle Selve');
+        }
+
+        if (tier3Matches.length === 1) {
+            const name = tier3Matches[0];
+            return {
+                name: `Lo ${name}`,
+                description: 'Ottimo volume settimanale.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier3,
+                reasons: ['Alti volumi nelle ultime uscite.'],
+                tier: 'tier3',
+            };
+        }
+
+        if (tier3Matches.length > 1) {
+            return {
+                name: `Lo ${tier3Matches[0]} & ${tier3Matches[1]}`,
+                description: 'Hai mantenuto alti volumi in più discipline.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier3,
+                reasons: tier3Matches,
+                tier: 'tier3',
+            };
+        }
+
+        if (stats.activity_count >= LEAGUE_CLASS_THRESHOLDS.tier4_activity_count) {
+            return {
+                name: 'La Sentinella dei Confini',
+                description: 'Alta frequenza di attività recente.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Attività frequenti registrate.'],
+                tier: 'tier4',
+            };
+        }
+
+        const isNightOwl = stats.avg_start_hour >= LEAGUE_CLASS_THRESHOLDS.tier4_night_hour
+            || stats.avg_start_hour <= LEAGUE_CLASS_THRESHOLDS.tier4_morning_hour;
+        if (isNightOwl) {
+            return {
+                name: 'Il Cacciatore Notturno',
+                description: 'Ti alleni quando il mondo dorme.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Allenamenti alle ore estreme.'],
+                tier: 'tier4',
+            };
+        }
+
+        if ((stats.workout_types || []).some(type => type.toLowerCase() === 'yoga')) {
+            return {
+                name: 'Il Danzatore della Lama',
+                description: 'Dedizione all’equilibrio e alla flessibilità.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Sessioni di Yoga registrate.'],
+                tier: 'tier4',
+            };
+        }
+
+        if (stats.active_locations >= 3) {
+            return {
+                name: 'Il Grigio Pellegrino',
+                description: 'Hai viaggiato registrando attività in luoghi diversi.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Attività in almeno tre luoghi.'],
+                tier: 'tier4',
+            };
+        }
+
+        if (stats.avg_pace_run > 0 && stats.avg_pace_run < LEAGUE_CLASS_THRESHOLDS.tier4_pace_threshold) {
+            return {
+                name: 'Il Messaggero Reale',
+                description: 'Passo di corsa rapido e costante.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier4,
+                reasons: ['Passo medio sotto soglia.'],
+                tier: 'tier4',
+            };
+        }
+
+        if (!(stats.workout_types || []).length) {
+            return {
+                name: "L'Ospite della Locanda",
+                description: 'Nessuna attività registrata.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: [],
+                tier: 'tier5',
+            };
+        }
+
+        const primary = (() => {
+            const counter = (stats.workout_types || []).reduce((map, type) => {
+                const normalized = (type || '').trim();
+                if (!normalized) { return map; }
+                map.set(normalized, (map.get(normalized) || 0) + 1);
+                return map;
+            }, new Map());
+            const [top] = Array.from(counter.entries()).sort((a, b) => b[1] - a[1]);
+            return top?.[0] || '';
+        })();
+
+        if (primary === 'Ride') {
+            return {
+                name: "Il Guerriero d'Ascia",
+                description: 'Ciclista resistente (Livello Base).',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['La maggior parte delle attività è in bici.'],
+                tier: 'tier5',
+            };
+        }
+
+        if (primary === 'Run') {
+            return {
+                name: "L'Hobbit Giardiniere",
+                description: 'Corridore che si gode il viaggio (Livello Base).',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['La maggior parte delle attività è di corsa.'],
+                tier: 'tier5',
+            };
+        }
+
+        if (['Hike', 'Walk'].includes(primary)) {
+            if (stats.total_elev > 500) {
+                return {
+                    name: 'Il Fabbro delle Cime',
+                    description: 'Camminatore che non teme le salite.',
+                    emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                    reasons: ['Camminate con dislivello marcato.'],
+                    tier: 'tier5',
+                };
+            }
+            return {
+                name: "L'Hobbit Giardiniere",
+                description: 'Ami le lunghe passeggiate nella natura.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['Passeggiate costanti registrate.'],
+                tier: 'tier5',
+            };
+        }
+
+        if (stats.total_kcal > 1000) {
+            return {
+                name: 'Il Signore della Torre Nera',
+                description: 'Buon volume di lavoro generale.',
+                emoji: LEAGUE_CLASS_EMOJIS.tier5,
+                reasons: ['Calorie totali oltre soglia.'],
+                tier: 'tier5',
+            };
+        }
+
+        return {
+            name: 'Il Cittadino della Contea',
+            description: 'L’inizio del tuo viaggio.',
+            emoji: LEAGUE_CLASS_EMOJIS.tier5,
+            reasons: [],
+            tier: 'tier5',
+        };
     };
 
     let activeRankConfig = null;
@@ -5567,6 +16814,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return badge;
         };
 
+        const createEmojiSpan = (emoji, extraClass = '') => {
+            const span = document.createElement('span');
+            span.className = ['activity-card__emoji', extraClass].filter(Boolean).join(' ');
+            span.textContent = emoji;
+            return span;
+        };
+
+        const getActivityKey = (activity) => {
+            const key = activity?.id || activity?.external_id;
+            return key ? String(key) : null;
+        };
+
         activitiesToRender.forEach(activity => {
             const card = document.createElement('div');
             card.className = 'activity-card rounded-lg p-4 flex flex-col gap-4 shadow-sm sm:flex-row sm:items-start sm:justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
@@ -5595,7 +16854,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const details = document.createElement('div');
-            details.className = 'text-sm text-gray-600 dark:text-gray-300 sm:text-right sm:leading-5';
+            details.className = 'activity-card__details text-sm text-gray-600 dark:text-gray-300 sm:leading-5';
             const activityDate = new Date(activity.start_date);
             const formattedDate = Number.isNaN(activityDate.getTime()) ? '' : activityDate.toLocaleDateString();
             const distanceKmValue = activity.distance ? activity.distance / 1000 : 0;
@@ -5606,13 +16865,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             const movingTime = movingHours >= 1
                 ? `${movingHours.toFixed(1)} hrs`
                 : `${Math.max(1, Math.round((activity.moving_time || 0) / 60))} mins`;
+            const caloriesBurned = Number.isFinite(activity.calories)
+                ? `${Math.round(activity.calories)} kcal`
+                : null;
             const metrics = [
                 formattedDate,
                 distanceKm ? `${distanceKm} km` : null,
                 movingTime,
-                elevationGain
+                elevationGain,
+                caloriesBurned
             ].filter(Boolean).join(' • ');
-            details.textContent = metrics;
+            const metricsText = document.createElement('span');
+            metricsText.className = 'activity-card__details-text';
+            metricsText.textContent = metrics;
+            details.appendChild(metricsText);
+
+            const activityCountryCode = getActivityCountryCode(activity);
+            if (activityCountryCode) {
+                registerActivityCountryMetadata(activity);
+            }
 
             const headerRow = document.createElement('div');
             headerRow.className = 'flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between';
@@ -5620,12 +16891,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             headerRow.appendChild(details);
             infoWrapper.appendChild(headerRow);
 
+            const activityKey = getActivityKey(activity);
+            const highlightEntries = activityKey ? (topPerformanceActivityHighlights.get(activityKey) || []) : [];
+            if (highlightEntries.length > 0) {
+                const highlightRow = document.createElement('div');
+                highlightRow.className = 'flex flex-wrap items-center gap-2';
+
+                highlightEntries.forEach(highlight => {
+                    const badge = createBadge({
+                        icon: '🔝',
+                        valueText: highlight.title,
+                        subtitleText: highlight.groupLabel || null,
+                        tooltipText: highlight.formattedValue
+                            ? `${highlight.title} • ${highlight.formattedValue}`
+                            : highlight.title,
+                        className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-50',
+                        ariaLabel: `Top performance: ${highlight.title}`,
+                    });
+
+                    highlightRow.appendChild(badge);
+                });
+
+                infoWrapper.appendChild(highlightRow);
+            }
+
             const stats = computeActivitySmallStats(activity);
             const statsRow = document.createElement('div');
             statsRow.className = 'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center';
 
             const smallStatsGroup = document.createElement('div');
-            smallStatsGroup.className = 'flex flex-wrap items-center gap-2';
+            smallStatsGroup.className = 'activity-card__stats-group flex flex-wrap items-center gap-2';
+
+            const appendBadgeBreak = () => {
+                if (smallStatsGroup.childElementCount === 0) {
+                    return;
+                }
+                const lastChild = smallStatsGroup.lastElementChild;
+                if (lastChild instanceof HTMLElement && lastChild.classList.contains('activity-card__badge-break')) {
+                    return;
+                }
+                const breakElement = document.createElement('span');
+                breakElement.className = 'activity-card__badge-break';
+                smallStatsGroup.appendChild(breakElement);
+            };
             smallStatsGroup.appendChild(createBadge({
                 icon: '🏔️',
                 valueText: formatStatValue(stats.everestSummits),
@@ -5649,13 +16957,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const totalCoinValueDollars = Object.entries(coinCounts).reduce((sum, [emoji, count]) => {
                 return sum + count * (COIN_VALUE_MAP[emoji] || 0);
             }, 0);
-            const medalValue = medalRewards.length * MEDAL_DOLLAR_VALUE;
+            const medalValue = calculateMedalDollarValue(medalRewards);
             const totalValueDollars = totalCoinValueDollars + medalValue;
 
             if (totalValueDollars > 0) {
                 const breakdownLines = Object.entries(coinCounts)
                     .filter(([, count]) => count > 0)
-                    .map(([emoji, count]) => `${count.toLocaleString()} ${emoji} = ${usdCodeFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
+                    .map(([emoji, count]) => `${count.toLocaleString()}× ${emoji} = ${usdCodeFormatter.format(count * (COIN_VALUE_MAP[emoji] || 0))}`);
                 const tooltipLines = [];
 
                 if (breakdownLines.length > 0) {
@@ -5670,60 +16978,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 tooltipLines.push(`Total haul: ${usdCodeFormatter.format(totalValueDollars)}.`);
 
-                const coinsBadge = createBadge({
-                    icon: '💵',
-                    valueText: usdCodeFormatter.format(totalValueDollars),
-                    tooltipText: tooltipLines.join('\n'),
-                    className: 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200',
-                    ariaLabel: `Value collected ${usdCodeFormatter.format(totalValueDollars)}`
-                });
-                smallStatsGroup.appendChild(coinsBadge);
-            }
-
-            Object.entries(coinCounts).forEach(([emoji, count]) => {
-                if (!count) {
-                    return;
-                }
-
-                const badge = document.createElement('button');
-                badge.type = 'button';
-                const badgeClasses = COIN_BADGE_CLASS_MAP[emoji]
-                    || 'bg-slate-200/80 text-slate-800 dark:bg-slate-800/60 dark:text-slate-100';
-                badge.className = `tooltip-target inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-base font-semibold shadow-sm ${badgeClasses}`;
-
-                const emojiSpan = document.createElement('span');
-                emojiSpan.className = 'leading-none';
-                emojiSpan.textContent = emoji;
-
-                const countSpan = document.createElement('span');
-                countSpan.className = 'text-[10px] font-semibold';
-                countSpan.textContent = count.toLocaleString();
-
-                badge.appendChild(countSpan);
-                badge.appendChild(emojiSpan);
-
-                const coinValue = count * (COIN_VALUE_MAP[emoji] || 0);
-                const tooltipText = `${count.toLocaleString()} ${emoji} minted = ${usdCodeFormatter.format(coinValue)}`;
-                badge.setAttribute('aria-label', `${count.toLocaleString()} ${emoji} minted worth ${usdCodeFormatter.format(coinValue)}`);
-                attachTooltip(badge, tooltipText);
-
-                smallStatsGroup.appendChild(badge);
-            });
-
-            if (medalRewards.length > 0) {
-                medalRewards.forEach(medal => {
-                    const medalBadge = document.createElement('button');
-                    medalBadge.type = 'button';
-                    medalBadge.className = 'tooltip-target inline-flex items-center justify-center rounded-full bg-yellow-100 px-2.5 py-1 text-base font-semibold text-yellow-700 shadow-sm dark:bg-yellow-900/40 dark:text-yellow-200';
-                    medalBadge.innerHTML = `<span class="leading-none">${medal.emoji}</span>`;
-                    medalBadge.setAttribute('aria-label', medal.name);
-                    attachTooltip(medalBadge, `${medal.name} • ${medal.description}`);
-                    smallStatsGroup.appendChild(medalBadge);
-                });
+                const valueTag = document.createElement('span');
+                valueTag.className = 'activity-card__value-tag tooltip-target';
+                valueTag.textContent = `+${usdCodeFormatter.format(totalValueDollars)}`;
+                valueTag.setAttribute('aria-label', `Value collected ${usdCodeFormatter.format(totalValueDollars)}`);
+                attachTooltip(valueTag, tooltipLines.join('\n'));
+                titleContainer.appendChild(valueTag);
             }
 
             const achievementHighlights = getActivityAchievementHighlights(activity, stats);
             if (achievementHighlights.length > 0) {
+                appendBadgeBreak();
                 const emojiCounts = new Map();
                 const emojiDescriptions = new Map();
 
@@ -5741,9 +17006,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const badge = document.createElement('button');
                     badge.type = 'button';
                     badge.className = 'tooltip-target inline-flex items-center gap-1 rounded-full bg-slate-200/80 px-2.5 py-1 text-base font-semibold text-slate-800 shadow-sm dark:bg-slate-800/60 dark:text-slate-100';
-                    const emojiSpan = document.createElement('span');
-                    emojiSpan.className = 'leading-none';
-                    emojiSpan.textContent = emoji;
+                    const emojiSpan = createEmojiSpan(emoji);
 
                     const countSpan = document.createElement('span');
                     countSpan.className = 'text-[10px] font-semibold';
@@ -5762,6 +17025,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                     attachTooltip(badge, tooltipText);
                     smallStatsGroup.appendChild(badge);
                 });
+            }
+
+            const hasMedalBadges = medalRewards.length > 0;
+
+            if (hasMedalBadges) {
+                appendBadgeBreak();
+                const rewardRow = document.createElement('div');
+                rewardRow.className = 'activity-card__reward-row flex flex-wrap items-center gap-2';
+
+                medalRewards.forEach(medal => {
+                    const medalBadge = document.createElement('button');
+                    medalBadge.type = 'button';
+                    medalBadge.className = 'tooltip-target inline-flex items-center justify-center rounded-full bg-yellow-100 px-2.5 py-1 text-base font-semibold text-yellow-700 shadow-sm dark:bg-yellow-900/40 dark:text-yellow-200';
+                    const medalEmoji = createEmojiSpan(medal.emoji);
+                    medalBadge.innerHTML = '';
+                    medalBadge.appendChild(medalEmoji);
+                    medalBadge.setAttribute('aria-label', medal.name);
+                    attachTooltip(medalBadge, `${medal.name} • ${medal.description}`);
+                    rewardRow.appendChild(medalBadge);
+                });
+
+                smallStatsGroup.appendChild(rewardRow);
             }
 
             infoWrapper.appendChild(statsRow);
@@ -5829,12 +17114,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         activeMedalFilter = medal.name;
+        const rarityPayload = buildMedalRarityPayload(medal?.rarityKey || medal?.rarityLabel || medal?.rarity);
         activeMedalMeta = {
             name: medal.name,
             emoji: medal.emoji || '',
-            count: Number.isFinite(medal.count) ? medal.count : null,
+            count: toNonNegativeInteger(medal.count),
             description: medal.description || '',
-            category: medal.category || ''
+            category: medal.rarityLabel || rarityPayload.rarityLabel,
+            legacyCategory: medal.legacyCategory || medal.category || '',
+            rarityKey: rarityPayload.rarityKey,
+            rarityLabel: medal.rarityLabel || rarityPayload.rarityLabel,
+            rarityDescription: medal.rarityDescription || rarityPayload.rarityDescription,
+            progressStatus: medal.progressStatus || null,
         };
         medalFilterVisibleCount = MEDAL_FILTER_PAGE_SIZE;
 
@@ -5844,7 +17135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderMedalsGrid();
         renderActivitiesList();
 
-        setActivePanel('activities', { focusTab: true });
+        mapsTo('activities', { focusTab: true });
 
         if (activitiesSectionElement) {
             activitiesSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5882,6 +17173,182 @@ document.addEventListener('DOMContentLoaded', async () => {
         yearSelect.value = 'all';
     };
 
+    const populateWalletTimeframeSelect = (metrics = []) => {
+        if (!walletTimeframeSelect) {
+            return;
+        }
+
+        const hasMetrics = Array.isArray(metrics) && metrics.length > 0;
+        const uniqueYears = hasMetrics
+            ? Array.from(new Set(metrics
+                .map(metric => (metric?.date instanceof Date ? metric.date.getFullYear() : null))
+                .filter(year => Number.isInteger(year))))
+            : [];
+
+        uniqueYears.sort((a, b) => b - a);
+
+        const optionConfigs = [
+            { value: WALLET_TIMEFRAME_DAY, label: 'Today' },
+            { value: WALLET_TIMEFRAME_WEEK, label: 'Last 7 days' },
+            { value: WALLET_TIMEFRAME_MONTH, label: 'Last 30 days' },
+            { value: WALLET_TIMEFRAME_3_MONTH, label: 'Last 90 days' },
+            { value: WALLET_TIMEFRAME_6_MONTH, label: 'Last 6 months' },
+            { value: WALLET_TIMEFRAME_LAST_12_MONTHS, label: 'Last 12 months' },
+            { value: WALLET_TIMEFRAME_2_YEAR, label: 'Last 24 months' },
+            { value: WALLET_TIMEFRAME_ALL, label: 'All time' },
+        ];
+
+        uniqueYears.forEach(year => {
+            optionConfigs.push({ value: `year-${year}`, label: String(year) });
+        });
+
+        walletTimeframeSelect.innerHTML = '';
+
+        optionConfigs.forEach(({ value, label }) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            walletTimeframeSelect.appendChild(option);
+        });
+
+        const availableValues = optionConfigs.map(option => option.value);
+        if (!availableValues.includes(walletSelectedTimeframe)) {
+            walletSelectedTimeframe = WALLET_TIMEFRAME_ALL;
+        }
+
+        walletTimeframeSelect.value = walletSelectedTimeframe;
+        walletTimeframeSelect.disabled = optionConfigs.length <= 1;
+        walletTimeframeSelect.setAttribute('aria-disabled', walletTimeframeSelect.disabled ? 'true' : 'false');
+    };
+
+    const filterMetricsByRange = (metrics = [], { days = null, months = null } = {}) => {
+        const sorted = metrics.slice().sort((a, b) => a.date - b.date);
+        const latest = sorted[sorted.length - 1];
+        if (!latest) {
+            return sorted;
+        }
+        const endDate = new Date(latest.date.getTime());
+        const startDate = new Date(endDate.getTime());
+        if (Number.isFinite(days)) {
+            startDate.setDate(startDate.getDate() - Math.max(0, days - 1));
+        } else if (Number.isFinite(months)) {
+            startDate.setMonth(startDate.getMonth() - Math.max(0, months - 1));
+        }
+        startDate.setHours(0, 0, 0, 0);
+        return sorted.filter(metric => metric.date >= startDate && metric.date <= endDate);
+    };
+
+    const filterMetricsForWalletTimeframe = (metrics = [], timeframe = WALLET_TIMEFRAME_ALL) => {
+        if (!Array.isArray(metrics) || metrics.length === 0) {
+            return [];
+        }
+
+        const normalizedMetrics = metrics
+            .filter(metric => metric?.date instanceof Date && !Number.isNaN(metric.date.getTime()))
+            .sort((a, b) => a.date - b.date);
+        if (normalizedMetrics.length === 0) {
+            return [];
+        }
+
+        const enforceMinimumPoints = (entries) => {
+            if (!Array.isArray(entries) || entries.length === 0) {
+                const start = Math.max(0, normalizedMetrics.length - MIN_WALLET_CHART_POINTS);
+                return normalizedMetrics.slice(start);
+            }
+            if (entries.length >= MIN_WALLET_CHART_POINTS || entries.length >= normalizedMetrics.length) {
+                return entries;
+            }
+            const filteredSet = new Set(entries);
+            const result = entries.slice();
+            let firstIndex = normalizedMetrics.findIndex(metric => filteredSet.has(metric));
+            if (firstIndex === -1) {
+                return normalizedMetrics.slice(Math.max(0, normalizedMetrics.length - MIN_WALLET_CHART_POINTS));
+            }
+            let lastIndex = firstIndex;
+            for (let index = normalizedMetrics.length - 1; index >= 0; index -= 1) {
+                if (filteredSet.has(normalizedMetrics[index])) {
+                    lastIndex = index;
+                    break;
+                }
+            }
+            let prependIndex = firstIndex - 1;
+            while (result.length < MIN_WALLET_CHART_POINTS && prependIndex >= 0) {
+                const candidate = normalizedMetrics[prependIndex];
+                if (!filteredSet.has(candidate)) {
+                    result.unshift(candidate);
+                    filteredSet.add(candidate);
+                }
+                prependIndex -= 1;
+            }
+            let appendIndex = lastIndex + 1;
+            while (result.length < MIN_WALLET_CHART_POINTS && appendIndex < normalizedMetrics.length) {
+                const candidate = normalizedMetrics[appendIndex];
+                if (!filteredSet.has(candidate)) {
+                    result.push(candidate);
+                    filteredSet.add(candidate);
+                }
+                appendIndex += 1;
+            }
+            return result;
+        };
+
+        if (!timeframe || timeframe === WALLET_TIMEFRAME_ALL) {
+            return enforceMinimumPoints(normalizedMetrics);
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_DAY) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { days: 1 }));
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_WEEK) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { days: 7 }));
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_MONTH) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 1 }));
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_3_MONTH) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 3 }));
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_6_MONTH) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 6 }));
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_LAST_12_MONTHS) {
+            const sorted = normalizedMetrics;
+            const latest = sorted[sorted.length - 1];
+            if (!latest) {
+                return enforceMinimumPoints(sorted);
+            }
+
+            const endDate = new Date(latest.date.getTime());
+            const startDate = new Date(endDate.getTime());
+            startDate.setMonth(startDate.getMonth() - 11);
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+
+            const filtered = sorted.filter(metric => metric.date >= startDate && metric.date <= endDate);
+            return enforceMinimumPoints(filtered);
+        }
+
+        if (timeframe === WALLET_TIMEFRAME_2_YEAR) {
+            return enforceMinimumPoints(filterMetricsByRange(normalizedMetrics, { months: 24 }));
+        }
+
+        if (typeof timeframe === 'string' && timeframe.startsWith('year-')) {
+            const [, yearPart] = timeframe.split('-');
+            const year = Number.parseInt(yearPart, 10);
+            if (Number.isFinite(year)) {
+                const filtered = normalizedMetrics.filter(metric => metric.date.getFullYear() === year);
+                return enforceMinimumPoints(filtered);
+            }
+        }
+
+        return enforceMinimumPoints(normalizedMetrics);
+    };
+
     const resolveMedalCategory = (medal = {}) => {
         if (medal.category) {
             return medal.category;
@@ -5906,8 +17373,1129 @@ document.addEventListener('DOMContentLoaded', async () => {
         return 'Performance Challenges';
     };
 
+    const DAY_IN_MS = 24 * 60 * 60 * 1000;
+    const METERS_IN_KILOMETER = 1000;
+    const SECONDS_IN_HOUR = 3600;
+
+    const createAggregateContext = (activityList = []) => {
+        const summariesByDate = new Map();
+
+        if (!Array.isArray(activityList) || activityList.length === 0) {
+            return { dailySummaries: [], byDate: summariesByDate };
+        }
+
+        const getOrCreateSummary = (dateKey) => {
+            if (!summariesByDate.has(dateKey)) {
+                summariesByDate.set(dateKey, {
+                    dateKey,
+                    totalActivities: 0,
+                    totalMovingTimeSeconds: 0,
+                    totalElevationGain: 0,
+                    runDistance: 0,
+                    runActivities: 0,
+                    rideDistance: 0,
+                    rideActivities: 0,
+                    swimDistance: 0,
+                    swimActivities: 0,
+                });
+            }
+            return summariesByDate.get(dateKey);
+        };
+
+        activityList.forEach(activity => {
+            const dateKey = getActivityDateKey(activity);
+            if (!dateKey) {
+                return;
+            }
+
+            const summary = getOrCreateSummary(dateKey);
+
+            const movingTimeSeconds = Number(activity.moving_time) || 0;
+            const elevationGain = Number(activity.total_elevation_gain) || 0;
+            const distanceMeters = Number(activity.distance) || 0;
+            const normalizedType = (activity.type || '').toUpperCase();
+
+            summary.totalActivities += 1;
+            summary.totalMovingTimeSeconds += movingTimeSeconds > 0 ? movingTimeSeconds : 0;
+            summary.totalElevationGain += elevationGain > 0 ? elevationGain : 0;
+
+            if (normalizedType.includes('RUN')) {
+                summary.runActivities += 1;
+                summary.runDistance += distanceMeters > 0 ? distanceMeters : 0;
+            }
+
+            if (normalizedType.includes('RIDE')) {
+                summary.rideActivities += 1;
+                summary.rideDistance += distanceMeters > 0 ? distanceMeters : 0;
+            }
+
+            if (normalizedType.includes('SWIM')) {
+                summary.swimActivities += 1;
+                summary.swimDistance += distanceMeters > 0 ? distanceMeters : 0;
+            }
+        });
+
+        const dailySummaries = Array.from(summariesByDate.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+        return { dailySummaries, byDate: summariesByDate };
+    };
+
+    const countDailyMatches = (dailySummaries, predicate) => {
+        if (!Array.isArray(dailySummaries) || dailySummaries.length === 0) {
+            return 0;
+        }
+
+        return dailySummaries.reduce((accumulator, summary) => {
+            try {
+                return predicate(summary) ? accumulator + 1 : accumulator;
+            } catch (error) {
+                return accumulator;
+            }
+        }, 0);
+    };
+
+    const countConsecutiveDailyMatches = (dailySummaries, predicate, requiredLength) => {
+        if (!Array.isArray(dailySummaries) || dailySummaries.length === 0 || !Number.isFinite(requiredLength) || requiredLength <= 0) {
+            return 0;
+        }
+
+        let count = 0;
+        let streak = 0;
+        let previousDate = null;
+
+        dailySummaries.forEach(summary => {
+            const currentDate = new Date(`${summary.dateKey}T00:00:00Z`);
+            const qualifies = (() => {
+                try {
+                    return predicate(summary);
+                } catch (error) {
+                    return false;
+                }
+            })();
+
+            if (!qualifies || Number.isNaN(currentDate.getTime())) {
+                streak = 0;
+                previousDate = null;
+                return;
+            }
+
+            if (previousDate) {
+                const diffDays = Math.round((currentDate - previousDate) / DAY_IN_MS);
+                streak = diffDays === 1 ? streak + 1 : 1;
+            } else {
+                streak = 1;
+            }
+
+            if (streak >= requiredLength) {
+                count += 1;
+            }
+
+            previousDate = currentDate;
+        });
+
+        return count;
+    };
+
+    const BEST_CLASS_PREDICATES = {
+        runRideOneDay: summary => summary.runDistance >= 10 * METERS_IN_KILOMETER && summary.rideDistance >= 40 * METERS_IN_KILOMETER,
+        runRideSwimOneDay: summary => summary.runDistance >= 10 * METERS_IN_KILOMETER
+            && summary.rideDistance >= 40 * METERS_IN_KILOMETER
+            && summary.swimDistance >= 1 * METERS_IN_KILOMETER,
+        doubleRunDay: summary => summary.runActivities >= 2,
+        doubleRideDay: summary => summary.rideActivities >= 2,
+        threeActivitiesOneDay: summary => summary.totalActivities >= 3,
+        consecutiveRide100: summary => summary.rideDistance >= 100 * METERS_IN_KILOMETER,
+        consecutiveRide150: summary => summary.rideDistance >= 150 * METERS_IN_KILOMETER,
+        fiveHourDay: summary => summary.totalMovingTimeSeconds >= 5 * SECONDS_IN_HOUR,
+        consecutiveRun10k: summary => summary.runDistance >= 10 * METERS_IN_KILOMETER,
+        consecutiveHalfMarathons: summary => summary.runDistance >= 21 * METERS_IN_KILOMETER,
+        consecutiveMarathons: summary => summary.runDistance >= 42 * METERS_IN_KILOMETER,
+        consecutiveElevation1500: summary => summary.totalElevationGain >= 1500,
+        olympicTriathlons: summary => summary.swimDistance >= 1.5 * METERS_IN_KILOMETER
+            && summary.rideDistance >= 40 * METERS_IN_KILOMETER
+            && summary.runDistance >= 10 * METERS_IN_KILOMETER,
+        consecutiveElevation3000: summary => summary.totalElevationGain >= 3000,
+    };
+
+    const aggregateBestClassResolvers = {
+        runRideOneDay: (context) => countDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.runRideOneDay),
+        runRideSwimOneDay: (context) => countDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.runRideSwimOneDay),
+        doubleRunDay: (context) => countDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.doubleRunDay),
+        doubleRideDay: (context) => countDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.doubleRideDay),
+        threeActivitiesOneDay: (context) => countDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.threeActivitiesOneDay),
+        consecutiveRide100: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.consecutiveRide100, 2),
+        consecutiveRide150: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.consecutiveRide150, 2),
+        consecutiveFiveHourDaysTwo: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.fiveHourDay, 2),
+        consecutiveFiveHourDaysThree: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.fiveHourDay, 3),
+        consecutiveRun10k: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.consecutiveRun10k, 2),
+        consecutiveHalfMarathons: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.consecutiveHalfMarathons, 2),
+        consecutiveMarathons: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.consecutiveMarathons, 2),
+        consecutiveElevation1500: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.consecutiveElevation1500, 2),
+        consecutiveElevation3000: (context) => countConsecutiveDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.consecutiveElevation3000, 2),
+        olympicTriathlons: (context) => countDailyMatches(context?.dailySummaries, BEST_CLASS_PREDICATES.olympicTriathlons),
+    };
+
+    const MEDAL_DISCIPLINE_LOOKUP = new Map([
+        ['Run & Ride One Day', 'multi'],
+        ['Run, Ride & Swim One Day', 'multi'],
+        ['Double Run Day', 'run'],
+        ['Double Ride One Day', 'ride'],
+        ['3 Activities One Day', 'multi'],
+        ['2 Days Consecutive of 100 km Ride', 'ride'],
+        ['2 Days Consecutive of 150 km Ride', 'ride'],
+        ['2 Days Consecutive 5h+ Each Day', 'multi'],
+        ['3 Days Consecutive 5h+ Each Day', 'multi'],
+        ['2 Days of 10 km Consecutive Run', 'run'],
+        ['2 Half Marathons Back to Back', 'run'],
+        ['2 Marathons Back to Back', 'run'],
+        ['2 Days Consecutive 1500 m Elevation', 'multi'],
+        ['Olympic Triathlons Completed', 'multi'],
+        ['2 Days Back to Back 3000 m Elevation', 'multi'],
+        ['Christmas Champion', 'multi'],
+        ['New Year’s Hero', 'multi'],
+        ['Valentine’s Victor', 'multi'],
+        ['Easter Enthusiast', 'multi'],
+        ['Independence Day Icon', 'multi'],
+        ['Halloween Hero', 'multi'],
+        ['Thanksgiving Titan', 'multi'],
+        ['Mother’s Day Master', 'multi'],
+        ['Father’s Day Fighter', 'multi'],
+        ['Labor Day Legend', 'multi'],
+        ['Pi Day Pace Setter', 'multi'],
+        ['Global Running Day Star', 'run'],
+        ['Summer Solstice Sprinter', 'multi'],
+        ['Super Nice Day', 'multi'],
+        ['Leap Day Legend', 'multi'],
+        ['Steep Climber', 'multi'],
+        ['Coppa Coppi Protector', 'ride'],
+        ['7-Day Caloric Champion', 'multi'],
+        ['Night Owl', 'multi'],
+        ['Early Riser', 'multi'],
+        ['Summit Strider', 'run'],
+        ['Skyward Cyclist', 'ride'],
+        ['Vertical Velocity', 'run'],
+        ['Alpine Sprinter', 'ride'],
+        ['Urban Ladder', 'run'],
+        ['Coastal Century', 'ride'],
+        ['Ultra Voyager', 'ride'],
+        ['Evergreen Endurance', 'ride'],
+        ['Skyline Charge', 'run'],
+        ['Power Pedaler', 'ride'],
+        ['Tempo Trailblazer', 'run'],
+        ['Mountain Marathoner', 'run'],
+        ['Ridge Explorer', 'ride'],
+        ['Gradient Guru', 'run'],
+        ['Switchback Cyclist', 'ride'],
+        ['Peak Fueler', 'multi'],
+        ['Hefty Haul', 'ride'],
+        ['Volcanic Vertical', 'multi'],
+        ['Marathon Finisher', 'run'],
+        ['Ultra Runner', 'run'],
+        ['Run Streak — 7 Days', 'run'],
+        ['Run Streak — 30 Days', 'run'],
+        ['Ride Streak — 7 Days', 'ride'],
+        ['Ride Streak — 30 Days', 'ride'],
+        ['Swim Streak — 7 Days', 'swim'],
+        ['Training Fortnight', 'multi'],
+        ['Training Month Milestone', 'multi'],
+        ['Season of Consistency', 'multi'],
+        ['Half-Year Sentinel', 'multi'],
+        ['Year of Grit', 'multi'],
+        ['Cycling Streak', 'ride'],
+        ['Crowd Pleaser', 'multi'],
+        ['Community Star', 'multi'],
+        ['Legend of Kudos', 'multi'],
+        ['Ride 10,000 km', 'ride'],
+        ['Ride 100,000 m Elevation', 'ride'],
+        ['Ride 1,000 Hours', 'ride'],
+        ['Run 1,000 km', 'run'],
+        ['Run 20,000 m Elevation', 'run'],
+        ['Run 1,000 Hours', 'run'],
+        ['Swim 500 km', 'swim'],
+        ['Swim 1,000 Hours', 'swim'],
+    ]);
+
+    const resolveMedalDiscipline = (medal = {}) => {
+        const mapped = medal?.name ? MEDAL_DISCIPLINE_LOOKUP.get(medal.name) : null;
+        if (mapped) {
+            return mapped;
+        }
+        if (medal?.discipline) {
+            return medal.discipline;
+        }
+        return inferMedalDiscipline(medal);
+    };
+
+    const addDisciplineToDefinition = (definition = {}) => ({
+        ...definition,
+        discipline: resolveMedalDiscipline(definition),
+    });
+
+    const BEST_CLASS_MEDALS = [
+        {
+            name: 'Run & Ride One Day',
+            emoji: '🏃‍♂️🚴‍♂️',
+            description: 'Completed at least 10 km of running and 40 km of riding on the same day.',
+            category: 'Best in Class',
+            rarityKey: 'amethyst',
+            aggregateResolver: aggregateBestClassResolvers.runRideOneDay,
+            contributionConfig: {
+                type: 'daily',
+                predicate: BEST_CLASS_PREDICATES.runRideOneDay,
+            },
+        },
+        {
+            name: 'Run, Ride & Swim One Day',
+            emoji: '🏃‍♂️🚴‍♂️🏊‍♂️',
+            description: 'Logged qualifying run, ride and swim sessions within the same day.',
+            category: 'Best in Class',
+            rarityKey: 'auric',
+            aggregateResolver: aggregateBestClassResolvers.runRideSwimOneDay,
+            contributionConfig: {
+                type: 'daily',
+                predicate: BEST_CLASS_PREDICATES.runRideSwimOneDay,
+            },
+        },
+        {
+            name: 'Double Run Day',
+            emoji: '🏃‍♂️2️⃣',
+            description: 'Recorded two separate runs on the same day.',
+            category: 'Best in Class',
+            rarityKey: 'cerulean',
+            aggregateResolver: aggregateBestClassResolvers.doubleRunDay,
+            contributionConfig: {
+                type: 'daily',
+                predicate: BEST_CLASS_PREDICATES.doubleRunDay,
+            },
+        },
+        {
+            name: 'Double Ride One Day',
+            emoji: '🚴‍♂️2️⃣',
+            description: 'Completed two distinct rides within a single day.',
+            category: 'Best in Class',
+            rarityKey: 'amethyst',
+            aggregateResolver: aggregateBestClassResolvers.doubleRideDay,
+            contributionConfig: {
+                type: 'daily',
+                predicate: BEST_CLASS_PREDICATES.doubleRideDay,
+            },
+        },
+        {
+            name: '3 Activities One Day',
+            emoji: '3️⃣',
+            description: 'Stacked three or more activities into one day.',
+            category: 'Best in Class',
+            rarityKey: 'amethyst',
+            aggregateResolver: aggregateBestClassResolvers.threeActivitiesOneDay,
+            contributionConfig: {
+                type: 'daily',
+                predicate: BEST_CLASS_PREDICATES.threeActivitiesOneDay,
+            },
+        },
+        {
+            name: '2 Days Consecutive of 100 km Ride',
+            emoji: '🚴‍♂️💯',
+            description: 'Rode at least 100 km on back-to-back days.',
+            category: 'Best in Class',
+            rarityKey: 'auric',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveRide100,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.consecutiveRide100,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.consecutiveRide100,
+                requiredLength: 2,
+            },
+        },
+        {
+            name: '2 Days Consecutive of 150 km Ride',
+            emoji: '🚴‍♂️🔁',
+            description: 'Delivered 150 km rides on two consecutive days.',
+            category: 'Best in Class',
+            rarityKey: 'obsidian',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveRide150,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.consecutiveRide150,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.consecutiveRide150,
+                requiredLength: 2,
+            },
+        },
+        {
+            name: '2 Days Consecutive 5h+ Each Day',
+            emoji: '⏱️⏱️',
+            description: 'Logged more than five hours of training on two straight days.',
+            category: 'Best in Class',
+            rarityKey: 'auric',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysTwo,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.fiveHourDay,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.fiveHourDay,
+                requiredLength: 2,
+            },
+        },
+        {
+            name: '3 Days Consecutive 5h+ Each Day',
+            emoji: '⏱️⏱️⏱️',
+            description: 'Maintained five-hour training days across a three-day stretch.',
+            category: 'Best in Class',
+            rarityKey: 'obsidian',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveFiveHourDaysThree,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.fiveHourDay,
+                requiredLength: 3,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.fiveHourDay,
+                requiredLength: 3,
+            },
+        },
+        {
+            name: '2 Days of 10 km Consecutive Run',
+            emoji: '🏃‍♂️💨',
+            description: 'Ran at least 10 km on two consecutive days.',
+            category: 'Best in Class',
+            rarityKey: 'cerulean',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveRun10k,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.consecutiveRun10k,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.consecutiveRun10k,
+                requiredLength: 2,
+            },
+        },
+        {
+            name: '2 Half Marathons Back to Back',
+            emoji: '🛡️🏃‍♂️',
+            description: 'Hit half-marathon distance on consecutive days.',
+            category: 'Best in Class',
+            rarityKey: 'auric',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveHalfMarathons,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.consecutiveHalfMarathons,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.consecutiveHalfMarathons,
+                requiredLength: 2,
+            },
+        },
+        {
+            name: '2 Marathons Back to Back',
+            emoji: '🔥🏃‍♂️',
+            description: 'Completed marathon-distance runs on consecutive days.',
+            category: 'Best in Class',
+            rarityKey: 'obsidian',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveMarathons,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.consecutiveMarathons,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.consecutiveMarathons,
+                requiredLength: 2,
+            },
+        },
+        {
+            name: '2 Days Consecutive 1500 m Elevation',
+            emoji: '🧗‍♂️🧗‍♂️',
+            description: 'Climbed at least 1,500 m of elevation on two straight days.',
+            category: 'Best in Class',
+            rarityKey: 'auric',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveElevation1500,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.consecutiveElevation1500,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.consecutiveElevation1500,
+                requiredLength: 2,
+            },
+        },
+        {
+            name: 'Olympic Triathlons Completed',
+            emoji: '🏅',
+            description: 'Pieced together Olympic triathlon distances within a day.',
+            category: 'Best in Class',
+            rarityKey: 'obsidian',
+            aggregateResolver: aggregateBestClassResolvers.olympicTriathlons,
+            contributionConfig: {
+                type: 'daily',
+                predicate: BEST_CLASS_PREDICATES.olympicTriathlons,
+            },
+        },
+        {
+            name: '2 Days Back to Back 3000 m Elevation',
+            emoji: '🗻🗻',
+            description: 'Stacked 3,000 m elevation days consecutively.',
+            category: 'Best in Class',
+            rarityKey: 'obsidian',
+            aggregateResolver: aggregateBestClassResolvers.consecutiveElevation3000,
+            consecutiveConfig: {
+                predicate: BEST_CLASS_PREDICATES.consecutiveElevation3000,
+                requiredLength: 2,
+            },
+            contributionConfig: {
+                type: 'consecutive',
+                predicate: BEST_CLASS_PREDICATES.consecutiveElevation3000,
+                requiredLength: 2,
+            },
+        },
+    ];
+
+    const mapBestClassMedalToConfig = (medal) => ({
+        name: medal.name,
+        emoji: medal.emoji,
+        description: medal.description,
+        category: medal.category || 'Best in Class',
+        aggregateCriteria: (activities, context) => {
+            const resolvedContext = context || createAggregateContext(activities);
+            try {
+                const rawCount = medal.aggregateResolver(resolvedContext);
+                if (!Number.isFinite(rawCount) || rawCount <= 0) {
+                    return 0;
+                }
+                return Math.floor(rawCount);
+            } catch (error) {
+                return 0;
+            }
+        },
+    });
+
+    function collectDailyContributionDates(dailySummaries, predicate) {
+        if (
+            !Array.isArray(dailySummaries)
+            || dailySummaries.length === 0
+            || typeof predicate !== 'function'
+        ) {
+            return [];
+        }
+
+        const matches = new Set();
+
+        dailySummaries.forEach(summary => {
+            const dateKey = summary?.dateKey;
+            if (!dateKey) {
+                return;
+            }
+
+            let qualifies = false;
+            try {
+                qualifies = Boolean(predicate(summary));
+            } catch (error) {
+                qualifies = false;
+            }
+
+            if (qualifies) {
+                matches.add(dateKey);
+            }
+        });
+
+        return Array.from(matches).sort();
+    }
+
+    function collectConsecutiveContributionDates(dailySummaries, predicate, requiredLength) {
+        if (
+            !Array.isArray(dailySummaries)
+            || dailySummaries.length === 0
+            || typeof predicate !== 'function'
+            || !Number.isFinite(requiredLength)
+            || requiredLength <= 0
+        ) {
+            return [];
+        }
+
+        const contributions = new Set();
+        let streakDates = [];
+        let previousDate = null;
+
+        const finalizeStreak = () => {
+            if (streakDates.length >= requiredLength) {
+                streakDates.forEach(dateKey => contributions.add(dateKey));
+            }
+            streakDates = [];
+            previousDate = null;
+        };
+
+        dailySummaries.forEach(summary => {
+            const dateKey = summary?.dateKey;
+            if (!dateKey) {
+                finalizeStreak();
+                return;
+            }
+
+            const currentDate = new Date(`${dateKey}T00:00:00Z`);
+            if (Number.isNaN(currentDate.getTime())) {
+                finalizeStreak();
+                return;
+            }
+
+            let qualifies = false;
+            try {
+                qualifies = Boolean(predicate(summary));
+            } catch (error) {
+                qualifies = false;
+            }
+
+            if (!qualifies) {
+                finalizeStreak();
+                return;
+            }
+
+            if (previousDate) {
+                const diffDays = Math.round((currentDate - previousDate) / DAY_IN_MS);
+                if (diffDays !== 1) {
+                    finalizeStreak();
+                }
+            }
+
+            if (streakDates.length === 0 || streakDates[streakDates.length - 1] !== dateKey) {
+                streakDates.push(dateKey);
+            }
+
+            if (streakDates.length >= requiredLength) {
+                streakDates.forEach(value => contributions.add(value));
+            }
+
+            previousDate = currentDate;
+        });
+
+        finalizeStreak();
+
+        return Array.from(contributions).sort();
+    }
+
+    function computeMedalContributionEntries(dailySummaries = []) {
+        if (!Array.isArray(dailySummaries) || dailySummaries.length === 0) {
+            return [];
+        }
+
+        const entries = [];
+
+        BEST_CLASS_MEDALS.forEach(medal => {
+            const contributionConfig = medal?.contributionConfig;
+            if (contributionConfig?.type === 'daily' && typeof contributionConfig.predicate === 'function') {
+                const dates = collectDailyContributionDates(dailySummaries, contributionConfig.predicate);
+                if (dates.length === 0) {
+                    return;
+                }
+
+                entries.push({
+                    name: medal.name,
+                    emoji: medal.emoji || '🏅',
+                    description: medal.description || '',
+                    dates,
+                });
+                return;
+            }
+
+            const predicate = contributionConfig?.predicate || medal?.consecutiveConfig?.predicate;
+            const requiredLength = Number.isFinite(contributionConfig?.requiredLength)
+                ? contributionConfig.requiredLength
+                : Number.isFinite(medal?.consecutiveConfig?.requiredLength)
+                    ? medal.consecutiveConfig.requiredLength
+                    : 0;
+
+            if (!predicate || requiredLength <= 1) {
+                return;
+            }
+
+            const dates = collectConsecutiveContributionDates(dailySummaries, predicate, requiredLength);
+            if (dates.length === 0) {
+                return;
+            }
+
+            entries.push({
+                name: medal.name,
+                emoji: medal.emoji || '🏅',
+                description: medal.description || '',
+                dates,
+            });
+        });
+
+        return entries;
+    }
+
+    const PROGRESS_MEDAL_DEFINITIONS = [
+        {
+            name: 'Ride 10,000 km',
+            emoji: '🚴‍♂️',
+            description: 'Accumulate 10,000 km over time.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Ride',
+            targetValue: 10000,
+            unitLabel: 'km',
+            unitDescription: 'ride distance',
+            formatter: formatKilometersDisplay,
+            valueResolver: (totals) => totals.rideDistanceKm,
+        },
+        {
+            name: 'Ride 100,000 m Elevation',
+            emoji: '⛰️',
+            description: 'Climb 100,000 m in total elevation.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Ride',
+            targetValue: 100000,
+            unitLabel: 'm',
+            unitDescription: 'ride elevation gain',
+            formatter: (value) => Math.round(value).toLocaleString(),
+            valueResolver: (totals) => totals.rideElevationM,
+        },
+        {
+            name: 'Ride 1,000 Hours',
+            emoji: '⏱️',
+            description: 'Log 1,000 hours of effort.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Ride',
+            targetValue: 1000,
+            unitLabel: 'h',
+            unitDescription: 'ride hours',
+            formatter: formatHoursDisplay,
+            valueResolver: (totals) => totals.rideHours,
+        },
+        {
+            name: 'Run 1,000 km',
+            emoji: '🏃',
+            description: 'Cover 1,000 km over time.',
+            rarityKey: 'amethyst',
+            category: 'Milestones',
+            milestoneCategory: 'Run',
+            targetValue: 1000,
+            unitLabel: 'km',
+            unitDescription: 'run distance',
+            formatter: formatKilometersDisplay,
+            valueResolver: (totals) => totals.runDistanceKm,
+        },
+        {
+            name: 'Run 20,000 m Elevation',
+            emoji: '🧗',
+            description: 'Climb 20,000 m in elevation.',
+            rarityKey: 'auric',
+            category: 'Milestones',
+            milestoneCategory: 'Run',
+            targetValue: 20000,
+            unitLabel: 'm',
+            unitDescription: 'run elevation gain',
+            formatter: (value) => Math.round(value).toLocaleString(),
+            valueResolver: (totals) => totals.runElevationM,
+        },
+        {
+            name: 'Run 1,000 Hours',
+            emoji: '⌛',
+            description: 'Spend 1,000 hours in motion.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Run',
+            targetValue: 1000,
+            unitLabel: 'h',
+            unitDescription: 'run hours',
+            formatter: formatHoursDisplay,
+            valueResolver: (totals) => totals.runHours,
+        },
+        {
+            name: 'Swim 500 km',
+            emoji: '🏊',
+            description: 'Reach a total of 500 km in the water.',
+            rarityKey: 'auric',
+            category: 'Milestones',
+            milestoneCategory: 'Swim',
+            targetValue: 500,
+            unitLabel: 'km',
+            unitDescription: 'swim distance',
+            formatter: formatKilometersDisplay,
+            valueResolver: (totals) => totals.swimDistanceKm,
+        },
+        {
+            name: 'Swim 1,000 Hours',
+            emoji: '🌊',
+            description: 'Dedicate 1,000 hours immersed in training.',
+            rarityKey: 'obsidian',
+            category: 'Milestones',
+            milestoneCategory: 'Swim',
+            targetValue: 1000,
+            unitLabel: 'h',
+            unitDescription: 'swim hours',
+            formatter: formatHoursDisplay,
+            valueResolver: (totals) => totals.swimHours,
+        },
+        {
+            name: 'Century Swim Sessions',
+            emoji: '🏊‍♀️💯',
+            description: 'Complete 100 recorded swim sessions.',
+            rarityKey: 'amethyst',
+            category: 'Milestones',
+            milestoneCategory: 'Swim',
+            targetValue: 100,
+            unitLabel: 'sessions',
+            unitDescription: 'swim sessions',
+            formatter: (value) => Math.floor(value).toLocaleString(),
+            valueResolver: (totals) => totals.swimSessionCount,
+        },
+        {
+            name: 'Triple Country Month',
+            emoji: '🌍✈️',
+            description: 'Train in three different countries within the same month.',
+            rarityKey: 'auric',
+            category: 'Milestones',
+            milestoneCategory: 'Travel',
+            targetValue: 1,
+            unitLabel: 'months',
+            unitDescription: 'months with 3+ countries',
+            formatter: (value) => Math.floor(value).toLocaleString(),
+            valueResolver: (totals) => totals.monthsWithThreeCountries,
+        },
+        {
+            name: 'Double Yoga Day',
+            emoji: '🧘‍♀️🧘‍♂️',
+            description: 'Complete two yoga sessions in the same day.',
+            rarityKey: 'verdant',
+            category: 'Consistency',
+            milestoneCategory: 'Yoga',
+            targetValue: 1,
+            unitLabel: 'days',
+            unitDescription: 'double-session yoga days',
+            formatter: (value) => Math.floor(value).toLocaleString(),
+            valueResolver: (totals) => totals.doubleYogaDays,
+        },
+    ];
+
+    const createMedalProgressStatus = ({
+        currentValue = 0,
+        targetValue = 0,
+        unitLabel = '',
+        unitDescription = '',
+        formatter,
+    } = {}) => {
+        const safeCurrent = Math.max(0, Number(currentValue) || 0);
+        const safeTarget = Math.max(0, Number(targetValue) || 0);
+        const formatValue = typeof formatter === 'function'
+            ? formatter
+            : (value) => {
+                const numeric = Number(value) || 0;
+                if (!Number.isFinite(numeric)) {
+                    return '0';
+                }
+                if (numeric >= 1000) {
+                    return Math.round(numeric).toLocaleString();
+                }
+                if (numeric >= 10) {
+                    return numeric.toFixed(1);
+                }
+                return numeric.toFixed(2);
+            };
+
+        const completedSets = safeTarget > 0 ? Math.floor(safeCurrent / safeTarget) : 0;
+        const remainderValue = safeTarget > 0
+            ? safeCurrent - (completedSets * safeTarget)
+            : safeCurrent;
+
+        const formattedCurrent = formatValue(remainderValue);
+        const formattedTarget = safeTarget > 0 ? formatValue(safeTarget) : '';
+        const unitSuffix = unitLabel ? ` ${unitLabel}` : '';
+
+        const label = safeTarget > 0
+            ? `${formattedCurrent}${unitSuffix} / ${formattedTarget}${unitSuffix}`
+            : `${formattedCurrent}${unitSuffix}`;
+
+        const percentComplete = safeTarget > 0
+            ? Math.min(100, Math.max(0, (remainderValue / safeTarget) * 100))
+            : 0;
+        const percentLabel = safeTarget > 0 ? `${Math.round(percentComplete)}%` : '';
+
+        const statusParts = [];
+        if (completedSets > 0) {
+            statusParts.push(`${completedSets.toLocaleString()}×`);
+        }
+        if (percentLabel) {
+            statusParts.push(`${percentLabel} to next`);
+        }
+        const detail = statusParts.length > 0
+            ? statusParts.join(' • ')
+            : (percentLabel ? `${label} (${percentLabel})` : label);
+
+        const isComplete = safeTarget > 0 && safeCurrent >= safeTarget;
+        return {
+            currentValue: remainderValue,
+            totalValue: safeCurrent,
+            targetValue: safeTarget,
+            completedSets,
+            percentComplete,
+            percentLabel,
+            label,
+            detail,
+            unitLabel,
+            unitDescription: unitDescription || unitLabel || '',
+            statusLabel: isComplete ? 'Complete' : 'In progress',
+            isComplete,
+        };
+    };
+
+    const buildActivityRatioSummaries = (activities = []) => {
+        const createTotals = () => ({
+            distanceMeters: 0,
+            elevationMeters: 0,
+            movingSeconds: 0,
+            count: 0,
+        });
+
+        const totalsByType = {
+            run: createTotals(),
+            ride: createTotals(),
+            swim: createTotals(),
+        };
+
+        (Array.isArray(activities) ? activities : []).forEach((activity) => {
+            const normalizedType = ((activity?.sport_type || activity?.type || '')).toLowerCase();
+            const distanceMeters = Math.max(0, Number(activity?.distance) || 0);
+            const elevationGain = Math.max(0, Number(activity?.total_elevation_gain) || 0);
+            const movingSeconds = Math.max(0, Number(activity?.moving_time) || 0);
+
+            if (normalizedType.includes('run')) {
+                totalsByType.run.distanceMeters += distanceMeters;
+                totalsByType.run.elevationMeters += elevationGain;
+                totalsByType.run.movingSeconds += movingSeconds;
+                totalsByType.run.count += 1;
+            }
+
+            if (normalizedType.includes('ride')) {
+                totalsByType.ride.distanceMeters += distanceMeters;
+                totalsByType.ride.elevationMeters += elevationGain;
+                totalsByType.ride.movingSeconds += movingSeconds;
+                totalsByType.ride.count += 1;
+            }
+
+            if (normalizedType.includes('swim')) {
+                totalsByType.swim.distanceMeters += distanceMeters;
+                totalsByType.swim.elevationMeters += elevationGain;
+                totalsByType.swim.movingSeconds += movingSeconds;
+                totalsByType.swim.count += 1;
+            }
+        });
+
+        const buildMetrics = (totals) => {
+            const avgDistanceKm = totals.count > 0
+                ? (totals.distanceMeters / totals.count) / METERS_IN_KILOMETER
+                : null;
+            const avgPaceSecondsPerKm = totals.distanceMeters > 0 && totals.movingSeconds > 0
+                ? (totals.movingSeconds / totals.distanceMeters) * METERS_IN_KILOMETER
+                : null;
+            const avgClimbPerKm = totals.distanceMeters > 0
+                ? totals.elevationMeters / (totals.distanceMeters / METERS_IN_KILOMETER)
+                : null;
+
+            return {
+                count: totals.count,
+                avgDistanceKm,
+                avgPaceSecondsPerKm,
+                avgClimbPerKm,
+            };
+        };
+
+        const runMetrics = buildMetrics(totalsByType.run);
+        const rideMetrics = buildMetrics(totalsByType.ride);
+        const swimMetrics = buildMetrics(totalsByType.swim);
+
+        return {
+            run: runMetrics,
+            ride: {
+                ...rideMetrics,
+                avgSpeedKph: rideMetrics.avgPaceSecondsPerKm
+                    ? (3600 / rideMetrics.avgPaceSecondsPerKm)
+                    : (totalsByType.ride.movingSeconds > 0 && totalsByType.ride.distanceMeters > 0
+                        ? (totalsByType.ride.distanceMeters / METERS_IN_KILOMETER)
+                        / (totalsByType.ride.movingSeconds / 3600)
+                        : null),
+            },
+            swim: {
+                ...swimMetrics,
+                avgPoolsPerActivity: swimMetrics.count > 0 && totalsByType.swim.distanceMeters > 0
+                    ? (totalsByType.swim.distanceMeters / 25) / swimMetrics.count
+                    : null,
+            },
+        };
+    };
+
+    const buildProgressMedalEntries = (activityList = []) => {
+        if (!Array.isArray(activityList) || activityList.length === 0) {
+            return PROGRESS_MEDAL_DEFINITIONS.map((definition) => ({
+                name: definition.name,
+                emoji: definition.emoji || '🏅',
+                description: definition.description || '',
+                count: 0,
+                isDayBased: false,
+                category: definition.category || 'Lifetime Progress',
+                legacyCategory: definition.category || 'Lifetime Progress',
+                milestoneCategory: definition.milestoneCategory || '',
+                discipline: resolveMedalDiscipline(definition),
+                ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
+                progressStatus: createMedalProgressStatus({
+                    targetValue: definition.targetValue,
+                    unitLabel: definition.unitLabel,
+                    unitDescription: definition.unitDescription,
+                    formatter: definition.formatter,
+                }),
+            }));
+        }
+
+        const swimDates = new Set();
+        const countryMonths = new Map();
+        const yogaSessionsByDate = new Map();
+
+        const totals = activityList.reduce((acc, activity) => {
+            const movingTimeSeconds = Number(activity?.moving_time) || 0;
+            const hours = movingTimeSeconds > 0 ? movingTimeSeconds / 3600 : 0;
+            acc.totalHours += hours;
+            const distanceMeters = Number(activity?.distance) || 0;
+            const elevationGain = Number(activity?.total_elevation_gain) || 0;
+            const normalizedType = ((activity?.sport_type || activity?.type || '')).toUpperCase();
+            const calendarReference = getActivityCalendarReference(activity);
+            const dateKey = calendarReference?.dayKey || null;
+            const monthKey = calendarReference ? calendarReference.dayKey.slice(0, 7) : null;
+            const normalizedCountry = normalizeCountryCode(activity.country_code || activity.countryCode || activity.location_country);
+
+            if (normalizedType.includes('RIDE')) {
+                acc.rideDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
+                acc.rideElevationMeters += elevationGain > 0 ? elevationGain : 0;
+                acc.rideHours += hours;
+            }
+            if (normalizedType.includes('RUN')) {
+                acc.runDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
+                acc.runElevationMeters += elevationGain > 0 ? elevationGain : 0;
+                acc.runHours += hours;
+            }
+            if (normalizedType.includes('SWIM')) {
+                acc.swimDistanceMeters += distanceMeters > 0 ? distanceMeters : 0;
+                acc.swimHours += hours;
+                acc.swimSessionCount += 1;
+                if (dateKey) {
+                    swimDates.add(dateKey);
+                }
+                if (monthKey && normalizedCountry) {
+                    const monthCountries = countryMonths.get(monthKey) || new Set();
+                    monthCountries.add(normalizedCountry);
+                    countryMonths.set(monthKey, monthCountries);
+                }
+            }
+
+            if (isYogaActivity(activity) && dateKey) {
+                yogaSessionsByDate.set(dateKey, (yogaSessionsByDate.get(dateKey) || 0) + 1);
+            }
+
+            return acc;
+        }, {
+            totalHours: 0,
+            rideDistanceMeters: 0,
+            rideElevationMeters: 0,
+            rideHours: 0,
+            runDistanceMeters: 0,
+            runElevationMeters: 0,
+            runHours: 0,
+            swimDistanceMeters: 0,
+            swimHours: 0,
+            swimSessionCount: 0,
+        });
+
+        const swimDatePairs = (() => {
+            const sorted = Array.from(swimDates).sort();
+            let previous = null;
+            let streak = 0;
+            let pairs = 0;
+
+            sorted.forEach((dateKey) => {
+                const current = new Date(`${dateKey}T00:00:00Z`);
+                if (Number.isNaN(current.getTime())) {
+                    return;
+                }
+
+                if (previous) {
+                    const diffDays = Math.round((current - previous) / DAY_IN_MS);
+                    streak = diffDays === 1 ? streak + 1 : 1;
+                } else {
+                    streak = 1;
+                }
+
+                if (streak >= 2) {
+                    pairs += 1;
+                }
+
+                previous = current;
+            });
+
+            return pairs;
+        })();
+
+        const tripleCountryMonths = Array.from(countryMonths.values())
+            .filter((countrySet) => countrySet.size >= 3)
+            .length;
+
+        const doubleYogaDays = Array.from(yogaSessionsByDate.values())
+            .filter(count => count >= 2)
+            .length;
+
+        const contextTotals = {
+            totalHours: totals.totalHours,
+            rideDistanceKm: totals.rideDistanceMeters / METERS_IN_KILOMETER,
+            rideElevationM: totals.rideElevationMeters,
+            rideHours: totals.rideHours,
+            runDistanceKm: totals.runDistanceMeters / METERS_IN_KILOMETER,
+            runElevationM: totals.runElevationMeters,
+            runHours: totals.runHours,
+            swimDistanceKm: totals.swimDistanceMeters / METERS_IN_KILOMETER,
+            swimHours: totals.swimHours,
+            swimSessionCount: totals.swimSessionCount,
+            backToBackSwimPairs: swimDatePairs,
+            monthsWithThreeCountries: tripleCountryMonths,
+            doubleYogaDays,
+        };
+
+        return PROGRESS_MEDAL_DEFINITIONS.map((definition) => {
+            const currentValue = typeof definition.valueResolver === 'function'
+                ? Number(definition.valueResolver(contextTotals)) || 0
+                : 0;
+            const progressStatus = createMedalProgressStatus({
+                currentValue,
+                targetValue: definition.targetValue,
+                unitLabel: definition.unitLabel,
+                unitDescription: definition.unitDescription,
+                formatter: definition.formatter,
+            });
+            return {
+                name: definition.name,
+                emoji: definition.emoji || '🏅',
+                description: definition.description || '',
+                count: Math.max(0, Number(progressStatus.completedSets) || 0),
+                isDayBased: false,
+                category: definition.category || 'Lifetime Progress',
+                legacyCategory: definition.category || 'Lifetime Progress',
+                milestoneCategory: definition.milestoneCategory || '',
+                discipline: resolveMedalDiscipline(definition),
+                ...buildMedalRarityPayload(definition.rarityKey || DEFAULT_MEDAL_RARITY_KEY),
+                progressStatus,
+            };
+        });
+    };
+
     // === Medals Configuration ===
-    const medalsConfig = [
+    const rawMedalDefinitions = [
+        ...BEST_CLASS_MEDALS.map(mapBestClassMedalToConfig),
         // Special Days Medals
         {
             name: 'Christmas Champion',
@@ -6001,6 +18589,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         // Additional Medals
         {
+            name: '5 km Swim Session',
+            emoji: '🏊‍♂️5️⃣',
+            description: 'Complete a swim of at least 5 km.',
+            criteria: (activity) => isSwimActivity(activity) && (Number(activity?.distance) || 0) >= 5000,
+        },
+        {
+            name: '10 km Swim Session',
+            emoji: '🏊‍♀️🔟',
+            description: 'Finish a 10 km swim.',
+            criteria: (activity) => isSwimActivity(activity) && (Number(activity?.distance) || 0) >= 10000,
+        },
+        {
+            name: '3 km Swim in an Hour',
+            emoji: '⏱️🏊',
+            description: 'Swim 3 km within 60 minutes.',
+            criteria: (activity) => {
+                if (!isSwimActivity(activity)) {
+                    return false;
+                }
+                const distance = Number(activity?.distance) || 0;
+                const movingTime = Number(activity?.moving_time) || 0;
+                return distance >= 3000 && movingTime > 0 && movingTime <= 3600;
+            }
+        },
+        {
+            name: '2-Hour Swim Session',
+            emoji: '🕑🏊',
+            description: 'Stay in the water for 2 hours or more.',
+            criteria: (activity) => isSwimActivity(activity) && (Number(activity?.moving_time) || 0) >= 7200,
+        },
+        {
             name: 'Steep Climber',
             emoji: '🧗‍♀️',
             description: 'Logged an activity with elevation gain > 3000m and distance < 100 km',
@@ -6008,8 +18627,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         {
             name: 'Coppa Coppi Protector',
-            emoji: '🥩',
-            description: 'Logged an activity with elevation gain > 2000m and distance < 100 km',
+            emoji: '🚴',
+            description: 'Complete the Coppa Coppi challenge.',
+            discipline: 'ride',
             criteria: (activity) => activity.total_elevation_gain > 2000 && (activity.distance / 1000) < 100
         },
         {
@@ -6248,6 +18868,141 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: 'Completed an ultra-distance run (50 km or more)',
             criteria: (activity) => activity.type.toUpperCase() === 'RUN' && (activity.distance / 1000) >= 50
         },
+        // Consistency Streak Medals
+        {
+            name: 'Run Streak — 7 Days',
+            emoji: '🏃‍♂️📅',
+            description: 'Logged running activities seven days in a row.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RUN',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Run Streak — 30 Days',
+            emoji: '🏃‍♀️🔥',
+            description: 'Maintained a running streak for thirty consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RUN',
+                minLength: 30,
+                awardInterval: 30,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Ride Streak — 7 Days',
+            emoji: '🚴‍♂️📆',
+            description: 'Rode every day for a full week.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RIDE',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Ride Streak — 30 Days',
+            emoji: '🚴‍♀️🔥',
+            description: 'Kept the pedals turning for thirty straight days.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RIDE',
+                minLength: 30,
+                awardInterval: 30,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Swim Streak — 7 Days',
+            emoji: '🏊‍♂️🌊',
+            description: 'Swam at least once each day across seven consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'SWIM',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Yoga Streak — 7 Days',
+            emoji: '🧘‍♂️📅',
+            description: 'Logged yoga sessions seven days in a row.',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'YOGA',
+                minLength: 7,
+                awardInterval: 7,
+                matchMode: 'includes',
+            },
+        },
+        {
+            name: 'Training Fortnight',
+            emoji: '📆✨',
+            description: 'Recorded an activity every day for fourteen consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 14,
+                awardInterval: 14,
+            },
+        },
+        {
+            name: 'Training Month Milestone',
+            emoji: '🗓️🏅',
+            description: 'Logged at least one activity per day for an entire month.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 30,
+                awardInterval: 30,
+            },
+        },
+        {
+            name: 'Season of Consistency',
+            emoji: '🍂⏱️',
+            description: 'Trained daily for ninety consecutive days.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 90,
+                awardInterval: 90,
+            },
+        },
+        {
+            name: 'Half-Year Sentinel',
+            emoji: '🛡️📈',
+            description: 'Sustained daily training for one hundred eighty-two days straight.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 182,
+                awardInterval: 182,
+            },
+        },
+        {
+            name: 'Year of Grit',
+            emoji: '🗓️🔥',
+            description: 'Completed at least one activity every day for a full year.',
+            category: 'Consistency',
+            streakCriteria: {
+                minLength: 365,
+                awardInterval: 365,
+            },
+        },
+        {
+            name: 'Cycling Streak',
+            emoji: '🚴‍♀️🔗',
+            description: 'Completed cycling activities for 5 consecutive days',
+            category: 'Consistency',
+            streakCriteria: {
+                activityType: 'RIDE',
+                minLength: 5,
+                awardInterval: 5,
+                matchMode: 'includes',
+            },
+        },
         // Fan Favorite Medals
         {
             name: 'Crowd Pleaser',
@@ -6271,130 +19026,156 @@ document.addEventListener('DOMContentLoaded', async () => {
             criteria: (activity) => getActivityLikesCount(activity) >= 200
         },
         {
-            name: 'Cycling Streak',
-            emoji: '🚴‍♀️🔗',
-            description: 'Completed cycling activities for 5 consecutive days',
-            criteria: null // Special handling
+            name: 'Back-to-Back Swim Days',
+            emoji: '📆🏊',
+            description: 'Log swims on two consecutive days.',
+            category: 'Consistency',
+            rarityKey: 'cerulean',
+            aggregateCriteria: (activityList, aggregateContext) => {
+                const summaries = Array.isArray(aggregateContext?.dailySummaries)
+                    ? aggregateContext.dailySummaries
+                    : [];
+                const swimDates = summaries
+                    .filter(summary => (summary?.swimActivities || 0) > 0)
+                    .map(summary => summary.dateKey)
+                    .filter(Boolean)
+                    .sort();
+
+                let previous = null;
+                let streak = 0;
+                let pairs = 0;
+
+                swimDates.forEach((dateKey) => {
+                    const current = new Date(`${dateKey}T00:00:00Z`);
+                    if (Number.isNaN(current.getTime())) {
+                        return;
+                    }
+
+                    if (previous) {
+                        const diffDays = Math.round((current - previous) / DAY_IN_MS);
+                        streak = diffDays === 1 ? streak + 1 : 1;
+                    } else {
+                        streak = 1;
+                    }
+
+                    if (streak >= 2) {
+                        pairs += 1;
+                    }
+
+                    previous = current;
+                });
+
+                return pairs;
+            },
+        },
+        {
+            name: '1,000 km Ride Month',
+            emoji: '🚴‍♂️📆',
+            description: 'Ride at least 1,000 km within a single calendar month.',
+            category: 'Distance Ride',
+            rarityKey: 'auric',
+            aggregateCriteria: (activityList) => {
+                const monthlyTotals = new Map();
+
+                activityList.forEach((activity) => {
+                    const dateKey = getActivityDateKey(activity);
+                    const normalizedType = (activity?.type || '').toUpperCase();
+                    const distance = Number(activity?.distance) || 0;
+                    if (!dateKey || !normalizedType.includes('RIDE') || distance <= 0) {
+                        return;
+                    }
+
+                    const monthKey = dateKey.slice(0, 7);
+                    const current = monthlyTotals.get(monthKey) || 0;
+                    monthlyTotals.set(monthKey, current + (distance / METERS_IN_KILOMETER));
+                });
+
+                let qualifyingMonths = 0;
+                monthlyTotals.forEach((totalKm) => {
+                    if (totalKm >= 1000) {
+                        qualifyingMonths += 1;
+                    }
+                });
+
+                return qualifyingMonths;
+            },
         }
     ];
+
+    const medalsConfig = rawMedalDefinitions.map(addDisciplineToDefinition);
+
+    const medalDefinitionLookup = new Map([
+        ...medalsConfig.map(medal => [medal.name, medal]),
+        ...PROGRESS_MEDAL_DEFINITIONS.map((definition) => {
+            const hydratedDefinition = addDisciplineToDefinition(definition);
+            return [hydratedDefinition.name, hydratedDefinition];
+        }),
+    ]);
+
+    const ensureCompleteMedalInventory = (inventory = []) => {
+        const normalized = Array.isArray(inventory)
+            ? inventory.filter(Boolean).map(entry => ({ ...entry }))
+            : [];
+        const existingNames = new Set(normalized
+            .map(entry => entry?.name)
+            .filter(Boolean));
+
+        medalDefinitionLookup.forEach((definition, name) => {
+            if (!name || existingNames.has(name)) {
+                return;
+            }
+
+            normalized.push({
+                name,
+                count: 0,
+                emoji: definition?.emoji,
+                description: definition?.description,
+                rarityKey: definition?.rarityKey,
+                rarityLabel: definition?.rarityLabel,
+                category: definition?.category,
+                legacyCategory: definition?.legacyCategory || definition?.category,
+                discipline: definition?.discipline,
+            });
+        });
+
+        return normalized.map((entry) => {
+            const definition = entry?.name ? medalDefinitionLookup.get(entry.name) : null;
+            const merged = definition ? { ...definition, ...entry } : { ...entry };
+            return normalizeMedalRarityPayload({
+                ...merged,
+                legacyCategory: merged?.legacyCategory || merged?.category || definition?.category || '',
+                discipline: merged?.discipline || definition?.discipline,
+                description: merged?.description || definition?.description || '',
+                emoji: merged?.emoji || definition?.emoji || '',
+            });
+        });
+    };
+
+    const hydrateMedalFromDefinition = (medal = {}) => {
+        if (!medal?.name) {
+            return {
+                ...medal,
+                discipline: resolveMedalDiscipline(medal),
+            };
+        }
+
+        const definition = medalDefinitionLookup.get(medal.name);
+        const merged = definition ? { ...definition, ...medal } : { ...medal };
+
+        return normalizeMedalRarityPayload({
+            ...merged,
+            discipline: resolveMedalDiscipline(merged),
+            description: merged.description || definition?.description || '',
+            emoji: merged.emoji || definition?.emoji || '',
+        });
+    };
 
     const medalOrderMap = new Map(medalsConfig.map((medal, index) => [medal.name, index]));
 
     // === Rank Configuration ===
-    const MASTER_PRESTIGE_MAX = 1000;
-    const MASTER_PRESTIGE_START_HOURS = 4000;
-    const MAX_RANK_HOURS = 20000;
-
-    const baseRanks = [
-        { name: 'Bronze 3', emoji: '🥉', minHours: 0 },
-        { name: 'Bronze 2', emoji: '🥉', minHours: 100 },
-        { name: 'Bronze 1', emoji: '🥉', minHours: 200 },
-        { name: 'Silver 3', emoji: '🥈', minHours: 300 },
-        { name: 'Silver 2', emoji: '🥈', minHours: 400 },
-        { name: 'Silver 1', emoji: '🥈', minHours: 500 },
-        { name: 'Gold 3', emoji: '🥇', minHours: 600 },
-        { name: 'Gold 2', emoji: '🥇', minHours: 700 },
-        { name: 'Gold 1', emoji: '🥇', minHours: 800 },
-        { name: 'Platinum 3', emoji: '🏆', minHours: 900 },
-        { name: 'Platinum 2', emoji: '🏆', minHours: 1000 },
-        { name: 'Platinum 1', emoji: '🏆', minHours: 1100 },
-        { name: 'Diamond 3', emoji: '💎', minHours: 1200 },
-        { name: 'Diamond 2', emoji: '💎', minHours: 1300 },
-        { name: 'Diamond 1', emoji: '💎', minHours: 1400 },
-        { name: 'Master 3', emoji: '🔥', minHours: 1500 },
-        { name: 'Master 2', emoji: '🔥', minHours: 1600 },
-        { name: 'Master 1', emoji: '🔥', minHours: 1700 },
-        { name: 'Grandmaster 3', emoji: '🚀', minHours: 1800 },
-        { name: 'Grandmaster 2', emoji: '🚀', minHours: 1900 },
-        { name: 'Grandmaster 1', emoji: '🚀', minHours: 2000 },
-        { name: 'Challenger', emoji: '🌟', minHours: 2100 },
-        { name: 'Ascendant', emoji: '✨', minHours: 2300 },
-        { name: 'Paragon', emoji: '🛡️', minHours: 2600 },
-        { name: 'Mythic', emoji: '🐉', minHours: 2900 },
-        { name: 'Celestial', emoji: '🌠', minHours: 3200 },
-        { name: 'Eternal', emoji: '♾️', minHours: 3500 },
-        { name: 'Transcendent', emoji: '🧬', minHours: 3800 },
-        { name: 'Apex', emoji: '🗻', minHours: 3900 }
-    ];
-
-    const masterPrestigeIncrement = (MASTER_PRESTIGE_MAX > 1)
-        ? (MAX_RANK_HOURS - MASTER_PRESTIGE_START_HOURS) / (MASTER_PRESTIGE_MAX - 1)
-        : 0;
-
-    let lastPrestigeMinHours = MASTER_PRESTIGE_START_HOURS - 1;
-    const masterPrestigeRanks = Array.from({ length: MASTER_PRESTIGE_MAX }, (_, index) => {
-        const computedHours = index === MASTER_PRESTIGE_MAX - 1
-            ? MAX_RANK_HOURS
-            : MASTER_PRESTIGE_START_HOURS + (index * masterPrestigeIncrement);
-        const roundedHours = Math.round(computedHours);
-        const minHours = index === 0
-            ? MASTER_PRESTIGE_START_HOURS
-            : Math.max(lastPrestigeMinHours + 1, roundedHours);
-        lastPrestigeMinHours = minHours;
-        return {
-            name: `Master Prestige ${index + 1}`,
-            emoji: '⭐',
-            minHours
-        };
-    });
-
-    const rankConfig = [
-        ...baseRanks,
-        ...masterPrestigeRanks
-    ];
-
-    activeRankConfig = rankConfig;
+    activeRankConfig = RANK_CONFIG;
 
     // === Coin Configuration ===
-    const coinConfig = {
-        'Run': {
-            lifetime: { metric: 'distance', threshold: 10, emoji: '💲' },
-            weekly: { metric: 'distance', threshold: 30, emoji: '💰' },
-            milestone: [
-                { metric: 'distance', threshold: 21, emoji: '🧈', name: 'Half Marathon' },
-                { metric: 'distance', threshold: 42, emoji: '💎', name: 'Full Marathon' }
-            ],
-            ultraWeekly: { metric: 'distance', threshold: 65, emoji: '👑' }
-        },
-        'Ride': {
-            lifetime: { metric: 'distance', threshold: 100, emoji: '💲' },
-            weekly: { metric: 'distance', threshold: 300, emoji: '💰' },
-            milestone: [
-                { metric: 'distance', threshold: 200, emoji: '🧈', name: 'Double Century' },
-                { metric: 'distance', threshold: 250, emoji: '💎', name: 'Extreme Endurance' }
-            ],
-            ultraWeekly: { metric: 'distance', threshold: 600, emoji: '👑' }
-        },
-        'Elevation': {
-            lifetime: { metric: 'elevation', threshold: 1000, emoji: '💲' },
-            weekly: { metric: 'elevation', threshold: 5000, emoji: '💰' },
-            milestone: [
-                { metric: 'elevation', threshold: 10000, emoji: '🧈', name: 'Climb Crusher' },
-                { metric: 'elevation', threshold: 25000, emoji: '💎', name: 'Peak Performer' }
-            ],
-            ultraWeekly: { metric: 'elevation', threshold: 50000, emoji: '👑' }
-        },
-        'kcal': {
-            lifetime: { metric: 'calories', threshold: 1000, emoji: '💲' },
-            weekly: { metric: 'calories', threshold: 6000, emoji: '💰' },
-            milestone: [
-                { metric: 'calories', threshold: 3000, emoji: '🧈', name: 'Metabolism Boost' },
-                { metric: 'calories', threshold: 7500, emoji: '💎', name: 'Metabolic Master' }
-            ],
-            ultraWeekly: { metric: 'calories', threshold: 8000, emoji: '👑' }
-        },
-        'Segment': { // New category for Segment Completions
-            lifetime: { metric: 'segmentCompletions', threshold: 1, emoji: '💲' },
-            weekly: { metric: 'segmentCompletions', threshold: 5, emoji: '💰' },
-            milestone: [
-                { metric: 'segmentCompletions', threshold: 10, emoji: '🧈', name: '10 Completions' },
-                { metric: 'segmentCompletions', threshold: 20, emoji: '💎', name: '20 Completions' },
-                { metric: 'segmentCompletions', threshold: 30, emoji: '👑', name: '30 Completions' }
-            ],
-            ultraWeekly: { metric: 'segmentCompletions', threshold: 50, emoji: '👑' }
-        }
-    };
-
     function getActivityMedals(activity = {}) {
         if (!activity || !medalsConfig) {
             return [];
@@ -6437,7 +19218,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     name: medal.name,
                     emoji: medal.emoji,
                     description: medal.description || '',
-                    category: resolveMedalCategory(medal)
+                    category: resolveMedalCategory(medal),
+                    legacyCategory: resolveMedalCategory(medal),
+                    ...buildMedalRarityPayload(resolveMedalRarityKey(medal))
                 });
             }
         });
@@ -6447,60 +19230,84 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function getActivityCoinRewards(activity = {}, statsOverride = null) {
         const rewards = [];
+        const addCoin = (emoji) => {
+            if (!emoji) {
+                return;
+            }
+            rewards.push(emoji);
+        };
         const stats = statsOverride || computeActivitySmallStats(activity);
         const type = (activity.type || '').toUpperCase();
 
         if (coinConfig?.Run && type === 'RUN') {
             const runConfig = coinConfig.Run;
             if (stats.distanceKm >= runConfig.lifetime.threshold) {
-                rewards.push(runConfig.lifetime.emoji);
+                addCoin(runConfig.lifetime.emoji);
             }
             if (stats.distanceKm >= runConfig.weekly.threshold) {
-                rewards.push(runConfig.weekly.emoji);
+                addCoin(runConfig.weekly.emoji);
             }
             runConfig.milestone.forEach(milestone => {
                 if (stats.distanceKm >= milestone.threshold) {
-                    rewards.push(milestone.emoji);
+                    addCoin(milestone.emoji);
                 }
             });
             if (stats.distanceKm >= runConfig.ultraWeekly.threshold) {
-                rewards.push(runConfig.ultraWeekly.emoji);
+                addCoin(runConfig.ultraWeekly.emoji);
             }
         }
 
         if (coinConfig?.Ride && type === 'RIDE') {
             const rideConfig = coinConfig.Ride;
             if (stats.distanceKm >= rideConfig.lifetime.threshold) {
-                rewards.push(rideConfig.lifetime.emoji);
+                addCoin(rideConfig.lifetime.emoji);
             }
             if (stats.distanceKm >= rideConfig.weekly.threshold) {
-                rewards.push(rideConfig.weekly.emoji);
+                addCoin(rideConfig.weekly.emoji);
             }
             rideConfig.milestone.forEach(milestone => {
                 if (stats.distanceKm >= milestone.threshold) {
-                    rewards.push(milestone.emoji);
+                    addCoin(milestone.emoji);
                 }
             });
             if (stats.distanceKm >= rideConfig.ultraWeekly.threshold) {
-                rewards.push(rideConfig.ultraWeekly.emoji);
+                addCoin(rideConfig.ultraWeekly.emoji);
+            }
+        }
+
+        if (coinConfig?.Elevation) {
+            const elevationConfig = coinConfig.Elevation;
+            if (stats.elevationGain >= elevationConfig.lifetime.threshold) {
+                addCoin(elevationConfig.lifetime.emoji);
+            }
+            if (stats.elevationGain >= elevationConfig.weekly.threshold) {
+                addCoin(elevationConfig.weekly.emoji);
+            }
+            elevationConfig.milestone.forEach(milestone => {
+                if (stats.elevationGain >= milestone.threshold) {
+                    addCoin(milestone.emoji);
+                }
+            });
+            if (stats.elevationGain >= elevationConfig.ultraWeekly.threshold) {
+                addCoin(elevationConfig.ultraWeekly.emoji);
             }
         }
 
         if (coinConfig?.kcal) {
             const kcalConfig = coinConfig.kcal;
             if (stats.calories >= kcalConfig.lifetime.threshold) {
-                rewards.push(kcalConfig.lifetime.emoji);
+                addCoin(kcalConfig.lifetime.emoji);
             }
             if (stats.calories >= kcalConfig.weekly.threshold) {
-                rewards.push(kcalConfig.weekly.emoji);
+                addCoin(kcalConfig.weekly.emoji);
             }
             kcalConfig.milestone.forEach(milestone => {
                 if (stats.calories >= milestone.threshold) {
-                    rewards.push(milestone.emoji);
+                    addCoin(milestone.emoji);
                 }
             });
             if (stats.calories >= kcalConfig.ultraWeekly.threshold) {
-                rewards.push(kcalConfig.ultraWeekly.emoji);
+                addCoin(kcalConfig.ultraWeekly.emoji);
             }
         }
 
@@ -6520,6 +19327,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 highlights.push({ emoji, description });
             }
         };
+
+        const dateKey = getActivityDateKey(activity);
+        if (dateKey && medalContributionHighlightsByDate.has(dateKey)) {
+            const contributionHighlights = medalContributionHighlightsByDate.get(dateKey) || [];
+            contributionHighlights.forEach(({ medalName, emoji, description }) => {
+                const detailParts = [];
+                if (medalName) {
+                    detailParts.push(`Contributed to ${medalName}`);
+                }
+                if (description) {
+                    detailParts.push(description);
+                }
+                const detailText = detailParts.join(' — ') || medalName || 'Consecutive achievement contribution';
+                pushHighlight(emoji || '🏅', detailText);
+            });
+        }
 
         if (type === 'RUN') {
             const thresholds = [10, 21, 42, 50, 100];
@@ -6670,8 +19493,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         closeSpinnerButton.addEventListener('click', () => {
             fadeOutSpinner();
         });
-    } else {
-        console.warn("'close-spinner' element not found in the DOM.");
     }
 
     if (weeklySnapshotCloseButton) {
@@ -6687,6 +19508,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (shareModalDismissElements.length > 0) {
+        shareModalDismissElements.forEach((element) => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeShareModal();
+            });
+        });
+    }
+
+    if (shareModalElement) {
+        shareModalElement.addEventListener('click', (event) => {
+            if (event.target === shareModalElement) {
+                closeShareModal();
+            }
+        });
+    }
+
     if (rankModalDismissElements.length > 0) {
         rankModalDismissElements.forEach((element) => {
             element.addEventListener('click', (event) => {
@@ -6696,13 +19534,62 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (walletModalDismissElements.length > 0) {
+        walletModalDismissElements.forEach((element) => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeWalletModal();
+            });
+        });
+    }
+
+    if (walletModalElement) {
+        walletModalElement.addEventListener('click', (event) => {
+            if (event.target === walletModalElement) {
+                closeWalletModal();
+            }
+        });
+    }
+
+    if (profilePeriodModalDismissElements.length > 0) {
+        profilePeriodModalDismissElements.forEach((element) => {
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+                closeProfilePeriodModal();
+            });
+        });
+    }
+
+    if (profilePeriodModalElement) {
+        profilePeriodModalElement.addEventListener('click', (event) => {
+            if (event.target === profilePeriodModalElement) {
+                closeProfilePeriodModal();
+            }
+        });
+    }
+
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') {
             return;
         }
 
+        if (isShareModalVisible()) {
+            closeShareModal();
+            return;
+        }
+
         if (weeklySnapshotModal && weeklySnapshotModal.classList.contains('weekly-snapshot--visible')) {
             hideWeeklySnapshotModal();
+            return;
+        }
+
+        if (profilePeriodModalElement && !profilePeriodModalElement.hidden) {
+            closeProfilePeriodModal();
+            return;
+        }
+
+        if (walletModalElement && !walletModalElement.hidden) {
+            closeWalletModal();
             return;
         }
 
@@ -6740,6 +19627,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const mergedSegmentMetadata = mergeSegmentMetadata(existingSegmentMetadata, incomingSegmentMetadata);
         const mergedActivityMetadata = mergeActivityMetadata(existingActivityMetadata, incomingActivityMetadata);
+        const mergedCountryStats = buildCountryStatsFromActivities(mergedActivities);
+        const mergedCountrySummary = convertCountryStatsToSummary(mergedCountryStats);
 
         const mergedAthlete = {
             ...(allData.athlete || {}),
@@ -6757,6 +19646,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             segmentMetadata: mergedSegmentMetadata,
             activityMetadata: mergedActivityMetadata,
             pageInfo: mergedPageInfo,
+            activityCountrySummary: mergedCountrySummary,
         };
 
         allData.cached = data.cached;
@@ -6765,13 +19655,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? data.hasMore
             : (typeof allData.hasMore === 'boolean' ? allData.hasMore : undefined);
 
-        const aggregatedTotals = calculateTotals(allData.activities || []);
+        const lifetimeActivities = allData.activities || [];
+        const rewardSummary = getLifetimeRewardSummary(lifetimeActivities);
+        const walletMetrics = getWalletMetricsForActivities(lifetimeActivities);
+        const aggregatedTotals = calculateTotals(lifetimeActivities);
+
         allData.totals = {
             ...(allData.totals || {}),
-            hours: aggregatedTotals.hours,
-            distance: aggregatedTotals.distance,
-            elevation: aggregatedTotals.elevation,
-            calories: aggregatedTotals.calories
+            ...aggregatedTotals,
+            precomputedRewards: rewardSummary,
+            precomputedWalletMetrics: walletMetrics
         };
 
         updateActivityFetchWarning(allData.activityMetadata);
@@ -6837,7 +19730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             ingestResponseData(storedData, { isLoadMore: false });
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
             console.log('Loaded stored snapshot from Google Sheets.');
             if (errorMessage) {
                 errorMessage.classList.add('hidden');
@@ -6885,7 +19778,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ingestResponseData(data, { isLoadMore: false });
             hasMoreActivities = false;
             nextActivitiesPageStart = null;
-            applyFilters({ preserveVisibleCount: false });
+            requestActivitiesRender({ preserveVisibleCount: false });
             updateInitialLoadingState('fetch', 'complete', 'Shared snapshot synced');
             updateInitialLoadingState('finalize', 'active', 'Polishing the shared experience');
 
@@ -6909,7 +19802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // === Fetch and Process Data ===
-    const fetchData = async ({ isLoadMore = false, forceRefresh = false } = {}) => {
+    const fetchData = async ({ isLoadMore = false, forceRefresh = false, skipStoredSnapshot = false } = {}) => {
         if (isFetchingActivities) {
             return;
         }
@@ -6924,10 +19817,61 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!isLoadMore) {
             nextActivitiesPageStart = 1;
-            await loadStoredSnapshotIfAvailable();
+            if (!skipStoredSnapshot) {
+                await loadStoredSnapshotIfAvailable();
+            }
+        }
+
+        let manualSyncResult = null;
+
+        const requestManualSync = async () => {
+            const response = await fetch('/api/strava/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                cache: 'no-store',
+                body: JSON.stringify({
+                    fullHistory: true,
+                }),
+            });
+
+            if (response.status === 401) {
+                redirectToStravaAuth();
+                throw createStravaAuthRedirectError();
+            }
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                const error = new Error(errorText || `Sync request failed with status ${response.status}`);
+                error.status = response.status;
+                throw error;
+            }
+
+            return response.json();
+        };
+
+        if (forceRefresh) {
+            try {
+                manualSyncResult = await requestManualSync();
+            } catch (syncError) {
+                if (syncError?.isAuthRedirect) {
+                    manualSyncResult = createStravaAuthRedirectResult();
+                } else {
+                    console.error('Failed to initiate Strava sync:', syncError);
+                    manualSyncResult = {
+                        status: 'sync_failed',
+                        error: syncError?.message || 'Unable to start sync.',
+                    };
+                }
+            }
         }
 
         try {
+            if (manualSyncResult?.isAuthRedirect) {
+                return manualSyncResult;
+            }
+
             const params = new URLSearchParams();
             if (Number.isFinite(nextActivitiesPageStart)) {
                 params.set('startPage', String(nextActivitiesPageStart));
@@ -6949,23 +19893,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             );
 
             ingestResponseData(data, { isLoadMore });
-            applyFilters({ preserveVisibleCount: isLoadMore });
+
+            const newActivitiesFromResponse = Number.isFinite(Number(data?.activityMetadata?.newActivities))
+                ? Number(data.activityMetadata.newActivities)
+                : 0;
+            const duplicatesSkippedFromResponse = Number.isFinite(Number(data?.activityMetadata?.duplicatesSkipped))
+                ? Number(data.activityMetadata.duplicatesSkipped)
+                : 0;
+            if (newActivitiesFromResponse > 0 || duplicatesSkippedFromResponse > 0) {
+                const duplicateSummary = duplicatesSkippedFromResponse > 0
+                    ? `, skipped ${duplicatesSkippedFromResponse} duplicates`
+                    : '';
+                console.log(`Dashboard sync summary: ${newActivitiesFromResponse} new activities${duplicateSummary}.`);
+            }
+            requestActivitiesRender({ preserveVisibleCount: isLoadMore });
             updateInitialLoadingState('fetch', 'complete', 'Live Strava data synced');
             updateInitialLoadingState('finalize', 'active', 'Curating achievements and leaderboards');
             if (errorMessage) {
                 errorMessage.classList.add('hidden');
                 errorMessage.textContent = '';
             }
+            if (!isLoadMore && leaderboardBody) {
+                try {
+                    await loadLeaderboard();
+                } catch (leaderboardError) {
+                    console.error('Error refreshing leaderboard after data sync:', leaderboardError);
+                }
+            }
+
+            if (manualSyncResult && typeof manualSyncResult === 'object') {
+                if (!('data' in manualSyncResult)) {
+                    manualSyncResult.data = data;
+                }
+                return manualSyncResult;
+            }
+
+            return data;
         } catch (error) {
+            if (error?.isAuthRedirect) {
+                return manualSyncResult ?? createStravaAuthRedirectResult();
+            }
+
             console.error('Error fetching Strava data:', error);
+            let friendlyMessage = 'Error fetching Strava data. Please try again later.';
+            if (error?.message) {
+                friendlyMessage = `Error fetching Strava data: ${error.message}. Retrying may help.`;
+            }
             if (errorMessage) {
                 errorMessage.classList.remove('hidden');
-                const friendlyMessage = error?.message
-                    ? `Error fetching Strava data: ${error.message}. Retrying may help.`
-                    : 'Error fetching Strava data. Please try again later.';
                 errorMessage.textContent = friendlyMessage;
             }
             updateInitialLoadingState('fetch', 'complete', 'We hit a snag reaching Strava — give it another try in a moment.');
+            return manualSyncResult ?? { status: 'sync_failed', error: error?.message || friendlyMessage };
         } finally {
             isFetchingActivities = false;
             // Fade out the spinner after all operations are complete
@@ -6978,11 +19957,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const dashboardMobileApi = {
         getActivePanel: () => activePanelName,
-        setActivePanel: (panelName) => {
+        mapsTo: (panelName) => {
             if (!panelName || !dashboardPanels.has(panelName)) {
                 return false;
             }
-            setActivePanel(panelName, { focusTab: false });
+            mapsTo(panelName, { focusTab: false });
             return true;
         },
         refresh: async ({ showLoading = true } = {}) => {
@@ -6992,8 +19971,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (showLoading) {
                 showSpinner();
             }
-            await fetchData({ forceRefresh: true });
-            return true;
+            const syncResult = await fetchData({ forceRefresh: true });
+            return syncResult ?? true;
         },
         onPanelChange: (callback) => {
             if (typeof callback !== 'function') {
@@ -7018,10 +19997,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         showLoading: showSpinner,
         hideLoading: fadeOutSpinner,
-        refreshPanelReferences,
     };
 
     window.dashboardMobile = dashboardMobileApi;
+
+    const handleSyncResponse = (syncResult = null) => {
+        if (!syncResult || typeof syncResult !== 'object') {
+            return;
+        }
+
+        const { status } = syncResult;
+
+        if (status === 'full_sync_started') {
+            updateInitialLoadingState('finalize', 'active', 'Syncing full history... This may take a moment.');
+            return;
+        }
+
+        if (status === 'delta_sync_complete') {
+            completeInitialLoading('Data refreshed successfully!');
+            fadeOutSpinner();
+            if (syncResult.fullSyncTriggered) {
+                updateInitialLoadingState('finalize', 'active', 'Full history is syncing in the background.');
+            }
+            return;
+        }
+
+        if (status === 'sync_failed') {
+            completeInitialLoading('Error starting sync. Please try again.');
+            fadeOutSpinner();
+        }
+    };
 
     // === Function to Process and Display Data ===
     const processAndDisplayData = (data, options = {}) => {
@@ -7030,10 +20035,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const selectedYear = yearSelect ? yearSelect.value : 'all';
 
         // === Reset Existing Displays ===
+        refreshAchievementTargets();
         if (achievementWallet) achievementWallet.innerHTML = '';
         if (medalsSection) medalsSection.innerHTML = '';
         if (segmentContainer) segmentContainer.innerHTML = '';
         if (bestActivitiesContainer) bestActivitiesContainer.innerHTML = '';
+        topPerformanceActivityHighlights.clear();
+        topPerformanceActivityOrder.length = 0;
         if (segmentStatusElement) {
             segmentStatusElement.textContent = '';
             segmentStatusElement.classList.add('hidden');
@@ -7044,71 +20052,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         const segments = Array.isArray(data.segments) ? data.segments : [];
         const segmentMetadata = normalizeSegmentMetadata(data.segmentMetadata);
         data.segmentMetadata = segmentMetadata;
+        const contactRequests = Array.isArray(data.contactRequests) ? data.contactRequests : [];
+        data.contactRequests = contactRequests;
+        updateRequestFilterUI(contactRequests, segments, activities);
         const hasActivities = activities.length > 0;
+        hasActivitiesState = hasActivities;
         const totals = calculateTotals(activities);
         updateLoadingWeeklyOverview(activities);
         const totalHours = totals.hours;
         const monthlyHours = calculateRecentMonthlyHours(activities);
+        const lastWeekHours = calculateRecentWeeklyHours(activities);
 
-        const aggregatedSmallStats = activities.reduce((acc, activity) => {
-            const stats = computeActivitySmallStats(activity);
-            acc.distanceKm += stats.distanceKm;
-            acc.elevationGain += stats.elevationGain;
-            acc.calories += stats.calories;
-            acc.globeTrips += stats.globeTrips;
-            acc.everestSummits += stats.everestSummits;
-            acc.pizzas += stats.pizzaCount;
-            acc.likes += stats.likes;
-            return acc;
-        }, {
-            distanceKm: 0,
-            elevationGain: 0,
-            calories: 0,
-            globeTrips: 0,
-            everestSummits: 0,
-            pizzas: 0,
-            likes: 0
+        // Always calculate the fun stats from the lifetime activity history rather than the
+        // currently filtered view so the numbers remain consistent across filters.
+        const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
+            ? allData.activities
+            : activities;
+        const lifetimeActivitiesForStats = lifetimeActivities;
+        disciplineRatioStats = buildActivityRatioSummaries(lifetimeActivitiesForStats);
+        const lifetimeTotals = (data?.totals && typeof data.totals === 'object')
+            ? data.totals
+            : (allData?.totals || {});
+        const lifetimeCountrySummary = allData?.activityCountrySummary
+            || data?.activityCountrySummary
+            || null;
+        const aggregatedSmallStats = computeLifetimeFunStats({
+            activities: lifetimeActivitiesForStats,
+            totals: lifetimeTotals,
+            countrySummary: lifetimeCountrySummary,
         });
+        latestFunStats = aggregatedSmallStats;
+        latestFunStatsContext = { hasActivities };
+        renderFunStats(aggregatedSmallStats, latestFunStatsContext);
+        renderProfileDisciplineRatios();
 
-        if (globeTotalElement) {
-            globeTotalElement.textContent = formatStatValue(aggregatedSmallStats.globeTrips);
-        }
-        if (everestTotalElement) {
-            everestTotalElement.textContent = formatStatValue(aggregatedSmallStats.everestSummits);
-        }
-        if (pizzaTotalElement) {
-            pizzaTotalElement.textContent = formatStatValue(aggregatedSmallStats.pizzas);
-        }
-
-        if (globeStatButton) {
-            const message = hasActivities
-                ? `Total distance ${formatDistance(aggregatedSmallStats.distanceKm)} — ${formatStatValue(aggregatedSmallStats.globeTrips)} globe trips.`
-                : 'No distance recorded for the selected period.';
-            attachTooltip(globeStatButton, message);
-        }
-        if (everestStatButton) {
-            const message = hasActivities
-                ? `Total elevation ${formatElevation(aggregatedSmallStats.elevationGain)} — ${formatStatValue(aggregatedSmallStats.everestSummits)} Everest climbs.`
-                : 'No elevation recorded for the selected period.';
-            attachTooltip(everestStatButton, message);
-        }
-        if (pizzaStatButton) {
-            const message = hasActivities
-                ? `Energy burned ${formatCalories(aggregatedSmallStats.calories)} ≈ ${formatPizzas(aggregatedSmallStats.pizzas)}.`
-                : 'No heart rate data to estimate calories for this period.';
-            attachTooltip(pizzaStatButton, message);
-        }
-        if (likesTotalElement) {
-            likesTotalElement.textContent = formatCount(aggregatedSmallStats.likes);
-        }
-        if (likesStatButton) {
-            const totalLikes = aggregatedSmallStats.likes;
-            const message = hasActivities
-                ? `${formatCount(totalLikes)} kudos collected across all visible activities.`
-                : 'No kudos recorded for the selected period.';
-            likesStatButton.setAttribute('aria-label', message);
-            attachTooltip(likesStatButton, message);
-        }
+        currentLeagueClass = null;
+        renderLeagueClassSummary(null);
 
         // === User Profile ===
         if (athleteNameElement && athleteAvatarElement) {
@@ -7122,6 +20101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // === Ranking System ===
+        const rankConfig = Array.isArray(activeRankConfig) ? activeRankConfig : [];
         let currentRank = rankConfig[0];
         let currentRankIndex = 0;
 
@@ -7145,7 +20125,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             nextRank,
             currentMonthHours: Number.isFinite(monthlyHours?.currentMonth) ? monthlyHours.currentMonth : 0,
             previousMonthHours: Number.isFinite(monthlyHours?.previousMonth) ? monthlyHours.previousMonth : 0,
+            lastWeekHours: Number.isFinite(lastWeekHours) ? lastWeekHours : 0,
         };
+        rankRewardSnapshots = buildRankRewardSnapshots(lifetimeActivities);
+
+        if (profilePeriodModalElement && !profilePeriodModalElement.hidden) {
+            const activePeriodKey = profilePeriodModalElement.dataset.profilePeriodKey;
+            if (activePeriodKey) {
+                renderProfilePeriodModal(activePeriodKey, {
+                    label: profilePeriodModalElement.dataset.profilePeriodLabel || '',
+                    summary: profilePeriodModalElement.dataset.profilePeriodSummary || '',
+                });
+            }
+        }
         updateRankProgressBar();
 
         // Update the ranking progress bar
@@ -7158,28 +20150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (rankDetailsElement) {
             rankDetailsElement.innerHTML = '';
 
-            if (hasActivities) {
-                const oldestActivityDate = activities.reduce((oldest, activity) => {
-                    const activityDate = new Date(activity.start_date);
-                    if (!Number.isNaN(activityDate.getTime()) && activityDate < oldest) {
-                        return activityDate;
-                    }
-                    return oldest;
-                }, new Date(activities[0]?.start_date));
-
-                if (!Number.isNaN(oldestActivityDate.getTime())) {
-                    const formattedOldestDate = oldestActivityDate.toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                    });
-
-                    const oldestActivityElement = document.createElement('div');
-                    oldestActivityElement.className = 'text-sm text-gray-500 mt-2';
-                    oldestActivityElement.textContent = `First Activity: ${formattedOldestDate}`;
-                    rankDetailsElement.appendChild(oldestActivityElement);
-                }
-            } else {
+            if (!hasActivities) {
                 const noDataElement = document.createElement('div');
                 noDataElement.className = 'text-sm text-gray-500';
                 noDataElement.textContent = 'No activities available for the selected filters.';
@@ -7190,371 +20161,167 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (levelProgressElement) {
-            const levelCap = MASTER_PRESTIGE_MAX;
-            const hoursPerLevel = levelCap > 0 ? MAX_RANK_HOURS / levelCap : MAX_RANK_HOURS;
+            const levelCap = TOTAL_RANK_LEVELS;
             const level = hasActivities
-                ? Math.min(Math.floor(totalHours / hoursPerLevel), levelCap)
+                ? Math.min(rankProgressState.currentRankIndex + 1, levelCap)
                 : 0;
-            levelProgressElement.textContent = `Level ${level}/${levelCap}`;
+
+            levelProgressElement.innerHTML = '';
+
+            const levelLabelElement = document.createElement('span');
+            levelLabelElement.className = 'profile-card__level-label';
+            levelLabelElement.textContent = 'Current level';
+
+            const levelValueElement = document.createElement('span');
+            levelValueElement.className = 'profile-card__level-value';
+            levelValueElement.textContent = `Level ${level}/${levelCap}`;
+
+            levelProgressElement.append(levelLabelElement, levelValueElement);
+            levelProgressElement.setAttribute('aria-label', `Current level ${level} of ${levelCap}`);
         } else {
             console.warn("'level-progress' element not found in the DOM.");
         }
 
-        const lifetimeActivities = Array.isArray(allData.activities) && allData.activities.length > 0
-            ? allData.activities
-            : activities;
         const premiumAchievements = computePremiumAchievements(lifetimeActivities);
         renderPremiumAchievements(premiumAchievementsElement, premiumAchievements);
+        renderTopAchievementsCarousel(topAchievementsCarousel, premiumAchievements);
+        renderActivityHistorySummary(profileActivityHistoryElement, lifetimeActivities);
 
         updateWalletChartData({
             activities,
             lifetimeActivities,
-            selectedYear
+            selectedYear,
+            walletTimeframe: walletSelectedTimeframe,
+            precomputedLifetimeMetrics: data.totals?.precomputedWalletMetrics
         });
+
+        const enduranceSource = Array.isArray(activities) && activities.length > 0
+            ? activities
+            : lifetimeActivities;
+        updateEnduranceChart(enduranceSource);
 
         // === Achievement Wallet ===
 
-        // Initialize Achievement Counts
-        categories.forEach(category => {
-            category.achievements = []; // Reset achievements
-        });
+        const precomputedRewards = data.totals?.precomputedRewards;
+        const precomputedMedalInventory = Array.isArray(precomputedRewards?.medalInventory)
+            ? precomputedRewards.medalInventory
+            : [];
 
-        // === Coin Configuration ===
+        const hasVisiblePrecomputedMedals = precomputedMedalInventory.some((medal) => medal && !isHistoricalMedal(medal));
+        const shouldRecomputeMedals = precomputedMedalInventory.length === 0 || !hasVisiblePrecomputedMedals;
 
-        // Distance Run Badges
-        const distanceRunBadges = {
-            thresholds: [10, 21, 42, 50, 100],  // in km or km/week
-            unit: 'km',
-            emoji_sequence: ['💲', '💰', '🧈', '💎','👑']
-        };
+        const lifetimeRewardSummary = shouldRecomputeMedals
+            ? getLifetimeRewardSummary(lifetimeActivities)
+            : cloneRewardSummary(precomputedRewards);
+        renderMonthlyChallengesCarousel(monthlyChallengesCarousel, lifetimeRewardSummary.monthlyChallenges);
+        const categories = lifetimeRewardSummary.categories;
+        const medalsEarned = lifetimeRewardSummary.medalsEarned;
+        const medalSummary = lifetimeRewardSummary.medalSummary;
 
-        distanceRunBadges.thresholds.forEach((threshold, idx) => {
-            const emoji = distanceRunBadges.emoji_sequence[idx] || '🏅';
-            let count = 0;
-            let name = '';
-            let description = '';
-
-            if (threshold >= 50) {
-                // Weekly threshold for Run
-                const weeklyDistance = {};
-                data.activities.forEach(activity => {
-                    if (activity.type.toUpperCase() === 'RUN') {
-                        const week = new Date(activity.start_date);
-                        week.setHours(0, 0, 0, 0);
-                        week.setDate(week.getDate() - week.getDay()); // Sunday
-                        const weekKey = week.toISOString().slice(0, 10);
-                        weeklyDistance[weekKey] = (weeklyDistance[weekKey] || 0) + (activity.distance / 1000);
-                    }
-                });
-
-                count = Object.values(weeklyDistance).filter(d => d >= threshold).length;
-                name = `${threshold}km Run/Week`;
-                description = `Completed at least ${threshold} km running in a week`;
-            } else {
-                // Per activity threshold for Run
-                count = data.activities.filter(a =>
-                    a.type.toUpperCase() === 'RUN' &&
-                    (a.distance / 1000) >= threshold
-                ).length;
-                name = `${threshold}km Run`;
-                description = `Completed activities covering at least ${threshold} km running`;
-            }
-
-            // Assign to 'Distance Run' category
-            const category = categories.find(cat => cat.name === 'Distance Run');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // Distance Ride Badges
-        const distanceRideBadges = {
-            thresholds: [100, 150, 200, 300, 600],  // in km or km/week
-            unit: 'km',
-            emoji_sequence: ['💲', '💰', '🧈', '💎','👑']
-        };
-
-        distanceRideBadges.thresholds.forEach((threshold, idx) => {
-            const emoji = distanceRideBadges.emoji_sequence[idx] || '🚴‍♂️';
-            let count = 0;
-            let name = '';
-            let description = '';
-
-            if (threshold >= 300) {
-                // Weekly threshold for Ride
-                const weeklyDistance = {};
-                data.activities.forEach(activity => {
-                    if (activity.type.toUpperCase() === 'RIDE') {
-                        const week = new Date(activity.start_date);
-                        week.setHours(0, 0, 0, 0);
-                        week.setDate(week.getDate() - week.getDay()); // Sunday
-                        const weekKey = week.toISOString().slice(0, 10);
-                        weeklyDistance[weekKey] = (weeklyDistance[weekKey] || 0) + (activity.distance / 1000);
-                    }
-                });
-
-                count = Object.values(weeklyDistance).filter(d => d >= threshold).length;
-                name = `${threshold}km Ride/Week`;
-                description = `Completed at least ${threshold} km riding in a week`;
-            } else {
-                // Per activity threshold for Ride
-                count = data.activities.filter(a =>
-                    a.type.toUpperCase() === 'RIDE' &&
-                    (a.distance / 1000) >= threshold
-                ).length;
-                name = `${threshold}km Ride`;
-                description = `Completed activities covering at least ${threshold} km riding`;
-            }
-
-            // Assign to 'Distance Ride' category
-            const category = categories.find(cat => cat.name === 'Distance Ride');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // Elevation Badges
-        const elevationThresholds = [1000, 2000, 4424, 10000, 25000];  // in meters
-        const elevationEmojis = ['💲', '💰', '🧈', '👑','💎'];  // Distinct emojis for Elevation
-
-        elevationThresholds.forEach((threshold, idx) => {
-            let emoji = elevationEmojis[idx] || '🏅';
-            let name = '';
-            let description = '';
-            let count = 0;
-
-            if (threshold === 4424) {
-                name = 'Half Everest';
-                description = 'Completed activities with elevation gain of at least Half Everest (4424 meters)';
-                count = data.activities.filter(a => a.total_elevation_gain >= threshold).length;
-            } else if (threshold === 25000) {
-                name = '25k Elevation/Month';
-                description = 'Achieved a total of 25,000 meters elevation gain in a month';
-                const monthlyElevation = {};
-                data.activities.forEach(activity => {
-                    const monthKey = new Date(activity.start_date).toISOString().slice(0, 7); // YYYY-MM
-                    monthlyElevation[monthKey] = (monthlyElevation[monthKey] || 0) + activity.total_elevation_gain;
-                });
-                count = Object.values(monthlyElevation).filter(d => d >= threshold).length;
-            } else if (threshold === 10000) {
-                name = '10k Elevation/Week';
-                description = 'Achieved a total of 10,000 meters elevation gain in a week';
-                const weeklyElevation = {};
-                data.activities.forEach(activity => {
-                    const weekStart = new Date(activity.start_date);
-                    weekStart.setHours(0, 0, 0, 0);
-                    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
-                    const weekKey = weekStart.toISOString().slice(0, 10);
-                    weeklyElevation[weekKey] = (weeklyElevation[weekKey] || 0) + activity.total_elevation_gain;
-                });
-                count = Object.values(weeklyElevation).filter(d => d >= threshold).length;
-            } else {
-                name = `${threshold}m Elevation`;
-                description = `Completed activities with elevation gain of at least ${threshold} meters`;
-                count = data.activities.filter(a => a.total_elevation_gain >= threshold).length;
-            }
-
-            // Assign to 'Elevation' category
-            const category = categories.find(cat => cat.name === 'Elevation');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // === KCal Badges ===
-        const kcalBadges = {
-            'Per Activity': {
-                thresholds: [1000, 2000, 4000, 7500, 8000],
-                emojis: ['💲', '💰', '🧈', '💎', '👑'],
-                description: 'Burned at least {} kcal in an activity'
-            },
-            'Weekly': {
-                thresholds: [12000, 24000],  // Adjusted to realistic weekly kcal
-                emojis: ['💎','👑'],
-                description: 'Burned at least {} kcal in a week'
-            }
-        };
-
-        // Per Activity KCal Badges
-        kcalBadges['Per Activity'].thresholds.forEach((threshold, idx) => {
-            const emoji = kcalBadges['Per Activity'].emojis[idx] || '🏅';
-            const count = data.activities.filter(a => calculateActivityCalories(a) >= threshold).length;
-            const name = `${threshold} kcal Activity`;
-            const description = kcalBadges['Per Activity'].description.replace('{}', threshold);
-
-            // Assign to 'Calories (kcal)' category
-            const category = categories.find(cat => cat.name === 'Calories (kcal)');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // Weekly KCal Badges
-        const weeklyKcal = {};
-        data.activities.forEach(activity => {
-            const weekStart = new Date(activity.start_date);
-            weekStart.setHours(0, 0, 0, 0);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
-            const weekKey = weekStart.toISOString().slice(0, 10);
-            weeklyKcal[weekKey] = (weeklyKcal[weekKey] || 0) + calculateActivityCalories(activity);
-        });
-        kcalBadges['Weekly'].thresholds.forEach((threshold, idx) => {
-            const emoji = kcalBadges['Weekly'].emojis[idx] || '🏅';
-            const count = Object.values(weeklyKcal).filter(kcal => kcal >= threshold).length;
-            const name = `${threshold} kcal Week`;
-            const description = kcalBadges['Weekly'].description.replace('{}', threshold);
-
-            // Assign to 'Calories (kcal)' category
-            const category = categories.find(cat => cat.name === 'Calories (kcal)');
-            if (category) {
-                category.achievements.push({
-                    name: name,
-                    emoji: emoji,
-                    description: description,
-                    count: count
-                });
-            }
-        });
-
-        // === Medals Calculation ===
-        const medalsEarned = [];
-        const activityYears = Array.from(new Set(activities
-            .map(activity => {
-                const date = new Date(activity.start_date);
-                return Number.isNaN(date.getTime()) ? null : date.getFullYear();
-            })
-            .filter(year => year !== null)));
-
-        const allMedals = medalsConfig.map(medal => {
-            const medalCategory = resolveMedalCategory(medal);
-            const result = {
-                name: medal.name,
-                emoji: medal.emoji,
-                description: medal.description,
-                count: 0,
-                isDayBased: Boolean((medal.dates && medal.dates.length > 0) || medal.dynamicDateResolver),
-                category: medalCategory
+        const completeMedalInventory = ensureCompleteMedalInventory(lifetimeRewardSummary.medalInventory);
+        const fullMedalInventory = completeMedalInventory.map(medal => {
+            const hydratedMedal = hydrateMedalFromDefinition(medal);
+            return {
+                ...hydratedMedal,
+                count: toNonNegativeInteger(hydratedMedal?.count),
+                discipline: hydratedMedal?.discipline || resolveMedalDiscipline(hydratedMedal),
             };
-
-            let count = 0;
-
-            if (result.isDayBased) {
-                const resolvedDates = new Set(medal.dates || []);
-                if (medal.dynamicDateResolver && activityYears.length > 0) {
-                    activityYears.forEach(year => {
-                        (medal.dynamicDateResolver(year) || []).forEach(dateStr => {
-                            if (dateStr) {
-                                resolvedDates.add(dateStr);
-                            }
-                        });
-                    });
-                }
-
-                count = activities.filter(activity => {
-                    const activityDate = new Date(activity.start_date);
-                    if (Number.isNaN(activityDate.getTime())) {
-                        return false;
-                    }
-                    const monthDay = activityDate.toISOString().slice(5, 10);
-                    return resolvedDates.has(monthDay);
-                }).length;
-            } else if (typeof medal.criteria === 'function') {
-                count = activities.filter(activity => medal.criteria(activity)).length;
-            } else if (medal.name === '7-Day Caloric Champion') {
-                const dailyCalories = {};
-                activities.forEach(activity => {
-                    const dateKey = new Date(activity.start_date).toISOString().slice(0, 10);
-                    dailyCalories[dateKey] = (dailyCalories[dateKey] || 0) + calculateActivityCalories(activity);
-                });
-
-                const dates = Object.keys(dailyCalories).sort();
-                let streak = 0;
-                let maxStreak = 0;
-
-                dates.forEach(date => {
-                    if (dailyCalories[date] >= 1000) {
-                        streak++;
-                        maxStreak = Math.max(maxStreak, streak);
-                    } else {
-                        streak = 0;
-                    }
-                });
-
-                if (maxStreak >= 7) {
-                    count = Math.floor(maxStreak / 7);
-                }
-            } else if (medal.name === 'Cycling Streak') {
-                const cyclingActivities = activities.filter(a => a.type && a.type.toUpperCase() === 'RIDE');
-                const uniqueDates = [...new Set(cyclingActivities.map(a => new Date(a.start_date).toISOString().slice(0, 10)))].sort();
-                let streak = 0;
-                let maxStreak = 0;
-                let previousDate = null;
-
-                uniqueDates.forEach(dateStr => {
-                    const date = new Date(dateStr);
-                    if (previousDate) {
-                        const diffDays = (date - previousDate) / (1000 * 60 * 60 * 24);
-                        streak = diffDays === 1 ? streak + 1 : 1;
-                    } else {
-                        streak = 1;
-                    }
-
-                    maxStreak = Math.max(maxStreak, streak);
-                    previousDate = date;
-                });
-
-                if (maxStreak >= 5) {
-                    count = Math.floor(maxStreak / 5);
-                }
-            }
-
-            if (!Number.isFinite(count) || count < 0) {
-                count = 0;
-            }
-
-            result.count = count;
-
-            if (count > 0) {
-                medalsEarned.push(result);
-            }
-
-            return result;
         });
 
-        const totalMedalCount = medalsEarned.reduce((sum, medal) => sum + (medal.count || 0), 0);
-        const medalSummary = {
-            count: totalMedalCount,
-            value: totalMedalCount * MEDAL_DOLLAR_VALUE
-        };
+        historicalMedalInventory = fullMedalInventory.filter(isHistoricalMedal);
+        medalInventory = fullMedalInventory.filter(medal => !isHistoricalMedal(medal));
+
+        medalContributionMap = new Map();
+        medalContributionHighlightsByDate = new Map();
+
+        const contributionEntries = Array.isArray(lifetimeRewardSummary.medalContributions)
+            ? lifetimeRewardSummary.medalContributions
+            : [];
+
+        contributionEntries.forEach(entry => {
+            const medalName = entry?.name;
+            if (!medalName) {
+                return;
+            }
+
+            const datesArray = Array.isArray(entry.dates)
+                ? entry.dates.filter(dateKey => typeof dateKey === 'string' && dateKey)
+                : [];
+            const dateSet = new Set(datesArray);
+
+            medalContributionMap.set(medalName, {
+                emoji: entry.emoji || '🏅',
+                description: entry.description || '',
+                dates: dateSet,
+            });
+
+            dateSet.forEach(dateKey => {
+                if (!medalContributionHighlightsByDate.has(dateKey)) {
+                    medalContributionHighlightsByDate.set(dateKey, []);
+                }
+                medalContributionHighlightsByDate.get(dateKey).push({
+                    medalName,
+                    emoji: entry.emoji || '🏅',
+                    description: entry.description || '',
+                });
+            });
+        });
+
+        updateHistoricalMedalMonths(latestWalletMetrics, medalContributionHighlightsByDate);
+        renderWalletHeatmap(latestWalletMetrics);
 
         updateCoinSummaryFromWallet(categories, medalSummary, medalsEarned);
 
         // === Update Achievement Wallet ===
-        if (achievementWallet) {
+        refreshAchievementTargets();
+        if (!achievementWallet) {
+            ensurePanel('achievements');
+            refreshAchievementTargets();
+        }
+        if (!achievementWallet) {
+            if (!hasLoggedMissingAchievementWallet) {
+                console.warn("'achievement-wallet' element not found in the DOM.");
+                hasLoggedMissingAchievementWallet = true;
+            }
+        } else {
             achievementWallet.innerHTML = '';
 
+            const tableContainer = document.createElement('div');
+            tableContainer.className = 'wallet-table__table';
             const table = document.createElement('table');
             table.className = 'w-full text-xs sm:text-sm border-separate border-spacing-x-2 border-spacing-y-1';
+
+            const defaultWalletKeys = ['Distance Run', 'Distance Ride', 'Elevation', 'Calories (kcal)'];
+            const seenWalletKeys = new Set();
+            const walletRows = defaultWalletKeys.map((key) => {
+                seenWalletKeys.add(key);
+                const meta = WALLET_CATEGORY_META[key] || {};
+                const fallbackLabel = typeof key === 'string'
+                    ? key.replace(/\s*\(.*?\)\s*/g, '').trim()
+                    : 'Category';
+                return {
+                    key,
+                    label: meta.label || fallbackLabel || key,
+                    icon: meta.icon || '🏅',
+                };
+            });
+
+            categories.forEach((category) => {
+                const key = category?.name;
+                if (!key || EXCLUDED_WALLET_CATEGORIES.has(key) || seenWalletKeys.has(key)) {
+                    return;
+                }
+                const meta = WALLET_CATEGORY_META[key] || {};
+                const fallbackLabel = typeof key === 'string'
+                    ? key.replace(/\s*\(.*?\)\s*/g, '').trim()
+                    : 'Category';
+                walletRows.push({
+                    key,
+                    label: meta.label || fallbackLabel || key,
+                    icon: meta.icon || '🏅',
+                });
+                seenWalletKeys.add(key);
+            });
 
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
@@ -7568,8 +20335,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             COIN_EMOJIS.forEach(emoji => {
                 const headerCell = document.createElement('th');
-                headerCell.className = 'px-2 py-1 text-center text-sm';
-                headerCell.textContent = emoji;
+                headerCell.scope = 'col';
+                headerCell.className = 'wallet-table__header px-2 py-1 text-center';
+                headerCell.innerHTML = `
+                    <div class="wallet-table__header-content">
+                        <span class="wallet-table__header-emoji">${emoji}</span>
+                        <span class="wallet-table__header-label">${usdCodeFormatter.format(COIN_VALUE_MAP[emoji] || 0)}</span>
+                    </div>
+                `;
+                headerCell.dataset.coinEmoji = emoji;
+                headerCell.setAttribute('aria-label', `${emoji} achievements worth ${usdCodeFormatter.format(COIN_VALUE_MAP[emoji] || 0)}`);
                 headerRow.appendChild(headerCell);
             });
 
@@ -7577,104 +20352,140 @@ document.addEventListener('DOMContentLoaded', async () => {
             table.appendChild(thead);
 
             const tbody = document.createElement('tbody');
-            const walletRows = [
-                { key: 'Distance Run', label: 'Run', icon: '🏃' },
-                { key: 'Distance Ride', label: 'Ride', icon: '🚴' },
-                { key: 'Elevation', label: 'Elevation', icon: '🧗' },
-                { key: 'Calories (kcal)', label: 'Calories', icon: '🔥' }
-            ];
+            const cardsContainer = document.createElement('div');
+            cardsContainer.className = 'wallet-cards';
 
             walletRows.forEach(rowConfig => {
                 const row = document.createElement('tr');
                 row.className = 'align-middle';
+                row.dataset.walletCategory = rowConfig.key;
 
                 const category = categories.find(cat => cat.name === rowConfig.key) || { achievements: [] };
-                const countsByEmoji = COIN_EMOJIS.reduce((acc, emoji) => {
-                    acc[emoji] = 0;
-                    return acc;
-                }, {});
-                const detailsByEmoji = COIN_EMOJIS.reduce((acc, emoji) => {
-                    acc[emoji] = [];
-                    return acc;
-                }, {});
+                const countsByEmoji = {};
+                const detailsByEmoji = {};
+                COIN_EMOJIS.forEach(emoji => {
+                    countsByEmoji[emoji] = 0;
+                    detailsByEmoji[emoji] = [];
+                });
 
-                category.achievements.forEach(achievement => {
+                (category.achievements || []).forEach(achievement => {
                     const emoji = achievement?.emoji;
+                    const count = toNonNegativeInteger(achievement?.count);
                     if (!COIN_EMOJIS.includes(emoji)) {
                         return;
                     }
-                    const count = Number.isFinite(achievement.count) ? achievement.count : 0;
                     countsByEmoji[emoji] += count;
-                    if (count > 0) {
-                        detailsByEmoji[emoji].push({
-                            name: achievement.name || '',
-                            description: achievement.description || '',
-                            count
-                        });
-                    }
+                    detailsByEmoji[emoji].push({
+                        name: achievement.name || '',
+                        description: achievement.description || '',
+                        count,
+                    });
                 });
 
                 const labelCell = document.createElement('th');
                 labelCell.scope = 'row';
-                labelCell.className = 'px-2 py-1 text-center align-middle';
+                labelCell.className = 'px-2 py-1 align-middle text-left';
                 const labelWrapper = document.createElement('div');
-                labelWrapper.className = 'wallet-table__label flex flex-col items-center gap-1 px-1.5 py-0.5 text-center font-semibold text-gray-700 dark:text-gray-200';
+                labelWrapper.className = 'wallet-table__label flex flex-col items-start gap-1 px-1.5 py-0.5 text-left font-semibold text-gray-700 dark:text-gray-200';
                 labelWrapper.innerHTML = `<span class="text-xl leading-none">${rowConfig.icon}</span><span class="text-sm">${rowConfig.label}</span>`;
                 labelCell.appendChild(labelWrapper);
                 row.appendChild(labelCell);
 
+                const card = document.createElement('article');
+                card.className = 'achievement-card';
+                const cardTitle = document.createElement('p');
+                cardTitle.className = 'achievement-card__title text-left';
+                cardTitle.textContent = `${rowConfig.icon} ${rowConfig.label}`;
+                card.appendChild(cardTitle);
+                const coinsWrapper = document.createElement('div');
+                coinsWrapper.className = 'achievement-card__coins profile-card__coins stats-card__pills';
+
                 COIN_EMOJIS.forEach(emoji => {
+                    const totalCount = toNonNegativeInteger(countsByEmoji[emoji]);
+                    const countValue = totalCount.toLocaleString();
+                    const normalizedDetails = detailsByEmoji[emoji]
+                        .map(detail => ({
+                            label: formatCoinCellLabel(rowConfig.label, detail.name) || detail.name || emoji,
+                            count: detail.count,
+                            description: detail.description,
+                        }))
+                        .sort((a, b) => {
+                            if (b.count !== a.count) {
+                                return b.count - a.count;
+                            }
+                            return a.label.localeCompare(b.label);
+                        });
+
+                    const detailLabel = normalizedDetails.length > 0
+                        ? normalizedDetails.map(detail => detail.label).join(' • ')
+                        : '—';
+                    const tooltipLines = normalizedDetails.length > 0
+                        ? normalizedDetails.map(detail => {
+                            const base = `${detail.count.toLocaleString()}× ${detail.label}`;
+                            return detail.description ? `${base} — ${detail.description}` : base;
+                        })
+                        : [`${emoji} achievements — ${rowConfig.label}`];
+                    const accessibleSummary = normalizedDetails.length > 0
+                        ? normalizedDetails.map(detail => `${detail.count.toLocaleString()} ${detail.label}`).join('. ')
+                        : `${emoji} ${rowConfig.label} achievements.`;
+
                     const cell = document.createElement('td');
                     cell.className = 'px-1.5 py-1.5 text-center align-middle';
                     const cellWrapper = document.createElement('div');
-                    cellWrapper.className = 'wallet-table__cell flex min-w-[3rem] flex-col items-center gap-0.5 px-1 py-0.5 font-semibold text-gray-800 dark:text-gray-100';
-                    const countValue = countsByEmoji[emoji].toLocaleString();
-                    const descriptionCandidates = detailsByEmoji[emoji]
-                        .map(detail => formatCoinCellLabel(rowConfig.label, detail.name))
-                        .filter(Boolean);
-                    const descriptionText = descriptionCandidates.length > 0
-                        ? descriptionCandidates.join(' • ')
-                        : '—';
+                    cellWrapper.className = 'wallet-table__cell flex min-w-[3.5rem] flex-col items-center gap-0.5 px-1 py-0.5 font-semibold text-gray-800 dark:text-gray-100';
+                    cellWrapper.dataset.coinEmoji = emoji;
                     cellWrapper.innerHTML = `
-                        <span class="leading-none">${countValue}</span>
-                        <span class="text-[10px] sm:text-[11px] font-medium text-gray-500 dark:text-gray-300">${descriptionText}</span>
+                        <span class="text-lg leading-tight sm:text-xl">${countValue}</span>
+                        <span class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-300">${detailLabel}</span>
                     `;
+                    cellWrapper.title = tooltipLines.join('\n');
+                    cellWrapper.setAttribute('aria-label', accessibleSummary);
 
                     cell.appendChild(cellWrapper);
                     row.appendChild(cell);
+
+                    const cardCoin = document.createElement('div');
+                    cardCoin.className = 'achievement-card__coin profile-metric-pill';
+                    cardCoin.dataset.coinEmoji = emoji;
+                    const badgeClasses = COIN_BADGE_CLASS_MAP[emoji];
+                    if (badgeClasses) {
+                        badgeClasses.split(/\s+/).filter(Boolean).forEach(className => {
+                            cardCoin.classList.add(className);
+                        });
+                    }
+                    const coinEmoji = document.createElement('span');
+                    coinEmoji.className = 'achievement-card__coin-emoji';
+                    coinEmoji.textContent = emoji;
+                    const coinValue = document.createElement('span');
+                    coinValue.className = 'achievement-card__coin-value';
+                    coinValue.textContent = countValue;
+                    const coinLabel = document.createElement('span');
+                    coinLabel.className = 'achievement-card__coin-label';
+                    coinLabel.textContent = rowConfig.label;
+                    const coinNote = document.createElement('span');
+                    coinNote.className = 'achievement-card__coin-note';
+                    coinNote.textContent = detailLabel;
+                    cardCoin.appendChild(coinEmoji);
+                    cardCoin.appendChild(coinValue);
+                    cardCoin.appendChild(coinLabel);
+                    cardCoin.appendChild(coinNote);
+                    cardCoin.title = tooltipLines.join('\n');
+                    cardCoin.setAttribute('aria-label', accessibleSummary);
+                    coinsWrapper.appendChild(cardCoin);
                 });
 
+                card.appendChild(coinsWrapper);
+                cardsContainer.appendChild(card);
                 tbody.appendChild(row);
             });
 
             table.appendChild(tbody);
-            achievementWallet.appendChild(table);
-        } else {
-            console.warn("'achievement-wallet' element not found in the DOM.");
+            tableContainer.appendChild(table);
+            achievementWallet.appendChild(tableContainer);
+            achievementWallet.appendChild(cardsContainer);
         }
 
-        const sortedMedals = allMedals.slice().sort((a, b) => {
-            const categoryA = a.category || 'Other';
-            const categoryB = b.category || 'Other';
-            if (categoryA !== categoryB) {
-                return categoryA.localeCompare(categoryB);
-            }
-            const dayComparison = (a.isDayBased ? 1 : 0) - (b.isDayBased ? 1 : 0);
-            if (dayComparison !== 0) {
-                return dayComparison;
-            }
-            if (b.count !== a.count) {
-                return b.count - a.count;
-            }
-            const orderA = medalOrderMap.get(a.name) ?? Number.MAX_SAFE_INTEGER;
-            const orderB = medalOrderMap.get(b.name) ?? Number.MAX_SAFE_INTEGER;
-            if (orderA !== orderB) {
-                return orderA - orderB;
-            }
-            return a.name.localeCompare(b.name);
-        });
-
-        medalInventory = sortedMedals;
+        const sortedMedals = Array.isArray(medalInventory) ? medalInventory : [];
 
         let shouldRenderMedals = true;
         if (activeMedalFilter) {
@@ -7684,7 +20495,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activeMedalMeta = {
                     name: matchedMedal.name,
                     emoji: matchedMedal.emoji || '',
-                    count: Number.isFinite(matchedMedal.count) ? matchedMedal.count : null,
+                    count: toNonNegativeInteger(matchedMedal.count),
                     description: descriptionText,
                     category: matchedMedal.category || null
                 };
@@ -7743,136 +20554,539 @@ document.addEventListener('DOMContentLoaded', async () => {
             segmentSection.classList.toggle('hidden', !shouldShowSegments);
         }
 
-        // === Update Best Activities with Clickable Titles ===
-        if (bestActivitiesContainer) {
-            bestActivitiesContainer.innerHTML = '';
+        const shouldRenderTopPerformances = Boolean(topFilterShortcutActive);
+        let hasTopPerformanceContent = false;
 
-            if (topPerformancesEmptyState) {
-                topPerformancesEmptyState.classList.toggle('hidden', hasActivities);
+        // === Update Best Activities Highlights ===
+        if (shouldRenderTopPerformances) {
+            if (bestActivitiesContainer) {
+                bestActivitiesContainer.innerHTML = '';
             }
 
             if (hasActivities) {
-                const metrics = [
+                const TEN_KM_METERS = 10000;
+                const HALF_MARATHON_METERS = 21097.5;
+                const MARATHON_METERS = 42195;
+                const HUNDRED_KM_METERS = 100000;
+
+                const topPerformanceGroups = [
                     {
-                        title: 'Highest Elevation',
-                        icon: '🏔️',
-                        selector: (activity) => activity.total_elevation_gain || 0,
-                        formatter: (value) => `${Math.round(value)} m`
+                        key: 'ride',
+                        label: 'Ride',
+                        matches(activity) {
+                            return isRideActivity(activity);
+                        }
                     },
                     {
-                        title: 'Longest Distance',
-                        icon: '🚲',
-                        selector: (activity) => (activity.distance || 0) / 1000,
-                        formatter: (value) => `${value.toFixed(1)} km`
-                    },
-                    {
-                        title: 'Longest Duration',
-                        icon: '⏱️',
-                        selector: (activity) => (activity.moving_time || 0) / 3600,
-                        formatter: (value) => `${value.toFixed(1)} hrs`
-                    },
-                    {
-                        title: 'Highest Heart Effort',
-                        icon: '❤️',
-                        selector: (activity) => ((activity.average_heartrate || 0) * ((activity.moving_time || 0) / 60)),
-                        formatter: (value) => `${Math.round(value)} bpm·min`
+                        key: 'run',
+                        label: 'Run',
+                        matches(activity) {
+                            return isRunActivity(activity);
+                        }
                     }
                 ];
 
-                metrics.forEach(metric => {
-                    let bestActivity = null;
-                    let bestValue = -Infinity;
+                const groupRowMap = new Map();
 
-                    activities.forEach(activity => {
-                        const value = metric.selector(activity);
-                        if (value > bestValue) {
-                            bestValue = value;
-                            bestActivity = activity;
-                        }
-                    });
+                const ensureGroupRow = (group) => {
+                    if (!group || !group.key || !bestActivitiesContainer) {
+                        return null;
+                    }
 
-                    if (!bestActivity || !Number.isFinite(bestValue) || bestValue <= 0) {
+                    if (!groupRowMap.has(group.key)) {
+                        const row = document.createElement('div');
+                        row.className = 'top-performances-row flex flex-col gap-3';
+                        row.dataset.performanceGroup = group.key;
+
+                        const rowHeader = document.createElement('div');
+                        rowHeader.className = 'top-performances-row__header flex items-center gap-2';
+
+                        const rowTitle = document.createElement('h4');
+                        rowTitle.className = 'top-performances-row__title text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400';
+                        rowTitle.textContent = group.label;
+
+                        rowHeader.appendChild(rowTitle);
+                        row.appendChild(rowHeader);
+
+                        const rowContent = document.createElement('div');
+                        rowContent.className = 'top-performances-row__content grid gap-3';
+                        row.appendChild(rowContent);
+
+                        bestActivitiesContainer.appendChild(row);
+                        groupRowMap.set(group.key, { row, content: rowContent });
+                    }
+
+                    return groupRowMap.get(group.key) || null;
+                };
+
+                const registerTopPerformanceHighlight = (activity, metricTitle, groupLabel, formattedValue) => {
+                    if (!activity) {
                         return;
                     }
 
-                    const activityId = bestActivity.id || bestActivity.external_id;
-                    const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : '#';
-
-                    const cardTag = activityUrl !== '#' ? 'a' : 'div';
-                    const card = document.createElement(cardTag);
-                    card.className = 'top-performance-card rounded-lg p-4 shadow-sm flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
-                    if (activityUrl !== '#') {
-                        card.href = activityUrl;
-                        card.target = '_blank';
-                        card.rel = 'noopener noreferrer';
-                        card.setAttribute('aria-label', `${metric.title} — open activity on Strava`);
-                        card.classList.add('top-performance-card--interactive');
+                    const activityId = activity.id || activity.external_id;
+                    if (!activityId) {
+                        return;
                     }
 
-                    const infoWrapper = document.createElement('div');
-                    infoWrapper.className = 'top-performance-card__content flex min-w-0 flex-1 items-start gap-3';
+                    const key = String(activityId);
+                    const highlights = topPerformanceActivityHighlights.get(key) || [];
+                    highlights.push({
+                        title: metricTitle,
+                        groupLabel,
+                        formattedValue,
+                    });
+                    topPerformanceActivityHighlights.set(key, highlights);
 
-                    const iconSpan = document.createElement('span');
-                    iconSpan.className = 'text-3xl';
-                    iconSpan.textContent = metric.icon;
+                    const alreadyRegistered = topPerformanceActivityOrder.some(entry => entry.key === key);
+                    if (!alreadyRegistered) {
+                        topPerformanceActivityOrder.push({ key, activity });
+                    }
+                };
 
-                    const titleWrapper = document.createElement('div');
-                    titleWrapper.className = 'flex min-w-0 flex-col gap-1';
+                const metrics = [
+                    {
+                        title: 'Fastest 10K Run',
+                        icon: '⚡',
+                        appliesTo: ['run'],
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
 
-                    const metricHeader = document.createElement('div');
-                    metricHeader.className = 'top-performance-card__metric flex flex-wrap items-baseline gap-2';
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < TEN_KM_METERS || movingTime <= 0) {
+                                return null;
+                            }
 
-                    const titleLabel = document.createElement('span');
-                    titleLabel.className = 'top-performance-card__title text-base font-semibold leading-tight break-words';
-                    titleLabel.textContent = metric.title;
+                            const normalizedTime = movingTime * (TEN_KM_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: normalizedTime / (TEN_KM_METERS / 1000)
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const durationText = formatDurationShort(seconds);
+                            const paceText = formatPace(result?.pace);
+                            return paceText === '—' ? durationText : `${durationText} (${paceText})`;
+                        }
+                    },
+                    {
+                        title: 'Fastest Half Marathon',
+                        icon: '🏃',
+                        appliesTo: ['run'],
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
 
-                    const valueLabel = document.createElement('span');
-                    valueLabel.className = 'top-performance-card__value text-sm text-slate-600 dark:text-slate-300 break-words';
-                    valueLabel.textContent = metric.formatter(bestValue);
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < HALF_MARATHON_METERS || movingTime <= 0) {
+                                return null;
+                            }
 
-                    metricHeader.append(titleLabel, valueLabel);
-                    titleWrapper.append(metricHeader);
+                            const normalizedTime = movingTime * (HALF_MARATHON_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: normalizedTime / (HALF_MARATHON_METERS / 1000)
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const durationText = formatDurationShort(seconds);
+                            const paceText = formatPace(result?.pace);
+                            return paceText === '—' ? durationText : `${durationText} (${paceText})`;
+                        }
+                    },
+                    {
+                        title: 'Fastest Marathon',
+                        icon: '🎽',
+                        appliesTo: ['run'],
+                        compute: (activity) => {
+                            if (!isRunActivity(activity)) {
+                                return null;
+                            }
 
-                    const activityName = document.createElement('span');
-                    activityName.className = 'top-performance-card__activity-name text-sm font-semibold text-slate-700 dark:text-slate-200 break-words';
-                    activityName.textContent = (bestActivity.name || bestActivity.type || 'Activity').trim();
-                    titleWrapper.append(activityName);
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < MARATHON_METERS || movingTime <= 0) {
+                                return null;
+                            }
 
-                    const activityMetaText = formatActivityMetaSummary(bestActivity);
-                    if (activityMetaText) {
-                        const activityMeta = document.createElement('span');
-                        activityMeta.className = 'top-performance-card__activity-meta text-xs text-slate-500 dark:text-slate-400';
-                        activityMeta.textContent = activityMetaText;
-                        titleWrapper.append(activityMeta);
+                            const normalizedTime = movingTime * (MARATHON_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: normalizedTime / (MARATHON_METERS / 1000)
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const durationText = formatDurationShort(seconds);
+                            const paceText = formatPace(result?.pace);
+                            return paceText === '—' ? durationText : `${durationText} (${paceText})`;
+                        }
+                    },
+                    {
+                        title: 'Fastest 100K Ride',
+                        icon: '🚴',
+                        appliesTo: ['ride'],
+                        compute: (activity) => {
+                            if (!isRideActivity(activity)) {
+                                return null;
+                            }
+
+                            const distance = Number(activity.distance) || 0;
+                            const movingTime = Number(activity.moving_time) || 0;
+                            if (distance < HUNDRED_KM_METERS || movingTime <= 0) {
+                                return null;
+                            }
+
+                            const normalizedTime = movingTime * (HUNDRED_KM_METERS / distance);
+                            return {
+                                score: -normalizedTime,
+                                value: normalizedTime,
+                                pace: (distance > 0)
+                                    ? (distance / 1000) / (movingTime / 3600)
+                                    : null
+                            };
+                        },
+                        formatter: (seconds, activity, result) => {
+                            const timeText = formatDurationShort(seconds);
+                            const averageSpeed = Number.isFinite(result?.pace)
+                                ? `${result.pace.toFixed(1)} km/h`
+                                : null;
+                            return averageSpeed ? `${timeText} (${averageSpeed})` : timeText;
+                        }
+                    },
+                    {
+                        title: 'Longest Distance',
+                        icon: '📏',
+                        appliesTo: ['ride', 'run'],
+                        compute: (activity) => {
+                            const distanceKm = (Number(activity.distance) || 0) / 1000;
+                            if (distanceKm <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: distanceKm,
+                                value: distanceKm
+                            };
+                        },
+                        formatter: (distanceKm) => `${distanceKm.toFixed(1)} km`
+                    },
+                    {
+                        title: 'Biggest Elevation Gain',
+                        icon: '🌄',
+                        appliesTo: ['ride', 'run'],
+                        compute: (activity) => {
+                            const elevation = Number(activity.total_elevation_gain) || 0;
+                            if (elevation <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: elevation,
+                                value: elevation
+                            };
+                        },
+                        formatter: (elevation) => `${Math.round(elevation)} m`
+                    },
+                    {
+                        title: 'Longest Activity Duration',
+                        icon: '⏱️',
+                        appliesTo: ['ride', 'run'],
+                        compute: (activity) => {
+                            const movingTime = Number(activity.moving_time) || 0;
+                            const elapsedTime = Number(activity.elapsed_time) || 0;
+                            const durationSeconds = Math.max(movingTime, elapsedTime);
+
+                            if (durationSeconds <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: durationSeconds,
+                                value: durationSeconds
+                            };
+                        },
+                        formatter: (seconds) => formatDurationShort(seconds)
+                    },
+                    {
+                        title: 'Highest Calorie Burn',
+                        icon: '🔥',
+                        appliesTo: ['ride', 'run'],
+                        compute: (activity) => {
+                            const calories = calculateActivityCalories(activity);
+                            if (calories <= 0) {
+                                return null;
+                            }
+
+                            return {
+                                score: calories,
+                                value: calories
+                            };
+                        },
+                        formatter: (calories) => formatCalories(calories)
+                    }
+                ];
+
+                let cardsCreated = 0;
+
+                metrics.forEach(metric => {
+                    const targetGroupKeys = Array.isArray(metric.appliesTo) && metric.appliesTo.length > 0
+                        ? metric.appliesTo
+                        : topPerformanceGroups.map(group => group.key);
+
+                    const groupsForMetric = topPerformanceGroups.filter(group => targetGroupKeys.includes(group.key));
+
+                    if (groupsForMetric.length === 0) {
+                        return;
                     }
 
-                    infoWrapper.appendChild(iconSpan);
-                    infoWrapper.appendChild(titleWrapper);
+                    const groupEntries = groupsForMetric.map(group => {
+                        let bestActivity = null;
+                        let bestScore = Number.NEGATIVE_INFINITY;
+                        let bestValue = null;
+                        let bestResult = null;
 
-                    card.appendChild(infoWrapper);
+                        activities.forEach(activity => {
+                            if (!group.matches(activity)) {
+                                return;
+                            }
 
-                    bestActivitiesContainer.appendChild(card);
+                            const result = typeof metric.compute === 'function'
+                                ? metric.compute(activity)
+                                : null;
+
+                            if (!result) {
+                                return;
+                            }
+
+                            const normalizedResult = typeof result === 'object' && result !== null && 'score' in result
+                                ? result
+                                : { score: result, value: result };
+
+                            const score = Number(normalizedResult.score);
+                            const value = Number(normalizedResult.value);
+
+                            if (!Number.isFinite(score) || !Number.isFinite(value)) {
+                                return;
+                            }
+
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestValue = value;
+                                bestActivity = activity;
+                                bestResult = normalizedResult;
+                            }
+                        });
+
+                        if (
+                            !bestActivity
+                            || !Number.isFinite(bestScore)
+                            || bestScore === Number.NEGATIVE_INFINITY
+                            || !Number.isFinite(bestValue)
+                            || bestValue <= 0
+                        ) {
+                            return {
+                                group,
+                                hasResult: false,
+                                formattedValue: '—'
+                            };
+                        }
+
+                        const formattedValue = typeof metric.formatter === 'function'
+                            ? metric.formatter(bestValue, bestActivity, bestResult)
+                            : String(bestValue);
+
+                        const activityId = bestActivity.id || bestActivity.external_id;
+                        const activityUrl = activityId ? `https://www.strava.com/activities/${activityId}` : null;
+
+                        if (bestActivity) {
+                            registerTopPerformanceHighlight(
+                                bestActivity,
+                                metric.title,
+                                group?.label || '',
+                                formattedValue,
+                            );
+                        }
+
+                        return {
+                            group,
+                            hasResult: true,
+                            formattedValue,
+                            activityName: (bestActivity.name || bestActivity.type || 'Activity').trim(),
+                            activityMeta: formatActivityMetaSummary(bestActivity) || '',
+                            activityUrl
+                        };
+                    });
+
+                    const hasAnyResult = groupEntries.some(entry => entry?.hasResult);
+
+                    if (!hasAnyResult) {
+                        return;
+                    }
+
+                    groupEntries.forEach(entry => {
+                        if (!entry) {
+                            return;
+                        }
+
+                        const row = ensureGroupRow(entry.group);
+                        if (!row) {
+                            return;
+                        }
+
+                        const card = document.createElement('div');
+                        card.className = 'activity-card top-performance-card rounded-lg p-4 flex flex-col gap-4 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900';
+                        card.dataset.performanceMetric = metric.title;
+
+                        const metricRow = document.createElement('div');
+                        metricRow.className = 'flex items-start gap-3';
+
+                        const iconSpan = document.createElement('span');
+                        iconSpan.className = 'activities-top-performance__icon text-3xl';
+                        iconSpan.textContent = metric.icon;
+
+                        const metricBody = document.createElement('div');
+                        metricBody.className = 'flex min-w-0 flex-col gap-2';
+
+                        const metricHeader = document.createElement('div');
+                        metricHeader.className = 'flex flex-wrap items-center gap-2';
+
+                        const titleLabel = document.createElement('span');
+                        titleLabel.className = 'top-performance-card__title text-base font-semibold leading-tight break-words';
+                        titleLabel.textContent = metric.title;
+                        metricHeader.appendChild(titleLabel);
+
+                        const badgeRow = document.createElement('div');
+                        badgeRow.className = 'flex flex-wrap items-center gap-2';
+
+                        const groupBadge = document.createElement('span');
+                        groupBadge.className = 'activities-top-performance__badge';
+                        groupBadge.textContent = entry.group?.label || 'Top pick';
+                        badgeRow.appendChild(groupBadge);
+
+                        const valueBadge = document.createElement('span');
+                        valueBadge.className = 'activity-card__value-tag activities-top-performance__value';
+                        valueBadge.textContent = entry.formattedValue || '—';
+                        badgeRow.appendChild(valueBadge);
+
+                        metricBody.appendChild(metricHeader);
+                        metricBody.appendChild(badgeRow);
+
+                        metricRow.appendChild(iconSpan);
+                        metricRow.appendChild(metricBody);
+                        card.appendChild(metricRow);
+
+                        const activityContent = document.createElement('div');
+                        activityContent.className = 'flex flex-col gap-1';
+
+                        if (entry.hasResult) {
+                            const activityElement = document.createElement(entry.activityUrl ? 'a' : 'div');
+                            activityElement.className = 'activity-card__title text-lg font-semibold';
+                            if (entry.activityUrl) {
+                                activityElement.href = entry.activityUrl;
+                                activityElement.target = '_blank';
+                                activityElement.rel = 'noopener noreferrer';
+                                activityElement.classList.add('activity-card__title-link');
+                                activityElement.setAttribute('aria-label', `${metric.title} — best ${entry.group.label.toLowerCase()} activity on Strava`);
+                            }
+                            activityElement.textContent = entry.activityName;
+                            activityContent.appendChild(activityElement);
+                        }
+
+                        const metaText = document.createElement('span');
+                        metaText.className = 'activities-top-performance__meta text-sm text-slate-600 dark:text-slate-300';
+                        if (entry.hasResult) {
+                            metaText.textContent = entry.activityMeta || 'Recorded on Strava';
+                        } else {
+                            metaText.textContent = 'No qualifying activities yet for this metric.';
+                        }
+                        activityContent.appendChild(metaText);
+
+                        const detailText = document.createElement('p');
+                        detailText.className = 'activities-top-performance__detail text-sm text-slate-700 dark:text-slate-200';
+                        if (entry.hasResult) {
+                            const groupLabel = entry.group?.label || 'Activity';
+                            detailText.textContent = `${groupLabel} highlight • ${entry.formattedValue}`;
+                        } else {
+                            detailText.textContent = 'Keep logging efforts to unlock your top performance.';
+                        }
+                        activityContent.appendChild(detailText);
+
+                        card.appendChild(activityContent);
+                        row.content.appendChild(card);
+                        cardsCreated += 1;
+                    });
                 });
 
-                if (!bestActivitiesContainer.hasChildNodes() && topPerformancesEmptyState) {
-                    topPerformancesEmptyState.classList.remove('hidden');
-                }
-            } else if (topPerformancesEmptyState) {
-                topPerformancesEmptyState.classList.remove('hidden');
+                hasTopPerformanceContent = cardsCreated > 0;
+            } else {
+                hasTopPerformanceContent = false;
             }
-        } else {
+
+            if (topPerformancesEmptyState) {
+                topPerformancesEmptyState.classList.add('hidden');
+            }
+        } else if (shouldRenderTopPerformances && !bestActivitiesContainer) {
             console.warn("'best-activities' element not found in the DOM.");
         }
 
-        sortedActivities = activities
-            .slice()
-            .sort((a, b) => {
-                const dateA = new Date(a.start_date);
-                const dateB = new Date(b.start_date);
-                return dateB - dateA;
-            });
+        setTopPerformancesVisibility(shouldRenderTopPerformances && hasTopPerformanceContent);
+
+        const topPerformanceActivities = topFilterShortcutActive && topPerformanceActivityOrder.length > 0
+            ? Array.from(new Map(topPerformanceActivityOrder.map(entry => [entry.key, entry.activity])).values())
+            : null;
+
+        const sortKey = topFilterShortcutActive ? 'date-desc' : (currentActivityFilters.sortBy || 'date-desc');
+        const getActivityTimestamp = (activity) => {
+            const date = new Date(activity?.start_date);
+            const time = date.getTime();
+            return Number.isFinite(time) ? time : 0;
+        };
+        const resolveSortValue = (activity) => {
+            if (!activity) {
+                return 0;
+            }
+
+            switch (sortKey) {
+                case 'distance-desc':
+                    return Number.isFinite(activity.distance) ? activity.distance : 0;
+                case 'balance-desc': {
+                    const stats = computeActivitySmallStats(activity);
+                    const coins = getActivityCoinRewards(activity, stats);
+                    const medals = getActivityMedals(activity);
+                    const coinValue = coins.reduce((sum, emoji) => sum + (COIN_VALUE_MAP[emoji] || 0), 0);
+                    const medalValue = calculateMedalDollarValue(medals);
+                    return coinValue + medalValue;
+                }
+                case 'elevation-desc':
+                    return Number.isFinite(activity.total_elevation_gain) ? activity.total_elevation_gain : 0;
+                case 'date-desc':
+                default:
+                    return getActivityTimestamp(activity);
+            }
+        };
+
+        sortedActivities = Array.isArray(topPerformanceActivities) && topPerformanceActivities.length > 0
+            ? topPerformanceActivities
+            : activities
+                .slice()
+                .sort((a, b) => {
+                    const primaryDiff = resolveSortValue(b) - resolveSortValue(a);
+                    if (primaryDiff !== 0) {
+                        return primaryDiff;
+                    }
+                    return getActivityTimestamp(b) - getActivityTimestamp(a);
+                });
 
         rebuildMedalFilteredActivities();
+        medalActivityCounts = buildMedalActivityCounts(sortedActivities);
 
         if (sortedActivities.length === 0) {
             visibleActivitiesCount = 0;
@@ -7897,6 +21111,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const navigateToActivitiesPanel = () => {
+        mapsTo('activities', { focusTab: true });
+    };
+
     function applyFilters(options = {}) {
         const { preserveVisibleCount = false } = options;
         if (!Array.isArray(allData.activities)) {
@@ -7908,8 +21126,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentActivityFilters = filters;
 
         const yearFilteredActivities = allData.activities.filter(activity => {
-            const activityDate = new Date(activity.start_date);
-            if (Number.isNaN(activityDate.getTime())) {
+            const activityDate = getActivityDate(activity);
+            if (!activityDate) {
                 return false;
             }
             if (selectedYear && selectedYear !== 'all' && activityDate.getFullYear().toString() !== selectedYear) {
@@ -7959,10 +21177,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearTimeout(filterApplyTimeout);
         }
         filterApplyTimeout = setTimeout(() => {
-            applyFilters({ preserveVisibleCount });
+            requestActivitiesRender({ preserveVisibleCount });
             filterApplyTimeout = null;
         }, FILTER_APPLY_DELAY_MS);
     };
+
+    filterCollapsibleElements.forEach((collapsible, index) => {
+        if (!collapsible) {
+            return;
+        }
+
+        const trigger = collapsible.querySelector('[data-filter-toggle]');
+        const content = collapsible.querySelector('[data-filter-content]');
+
+        if (!trigger || !content) {
+            return;
+        }
+
+        if (!content.id) {
+            content.id = `filter-content-${index + 1}`;
+        }
+
+        trigger.setAttribute('aria-controls', content.id);
+
+        const setExpanded = (expanded) => {
+            collapsible.classList.toggle('is-open', expanded);
+            trigger.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            content.hidden = !expanded;
+        };
+
+        setExpanded(false);
+
+        trigger.addEventListener('click', () => {
+            const expanded = collapsible.classList.contains('is-open');
+            setExpanded(!expanded);
+        });
+
+        trigger.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setExpanded(false);
+                trigger.focus();
+            }
+        });
+    });
 
     if (yearSelect) {
         yearSelect.addEventListener('change', () => {
@@ -7976,8 +21233,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    if (activityCountryFilter) {
-        activityCountryFilter.addEventListener('change', () => {
+    if (activitySortSelect) {
+        activitySortSelect.addEventListener('change', () => {
+            clearFilterShortcutSelection();
             scheduleFilterApply({ preserveVisibleCount: false });
         });
     }
@@ -8000,26 +21258,123 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    if (resetActivityFiltersButton) {
-        resetActivityFiltersButton.addEventListener('click', () => {
-            if (filterApplyTimeout) {
-                clearTimeout(filterApplyTimeout);
-                filterApplyTimeout = null;
+    if (countryFilterList) {
+        countryFilterList.addEventListener('click', (event) => {
+            const chip = event.target.closest('[data-country-code]');
+            if (!chip) {
+                return;
             }
-            resetActivityFilterInputs();
-            resetMedalFilterState();
-            applyFilters({ preserveVisibleCount: false });
+            event.preventDefault();
+            const code = chip.dataset.countryCode;
+            const changed = toggleCountryFilterSelection(code);
+            if (changed) {
+                requestActivitiesRender({ preserveVisibleCount: false });
+            }
         });
     }
 
-    if (activityFilterForm) {
-        activityFilterForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            if (filterApplyTimeout) {
-                clearTimeout(filterApplyTimeout);
-                filterApplyTimeout = null;
+    const bindActivitiesFilterOpenButton = () => {
+        if (!activitiesFilterOpenButton || activitiesFilterOpenButton.dataset.initialized === 'true') {
+            return;
+        }
+
+        activitiesFilterOpenButton.dataset.initialized = 'true';
+        activitiesFilterOpenButton.setAttribute('aria-haspopup', 'dialog');
+        activitiesFilterOpenButton.setAttribute('aria-controls', 'activities-filter-modal');
+        const expandedState = activitiesFilterModal && !activitiesFilterModal.hidden ? 'true' : 'false';
+        activitiesFilterOpenButton.setAttribute('aria-expanded', expandedState);
+        activitiesFilterOpenButton.addEventListener('click', () => {
+            openActivitiesFilterModal();
+        });
+    };
+
+    const bindActivitiesMedalInfoClearButton = () => {
+        if (!activitiesMedalInfoClearButton || activitiesMedalInfoClearButton.dataset.initialized === 'true') {
+            return;
+        }
+
+        activitiesMedalInfoClearButton.dataset.initialized = 'true';
+        activitiesMedalInfoClearButton.addEventListener('click', () => {
+            if (resetMedalFilterState()) {
+                renderActivitiesList();
             }
-            applyFilters({ preserveVisibleCount: false });
+        });
+    };
+
+    bindActivitiesFilterOpenButton();
+    bindActivitiesMedalInfoClearButton();
+    onPanelReady('activities', () => {
+        refreshPanelReferences();
+        bindActivitiesFilterOpenButton();
+        bindActivitiesMedalInfoClearButton();
+        requestActivitiesRender({ preserveVisibleCount: true });
+    });
+
+    activitiesFilterDismissButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            closeActivitiesFilterModal();
+        });
+    });
+
+    if (activitiesFilterModal) {
+        activitiesFilterModal.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeActivitiesFilterModal();
+            }
+        });
+    }
+
+        if (resetActivityFiltersButton) {
+            resetActivityFiltersButton.addEventListener('click', () => {
+                if (filterApplyTimeout) {
+                    clearTimeout(filterApplyTimeout);
+                    filterApplyTimeout = null;
+                }
+                resetActivityFilterInputs();
+                resetMedalFilterState();
+                requestActivitiesRender({ preserveVisibleCount: false });
+                closeActivitiesFilterModal();
+                navigateToActivitiesPanel();
+            });
+        }
+
+        if (activityFilterForm) {
+            activityFilterForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                if (filterApplyTimeout) {
+                    clearTimeout(filterApplyTimeout);
+                    filterApplyTimeout = null;
+                }
+                requestActivitiesRender({ preserveVisibleCount: false });
+                closeActivitiesFilterModal();
+                navigateToActivitiesPanel();
+            });
+        }
+
+    if (raceFilterSelect) {
+        raceFilterSelect.addEventListener('change', () => {
+            const selectedRace = raceFilterSelect.value || null;
+            currentActivityFilters.raceRequestId = selectedRace;
+            if (selectedRace && climbFilterSelect) {
+                currentActivityFilters.climbSegmentId = null;
+                climbFilterSelect.value = '';
+                renderClimbAttemptsDetail(null);
+            }
+            requestActivitiesRender({ preserveVisibleCount: false });
+        });
+    }
+
+    if (climbFilterSelect) {
+        climbFilterSelect.addEventListener('change', () => {
+            const selectedClimb = climbFilterSelect.value || null;
+            currentActivityFilters.climbSegmentId = selectedClimb;
+            if (selectedClimb && raceFilterSelect) {
+                currentActivityFilters.raceRequestId = null;
+                raceFilterSelect.value = '';
+            }
+            renderClimbAttemptsDetail(selectedClimb);
+            requestActivitiesRender({ preserveVisibleCount: false });
         });
     }
 
@@ -8031,17 +21386,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             if (activeQuickFilter === filterKey) {
-                activeQuickFilter = null;
-                quickFilterButtons.forEach(btn => {
-                    btn.classList.remove('is-active');
-                    btn.setAttribute('aria-pressed', 'false');
-                });
                 resetActivityFilterInputs();
-                applyFilters({ preserveVisibleCount: false });
+                clearFilterShortcutSelection();
+                requestActivitiesRender({ preserveVisibleCount: false });
                 return;
             }
 
             activeQuickFilter = filterKey;
+            clearFilterShortcutSelection();
             quickFilterButtons.forEach(btn => {
                 const isActive = btn === button;
                 btn.classList.toggle('is-active', isActive);
@@ -8054,6 +21406,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             scheduleFilterApply({ preserveVisibleCount: false });
+            closeActivitiesFilterModal();
+            navigateToActivitiesPanel();
+        });
+    });
+
+    filterShortcutButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const shortcutKey = button?.dataset?.filterShortcut;
+            if (!shortcutKey) {
+                return;
+            }
+            applyFilterShortcut(shortcutKey);
         });
     });
 
@@ -8062,6 +21426,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const shareData = buildShareSummary();
             lastShareData = shareData;
             updateShareCard(shareData, { reveal: true });
+            openShareModal();
             setShareFeedback('');
 
             if (navigator.share) {
@@ -8127,51 +21492,252 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    Object.entries(chartToggleButtons).forEach(([key, button]) => {
-        if (!button) {
+    function bindWalletTimeRangeButtons() {
+        walletChartRangeButtons.forEach((button) => {
+            if (!button || button.dataset.walletTimeRangeInitialized === 'true') {
+                return;
+            }
+
+            button.dataset.walletTimeRangeInitialized = 'true';
+            button.addEventListener('click', () => {
+                requestWalletTimeframeChange(button.dataset.walletRange);
+            });
+        });
+    }
+
+    function bindWalletLayerToggles() {
+        if (walletGridToggle && walletGridToggle.dataset.walletLayerInitialized !== 'true') {
+            walletGridToggle.dataset.walletLayerInitialized = 'true';
+            walletGridToggle.addEventListener('change', () => {
+                walletChartLayerPrefs.grid = Boolean(walletGridToggle.checked);
+                applyWalletLayerPreferencesToChart();
+            });
+        }
+        if (walletLegendToggle && walletLegendToggle.dataset.walletLayerInitialized !== 'true') {
+            walletLegendToggle.dataset.walletLayerInitialized = 'true';
+            walletLegendToggle.addEventListener('change', () => {
+                walletChartLayerPrefs.legend = Boolean(walletLegendToggle.checked);
+                applyWalletLayerPreferencesToChart();
+            });
+        }
+        if (walletLabelsToggle && walletLabelsToggle.dataset.walletLayerInitialized !== 'true') {
+            walletLabelsToggle.dataset.walletLayerInitialized = 'true';
+            walletLabelsToggle.addEventListener('change', () => {
+                walletChartLayerPrefs.labels = Boolean(walletLabelsToggle.checked);
+                applyWalletLayerPreferencesToChart();
+            });
+        }
+        if (walletAppearanceSelect && walletAppearanceSelect.dataset.walletAppearanceInitialized !== 'true') {
+            walletAppearanceSelect.dataset.walletAppearanceInitialized = 'true';
+            walletAppearanceSelect.addEventListener('change', () => {
+                setWalletAppearancePreference(walletAppearanceSelect.value);
+            });
+        }
+    }
+
+    function bindWalletBottomSheet() {
+        if (!walletBottomSheet || walletBottomSheet.dataset.walletSheetInitialized === 'true') {
             return;
         }
 
-        button.addEventListener('click', () => {
-            if (button.disabled) {
+        walletBottomSheet.dataset.walletSheetInitialized = 'true';
+        if (walletChartSettingsButton) {
+            walletChartSettingsButton.addEventListener('click', () => {
+                toggleWalletBottomSheet();
+            });
+        }
+        walletBottomSheetDismissButtons.forEach((button) => {
+            if (!button || button.dataset.walletSheetDismissInitialized === 'true') {
                 return;
             }
-            activeChartKey = key;
-            coinChartMode = 'stacked';
-            renderWalletChart(activeChartKey);
+            button.dataset.walletSheetDismissInitialized = 'true';
+            button.addEventListener('click', () => {
+                setWalletBottomSheetOpen(false);
+            });
         });
-    });
-
-    panelShortcutButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const targetPanel = button.dataset.panelTarget;
-            if (!targetPanel) {
-                return;
-            }
-            setActivePanel(targetPanel, { focusTab: true });
-
-            if (targetPanel === 'wallet' && button.dataset.walletToggle === 'coins') {
-                if (chartToggleCoinsButton && !chartToggleCoinsButton.disabled) {
-                    activeChartKey = 'coins';
-                    coinChartMode = 'stacked';
-                    renderWalletChart('coins');
+        if (walletBottomSheetScrim && walletBottomSheetScrim.dataset.walletSheetDismissInitialized !== 'true') {
+            walletBottomSheetScrim.dataset.walletSheetDismissInitialized = 'true';
+            walletBottomSheetScrim.addEventListener('click', () => {
+                setWalletBottomSheetOpen(false);
+            });
+        }
+        if (!walletBottomSheetEscapeHandler) {
+            walletBottomSheetEscapeHandler = (event) => {
+                if (event.key === 'Escape') {
+                    setWalletBottomSheetOpen(false);
                 }
-            }
-        });
-    });
+            };
+            document.addEventListener('keydown', walletBottomSheetEscapeHandler);
+        }
+    }
 
-    coinShortcutButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            setActivePanel('wallet', { focusTab: true });
-            if (chartToggleCoinsButton && !chartToggleCoinsButton.disabled) {
-                activeChartKey = 'coins';
-                coinChartMode = 'timeline';
-                renderWalletChart('coins');
-            }
-        });
-    });
+    function bindWalletExportShare() {
+        if (walletChartExportButton && walletChartExportButton.dataset.walletExportInitialized !== 'true') {
+            walletChartExportButton.dataset.walletExportInitialized = 'true';
+            walletChartExportButton.addEventListener('click', () => {
+                if (!walletChartCanvas) {
+                    return;
+                }
+                const dataUrl = walletChartCanvas.toDataURL('image/png');
+                const downloadLink = document.createElement('a');
+                downloadLink.href = dataUrl;
+                downloadLink.download = 'wallet-chart.png';
+                downloadLink.click();
+            });
+        }
+        if (walletChartShareButton && walletChartShareButton.dataset.walletShareInitialized !== 'true') {
+            walletChartShareButton.dataset.walletShareInitialized = 'true';
+            walletChartShareButton.addEventListener('click', async () => {
+                if (!walletChartCanvas) {
+                    return;
+                }
+                const blob = await new Promise((resolve) => {
+                    if (walletChartCanvas.toBlob) {
+                        walletChartCanvas.toBlob(resolve, 'image/png');
+                    } else {
+                        resolve(null);
+                    }
+                });
+                if (blob && navigator.share) {
+                    try {
+                        const shareFile = new File([blob], 'wallet-chart.png', { type: blob.type });
+                        if (!navigator.canShare || navigator.canShare({ files: [shareFile] })) {
+                            await navigator.share({
+                                files: [shareFile],
+                                text: 'Wallet progress snapshot',
+                                title: 'League of Strava — Wallet'
+                            });
+                            return;
+                        }
+                    } catch (shareError) {
+                        console.warn('Wallet chart share failed', shareError);
+                    }
+                }
+                const fallbackUrl = walletChartCanvas.toDataURL('image/png');
+                const downloadLink = document.createElement('a');
+                downloadLink.href = fallbackUrl;
+                downloadLink.download = 'wallet-chart.png';
+                downloadLink.click();
+            });
+        }
+    }
 
-    if (balanceYearToggle) {
+    const bindChartToggleButtons = () => {
+        Object.entries(chartToggleButtons).forEach(([key, button]) => {
+            if (!button || button.dataset.chartToggleInitialized === 'true') {
+                return;
+            }
+
+            button.dataset.chartToggleInitialized = 'true';
+            button.addEventListener('click', () => {
+                if (button.disabled) {
+                    return;
+                }
+                activeChartKey = key;
+                renderWalletChart();
+            });
+        });
+    };
+
+    function bindWalletTimeframeSelect() {
+        if (!walletTimeframeSelect || walletTimeframeSelect.dataset.walletTimeframeInitialized === 'true') {
+            return;
+        }
+
+        walletTimeframeSelect.dataset.walletTimeframeInitialized = 'true';
+
+        walletTimeframeSelect.addEventListener('change', () => {
+            walletSelectedTimeframe = walletTimeframeSelect.value || WALLET_TIMEFRAME_ALL;
+            syncWalletTimeRangeChips();
+
+            const currentActivities = Array.isArray(filteredData.activities)
+                ? filteredData.activities
+                : (Array.isArray(allData.activities) ? allData.activities : []);
+            const lifetimeSource = Array.isArray(allData.activities) ? allData.activities : currentActivities;
+            const selectedYear = yearSelect ? yearSelect.value : 'all';
+
+            updateWalletChartData({
+                activities: currentActivities,
+                lifetimeActivities: lifetimeSource,
+                selectedYear,
+                walletTimeframe: walletSelectedTimeframe,
+                precomputedLifetimeMetrics: allData?.totals?.precomputedWalletMetrics,
+            });
+
+            updateEnduranceChart(enduranceChartSource);
+        });
+    }
+
+    const bindPanelShortcutButtons = () => {
+        panelShortcutButtons.forEach((button) => {
+            if (!button || button.dataset.panelShortcutInitialized === 'true') {
+                return;
+            }
+
+            button.dataset.panelShortcutInitialized = 'true';
+            button.addEventListener('click', () => {
+                const targetPanel = button.dataset.panelTarget;
+                if (!targetPanel) {
+                    return;
+                }
+                mapsTo(targetPanel, { focusTab: true });
+
+                const targetChart = button.dataset.panelChart;
+                if (targetChart) {
+                    activeChartKey = targetChart;
+                    requestWalletRender();
+                }
+
+            });
+        });
+    };
+
+    const applyCoinFilterAndNavigate = (coinType) => {
+        const coinEmoji = (coinType || '').trim();
+        if (coinEmoji && COIN_EMOJIS.includes(coinEmoji)) {
+            currentActivityFilters.coinEmoji = coinEmoji;
+        } else {
+            currentActivityFilters.coinEmoji = null;
+        }
+
+        if (filterApplyTimeout) {
+            clearTimeout(filterApplyTimeout);
+            filterApplyTimeout = null;
+        }
+
+        requestActivitiesRender({ preserveVisibleCount: false });
+        mapsTo('activities', { focusTab: true });
+    };
+
+    const bindCoinShortcutButtons = () => {
+        const achievementsPanel = document.getElementById('panel-achievements');
+        if (!achievementsPanel || achievementsPanel.dataset.coinShortcutInitialized === 'true') {
+            return;
+        }
+
+        achievementsPanel.dataset.coinShortcutInitialized = 'true';
+        achievementsPanel.addEventListener('click', (event) => {
+            const coinTarget = event.target.closest('[data-coin-emoji]');
+            if (!coinTarget) {
+                return;
+            }
+
+            const coinType = coinTarget.dataset.coinEmoji || '';
+            if (!COIN_EMOJIS.includes(coinType)) {
+                return;
+            }
+
+            event.preventDefault();
+            applyCoinFilterAndNavigate(coinType);
+        });
+    };
+
+    const bindBalanceYearToggle = () => {
+        if (!balanceYearToggle || balanceYearToggle.dataset.balanceToggleInitialized === 'true') {
+            return;
+        }
+
+        balanceYearToggle.dataset.balanceToggleInitialized = 'true';
         balanceYearToggle.addEventListener('change', () => {
             if (balanceYearToggle.disabled) {
                 balanceYearToggle.checked = false;
@@ -8184,155 +21750,100 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activeChartKey = 'balance';
             }
 
-            renderWalletChart(activeChartKey);
+            renderWalletChart();
         });
-    }
+    };
 
-    updateToggleStates(null);
+    const bindLoadMoreButton = () => {
+        if (!loadMoreButton || loadMoreButton.dataset.loadMoreInitialized === 'true') {
+            return;
+        }
 
-    if (rankTriggerElements.length > 0) {
-        const triggerRankModal = () => {
-            if (rankModalElement && !rankModalElement.hidden) {
-                return;
-            }
-            openRankModal();
-        };
+        loadMoreButton.dataset.loadMoreInitialized = 'true';
 
-        rankTriggerElements.forEach((element) => {
-            element.setAttribute('tabindex', '0');
-            element.setAttribute('role', 'button');
-            element.setAttribute('aria-haspopup', 'dialog');
-            element.setAttribute('aria-expanded', 'false');
-            element.classList.add('rank-trigger');
-
-            element.addEventListener('click', () => {
-                triggerRankModal();
-            });
-
-            element.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    triggerRankModal();
-                }
-            });
-        });
-    } else {
-        console.warn("No rank trigger elements found in the DOM.");
-    }
-
-    if (profileRefreshButton) {
-        profileRefreshButton.addEventListener('click', async () => {
-            if (isFetchingActivities) {
-                return;
-            }
-
-            profileRefreshButton.classList.add('is-loading');
-            profileRefreshButton.setAttribute('aria-busy', 'true');
-            profileRefreshButton.disabled = true;
-            showSpinner();
-
-            try {
-                await fetchData({ forceRefresh: true });
-                if (leaderboardBody) {
-                    await loadLeaderboard();
-                }
-            } finally {
-                profileRefreshButton.classList.remove('is-loading');
-                profileRefreshButton.removeAttribute('aria-busy');
-                profileRefreshButton.disabled = false;
-                if (document.body.contains(profileRefreshButton)) {
-                    try {
-                        profileRefreshButton.focus({ preventScroll: true });
-                    } catch (error) {
-                        console.warn('Unable to restore focus after data refresh:', error);
-                    }
-                }
-            }
-        });
-    } else {
-        console.warn("'profile-refresh' element not found in the DOM.");
-    }
-
-    if (loadMoreButton) {
         if (isSharedView) {
             loadMoreButton.classList.add('hidden');
             loadMoreButton.setAttribute('aria-hidden', 'true');
             loadMoreButton.disabled = true;
-        } else {
-            loadMoreButton.addEventListener('click', async () => {
-                if (activeMedalFilter || isFetchingActivities) {
-                    return;
+            return;
+        }
+
+        loadMoreButton.addEventListener('click', async () => {
+            if (activeMedalFilter || isFetchingActivities) {
+                return;
+            }
+            const previousVisibleCount = visibleActivitiesCount;
+            const initialLength = sortedActivities.length;
+            let totalNewActivities = 0;
+            let cycles = 0;
+
+            if (!hasMoreActivities) {
+                visibleActivitiesCount = Math.min(
+                    sortedActivities.length,
+                    previousVisibleCount + ACTIVITIES_PAGE_SIZE
+                );
+                renderActivitiesList();
+
+                if (visibleActivitiesCount >= sortedActivities.length) {
+                    loadMoreButton.classList.add('hidden');
+                    loadMoreButton.disabled = true;
+                } else {
+                    loadMoreButton.disabled = false;
                 }
-                const previousVisibleCount = visibleActivitiesCount;
-                const initialLength = sortedActivities.length;
-                let totalNewActivities = 0;
-                let cycles = 0;
+                return;
+            }
+
+            loadMoreButton.disabled = true;
+            loadMoreButton.setAttribute('aria-busy', 'true');
+
+            try {
+                do {
+                    await fetchData({ isLoadMore: true });
+                    cycles += 1;
+
+                    const updatedLength = sortedActivities.length;
+                    const newActivities = Math.max(0, updatedLength - (initialLength + totalNewActivities));
+                    totalNewActivities += newActivities;
+
+                    if (!hasMoreActivities || newActivities === 0) {
+                        break;
+                    }
+
+                    await wait(LOAD_MORE_THROTTLE_MS);
+                } while (hasMoreActivities && cycles < LOAD_MORE_MAX_CYCLES);
+            } finally {
+                loadMoreButton.removeAttribute('aria-busy');
 
                 if (!hasMoreActivities) {
+                    visibleActivitiesCount = sortedActivities.length;
+                } else if (totalNewActivities > 0) {
+                    const pagesLoaded = Math.max(1, Math.ceil(totalNewActivities / ACTIVITIES_PAGE_SIZE));
                     visibleActivitiesCount = Math.min(
                         sortedActivities.length,
-                        previousVisibleCount + ACTIVITIES_PAGE_SIZE
+                        previousVisibleCount + pagesLoaded * ACTIVITIES_PAGE_SIZE
                     );
-                    renderActivitiesList();
-
-                    if (visibleActivitiesCount >= sortedActivities.length) {
-                        loadMoreButton.classList.add('hidden');
-                        loadMoreButton.disabled = true;
-                    } else {
-                        loadMoreButton.disabled = false;
-                    }
-                    return;
                 }
 
-                loadMoreButton.disabled = true;
-                loadMoreButton.setAttribute('aria-busy', 'true');
+                renderActivitiesList();
 
-                try {
-                    do {
-                        await fetchData({ isLoadMore: true });
-                        cycles += 1;
-
-                        const updatedLength = sortedActivities.length;
-                        const newActivities = Math.max(0, updatedLength - (initialLength + totalNewActivities));
-                        totalNewActivities += newActivities;
-
-                        if (!hasMoreActivities || newActivities === 0) {
-                            break;
-                        }
-
-                        await wait(LOAD_MORE_THROTTLE_MS);
-                    } while (hasMoreActivities && cycles < LOAD_MORE_MAX_CYCLES);
-                } finally {
-                    loadMoreButton.removeAttribute('aria-busy');
-
-                    if (!hasMoreActivities) {
-                        visibleActivitiesCount = sortedActivities.length;
-                    } else if (totalNewActivities > 0) {
-                        const pagesLoaded = Math.max(1, Math.ceil(totalNewActivities / ACTIVITIES_PAGE_SIZE));
-                        visibleActivitiesCount = Math.min(
-                            sortedActivities.length,
-                            previousVisibleCount + pagesLoaded * ACTIVITIES_PAGE_SIZE
-                        );
-                    }
-
-                    renderActivitiesList();
-
-                    if (!hasMoreActivities) {
-                        loadMoreButton.classList.add('hidden');
-                        loadMoreButton.disabled = true;
-                    } else {
-                        loadMoreButton.disabled = false;
-                    }
+                if (!hasMoreActivities) {
+                    loadMoreButton.classList.add('hidden');
+                    loadMoreButton.disabled = true;
+                } else {
+                    loadMoreButton.disabled = false;
                 }
-            });
+            }
+        });
+    };
+
+    const bindMedalsLoadMoreButton = () => {
+        if (!medalsLoadMoreButton || medalsLoadMoreButton.dataset.medalsInitialized === 'true') {
+            return;
         }
-    } else {
-        console.warn("'load-more-btn' element not found in the DOM.");
-    }
 
-    if (medalsLoadMoreButton) {
+        medalsLoadMoreButton.dataset.medalsInitialized = 'true';
         medalsLoadMoreButton.addEventListener('click', () => {
-            setActivePanel('medals', { focusTab: true });
+            mapsTo('medals', { focusTab: true });
 
             if (activeMedalFilter) {
                 const sourceCount = medalFilteredActivities.length;
@@ -8353,7 +21864,181 @@ document.addEventListener('DOMContentLoaded', async () => {
                 renderMedalsGrid();
             }
         });
+    };
+
+    function bindWalletChangeSnapshotTriggers() {
+        const elements = Array.from(document.querySelectorAll('[data-wallet-snapshot-key]')).filter(Boolean);
+
+        elements.forEach((element) => {
+            if (element.dataset.walletSnapshotBound === 'true') {
+                return;
+            }
+
+            const resolveSnapshotKey = () => {
+                const explicitKey = (element.dataset.walletSnapshotKey || '').toLowerCase();
+                if (explicitKey) {
+                    return explicitKey;
+                }
+                const periodKey = (element.dataset.walletChangePeriod || '').toLowerCase();
+                return walletChangeSnapshotKeyMap[periodKey] || null;
+            };
+
+            const activateSnapshot = (event) => {
+                const snapshotKey = resolveSnapshotKey();
+                if (!snapshotKey) {
+                    return;
+                }
+
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+                hideTooltip();
+                openWalletModal({ snapshotKey });
+            };
+
+            element.addEventListener('click', (event) => {
+                activateSnapshot(event);
+            });
+
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    activateSnapshot(event);
+                }
+            });
+
+            element.dataset.walletSnapshotBound = 'true';
+        });
     }
+
+    bindChartToggleButtons();
+    bindPanelShortcutButtons();
+    bindCoinShortcutButtons();
+    bindBalanceYearToggle();
+    bindWalletTimeframeSelect();
+    bindLoadMoreButton();
+    bindMedalsLoadMoreButton();
+    bindWalletChangeSnapshotTriggers();
+    bindProfilePeriodToggle();
+    bindWalletTimeRangeButtons();
+    bindWalletLayerToggles();
+    bindWalletBottomSheet();
+    bindWalletExportShare();
+
+    onPanelReady('wallet', () => {
+        refreshPanelReferences();
+        bindChartToggleButtons();
+        bindCoinShortcutButtons();
+        bindPanelShortcutButtons();
+        bindBalanceYearToggle();
+        bindWalletTimeframeSelect();
+        bindWalletTimeRangeButtons();
+        bindWalletLayerToggles();
+        bindWalletBottomSheet();
+        bindWalletExportShare();
+        reapplyAchievementSummaries();
+        updateEnduranceChart(enduranceChartSource);
+    });
+
+    onPanelReady('achievements', () => {
+        refreshPanelReferences();
+        bindPanelShortcutButtons();
+        bindCoinShortcutButtons();
+        bindLoadMoreButton();
+        reapplyAchievementSummaries();
+        if (Array.isArray(allData.activities)) {
+            applyFilters(lastActivitiesRenderOptions);
+        }
+    });
+
+    onPanelReady('medals', () => {
+        refreshPanelReferences();
+        bindMedalsLoadMoreButton();
+        if (Array.isArray(allData.activities)) {
+            applyFilters(lastActivitiesRenderOptions);
+        }
+    });
+
+    updateToggleStates(null);
+
+    if (rankTriggerElements.length > 0) {
+        const triggerRankModal = () => {
+            if (rankModalElement && !rankModalElement.hidden) {
+                return;
+            }
+            openRankModal();
+        };
+
+        rankTriggerElements.forEach((element) => {
+            const isNativeButton = element.tagName === 'BUTTON';
+            if (!isNativeButton) {
+                element.setAttribute('tabindex', '0');
+                element.setAttribute('role', 'button');
+            } else if (!element.hasAttribute('type')) {
+                element.setAttribute('type', 'button');
+            }
+            element.setAttribute('aria-haspopup', 'dialog');
+            element.setAttribute('aria-expanded', 'false');
+            element.classList.add('rank-trigger');
+
+            element.addEventListener('click', () => {
+                triggerRankModal();
+            });
+
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    triggerRankModal();
+                }
+            });
+        });
+    } else {
+        console.warn("No rank trigger elements found in the DOM.");
+    }
+
+    if (manualSyncButton) {
+        manualSyncButton.addEventListener('click', async () => {
+            if (manualSyncButton.disabled) {
+                return;
+            }
+
+            if (isSharedView) {
+                redirectToStravaAuth();
+                return;
+            }
+
+            setManualSyncButtonState(true);
+
+            let spinnerWasShown = false;
+
+            try {
+                const needsManualFallback = await shouldFallbackToManualSync();
+
+                if (!needsManualFallback) {
+                    return;
+                }
+
+                spinnerWasShown = true;
+                showSpinner();
+
+                const manualResult = await fetchData({ forceRefresh: true });
+                handleSyncResponse(manualResult);
+            } catch (error) {
+                console.error('Sync initiation failed:', error);
+                completeInitialLoading('Error starting sync. Please try again.');
+
+                if (spinnerWasShown) {
+                    fadeOutSpinner();
+                }
+            } finally {
+                setManualSyncButtonState(false);
+            }
+        });
+    } else {
+        console.warn("'fetch-strava-button' element not found in the DOM.");
+    }
+
 
     leaderboardSortButtons.forEach((button) => {
         button.addEventListener('click', () => {
@@ -8366,7 +22051,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // === Initial Data Fetch ===
-    if (leaderboardBody) {
+    if (leaderboardBody || enduranceCompareSelect) {
         loadLeaderboard();
     }
 
@@ -8384,20 +22069,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } else {
         const hydrated = hydrateFromClientCache();
+        let storedSnapshotLoaded = false;
+
         if (!hydrated) {
-            const storedLoaded = await loadStoredSnapshotIfAvailable();
-            if (!storedLoaded) {
-                updateInitialLoadingState('bootstrap', 'complete', 'Dashboard layout ready');
-                updateInitialLoadingState('snapshot', 'complete', 'Tap refresh to sync the latest data');
-                updateInitialLoadingState('finalize', 'active', 'Standing by for your refresh');
-                if (errorMessage) {
-                    errorMessage.classList.remove('hidden');
-                    errorMessage.textContent = 'Ready when you are — tap refresh to sync your Strava data.';
-                }
-                hasCompletedInitialRender = true;
-                completeInitialLoading('Tap refresh to sync your latest Strava insights.');
-                fadeOutSpinner();
-            }
+            storedSnapshotLoaded = await loadStoredSnapshotIfAvailable();
         }
+
+        if (shouldForceAuthSync) {
+            removeSyncQueryParam();
+        }
+
+        showSpinner();
+        await fetchData({
+            forceRefresh: shouldForceAuthSync,
+            skipStoredSnapshot: storedSnapshotLoaded,
+        });
     }
 });

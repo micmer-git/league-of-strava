@@ -4681,16 +4681,14 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 100vh;
-        height: 100vw;
+        width: 100%;
+        height: 100%;
         max-width: none;
         max-height: none;
         margin: 0 auto;
     }
 
     .endurance-multiplot__plot--fullscreen .endurance-multiplot__canvas-inner {
-        transform: rotate(90deg);
-        transform-origin: center;
         width: 100%;
         height: 100%;
     }
@@ -4698,6 +4696,15 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 
 body.endurance-fullscreen-active {
     overflow: hidden;
+}
+
+body.endurance-fullscreen-active .site-header,
+body.endurance-fullscreen-active .dashboard-tabs {
+    display: none;
+}
+
+body.endurance-fullscreen-active .dashboard-shell {
+    padding-top: 0.25rem;
 }
 
 .endurance-compare {
@@ -4727,6 +4734,21 @@ body.endurance-fullscreen-active {
     grid-template-columns: 1fr;
     gap: 0.5rem;
     align-items: stretch;
+}
+
+.endurance-compare__input {
+    border: 1px solid rgba(148, 163, 184, 0.7);
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.95rem;
+    background: #fff;
+    width: 100%;
+    color: #0f172a;
+}
+
+.endurance-compare__input:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 2px;
 }
 
 .endurance-compare__select {
@@ -4789,6 +4811,13 @@ body.endurance-fullscreen-active {
 .dark .endurance-compare {
     background: rgba(30, 41, 59, 0.7);
     border-color: rgba(148, 163, 184, 0.4);
+}
+
+.dark .endurance-compare__input,
+.dark .endurance-compare__select {
+    background: rgba(15, 23, 42, 0.95);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.5);
 }
 
 .dark .endurance-compare__label,

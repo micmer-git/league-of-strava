@@ -1327,11 +1327,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     let enduranceChartInstances = new Map();
     let enduranceChartSource = [];
     let enduranceCompareForm = document.getElementById('endurance-compare-form');
+    let enduranceCompareInput = document.getElementById('endurance-compare-input');
     let enduranceCompareSelect = document.getElementById('endurance-compare-select');
+    let enduranceCompareDatalist = document.getElementById('endurance-compare-datalist');
     let enduranceCompareStatus = document.getElementById('endurance-compare-status');
     let enduranceFullscreenPlot = null;
     const enduranceFullscreenMediaQuery = window.matchMedia('(max-width: 768px)');
     const enduranceComparisonProfiles = new Map();
+    let enduranceOrientationLocked = false;
     const leaderboardComparisonOptions = new Map();
     const leaderboardNameToIdMap = new Map();
     const activityTypeFilter = document.getElementById('activity-type-filter');
@@ -1661,7 +1664,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceChartElement = document.getElementById('endurance-chart');
         enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
         enduranceCompareForm = document.getElementById('endurance-compare-form');
+        enduranceCompareInput = document.getElementById('endurance-compare-input');
         enduranceCompareSelect = document.getElementById('endurance-compare-select');
+        enduranceCompareDatalist = document.getElementById('endurance-compare-datalist');
         enduranceCompareStatus = document.getElementById('endurance-compare-status');
         enduranceDisciplineButtons = Array.from(document.querySelectorAll('[data-endurance-discipline]'));
         setEnduranceChartSkeletonVisible(isShellLoading());
@@ -3856,11 +3861,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         leaderboardNameToIdMap.clear();
         enduranceCompareSelect.innerHTML = '';
+        if (enduranceCompareDatalist) {
+            enduranceCompareDatalist.innerHTML = '';
+        }
         const option = document.createElement('option');
         option.value = '';
         option.textContent = placeholder;
         enduranceCompareSelect.appendChild(option);
         enduranceCompareSelect.disabled = true;
+        if (enduranceCompareInput) {
+            enduranceCompareInput.value = '';
+            enduranceCompareInput.placeholder = placeholder;
+            enduranceCompareInput.disabled = true;
+        }
     };
 
     const syncEnduranceCompareOptions = (entries = []) => {
@@ -3898,10 +3911,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const usedIdentifiers = new Set();
         enduranceCompareSelect.innerHTML = '';
+        if (enduranceCompareDatalist) {
+            enduranceCompareDatalist.innerHTML = '';
+        }
         const placeholder = document.createElement('option');
         placeholder.value = '';
         placeholder.textContent = 'Select a dashboard user';
         enduranceCompareSelect.appendChild(placeholder);
+
+        const appendDatalistOption = (label) => {
+            if (!enduranceCompareDatalist || !label) {
+                return;
+            }
+            const datalistOption = document.createElement('option');
+            datalistOption.value = label;
+            enduranceCompareDatalist.appendChild(datalistOption);
+        };
 
         selectableEntries.forEach((entry) => {
             const label = (entry.rawDisplayName || entry.displayName || '').trim();
@@ -3920,11 +3945,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             option.dataset.userId = identifier;
             leaderboardComparisonOptions.set(identifier, option.textContent);
             leaderboardNameToIdMap.set(optionLabel.toLowerCase(), identifier);
+            leaderboardNameToIdMap.set(identifier.toLowerCase(), identifier);
             enduranceCompareSelect.appendChild(option);
             usedIdentifiers.add(identifier);
+            appendDatalistOption(optionLabel);
         });
 
         enduranceCompareSelect.disabled = false;
+        if (enduranceCompareInput) {
+            enduranceCompareInput.disabled = false;
+            enduranceCompareInput.placeholder = 'Start typing a leaderboard name';
+        }
     };
 
     const normalizeDashboardUserEntries = (entries = []) => entries
@@ -12883,7 +12914,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         data: slicedSeries,
                         borderColor: lineColor,
                         backgroundColor: fillColor,
-                        borderWidth: 3,
+                        borderWidth: 4,
                         borderDash: isRunDiscipline ? [8, 4] : undefined,
                         tension: 0.32,
                         spanGaps: true,
@@ -13081,42 +13112,133 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const isMobileEnduranceViewport = () => Boolean(enduranceFullscreenMediaQuery?.matches);
 
-    const setEndurancePlotFullscreen = (plotKey = '', enable = false) => {
+    const lockEnduranceOrientation = async () => {
+        if (typeof screen?.orientation?.lock !== 'function') {
+            enduranceOrientationLocked = false;
+            return;
+        }
+        try {
+            await screen.orientation.lock('landscape');
+            enduranceOrientationLocked = true;
+        } catch (error) {
+            enduranceOrientationLocked = false;
+            console.warn('Unable to lock orientation:', error);
+        }
+    };
+
+    const unlockEnduranceOrientation = async () => {
+        if (!enduranceOrientationLocked) {
+            return;
+        }
+        try {
+            if (typeof screen?.orientation?.unlock === 'function') {
+                screen.orientation.unlock();
+            }
+        } catch (error) {
+            console.warn('Unable to unlock orientation:', error);
+        }
+        enduranceOrientationLocked = false;
+    };
+
+    const requestEnduranceNativeFullscreen = async (targetElement) => {
+        if (!targetElement || typeof targetElement.requestFullscreen !== 'function') {
+            return false;
+        }
+
+        try {
+            await targetElement.requestFullscreen({ navigationUI: 'hide' });
+            return true;
+        } catch (error) {
+            console.warn('Fullscreen request failed:', error);
+            return false;
+        }
+    };
+
+    const exitEnduranceNativeFullscreen = async () => {
+        if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
+            try {
+                await document.exitFullscreen();
+            } catch (error) {
+                console.warn('Fullscreen exit failed:', error);
+            }
+        }
+    };
+
+    const syncEnduranceFullscreenButtons = () => {
+        const buttons = Array.from(document.querySelectorAll('[data-endurance-fullscreen-toggle]'));
+        buttons.forEach((button) => {
+            const target = button.dataset.targetPlot
+                || button.closest('[data-endurance-plot]')?.dataset.endurancePlot
+                || '';
+            const isActive = enduranceFullscreenPlot === target;
+            button.dataset.state = isActive ? 'collapse' : 'expand';
+            button.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+            const icon = button.querySelector('.endurance-multiplot__fullscreen-icon');
+            const label = button.querySelector('.sr-only');
+            const chartTitle = button.closest('[data-endurance-plot]')?.querySelector('.endurance-multiplot__title')?.textContent?.trim();
+            const baseLabel = chartTitle ? `${chartTitle} chart` : 'chart';
+            if (icon) {
+                icon.textContent = isActive ? '⤡' : '⤢';
+            }
+            if (label) {
+                label.textContent = isActive ? `Collapse ${baseLabel}` : `Expand ${baseLabel}`;
+            }
+        });
+    };
+
+    const setEndurancePlotFullscreen = async (plotKey = '', enable = false, options = {}) => {
         const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
         const shouldEnable = Boolean(enable && normalizedKey);
+        const skipNativeFullscreen = options?.skipNativeFullscreen;
+
         if (shouldEnable && !isMobileEnduranceViewport()) {
             return;
         }
+
         const plots = Array.from(document.querySelectorAll('[data-endurance-plot]'));
+        let targetPlotElement = null;
 
         plots.forEach((plot) => {
             const isTarget = shouldEnable && plot.dataset.endurancePlot === normalizedKey;
-            plot.classList.toggle('endurance-multiplot__plot--fullscreen', isTarget);
-            const toggle = plot.querySelector('[data-endurance-fullscreen-toggle]');
-            if (toggle) {
-                toggle.setAttribute('aria-expanded', isTarget ? 'true' : 'false');
+            if (isTarget) {
+                targetPlotElement = plot;
             }
+            plot.classList.toggle('endurance-multiplot__plot--fullscreen', isTarget);
         });
 
         enduranceFullscreenPlot = shouldEnable ? normalizedKey : null;
         document.body.classList.toggle('endurance-fullscreen-active', shouldEnable);
+        syncEnduranceFullscreenButtons();
 
         const activeChart = shouldEnable ? enduranceChartInstances.get(normalizedKey) : null;
-        if (activeChart) {
-            setTimeout(() => activeChart.resize(), 80);
-        } else if (!shouldEnable) {
-            enduranceChartInstances.forEach((chart) => chart.resize());
+
+        if (shouldEnable) {
+            if (!skipNativeFullscreen) {
+                await requestEnduranceNativeFullscreen(targetPlotElement || document.documentElement);
+            }
+            await lockEnduranceOrientation();
+            if (activeChart) {
+                setTimeout(() => activeChart.resize(), 80);
+            }
+        } else {
+            await unlockEnduranceOrientation();
+            if (!skipNativeFullscreen) {
+                await exitEnduranceNativeFullscreen();
+            }
+            if (!shouldEnable) {
+                enduranceChartInstances.forEach((chart) => chart.resize());
+            }
         }
     };
 
-    const toggleEndurancePlotFullscreen = (plotKey = '') => {
+    const toggleEndurancePlotFullscreen = async (plotKey = '') => {
         const normalizedKey = typeof plotKey === 'string' ? plotKey.trim() : '';
         if (!isMobileEnduranceViewport()) {
-            setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+            await setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
             return;
         }
         const enable = enduranceFullscreenPlot !== normalizedKey;
-        setEndurancePlotFullscreen(normalizedKey, enable);
+        await setEndurancePlotFullscreen(normalizedKey, enable);
     };
 
     function bindEnduranceFullscreenControls() {
@@ -13134,18 +13256,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (typeof enduranceFullscreenMediaQuery?.addEventListener === 'function') {
-            enduranceFullscreenMediaQuery.addEventListener('change', (event) => {
+            enduranceFullscreenMediaQuery.addEventListener('change', async (event) => {
                 if (!event.matches && enduranceFullscreenPlot) {
-                    setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+                    await setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
                 }
             });
         } else if (typeof enduranceFullscreenMediaQuery?.addListener === 'function') {
-            enduranceFullscreenMediaQuery.addListener((event) => {
+            enduranceFullscreenMediaQuery.addListener(async (event) => {
                 if (!event.matches && enduranceFullscreenPlot) {
-                    setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
+                    await setEndurancePlotFullscreen(enduranceFullscreenPlot, false);
                 }
             });
         }
+
+        document.addEventListener('fullscreenchange', async () => {
+            if (!document.fullscreenElement && enduranceFullscreenPlot) {
+                await setEndurancePlotFullscreen(enduranceFullscreenPlot, false, { skipNativeFullscreen: true });
+            }
+        });
+
+        if (typeof screen?.orientation?.addEventListener === 'function') {
+            screen.orientation.addEventListener('change', () => {
+                if (enduranceFullscreenPlot) {
+                    enduranceChartInstances.forEach((chart) => chart.resize());
+                }
+            });
+        }
+
+        syncEnduranceFullscreenButtons();
     }
 
     const addEnduranceComparison = async (userId, labelHint = '') => {
@@ -13199,6 +13337,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 enduranceCompareSelect.value = '';
             }
 
+            if (enduranceCompareInput) {
+                enduranceCompareInput.value = '';
+            }
+
             updateEnduranceChart(enduranceChartSource);
             setEnduranceCompareStatus(`Added ${profileLabel} to the comparison chart.`);
         } catch (error) {
@@ -13214,14 +13356,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         enduranceCompareForm.addEventListener('submit', (event) => {
             event.preventDefault();
+            const typedName = enduranceCompareInput?.value?.trim() || '';
             const selectedOption = enduranceCompareSelect?.selectedOptions?.[0];
             const selectedValue = enduranceCompareSelect?.value || '';
-            const selectedLabel = selectedOption?.textContent || selectedValue;
-            const resolvedId = selectedOption?.dataset?.userId
+            const selectedLabel = typedName || selectedOption?.textContent || selectedValue;
+            const resolvedId = (typedName && leaderboardNameToIdMap.get(typedName.toLowerCase()))
+                || selectedOption?.dataset?.userId
                 || leaderboardNameToIdMap.get(selectedValue.toLowerCase())
                 || selectedValue;
             const targetUserId = resolvedId || '';
             const selectionLabel = selectedLabel || targetUserId;
+            if (typedName && !resolvedId) {
+                setEnduranceCompareStatus(`No leaderboard match found for "${typedName}". Try a saved dashboard user.`);
+                return;
+            }
             addEnduranceComparison(targetUserId, selectionLabel);
         });
 

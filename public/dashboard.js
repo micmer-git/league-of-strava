@@ -1888,7 +1888,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const FILTER_APPLY_DELAY_MS = 250;
     let filterApplyTimeout = null;
     let medalInventory = [];
-    let medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
+    const DEFAULT_MEDAL_RARITY_FILTER_KEY = MEDAL_RARITY_DISPLAY_ORDER[0] || DEFAULT_MEDAL_RARITY_KEY;
+    const buildDefaultMedalRarityFilter = () => new Set([DEFAULT_MEDAL_RARITY_FILTER_KEY]);
+    let medalRarityFilters = buildDefaultMedalRarityFilter();
     let historicalMedalInventory = [];
     let disciplineRatioStats = null;
     const progressDisciplineTabs = [
@@ -6762,14 +6764,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const ensureMedalRarityFilters = () => {
         if (!(medalRarityFilters instanceof Set) || medalRarityFilters.size === 0) {
-            medalRarityFilters = new Set(MEDAL_RARITY_LEVELS.map(level => level.key));
+            medalRarityFilters = buildDefaultMedalRarityFilter();
         }
     };
 
     const renderMedalRarityToggles = () => {
         ensureMedalRarityFilters();
         const wrapper = document.createElement('div');
-        wrapper.className = 'medal-discipline-slider medal-rarity-filter';
+        wrapper.className = 'medal-rarity-filter';
         wrapper.setAttribute('role', 'group');
         wrapper.setAttribute('aria-label', 'Filter medals by rarity');
 
@@ -6779,21 +6781,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const isActive = medalRarityFilters.has(level.key);
             const baseColor = MEDAL_RARITY_COLOR_MAP[level.key] || '#f59e0b';
             button.type = 'button';
-            button.className = 'medal-discipline-slider__button';
+            button.className = 'medal-rarity-filter__button';
             button.dataset.rarityKey = level.key;
             button.setAttribute('aria-pressed', String(isActive));
+            button.setAttribute('aria-label', `${level.emoji} ${level.name} rarity`);
             button.title = level.description || `${level.name} medals`;
 
             const label = document.createElement('span');
             label.textContent = `${level.emoji} ${level.name}`;
             button.appendChild(label);
-
-            if (level.tier) {
-                const tier = document.createElement('span');
-                tier.className = 'medal-rarity-filter__tier';
-                tier.textContent = level.tier;
-                button.appendChild(tier);
-            }
 
             if (isActive) {
                 button.classList.add('is-active');
@@ -6806,16 +6802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             button.style.color = isActive ? '#0f172a' : '';
 
             button.addEventListener('click', () => {
-                const nextFilters = new Set(medalRarityFilters);
-                if (nextFilters.has(level.key)) {
-                    if (nextFilters.size === 1) {
-                        return;
-                    }
-                    nextFilters.delete(level.key);
-                } else {
-                    nextFilters.add(level.key);
-                }
-                medalRarityFilters = nextFilters;
+                medalRarityFilters = new Set([level.key]);
                 renderMedalsGrid();
             });
 
@@ -6841,6 +6828,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         medalsSection.innerHTML = '';
         const rarityToggleWrapper = renderMedalRarityToggles();
+
+        const resolveMedalDisplayCount = (medal) => {
+            const activityCount = toNonNegativeInteger(medalActivityCounts.get(medal?.name));
+            if (activityCount > 0) {
+                return activityCount;
+            }
+            return toNonNegativeInteger(medal?.count);
+        };
 
         let filteredInventory = Array.isArray(medalInventory) ? medalInventory : [];
 
@@ -6869,8 +6864,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         filteredInventory = filteredInventory.slice().sort((a, b) => {
-            const countA = toNonNegativeInteger(a?.count);
-            const countB = toNonNegativeInteger(b?.count);
+            const countA = resolveMedalDisplayCount(a);
+            const countB = resolveMedalDisplayCount(b);
             if (countA !== countB) {
                 return countB - countA;
             }
@@ -6987,7 +6982,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             list.className = 'medals-list';
             list.setAttribute('role', 'list');
 
-            groupedMedals.sort((a, b) => toNonNegativeInteger(b?.count) - toNonNegativeInteger(a?.count));
+            groupedMedals.sort((a, b) => resolveMedalDisplayCount(b) - resolveMedalDisplayCount(a));
 
             groupedMedals.forEach((medal) => {
                 const listItem = document.createElement('li');
@@ -6996,10 +6991,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const medalButton = document.createElement('button');
                 medalButton.type = 'button';
                 medalButton.className = 'tooltip-target medals-list__button';
-                const activityCount = toNonNegativeInteger(medalActivityCounts.get(medal.name));
-                const medalCount = Number.isFinite(activityCount)
-                    ? activityCount
-                    : toNonNegativeInteger(medal?.count);
+                const medalCount = resolveMedalDisplayCount(medal);
                 if (medalCount === 0) {
                     medalButton.classList.add('medals-list__button--unearned');
                 }

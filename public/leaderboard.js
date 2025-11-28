@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
   const tableBody = document.getElementById('leaderboard-body');
-  const cardsContainer = document.getElementById('leaderboard-cards');
   const tableElement = document.querySelector('.leaderboard-table');
   const leaderboardSortButtons = Array.from(document.querySelectorAll('[data-sort-key]'));
   const tableColumnCount = tableElement ? tableElement.querySelectorAll('thead th').length : 1;
@@ -161,7 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
         leaderboardState.rawEntries = [];
         leaderboardState.sortedEntries = [];
         renderMessageRow('No leaderboard entries yet. Submit user data to get started!');
-        renderLeaderboardCards([]);
         updateSortIndicators();
         return;
       }
@@ -178,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
       leaderboardState.rawEntries = [];
       leaderboardState.sortedEntries = [];
       renderMessageRow(message);
-      renderLeaderboardCards([]);
       updateSortIndicators();
     }
   }
@@ -190,12 +187,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!Array.isArray(entries) || entries.length === 0) {
       renderMessageRow('No leaderboard entries yet. Submit user data to get started!');
-      renderLeaderboardCards([]);
       return;
     }
 
     tableBody.innerHTML = '';
-    const cardViewModels = [];
 
     entries.forEach((entry, index) => {
       const row = document.createElement('tr');
@@ -244,25 +239,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${relativeUpdated}</td>
       `;
       tableBody.appendChild(row);
-
-      cardViewModels.push({
-        rank: index + 1,
-        safeDisplayName,
-        hasUserLink,
-        dashboardUrl,
-        levelLabel,
-        levelEmoji,
-        walletBalance,
-        worldTrips,
-        everestSummits,
-        pizzaCount,
-        coinLabels,
-        relativeUpdated,
-      });
     });
 
     updateNameColumnWidth();
-    renderLeaderboardCards(cardViewModels);
   }
 
   function sortEntries(sortKey = leaderboardState.sortKey, direction = leaderboardState.sortDirection) {
@@ -442,72 +421,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(element);
     nameMeasurementElement = element;
     return nameMeasurementElement;
-  }
-
-  function renderLeaderboardCards(viewModels) {
-    if (!cardsContainer) {
-      return;
-    }
-
-    if (!Array.isArray(viewModels) || viewModels.length === 0) {
-      cardsContainer.hidden = true;
-      cardsContainer.innerHTML = '';
-      return;
-    }
-
-    const fragment = document.createDocumentFragment();
-
-    viewModels.forEach((view) => {
-      const card = document.createElement('article');
-      card.className = 'leaderboard-card';
-      const nameMarkup = view.hasUserLink
-        ? `<a class="leaderboard-card__name" href="${view.dashboardUrl}">${view.safeDisplayName}</a>`
-        : `<span class="leaderboard-card__name">${view.safeDisplayName}</span>`;
-
-      card.innerHTML = `
-        <header class="leaderboard-card__header">
-          <span class="leaderboard-card__rank">#${view.rank}</span>
-          ${nameMarkup}
-        </header>
-        <div class="leaderboard-card__meta">
-          <span>Level ${escapeHtml(view.levelLabel)}${view.levelEmoji ? ` <span aria-hidden="true">${view.levelEmoji}</span>` : ''}</span>
-          <span>Wallet ${escapeHtml(view.walletBalance)}</span>
-          <span>Updated ${escapeHtml(view.relativeUpdated)}</span>
-        </div>
-        <div class="leaderboard-card__stats">
-          ${buildCardStat('🌍 World trips', view.worldTrips)}
-          ${buildCardStat('🏔️ Everests', view.everestSummits)}
-          ${buildCardStat('🍕 Pizzas', view.pizzaCount)}
-          ${buildCardStat('💲 Coins', view.coinLabels['💲'])}
-          ${buildCardStat('💰 Coins', view.coinLabels['💰'])}
-          ${buildCardStat('🧈 Coins', view.coinLabels['🧈'])}
-          ${buildCardStat('💎 Coins', view.coinLabels['💎'])}
-          ${buildCardStat('👑 Crowns', view.coinLabels['👑'])}
-        </div>
-      `;
-
-      fragment.appendChild(card);
-    });
-
-    cardsContainer.innerHTML = '';
-    cardsContainer.appendChild(fragment);
-    cardsContainer.hidden = false;
-  }
-
-  function buildCardStat(label, value) {
-    const parts = String(label).trim().split(' ');
-    const emojiPart = parts.shift() || '';
-    const textLabel = parts.join(' ').trim() || label;
-    const safeEmoji = escapeHtml(emojiPart);
-    const safeTextLabel = escapeHtml(textLabel);
-    const safeValue = escapeHtml(String(value));
-    return `
-      <div class="leaderboard-card__stat">
-        <span class="leaderboard-card__stat-emoji" aria-hidden="true">${safeEmoji}</span>
-        <span class="sr-only">${safeTextLabel}</span>
-        <span class="leaderboard-card__stat-value">${safeValue}</span>
-      </div>
-    `;
   }
 
   function formatStatPill(value) {

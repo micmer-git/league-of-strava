@@ -26,9 +26,9 @@
     --color-text-secondary: #475569;
     --color-text-inverse: #ffffff;
     --color-muted: #94a3b8;
-    --color-accent: #3b82f6;
-    --color-accent-strong: #1d4ed8;
-    --color-accent-soft: #93c5fd;
+    --color-accent: #fc4c02;
+    --color-accent-strong: #ea3e00;
+    --color-accent-soft: #ffb38a;
     --color-border: #e2e8f0;
     --color-money: #0f9d58;
     --color-money-soft: rgba(15, 157, 88, 0.12);
@@ -43,9 +43,9 @@
     --accent-surface-weak: rgba(59, 130, 246, 0.12);
     --accent-surface-strong: rgba(59, 130, 246, 0.24);
     --overlay-viewport-offset: clamp(2.5rem, 12vh, 6rem);
-    --gradient-accent: linear-gradient(135deg, #2563eb, #38bdf8);
-    --gradient-accent-strong: linear-gradient(135deg, #2563eb, #0ea5e9);
-    --gradient-accent-soft: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(14, 165, 233, 0.35));
+    --gradient-accent: linear-gradient(135deg, #fc4c02, #ff8c00);
+    --gradient-accent-strong: linear-gradient(135deg, #fc4c02, #ea3e00);
+    --gradient-accent-soft: linear-gradient(135deg, rgba(252, 76, 2, 0.18), rgba(255, 140, 0, 0.35));
     --gradient-success: linear-gradient(135deg, #22c55e, #10b981);
     --color-accent-emphasis: #1d4ed8;
     --color-accent-soft-text: #1e3a8a;
@@ -56,7 +56,7 @@
     --surface-accent-border: rgba(59, 130, 246, 0.45);
     --surface-success: rgba(34, 197, 94, 0.08);
     --surface-success-border: rgba(34, 197, 94, 0.45);
-    --shadow-accent: 0 12px 28px rgba(59, 130, 246, 0.15);
+    --shadow-accent: 0 12px 28px rgba(252, 76, 2, 0.15);
     --shadow-success: 0 6px 12px rgba(16, 185, 129, 0.32);
 
     --app-viewport-height: 100vh;
@@ -77,9 +77,9 @@ body.dark {
     --color-text-secondary: #94a3b8;
     --color-text-inverse: #e2e8f0;
     --color-muted: #94a3b8;
-    --color-accent: #60a5fa;
-    --color-accent-strong: #2563eb;
-    --color-accent-soft: #93c5fd;
+    --color-accent: #fc4c02;
+    --color-accent-strong: #ea3e00;
+    --color-accent-soft: #ffb38a;
     --color-border: #334155;
     --color-money: #34d399;
     --color-money-soft: rgba(5, 150, 105, 0.25);
@@ -89,22 +89,22 @@ body.dark {
     --surface-border-strong: rgba(51, 65, 85, 0.6);
     --surface-overlay: linear-gradient(145deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.96));
     --skeleton-gradient: linear-gradient(110deg, rgba(30, 41, 59, 0.65), rgba(51, 65, 85, 0.85), rgba(30, 41, 59, 0.65));
-    --accent-surface-weak: rgba(59, 130, 246, 0.28);
-    --accent-surface-strong: rgba(59, 130, 246, 0.4);
-    --gradient-accent: linear-gradient(135deg, #2563eb, #60a5fa);
-    --gradient-accent-strong: linear-gradient(135deg, #2563eb, #0ea5e9);
-    --gradient-accent-soft: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(14, 165, 233, 0.35));
+    --accent-surface-weak: rgba(252, 76, 2, 0.28);
+    --accent-surface-strong: rgba(252, 76, 2, 0.4);
+    --gradient-accent: linear-gradient(135deg, #fc4c02, #ff8c00);
+    --gradient-accent-strong: linear-gradient(135deg, #fc4c02, #ea3e00);
+    --gradient-accent-soft: linear-gradient(135deg, rgba(252, 76, 2, 0.25), rgba(255, 140, 0, 0.35));
     --gradient-success: linear-gradient(135deg, #22c55e, #10b981);
-    --color-accent-emphasis: #e0f2fe;
-    --color-accent-soft-text: #bfdbfe;
+    --color-accent-emphasis: #ffe4d5;
+    --color-accent-soft-text: #ffd5bd;
     --surface-neutral: rgba(30, 41, 59, 0.55);
     --surface-neutral-strong: rgba(51, 65, 85, 0.6);
-    --surface-accent: rgba(37, 99, 235, 0.25);
-    --surface-accent-strong: rgba(59, 130, 246, 0.4);
-    --surface-accent-border: rgba(96, 165, 250, 0.55);
+    --surface-accent: rgba(252, 76, 2, 0.25);
+    --surface-accent-strong: rgba(252, 76, 2, 0.4);
+    --surface-accent-border: rgba(252, 76, 2, 0.55);
     --surface-success: rgba(22, 163, 74, 0.25);
     --surface-success-border: rgba(22, 163, 74, 0.55);
-    --shadow-accent: 0 12px 26px rgba(14, 165, 233, 0.45);
+    --shadow-accent: 0 12px 26px rgba(252, 76, 2, 0.45);
     --shadow-success: 0 6px 12px rgba(5, 122, 85, 0.4);
 }
 
@@ -120,7 +120,7 @@ html {
 }
 
 body {
-    font-family: 'Rubik', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     overflow-x: hidden;
     min-height: var(--app-viewport-height);
     padding-top: calc(var(--app-safe-area-top) + 0px);
@@ -131,6 +131,17 @@ body {
     overscroll-behavior-y: contain;
     background-color: var(--color-background);
     color: var(--color-text-primary);
+}
+
+h1,
+h2,
+h3,
+.dashboard-heading,
+.panel-card__title,
+.profile-card__name,
+.site-header__brand-text {
+    font-family: 'Barlow', 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.01em;
 }
 
 @keyframes skeletonPulse {
@@ -719,18 +730,19 @@ button,
     gap: 0.65rem;
     padding: 1.15rem 1.25rem;
     border-radius: 22px;
-    background: rgba(59, 130, 246, 0.08);
-    border: 1px solid rgba(37, 99, 235, 0.22);
+    background: rgba(252, 76, 2, 0.06);
+    border: 1px solid rgba(252, 76, 2, 0.16);
 }
 
 .weekly-snapshot__value-card--medals {
-    background: rgba(249, 115, 22, 0.12);
-    border-color: rgba(249, 115, 22, 0.24);
+    background: linear-gradient(135deg, rgba(252, 76, 2, 0.12), rgba(255, 179, 71, 0.14));
+    border-color: rgba(252, 76, 2, 0.24);
+    box-shadow: 0 16px 32px rgba(252, 76, 2, 0.12);
 }
 
 .weekly-snapshot__value-card--total {
-    background: rgba(14, 165, 233, 0.12);
-    border-color: rgba(14, 165, 233, 0.26);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.12));
+    border-color: rgba(16, 185, 129, 0.24);
 }
 
 .weekly-snapshot__value-card h3 {
@@ -1043,14 +1055,16 @@ button,
 }
 
 .dashboard-tab.is-active {
-    background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    background: linear-gradient(135deg, #fc4c02, #ea3e00);
     color: var(--color-text-inverse);
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 12px 28px rgba(252, 76, 2, 0.25);
 }
 
+.dashboard-tab:hover,
 .dashboard-tab:focus-visible {
-    outline: 2px solid #2563eb;
-    outline-offset: 2px;
+    outline: none;
+    border-color: rgba(252, 76, 2, 0.2);
+    box-shadow: 0 10px 20px rgba(252, 76, 2, 0.12);
 }
 
 .dashboard-panels {
@@ -4687,11 +4701,17 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
 }
 
 .medal-rarity-filter__button.is-active {
-    background: linear-gradient(135deg, #ffe6a7, #ffd166);
-    color: #7c3a00;
-    border-color: rgba(124, 58, 0, 0.15);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    background: linear-gradient(135deg, #fc4c02, #ffb347);
+    color: #fff7ed;
+    border-color: rgba(252, 76, 2, 0.25);
+    box-shadow: 0 14px 28px rgba(252, 76, 2, 0.16);
 }
+
+.rarity-verdant { background: #ecfdf5; color: #10b981; border: 1px solid #10b981; }
+.rarity-cerulean { background: #f0f9ff; color: #0ea5e9; border: 1px solid #0ea5e9; }
+.rarity-amethyst { background: #faf5ff; color: #a855f7; border: 1px solid #a855f7; }
+.rarity-auric { background: #fffbeb; color: #fbbf24; border: 1px solid #fbbf24; }
+.rarity-obsidian { background: #f8fafc; color: #0f172a; border: 1px solid #0f172a; }
 .discipline-ratio-pills {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -5241,7 +5261,7 @@ body.dark .medals-category__description {
     padding: 0.65rem 0.95rem;
     border-radius: 0.85rem;
     border: 1px solid rgba(148, 163, 184, 0.28);
-    background: rgba(241, 245, 249, 0.75);
+    background: rgba(255, 255, 255, 0.9);
     color: var(--color-text-primary);
     text-align: left;
     transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
@@ -5252,9 +5272,9 @@ body.dark .medals-category__description {
 
 .medals-list__button:hover,
 .medals-list__button:focus-visible {
-    background: rgba(219, 234, 254, 0.95);
-    border-color: rgba(59, 130, 246, 0.45);
-    box-shadow: 0 16px 32px rgba(37, 99, 235, 0.16);
+    background: rgba(255, 247, 237, 0.98);
+    border-color: rgba(252, 76, 2, 0.35);
+    box-shadow: 0 16px 32px rgba(252, 76, 2, 0.18);
     transform: translateY(-1px);
 }
 
@@ -5263,9 +5283,9 @@ body.dark .medals-category__description {
 }
 
 .medals-list__button--active {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(14, 165, 233, 0.18));
-    border-color: rgba(59, 130, 246, 0.6);
-    box-shadow: 0 18px 34px rgba(37, 99, 235, 0.18);
+    background: linear-gradient(135deg, rgba(252, 76, 2, 0.12), rgba(255, 140, 0, 0.18));
+    border-color: rgba(252, 76, 2, 0.55);
+    box-shadow: 0 18px 34px rgba(252, 76, 2, 0.22);
 }
 
 .medals-list__button--unearned {
@@ -5291,7 +5311,7 @@ body.dark .medals-category__description {
 .medals-list__count {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: #1d4ed8;
+    color: #fc4c02;
     line-height: 1;
     display: block;
     width: 100%;
@@ -5336,7 +5356,7 @@ body.dark .medals-category__description {
     display: inline;
     font-size: clamp(0.82rem, 1.8vw, 0.98rem);
     font-weight: 700;
-    color: #059669;
+    color: #fc4c02;
     margin-left: 0.35rem;
 }
 

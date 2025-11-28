@@ -3214,6 +3214,7 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     gap: 0.2rem;
     flex-direction: column;
     backdrop-filter: blur(8px);
+    transform: translateX(20px);
 }
 
 .wallet-chart__overlay.is-visible {
@@ -4658,17 +4659,16 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     scrollbar-width: thin;
     scrollbar-gutter: stable both-edges;
 }
-
 .medal-rarity-filter {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     padding: 0.15rem 0;
     margin: 0.25rem 0 0.5rem;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-gutter: stable both-edges;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    scrollbar-width: none;
 }
 
 .medal-rarity-filter__button {
@@ -4759,6 +4759,63 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     grid-template-columns: 1fr;
     gap: 0.85rem;
     width: 100%;
+}
+
+.endurance-multiplot__tooltip {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: var(--radius-md);
+    padding: 0.85rem 1rem;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+    pointer-events: none;
+    z-index: 10;
+    max-width: min(320px, calc(100% - 2rem));
+    backdrop-filter: blur(8px);
+    transform: translateX(20px);
+}
+
+.endurance-multiplot__tooltip-date {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+}
+
+.endurance-multiplot__tooltip-values {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.endurance-multiplot__tooltip-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.endurance-multiplot__tooltip-emoji {
+    font-size: 1rem;
+}
+
+.endurance-multiplot__tooltip-athlete {
+    font-weight: 600;
+    flex: 1;
+}
+
+.endurance-multiplot__tooltip-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.dark .endurance-multiplot__tooltip {
+    background: rgba(15, 23, 42, 0.98);
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+.dark .endurance-multiplot__tooltip-date {
+    color: #f8fafc;
 }
 
 .endurance-multiplot__plot {
@@ -4857,7 +4914,7 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     position: fixed;
     inset: 0.5rem;
     z-index: 60;
-    background: var(--color-surface, #ffffff);
+    background: #ffffff;
     border-radius: 1rem;
     padding: 1rem;
     height: calc(100vh - 1rem);
@@ -4865,6 +4922,10 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     width: calc(100vw - 1rem);
     grid-template-rows: auto 1fr;
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
+}
+
+.dark .endurance-multiplot__plot--fullscreen {
+    background: #ffffff;
 }
 
 .endurance-multiplot__plot--fullscreen canvas {
@@ -4940,20 +5001,60 @@ body.endurance-fullscreen-active .dashboard-shell {
 }
 
 .endurance-compare__inputs {
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
     gap: 0.5rem;
-    align-items: stretch;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
 .endurance-compare__input {
-    border: 1px solid rgba(148, 163, 184, 0.7);
-    border-radius: 0.75rem;
-    padding: 0.65rem 0.9rem;
-    font-size: 0.95rem;
-    background: #fff;
-    width: 100%;
-    color: #0f172a;
+    display: none;
+}
+
+.endurance-compare__help {
+    display: none;
+}
+
+.endurance-compare__discipline-toggles {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.endurance-compare__discipline-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    background: rgba(248, 250, 252, 0.9);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.endurance-compare__discipline-toggle:hover {
+    transform: translateY(-1px);
+    border-color: #0ea5e9;
+}
+
+.endurance-compare__discipline-toggle.is-active {
+    background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    border-color: transparent;
+    color: #fff;
+}
+
+.dark .endurance-compare__discipline-toggle {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(148, 163, 184, 0.5);
+    color: #e2e8f0;
+}
+
+.dark .endurance-compare__discipline-toggle.is-active {
+    background: linear-gradient(135deg, #38bdf8, #2563eb);
 }
 
 .endurance-compare__input:focus-visible {
@@ -5064,23 +5165,6 @@ body.endurance-fullscreen-active .dashboard-shell {
     gap: 0.45rem;
 }
 
-.medals-category__title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-secondary);
-    border: 1px solid transparent;
-    background: var(--panel-ghost-bg, rgba(0, 0, 0, 0.03));
-    border-radius: 0.85rem;
-    padding: 0.6rem 0.75rem;
-    cursor: pointer;
-    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
-}
 
 .dark .medals-category__title,
 body.dark .medals-category__title {
@@ -5126,9 +5210,7 @@ body.dark .medals-category__title {
 }
 
 .medals-category__description {
-    margin: 0;
-    font-size: 0.72rem;
-    color: rgba(100, 116, 139, 0.85);
+    display: none;
 }
 
 .dark .medals-category__tier,
@@ -5251,10 +5333,19 @@ body.dark .medals-category__description {
 }
 
 .medals-list__value {
-    display: block;
-    font-size: clamp(0.78rem, 1.7vw, 0.95rem);
+    display: inline;
+    font-size: clamp(0.82rem, 1.8vw, 0.98rem);
     font-weight: 700;
     color: #059669;
+    margin-left: 0.35rem;
+}
+
+.medals-list__value::before {
+    content: '+';
+}
+
+.medals-list__value::after {
+    content: '';
 }
 
 .medals-list__description:empty {

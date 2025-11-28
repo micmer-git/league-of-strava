@@ -1357,6 +1357,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let enduranceChartElement = document.getElementById('endurance-chart');
     let enduranceChartSkeletonElement = document.getElementById('endurance-chart-skeleton');
+    let enduranceLegendContainer = document.getElementById('endurance-legend');
     let enduranceChartInstances = new Map();
     let enduranceChartSource = [];
     let enduranceCompareForm = document.getElementById('endurance-compare-form');
@@ -1371,6 +1372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const enduranceComparisonProfiles = new Map();
     const activeEnduranceDisciplines = new Set(['run', 'ride']);
     const activeEnduranceProfiles = new Set(['self']);
+    const knownEnduranceProfiles = new Set(['self']);
     const enduranceDisciplineEmojis = { run: '🏃', ride: '🚴' };
     let enduranceOrientationLocked = false;
     const leaderboardComparisonOptions = new Map();
@@ -1707,6 +1709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceCompareStatus = document.getElementById('endurance-compare-status');
         enduranceDisciplineToggleContainer = document.getElementById('endurance-discipline-toggles');
         enduranceProfileToggleContainer = document.getElementById('endurance-profile-toggles');
+        enduranceLegendContainer = document.getElementById('endurance-legend');
         syncEnduranceDisciplineToggles();
         syncEnduranceProfileToggles([{ key: 'self', label: 'You', activities: [] }]);
         setEnduranceChartSkeletonVisible(isShellLoading());
@@ -13255,6 +13258,192 @@ document.addEventListener('DOMContentLoaded', async () => {
         return parts[0] || '';
     };
 
+    const formatEnduranceTooltipValue = (config, value) => {
+        if (!Number.isFinite(value)) {
+            return '';
+        }
+
+        const formatter = typeof config.tickFormatter === 'function'
+            ? config.tickFormatter
+            : (val) => val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        const unit = config?.unit || '';
+        return `${formatter(value)}${unit}`.trim();
+    };
+
+    const getOrCreateEnduranceTooltip = (chart, metricKey = '') => {
+        const parent = chart?.canvas?.parentNode;
+        if (!parent) {
+            return null;
+        }
+
+        const selector = `[data-endurance-tooltip="${metricKey}"]`;
+        let tooltipElement = parent.querySelector(selector);
+
+        if (!tooltipElement) {
+            tooltipElement = document.createElement('div');
+            tooltipElement.className = 'endurance-multiplot__tooltip';
+            tooltipElement.dataset.enduranceTooltip = metricKey;
+            parent.appendChild(tooltipElement);
+        }
+
+        return tooltipElement;
+    };
+
+    const renderEnduranceLegend = (profiles = [], profileColorMap = new Map()) => {
+        if (!enduranceLegendContainer) {
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        let itemCount = 0;
+
+        profiles.forEach((profile, index) => {
+            const key = profile?.key || `profile-${index}`;
+            const label = profile?.label || `Athlete ${index + 1}`;
+            const color = profileColorMap.get(key) || '#0ea5e9';
+            const isActive = activeEnduranceProfiles.has(key);
+
+            const item = document.createElement('div');
+            item.className = 'endurance-legend__item';
+            if (!isActive) {
+                item.classList.add('is-inactive');
+            }
+
+            const swatch = document.createElement('span');
+            swatch.className = 'endurance-legend__swatch';
+            swatch.style.backgroundColor = color;
+
+            const text = document.createElement('span');
+            text.className = 'endurance-legend__label';
+            text.textContent = label;
+
+            item.appendChild(swatch);
+            item.appendChild(text);
+            fragment.appendChild(item);
+            itemCount += 1;
+        });
+
+        enduranceLegendContainer.innerHTML = '';
+        enduranceLegendContainer.appendChild(fragment);
+        enduranceLegendContainer.classList.toggle('hidden', itemCount === 0);
+    };
+
+    const buildEnduranceTooltipRenderer = (config, profileColorMap = new Map()) => (context) => {
+        const tooltip = context?.tooltip;
+        const chart = context?.chart;
+        const tooltipElement = getOrCreateEnduranceTooltip(chart, config.key);
+
+        if (!tooltipElement) {
+            return;
+        }
+
+        if (!tooltip || tooltip.opacity === 0) {
+            tooltipElement.style.opacity = 0;
+            return;
+        }
+
+        tooltipElement.innerHTML = '';
+
+        const title = document.createElement('p');
+        title.className = 'endurance-multiplot__tooltip-date';
+        title.textContent = (tooltip.title && tooltip.title[0]) || 'Daily total';
+        tooltipElement.appendChild(title);
+
+        const namesRow = document.createElement('div');
+        namesRow.className = 'endurance-multiplot__tooltip-names';
+
+        const valuesContainer = document.createElement('div');
+        valuesContainer.className = 'endurance-multiplot__tooltip-values';
+
+        const uniqueProfiles = new Map();
+
+        (tooltip.dataPoints || []).forEach((point) => {
+            const dataset = point?.dataset || {};
+            const profileKey = dataset.profileKey || dataset.label || `profile-${point.datasetIndex}`;
+            const profileDisplayName = dataset.profileFirstName
+                || getFirstName(dataset.profileLabel || dataset.label)
+                || dataset.profileLabel
+                || dataset.label
+                || 'Athlete';
+            const profileLabel = profileDisplayName;
+            const profileColor = dataset.borderColor || profileColorMap.get(profileKey) || '#0ea5e9';
+
+            if (!uniqueProfiles.has(profileKey)) {
+                uniqueProfiles.set(profileKey, { label: profileLabel, color: profileColor });
+            }
+
+            const rawSeries = Array.isArray(dataset.rawSeries) ? dataset.rawSeries : [];
+            const rawValue = Number.isFinite(point?.dataIndex) ? rawSeries[point.dataIndex] : null;
+            const value = Number.isFinite(rawValue) ? rawValue : point?.parsed?.y;
+            const formattedValue = formatEnduranceTooltipValue(config, value);
+
+            if (!formattedValue) {
+                return;
+            }
+
+            const item = document.createElement('div');
+            item.className = 'endurance-multiplot__tooltip-item';
+            item.style.color = profileColor;
+
+            const dot = document.createElement('span');
+            dot.className = 'endurance-multiplot__tooltip-dot';
+            dot.style.backgroundColor = profileColor;
+
+            const label = document.createElement('span');
+            label.className = 'endurance-multiplot__tooltip-label';
+            const emoji = dataset.tooltipEmoji || '';
+            const disciplineLabel = dataset.disciplineKey === 'run' ? 'Run' : 'Ride';
+            label.textContent = `${emoji ? `${emoji} ` : ''}${disciplineLabel} · ${profileDisplayName}`;
+
+            const valueElement = document.createElement('span');
+            valueElement.className = 'endurance-multiplot__tooltip-value';
+            valueElement.textContent = formattedValue;
+
+            item.appendChild(dot);
+            item.appendChild(label);
+            item.appendChild(valueElement);
+            valuesContainer.appendChild(item);
+        });
+
+        uniqueProfiles.forEach((meta) => {
+            const chip = document.createElement('span');
+            chip.className = 'endurance-multiplot__tooltip-chip';
+            chip.style.backgroundColor = hexToRgba(meta.color, 0.14);
+            chip.style.borderColor = hexToRgba(meta.color, 0.22);
+            chip.style.color = meta.color;
+
+            const chipDot = document.createElement('span');
+            chipDot.className = 'endurance-multiplot__tooltip-chip-dot';
+            chipDot.style.backgroundColor = meta.color;
+
+            const chipLabel = document.createElement('span');
+            chipLabel.className = 'endurance-multiplot__tooltip-chip-label';
+            chipLabel.textContent = meta.label;
+
+            chip.appendChild(chipDot);
+            chip.appendChild(chipLabel);
+            namesRow.appendChild(chip);
+        });
+
+        if (namesRow.childNodes.length > 0) {
+            tooltipElement.appendChild(namesRow);
+        }
+        tooltipElement.appendChild(valuesContainer);
+
+        const { offsetLeft, offsetTop, clientWidth, clientHeight } = chart.canvas;
+        const tooltipWidth = tooltipElement.offsetWidth || 240;
+        const tooltipHeight = tooltipElement.offsetHeight || 140;
+        const caretX = tooltip.caretX ?? 0;
+        const caretY = tooltip.caretY ?? 0;
+        const clampedX = Math.min(Math.max(caretX, tooltipWidth / 2), Math.max(tooltipWidth / 2, clientWidth - (tooltipWidth / 2)));
+        const clampedY = Math.min(Math.max(caretY, tooltipHeight + 12), Math.max(tooltipHeight + 12, clientHeight - 4));
+
+        tooltipElement.style.opacity = 1;
+        tooltipElement.style.left = `${offsetLeft + clampedX}px`;
+        tooltipElement.style.top = `${offsetTop + clampedY - tooltipHeight - 12}px`;
+        tooltipElement.style.transform = 'translate(-50%, 0)';
+    };
+
     function syncEnduranceDisciplineToggles() {
         if (!enduranceDisciplineToggleContainer) {
             return;
@@ -13304,7 +13493,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const key = profile?.key || `profile-${index}`;
             const label = getFirstName(profile?.label || 'Athlete') || 'Athlete';
 
-            if (!activeEnduranceProfiles.has(key)) {
+            const isKnownProfile = knownEnduranceProfiles.has(key);
+            if (!isKnownProfile) {
+                knownEnduranceProfiles.add(key);
                 activeEnduranceProfiles.add(key);
             }
 
@@ -13421,7 +13612,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         ];
 
         profiles.forEach((profile) => {
-            if (profile?.key && !activeEnduranceProfiles.has(profile.key)) {
+            if (!profile?.key) {
+                return;
+            }
+
+            if (!knownEnduranceProfiles.has(profile.key)) {
+                knownEnduranceProfiles.add(profile.key);
                 activeEnduranceProfiles.add(profile.key);
             }
         });
@@ -13436,6 +13632,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const key = profile?.key || `profile-${index}`;
             profileColorMap.set(key, profileColorPalette[paletteIndex]);
         });
+
+        renderEnduranceLegend(profiles, profileColorMap);
 
         const enabledDisciplines = disciplines.filter((discipline) => activeEnduranceDisciplines.has(discipline.key));
         const enabledProfiles = profiles.filter((profile) => activeEnduranceProfiles.has(profile?.key));
@@ -13636,40 +13834,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             canvas.classList.remove('hidden');
 
-            const tooltipCallbacks = {
-                title: (context) => {
-                    const [first] = context || [];
-                    const sourceIndex = visibleStart + (first?.dataIndex ?? 0);
-                    const seriesEntry = masterSeries[sourceIndex];
-                    return seriesEntry?.label || 'Daily total';
-                },
-                beforeBody: (context) => {
-                    const uniqueNames = Array.from(new Set((context || []).map((entry) => entry.dataset?.profileFirstName || entry.dataset?.profileLabel).filter(Boolean)));
-                    return uniqueNames.length ? [`Athletes: ${uniqueNames.join(', ')}`] : undefined;
-                },
-                label: (context) => {
-                    const value = Number.isFinite(context.parsed?.y)
-                        ? context.parsed.y
-                        : null;
-                    if (!Number.isFinite(value)) {
-                        return '';
-                    }
-
-                    const formatter = typeof config.tickFormatter === 'function'
-                        ? config.tickFormatter
-                        : (val) => val.toLocaleString(undefined, { maximumFractionDigits: 2 });
-                    const formatted = formatter(value);
-                    const unit = config?.unit || '';
-                    const dataset = context.dataset || {};
-                    const profileName = dataset.profileFirstName
-                        || getFirstName(dataset.profileLabel || dataset.label)
-                        || dataset.profileLabel
-                        || 'Athlete';
-                    const emoji = dataset.tooltipEmoji || '';
-                    return `${emoji ? `${emoji} ` : ''}${profileName}: ${`${formatted}${unit}`.trim()}`;
-                },
-                labelTextColor: (context) => context?.dataset?.borderColor || (isDarkMode ? '#e2e8f0' : '#0f172a'),
-            };
+            const tooltipRenderer = buildEnduranceTooltipRenderer(config, profileColorMap);
 
             enduranceChartInstances.set(config.key, new Chart(canvas, {
                 type: 'line',
@@ -13698,16 +13863,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                             display: false,
                         },
                         tooltip: {
+                            enabled: false,
                             mode: 'nearest',
                             intersect: false,
-                            displayColors: true,
-                            backgroundColor: isDarkMode ? '#0b1221' : '#0f172a',
-                            titleColor: '#e2e8f0',
-                            bodyColor: '#e2e8f0',
-                            padding: 12,
-                            titleFont: { ...tickFont, size: 13, weight: '700' },
-                            bodyFont: { ...tickFont, size: 16, weight: '700' },
-                            callbacks: tooltipCallbacks,
+                            external: tooltipRenderer,
                         },
                     },
                     scales: {
@@ -14032,6 +14191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 label: profileLabel,
                 activities,
             });
+            knownEnduranceProfiles.add(trimmedId);
             activeEnduranceProfiles.add(trimmedId);
 
             if (enduranceCompareSelect) {

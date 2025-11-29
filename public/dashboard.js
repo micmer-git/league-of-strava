@@ -12904,6 +12904,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     };
 
+    const getCarouselOffset = (containerEl, trackEl, index) => {
+        if (!containerEl || !trackEl) {
+            return 0;
+        }
+
+        const { width } = containerEl.getBoundingClientRect();
+        const computedStyles = window.getComputedStyle(trackEl);
+        const gapValue = parseFloat(computedStyles.columnGap || computedStyles.gap || '0') || 0;
+        return index * (width + gapValue);
+    };
+
     const renderMonthlyChallengesCarousel = (container, monthlySummary = null) => {
         if (!container) {
             return;
@@ -13008,7 +13019,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             slides.forEach((slide, idx) => {
                 slide.classList.toggle('is-active', idx === index);
             });
-            track.style.transform = `translateX(-${index * 100}%)`;
+            const offset = getCarouselOffset(container, track, index);
+            track.style.transform = `translateX(-${offset}px)`;
         };
 
         activateSlide(currentIndex);
@@ -13070,7 +13082,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             slides.forEach((slide, idx) => {
                 slide.classList.toggle('is-active', idx === index);
             });
-            track.style.transform = `translateX(-${index * 100}%)`;
+            const offset = getCarouselOffset(container, track, index);
+            track.style.transform = `translateX(-${offset}px)`;
         };
 
         activateSlide(currentIndex);
@@ -13745,7 +13758,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isDarkMode = document.body.classList.contains('dark');
         const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.35)';
-        const tickFont = { family: 'Rubik, system-ui, -apple-system, sans-serif', size: 12, weight: '600' };
+        const tickFont = { family: '"Google Sans", "Inter", system-ui, -apple-system, sans-serif', size: 12, weight: '600' };
         let runPlotActive = false;
         let ridePlotActive = false;
 

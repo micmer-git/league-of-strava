@@ -19,7 +19,7 @@
         }
 
         body {
-            font-family: 'Rubik', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Google Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
             overflow-x: hidden;
             min-height: var(--app-viewport-height);
             padding-top: calc(var(--app-safe-area-top) + 0px);

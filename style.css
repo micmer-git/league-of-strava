@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
 
 :root {
   --bg: #0b0c10;
@@ -19,7 +19,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Google Sans', 'Inter', system-ui, -apple-system, sans-serif;
   background: radial-gradient(circle at 20% 20%, rgba(255, 93, 55, 0.12), transparent 25%),
               radial-gradient(circle at 80% 10%, rgba(255, 143, 107, 0.12), transparent 20%),
               linear-gradient(135deg, #0b0c10 0%, #0f1017 45%, #0c0d13 100%);

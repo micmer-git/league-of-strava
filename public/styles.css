@@ -54,7 +54,7 @@ html {
 body {
   margin: 0;
   min-height: var(--app-viewport-height);
-  font-family: 'Rubik', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Google Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--color-text);
   background:
     radial-gradient(880px circle at 15% -10%, rgba(255, 189, 128, 0.18), transparent 62%),

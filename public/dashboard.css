@@ -5334,6 +5334,76 @@ body.dark .medals-category__title {
     display: none;
 }
 
+.medals-month-group__intro {
+    margin: 0.5rem 0 0;
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
+.medals-month-group {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 0.5rem;
+    margin-top: 0.75rem;
+    background: #f9fafb;
+}
+
+.medals-month-group__toggle {
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    font-weight: 600;
+    gap: 0.5rem;
+    justify-content: space-between;
+    padding: 0.35rem 0.75rem;
+    width: 100%;
+}
+
+.medals-month-group__toggle:hover,
+.medals-month-group__toggle:focus-visible {
+    background: #fff;
+    border-radius: 0.5rem;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.medals-month-group__label {
+    font-size: 0.95rem;
+    color: #111827;
+}
+
+.medals-month-group__chevron {
+    transition: transform 150ms ease;
+}
+
+.medals-month-group__toggle.is-open .medals-month-group__chevron {
+    transform: rotate(180deg);
+}
+
+.medals-month-group__list {
+    margin: 0.5rem 0 0;
+    padding-left: 0.25rem;
+}
+
+.dark .medals-month-group {
+    background: #0f172a;
+    border-color: #1f2937;
+}
+
+.dark .medals-month-group__intro,
+.dark .medals-month-group__label {
+    color: #e5e7eb;
+}
+
+.dark .medals-month-group__toggle:hover,
+.dark .medals-month-group__toggle:focus-visible {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
 .dark .medals-category__tier,
 .dark .medals-category__description,
 body.dark .medals-category__tier,

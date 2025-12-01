@@ -3025,6 +3025,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 rarityKey: 'star',
                 valueOverride: challenge.rewardValue,
                 discipline: challenge.discipline || 'multi',
+                monthKey: challenge.monthKey,
+                monthLabel: challenge.monthLabel,
             });
 
             medalDefinitionLookup.set(challenge.medalName, medalEntry);
@@ -7168,6 +7170,208 @@ document.addEventListener('DOMContentLoaded', async () => {
             return `${safeSlice.trimEnd()}…`;
         };
 
+        const buildMedalListItem = (medal, displayLabel, rarityKey) => {
+            const listItem = document.createElement('li');
+            listItem.className = 'medals-list__item';
+
+            const medalButton = document.createElement('button');
+            medalButton.type = 'button';
+            medalButton.className = 'tooltip-target medals-list__button';
+            const medalCount = resolveMedalDisplayCount(medal);
+            if (medalCount === 0) {
+                medalButton.classList.add('medals-list__button--unearned');
+            }
+
+            const countWrapper = document.createElement('span');
+            countWrapper.className = 'medals-list__count-stack';
+
+            const countSpan = document.createElement('span');
+            countSpan.className = 'medals-list__count';
+            const countLabel = medalCount.toLocaleString();
+            countSpan.textContent = `${countLabel}×`;
+            countSpan.setAttribute('aria-label', `${countLabel} medals earned`);
+
+            const emojiSpan = document.createElement('span');
+            emojiSpan.className = 'medals-list__emoji';
+            emojiSpan.textContent = medal.emoji || '🏅';
+            countWrapper.append(countSpan, emojiSpan);
+
+            const textWrapper = document.createElement('span');
+            textWrapper.className = 'medals-list__text';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'medals-list__name';
+            nameSpan.textContent = medal.name;
+            textWrapper.appendChild(nameSpan);
+
+            const descriptionSnippet = createDescriptionSnippet(medal.description);
+            if (descriptionSnippet) {
+                const descriptionSpan = document.createElement('span');
+                descriptionSpan.className = 'medals-list__description';
+                descriptionSpan.textContent = descriptionSnippet;
+                textWrapper.appendChild(descriptionSpan);
+            }
+            const progressSummary = formatMedalProgressText(medal.progressStatus);
+            if (progressSummary) {
+                const progressSpan = document.createElement('span');
+                progressSpan.className = 'medals-list__description';
+                progressSpan.textContent = `Progress ${progressSummary}`;
+                textWrapper.appendChild(progressSpan);
+            }
+
+            const medalValue = getMedalRarityValue(medal) * medalCount;
+            const valueTag = document.createElement('span');
+            valueTag.className = 'medals-list__value';
+            const valueInThousands = medalValue / 1000;
+            valueTag.textContent = `Worth $${valueInThousands.toLocaleString()}k`;
+            textWrapper.appendChild(valueTag);
+
+            medalButton.append(countWrapper, textWrapper);
+
+            const descriptionText = (medal.description || '').trim();
+            const earnedDescriptor = medalCount > 0
+                ? `${countLabel} earned`
+                : 'Not earned yet';
+            const tooltipParts = [medal.name];
+            if (descriptionText) {
+                tooltipParts.push(descriptionText);
+            }
+            tooltipParts.push(earnedDescriptor);
+            if (progressSummary) {
+                tooltipParts.push(`Progress ${progressSummary}`);
+            }
+            const ariaDescription = tooltipParts.join(' — ');
+            medalButton.setAttribute('aria-label', ariaDescription);
+            attachTooltip(medalButton, ariaDescription);
+            medalButton.dataset.medalName = medal.name;
+            medalButton.dataset.medalEmoji = medal.emoji || '';
+            const rarityLabel = medal.rarityLabel || displayLabel;
+            medalButton.dataset.medalCategory = rarityLabel;
+            medalButton.dataset.medalRarityKey = rarityKey;
+            medalButton.dataset.medalRarityLabel = rarityLabel;
+            medalButton.dataset.medalLegacyCategory = medal.legacyCategory || medal.category || '';
+            medalButton.dataset.medalRarityDescription = medal.rarityDescription || descriptionText || '';
+            medalButton.dataset.medalDescription = medal.description || '';
+            medalButton.dataset.medalCount = medalCount.toString();
+            medalButton.addEventListener('click', handleMedalButtonClick);
+
+            listItem.appendChild(medalButton);
+            return listItem;
+        };
+
+        const buildMonthKeyFromLabel = (label) => {
+            if (typeof label !== 'string' || !label.trim()) {
+                return null;
+            }
+            const parsed = new Date(`${label} 1`);
+            if (Number.isNaN(parsed.getTime())) {
+                return null;
+            }
+            return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+        };
+
+        const formatMonthLabelFromKey = (key) => {
+            if (typeof key !== 'string' || key.length < 7) {
+                return '';
+            }
+            const parsed = new Date(`${key}-01T00:00:00Z`);
+            if (Number.isNaN(parsed.getTime())) {
+                return key;
+            }
+            return parsed.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        };
+
+        const parseMonthLabelFromName = (name = '') => {
+            const match = name.match(/^([A-Za-z]+ \d{4})/);
+            return match ? match[1] : '';
+        };
+
+        const buildMonthlyStarGroups = (medals = []) => {
+            const monthMap = new Map();
+            medals.forEach((medal) => {
+                const inferredLabel = medal.monthLabel || parseMonthLabelFromName(medal.name);
+                const monthKey = medal.monthKey || buildMonthKeyFromLabel(inferredLabel);
+                const label = inferredLabel || (monthKey ? formatMonthLabelFromKey(monthKey) : 'Monthly stars');
+                const sortDate = monthKey ? new Date(`${monthKey}-01T00:00:00Z`) : null;
+                const sortValue = sortDate && !Number.isNaN(sortDate.getTime()) ? sortDate.getTime() : -Number.MAX_SAFE_INTEGER;
+                const bucketKey = monthKey || label;
+                if (!bucketKey) {
+                    return;
+                }
+                if (!monthMap.has(bucketKey)) {
+                    monthMap.set(bucketKey, {
+                        key: bucketKey,
+                        label,
+                        sortValue,
+                        medals: [],
+                    });
+                }
+                monthMap.get(bucketKey).medals.push(medal);
+            });
+
+            return Array.from(monthMap.values())
+                .sort((a, b) => b.sortValue - a.sortValue || b.label.localeCompare(a.label));
+        };
+
+        const renderStarMonthlyGroups = (container, displayLabel, rarityKey, groupedMedals) => {
+            const earnedMonthlyMedals = groupedMedals.filter(medal => resolveMedalDisplayCount(medal) > 0);
+            const monthGroups = buildMonthlyStarGroups(earnedMonthlyMedals);
+            if (monthGroups.length === 0) {
+                return false;
+            }
+
+            const intro = document.createElement('p');
+            intro.className = 'medals-month-group__intro';
+            intro.textContent = 'Toggle a month to browse the star medals collected that period.';
+            container.appendChild(intro);
+
+            monthGroups.forEach((group, index) => {
+                const monthWrapper = document.createElement('div');
+                monthWrapper.className = 'medals-month-group';
+
+                const toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.className = 'medals-month-group__toggle';
+                toggle.setAttribute('aria-expanded', index === 0 ? 'true' : 'false');
+                if (index === 0) {
+                    toggle.classList.add('is-open');
+                }
+
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'medals-month-group__label';
+                labelSpan.textContent = `${group.label} • ${group.medals.length} medal${group.medals.length === 1 ? '' : 's'}`;
+                toggle.appendChild(labelSpan);
+
+                const chevron = document.createElement('span');
+                chevron.className = 'medals-month-group__chevron';
+                chevron.setAttribute('aria-hidden', 'true');
+                chevron.textContent = '▾';
+                toggle.appendChild(chevron);
+
+                const monthList = document.createElement('ol');
+                monthList.className = 'medals-list medals-month-group__list';
+                monthList.hidden = index !== 0;
+
+                const sortedMonthMedals = group.medals.slice().sort((a, b) => resolveMedalDisplayCount(b) - resolveMedalDisplayCount(a));
+                sortedMonthMedals.forEach((medal) => {
+                    monthList.appendChild(buildMedalListItem(medal, displayLabel, rarityKey));
+                });
+
+                toggle.addEventListener('click', () => {
+                    const nextHidden = !monthList.hidden;
+                    monthList.hidden = nextHidden;
+                    toggle.setAttribute('aria-expanded', String(!nextHidden));
+                    toggle.classList.toggle('is-open', !nextHidden);
+                });
+
+                monthWrapper.appendChild(toggle);
+                monthWrapper.appendChild(monthList);
+                container.appendChild(monthWrapper);
+            });
+
+            return true;
+        };
+
         orderedRarities.forEach((rarityKey) => {
             const group = medalsByRarity.get(rarityKey);
             if (!group) {
@@ -7211,102 +7415,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 wrapper.appendChild(description);
             }
 
-            const list = document.createElement('ol');
-            list.className = 'medals-list';
-            list.setAttribute('role', 'list');
+            const handledStarGrouping = rarityKey === 'star'
+                ? renderStarMonthlyGroups(wrapper, displayLabel, rarityKey, groupedMedals)
+                : false;
 
-            groupedMedals.sort((a, b) => resolveMedalDisplayCount(b) - resolveMedalDisplayCount(a));
+            if (!handledStarGrouping) {
+                const list = document.createElement('ol');
+                list.className = 'medals-list';
+                list.setAttribute('role', 'list');
 
-            groupedMedals.forEach((medal) => {
-                const listItem = document.createElement('li');
-                listItem.className = 'medals-list__item';
+                groupedMedals.sort((a, b) => resolveMedalDisplayCount(b) - resolveMedalDisplayCount(a));
 
-                const medalButton = document.createElement('button');
-                medalButton.type = 'button';
-                medalButton.className = 'tooltip-target medals-list__button';
-                const medalCount = resolveMedalDisplayCount(medal);
-                if (medalCount === 0) {
-                    medalButton.classList.add('medals-list__button--unearned');
-                }
+                groupedMedals.forEach((medal) => {
+                    list.appendChild(buildMedalListItem(medal, displayLabel, rarityKey));
+                });
 
-                const countWrapper = document.createElement('span');
-                countWrapper.className = 'medals-list__count-stack';
+                wrapper.appendChild(list);
+            }
 
-                const countSpan = document.createElement('span');
-                countSpan.className = 'medals-list__count';
-                const countLabel = medalCount.toLocaleString();
-                countSpan.textContent = `${countLabel}×`;
-                countSpan.setAttribute('aria-label', `${countLabel} medals earned`);
-
-                const emojiSpan = document.createElement('span');
-                emojiSpan.className = 'medals-list__emoji';
-                emojiSpan.textContent = medal.emoji || '🏅';
-                countWrapper.append(countSpan, emojiSpan);
-
-                const textWrapper = document.createElement('span');
-                textWrapper.className = 'medals-list__text';
-
-                const nameSpan = document.createElement('span');
-                nameSpan.className = 'medals-list__name';
-                nameSpan.textContent = medal.name;
-                textWrapper.appendChild(nameSpan);
-
-                const descriptionSnippet = createDescriptionSnippet(medal.description);
-                if (descriptionSnippet) {
-                    const descriptionSpan = document.createElement('span');
-                    descriptionSpan.className = 'medals-list__description';
-                    descriptionSpan.textContent = descriptionSnippet;
-                    textWrapper.appendChild(descriptionSpan);
-                }
-                const progressSummary = formatMedalProgressText(medal.progressStatus);
-                if (progressSummary) {
-                    const progressSpan = document.createElement('span');
-                    progressSpan.className = 'medals-list__description';
-                    progressSpan.textContent = `Progress ${progressSummary}`;
-                    textWrapper.appendChild(progressSpan);
-                }
-
-                const medalValue = getMedalRarityValue(medal) * medalCount;
-                const valueTag = document.createElement('span');
-                valueTag.className = 'medals-list__value';
-                const valueInThousands = medalValue / 1000;
-                valueTag.textContent = `Worth $${valueInThousands.toLocaleString()}k`;
-                textWrapper.appendChild(valueTag);
-
-                medalButton.append(countWrapper, textWrapper);
-
-                const descriptionText = (medal.description || '').trim();
-                const earnedDescriptor = medalCount > 0
-                    ? `${countLabel} earned`
-                    : 'Not earned yet';
-                const tooltipParts = [medal.name];
-                if (descriptionText) {
-                    tooltipParts.push(descriptionText);
-                }
-                tooltipParts.push(earnedDescriptor);
-                if (progressSummary) {
-                    tooltipParts.push(`Progress ${progressSummary}`);
-                }
-                const ariaDescription = tooltipParts.join(' — ');
-                medalButton.setAttribute('aria-label', ariaDescription);
-                attachTooltip(medalButton, ariaDescription);
-                medalButton.dataset.medalName = medal.name;
-                medalButton.dataset.medalEmoji = medal.emoji || '';
-                const rarityLabel = medal.rarityLabel || displayLabel;
-                medalButton.dataset.medalCategory = rarityLabel;
-                medalButton.dataset.medalRarityKey = rarityKey;
-                medalButton.dataset.medalRarityLabel = rarityLabel;
-                medalButton.dataset.medalLegacyCategory = medal.legacyCategory || medal.category || '';
-                medalButton.dataset.medalRarityDescription = medal.rarityDescription || descriptionText || '';
-                medalButton.dataset.medalDescription = medal.description || '';
-                medalButton.dataset.medalCount = medalCount.toString();
-                medalButton.addEventListener('click', handleMedalButtonClick);
-
-                listItem.appendChild(medalButton);
-                list.appendChild(listItem);
-            });
-
-            wrapper.appendChild(list);
             medalsSection.appendChild(wrapper);
         });
 
@@ -12379,6 +12505,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             activeDays: 0,
             yogaRunComboDays: 0,
             multiDisciplineDays: 0,
+            weekendRideDays: 0,
+            climbFocusedDays: 0,
+            longRideDays: 0,
+            longRunDays: 0,
+            longestActiveStreak: 0,
         };
 
         if (!Array.isArray(activityList) || !monthKey) {
@@ -12409,11 +12540,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 stats.rideDistanceKm += distanceKm;
                 stats.rideCount += 1;
                 dayEntry.types.add('RIDE');
+                dayEntry.rideDistanceKm = (dayEntry.rideDistanceKm || 0) + distanceKm;
             }
             if (normalizedType.includes('RUN')) {
                 stats.runDistanceKm += distanceKm;
                 stats.runCount += 1;
                 dayEntry.types.add('RUN');
+                dayEntry.runDistanceKm = (dayEntry.runDistanceKm || 0) + distanceKm;
             }
             if (normalizedType.includes('SWIM')) {
                 stats.swimDistanceKm += distanceKm;
@@ -12428,19 +12561,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                 dayEntry.types.add('OTHER');
             }
 
+            dayEntry.elevationM = (dayEntry.elevationM || 0) + elevation;
+
             dailyTypes.set(reference.dayKey, dayEntry);
         });
 
         stats.activeDays = dailyTypes.size;
 
-        dailyTypes.forEach((entry) => {
+        dailyTypes.forEach((entry, dayKey) => {
             if (entry.types.has('YOGA') && entry.types.has('RUN')) {
                 stats.yogaRunComboDays += 1;
             }
             if (entry.types.size >= 2) {
                 stats.multiDisciplineDays += 1;
             }
+
+            if (entry.rideDistanceKm >= 50) {
+                stats.longRideDays += 1;
+            }
+            if (entry.runDistanceKm >= 10) {
+                stats.longRunDays += 1;
+            }
+            if (entry.elevationM >= 600) {
+                stats.climbFocusedDays += 1;
+            }
+
+            const entryDate = new Date(`${dayKey || ''}T00:00:00Z`);
+            const dayOfWeek = entryDate.getUTCDay();
+            if ((dayOfWeek === 0 || dayOfWeek === 6) && entry.types.has('RIDE')) {
+                stats.weekendRideDays += 1;
+            }
         });
+
+        const dateKeys = Array.from(dailyTypes.keys()).sort();
+        stats.longestActiveStreak = calculateConsecutiveStreakLength(dateKeys);
 
         return stats;
     };
@@ -12452,7 +12606,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Distance drive',
             unit: 'km',
             description: (target) => `Cover ${target} km across any sport this month.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 220, 480), 10),
+            target: (stats, randomFn) => {
+                const enduranceFactor = Math.max(0.85, Math.min(1.35, (stats.totalDistanceKm || 0) / 400 || 1));
+                return roundToStep(randomWithinRange(randomFn, 220, 520) * enduranceFactor, 10);
+            },
             progress: (stats) => stats.totalDistanceKm,
         },
         {
@@ -12461,7 +12618,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Elevation focus',
             unit: 'm',
             description: (target) => `Climb ${target.toLocaleString()} m of vert this month.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3000, 9000), 100),
+            target: (stats, randomFn) => {
+                const vertBias = Math.max(0.85, Math.min(1.3, (stats.elevationM || 0) / 8000 || 1));
+                return roundToStep(randomWithinRange(randomFn, 3200, 11000) * vertBias, 100);
+            },
             progress: (stats) => stats.elevationM,
         },
         {
@@ -12470,7 +12630,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Hours in motion',
             unit: 'h',
             description: (target) => `Log ${target} hours of moving time this month.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 18, 48), 1),
+            target: (stats, randomFn) => {
+                const hoursBias = Math.max(0.8, Math.min(1.35, (stats.totalHours || 0) / 35 || 1));
+                return roundToStep(randomWithinRange(randomFn, 18, 54) * hoursBias, 1);
+            },
             progress: (stats) => stats.totalHours,
         },
         {
@@ -12479,7 +12642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Activity streaker',
             unit: 'activities',
             description: (target) => `Complete ${target} activities before the month ends.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 12, 28), 1),
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 12, 30), 1),
             progress: (stats) => stats.activityCount,
         },
         {
@@ -12488,7 +12651,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Ride mileage',
             unit: 'km',
             description: (target) => `Ride ${target} km this month.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 180, 520), 10),
+            target: (stats, randomFn) => {
+                const rideBias = Math.max(0.8, Math.min(1.4, (stats.rideDistanceKm || 0) / 420 || 1));
+                return roundToStep(randomWithinRange(randomFn, 160, 650) * rideBias, 10);
+            },
             progress: (stats) => stats.rideDistanceKm,
         },
         {
@@ -12497,7 +12663,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Run mileage',
             unit: 'km',
             description: (target) => `Run ${target} km this month.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 80, 220), 5),
+            target: (stats, randomFn) => {
+                const runBias = Math.max(0.85, Math.min(1.45, (stats.runDistanceKm || 0) / 160 || 1));
+                return roundToStep(randomWithinRange(randomFn, 70, 260) * runBias, 5);
+            },
             progress: (stats) => stats.runDistanceKm,
         },
         {
@@ -12506,7 +12675,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Swim push',
             unit: 'km',
             description: (target) => `Swim ${target} km this month.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 6, 20), 0.5),
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 4, 24), 0.5),
             progress: (stats) => stats.swimDistanceKm,
         },
         {
@@ -12515,7 +12684,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Yoga reset',
             unit: 'sessions',
             description: (target) => `Log ${target} yoga sessions this month.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 6, 14), 1),
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 6, 18), 1),
             progress: (stats) => stats.yogaSessions,
         },
         {
@@ -12524,7 +12693,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             title: 'Yoga + run stack',
             unit: 'days',
             description: (target) => `Stack yoga and a run on ${target} different days.`,
-            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3, 7), 1),
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3, 8), 1),
             progress: (stats) => stats.yogaRunComboDays,
         },
         {
@@ -12535,6 +12704,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             description: (target) => `Log ${target} days with 2+ activity types.`,
             target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 4, 10), 1),
             progress: (stats) => stats.multiDisciplineDays,
+        },
+        {
+            key: 'weekend-warrior',
+            emoji: '🛣️',
+            title: 'Weekend warrior rides',
+            unit: 'days',
+            description: (target) => `Ride on ${target} different weekend days.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 2, 6 + (stats.rideCount > 8 ? 2 : 0)), 1),
+            progress: (stats) => stats.weekendRideDays,
+        },
+        {
+            key: 'climb-days',
+            emoji: '🧗',
+            title: 'Climb chaser',
+            unit: 'days',
+            description: (target) => `Log ${target} days with 600 m+ of elevation.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3, 8), 1),
+            progress: (stats) => stats.climbFocusedDays,
+        },
+        {
+            key: 'endurance-days',
+            emoji: '🛡️',
+            title: 'Endurance doubles',
+            unit: 'days',
+            description: (target) => `Stack long runs or rides on ${target} days.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 3, 9), 1),
+            progress: (stats) => stats.longRideDays + stats.longRunDays,
+        },
+        {
+            key: 'active-streak',
+            emoji: '📈',
+            title: 'Streak keeper',
+            unit: 'days',
+            description: (target) => `Hold a ${target}-day active streak.`,
+            target: (stats, randomFn) => roundToStep(randomWithinRange(randomFn, 4, Math.max(6, 12 + (stats.activeDays > 15 ? 4 : 0))), 1),
+            progress: (stats) => stats.longestActiveStreak,
         },
     ];
 
@@ -12605,6 +12810,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             category: 'Star Medals',
             legacyCategory: 'Star Medals',
             discipline: 'multi',
+            monthKey,
+            monthLabel,
         };
 
         return {

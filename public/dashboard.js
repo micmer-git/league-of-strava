@@ -2222,10 +2222,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (Chart?.Tooltip?.positioners && !Chart.Tooltip.positioners.sideOffset) {
             Chart.Tooltip.positioners.sideOffset = (items, eventPosition) => {
                 const basePosition = Chart.Tooltip.positioners.nearest(items, eventPosition);
-                if (basePosition && Number.isFinite(basePosition.x)) {
-                    return { x: basePosition.x + 10, y: basePosition.y };
+                if (!basePosition || !Number.isFinite(basePosition.x)) {
+                    return basePosition;
                 }
-                return basePosition;
+
+                const chart = items?.[0]?.element?.chart
+                    || items?.[0]?.chart
+                    || items?.[0]?.element?.$context?.chart
+                    || null;
+                const chartArea = chart?.chartArea;
+                const eventX = Number(eventPosition?.x);
+                const horizontalOffset = Math.max(12, Math.min(32, (chart?.width || 0) / 18));
+
+                if (chartArea && Number.isFinite(eventX)) {
+                    const midpoint = (chartArea.left + chartArea.right) / 2;
+                    const preferLeft = eventX > midpoint;
+                    const offset = preferLeft ? -horizontalOffset : horizontalOffset;
+                    return { x: basePosition.x + offset, y: basePosition.y };
+                }
+
+                return { x: basePosition.x + horizontalOffset, y: basePosition.y };
             };
         }
         if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
@@ -3860,6 +3876,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         return Math.round(numeric).toString();
     };
 
+    const capitalizeNamePart = (value = '') => {
+        const trimmed = String(value || '').trim();
+        if (!trimmed) {
+            return '';
+        }
+
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    };
+
+    const formatAthleteName = (value = '') => {
+        const trimmed = String(value || '').trim();
+        if (!trimmed) {
+            return '';
+        }
+
+        if (trimmed.includes('_') && !trimmed.includes(' ')) {
+            const parts = trimmed.split('_').filter(Boolean);
+            if (parts.length === 2) {
+                return `${capitalizeNamePart(parts[1])} ${capitalizeNamePart(parts[0])}`.trim();
+            }
+
+            return parts.map(capitalizeNamePart).filter(Boolean).join(' ');
+        }
+
+        return trimmed;
+    };
+
     const formatDurationShort = (seconds) => {
         const totalSeconds = Math.round(Number(seconds));
         if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
@@ -3963,7 +4006,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const baseName = typeof entry?.displayName === 'string' && entry.displayName.trim().length > 0
                 ? entry.displayName.trim()
                 : (rawUserId || 'Unknown');
-            const safeDisplayName = escapeHtml(baseName);
+            const formattedName = formatAthleteName(baseName);
+            const safeDisplayName = escapeHtml(formattedName);
             const dashboardUrl = hasUserLink ? `/dashboard?userId=${encodeURIComponent(rawUserId)}` : null;
             const levelValue = Number(entry?.level ?? 0);
             const walletBalanceValue = Number(entry?.walletBalance ?? entry?.totalHaulValue ?? 0);
@@ -3983,7 +4027,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 athleteId,
                 rawDisplayName: baseName,
                 displayName: safeDisplayName,
-                displayNameSortable: baseName.toLocaleLowerCase(),
+                displayNameSortable: formattedName.toLocaleLowerCase(),
                 hasUserLink,
                 dashboardUrl,
                 levelValue: Number.isFinite(levelValue) ? levelValue : 0,
@@ -10711,6 +10755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cumulativeValues = [];
         const periodMeta = [];
         const labels = [];
+        const defaultColors = { border: '#16a34a', background: 'rgba(34, 197, 94, 0.28)', hover: 'rgba(34, 197, 94, 0.32)' };
         const initialBalance = Number.isFinite(startingBalance) ? startingBalance : 0;
         let runningTotal = initialBalance;
         let lastBucketValue = null;
@@ -10747,7 +10792,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 highlightReasons: [],
             });
         }
-        const defaultColors = { border: '#16a34a', background: 'rgba(34, 197, 94, 0.28)', hover: 'rgba(34, 197, 94, 0.32)' };
 
         const quarterCountsByYear = new Map();
         if (bucketType === 'quarter') {
@@ -13829,7 +13873,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const getFirstName = (value = '') => {
-        const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+        const normalized = formatAthleteName(value);
+        const parts = String(normalized || '').trim().split(/\s+/).filter(Boolean);
         return parts[0] || '';
     };
 
@@ -13919,7 +13964,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const rawSeries = Array.isArray(dataset.rawSeries) ? dataset.rawSeries : [];
             const rawValue = Number.isFinite(point?.dataIndex) ? rawSeries[point.dataIndex] : null;
-            const value = Number.isFinite(rawValue) ? rawValue : point?.parsed?.y;
+            const movingAverageValue = point?.parsed?.y;
+            const value = Number.isFinite(movingAverageValue) ? movingAverageValue : rawValue;
             const formattedValue = formatEnduranceTooltipValue(config, value);
 
             if (!formattedValue) {
@@ -13979,13 +14025,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tooltipHeight = tooltipElement.offsetHeight || 140;
         const caretX = tooltip.caretX ?? 0;
         const caretY = tooltip.caretY ?? 0;
-        const clampedX = Math.min(Math.max(caretX, tooltipWidth / 2), Math.max(tooltipWidth / 2, clientWidth - (tooltipWidth / 2)));
-        const clampedY = Math.min(Math.max(caretY, tooltipHeight + 12), Math.max(tooltipHeight + 12, clientHeight - 4));
+        const preferLeft = caretX > clientWidth / 2;
+        const topOffset = tooltipHeight + 12;
+        const horizontalOffset = 18;
+        let targetX = caretX + (preferLeft ? -horizontalOffset : horizontalOffset);
+        let translateX = preferLeft ? -tooltipWidth : 0;
+
+        if (!preferLeft && targetX + tooltipWidth > clientWidth) {
+            targetX = Math.max(horizontalOffset, clientWidth - tooltipWidth - 4);
+        }
+        if (preferLeft && targetX + translateX < 0) {
+            translateX = -targetX;
+        }
+
+        const clampedY = Math.min(Math.max(caretY, topOffset), Math.max(topOffset, clientHeight - 4));
 
         tooltipElement.style.opacity = 1;
-        tooltipElement.style.left = `${offsetLeft + clampedX}px`;
-        tooltipElement.style.top = `${offsetTop + clampedY - tooltipHeight - 12}px`;
-        tooltipElement.style.transform = 'translate(-50%, 0)';
+        tooltipElement.style.left = `${offsetLeft + targetX}px`;
+        tooltipElement.style.top = `${offsetTop + clampedY - topOffset}px`;
+        tooltipElement.style.transform = `translate(${translateX}px, 0)`;
     };
 
     function syncEnduranceDisciplineToggles() {

@@ -2571,6 +2571,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }))
             : [];
 
+        const monthlyChallengeHistory = Array.isArray(summary.monthlyChallengeHistory)
+            ? summary.monthlyChallengeHistory.map((entry) => ({
+                ...entry,
+                challenges: Array.isArray(entry?.challenges)
+                    ? entry.challenges.map(challenge => ({ ...challenge }))
+                    : [],
+            }))
+            : [];
+
         const monthlyChallenges = summary.monthlyChallenges
             ? {
                 ...summary.monthlyChallenges,
@@ -2578,7 +2587,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ? summary.monthlyChallenges.challenges.map(challenge => ({ ...challenge }))
                     : [],
             }
-            : { monthKey: '', monthLabel: '', challenges: [], completedChallenges: 0, totalChallenges: 0 };
+            : monthlyChallengeHistory[0]
+                || { monthKey: '', monthLabel: '', challenges: [], completedChallenges: 0, totalChallenges: 0 };
 
         const medalValueSummary = calculateMedalValueSummary(medalsEarned);
         const historicalCount = toNonNegativeInteger(
@@ -2606,6 +2616,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalInventory,
             medalContributions,
             monthlyChallenges,
+            monthlyChallengeHistory,
         };
     };
 
@@ -3006,38 +3017,47 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        const monthlyChallenges = buildMonthlyChallengeSet(activityList);
+        const monthlyChallengeHistory = buildMonthlyChallengeHistory(activityList);
+        const monthlyChallenges = monthlyChallengeHistory[0]
+            || buildMonthlyChallengeSet(activityList, new Date(), { labelSuffix: 'Challenges', streakFocus: true });
 
-        monthlyChallenges.challenges.forEach((challenge) => {
-            const medalEntry = normalizeMedalRarityPayload({
-                name: challenge.medalName,
-                emoji: challenge.emoji || '⭐',
-                description: challenge.description,
-                count: challenge.completed ? 1 : 0,
-                category: 'Star Medals',
-                legacyCategory: 'Star Medals',
-                rarityKey: 'star',
-                valueOverride: challenge.rewardValue,
-                discipline: challenge.discipline || 'multi',
-                monthKey: challenge.monthKey,
-                monthLabel: challenge.monthLabel,
+        const appendMonthlyChallengeMedals = (challengeSet) => {
+            if (!challengeSet) {
+                return;
+            }
+            challengeSet.challenges.forEach((challenge) => {
+                const medalEntry = normalizeMedalRarityPayload({
+                    name: challenge.medalName,
+                    emoji: challenge.emoji || '⭐',
+                    description: challenge.description,
+                    count: challenge.completed ? 1 : 0,
+                    category: 'Star Medals',
+                    legacyCategory: 'Star Medals',
+                    rarityKey: 'star',
+                    valueOverride: challenge.rewardValue,
+                    discipline: challenge.discipline || 'multi',
+                    monthKey: challenge.monthKey,
+                    monthLabel: challenge.monthLabel,
+                });
+
+                medalDefinitionLookup.set(challenge.medalName, medalEntry);
+                allMedals.push(medalEntry);
+                if (medalEntry.count > 0) {
+                    medalsEarned.push(medalEntry);
+                }
             });
 
-            medalDefinitionLookup.set(challenge.medalName, medalEntry);
-            allMedals.push(medalEntry);
-            if (medalEntry.count > 0) {
-                medalsEarned.push(medalEntry);
+            if (challengeSet.completionMedal) {
+                const completionEntry = normalizeMedalRarityPayload(challengeSet.completionMedal);
+                medalDefinitionLookup.set(completionEntry.name, completionEntry);
+                allMedals.push(completionEntry);
+                if (completionEntry.count > 0) {
+                    medalsEarned.push(completionEntry);
+                }
             }
-        });
+        };
 
-        if (monthlyChallenges.completionMedal) {
-            const completionEntry = normalizeMedalRarityPayload(monthlyChallenges.completionMedal);
-            medalDefinitionLookup.set(completionEntry.name, completionEntry);
-            allMedals.push(completionEntry);
-            if (completionEntry.count > 0) {
-                medalsEarned.push(completionEntry);
-            }
-        }
+        monthlyChallengeHistory.forEach(appendMonthlyChallengeMedals);
 
         const medalValueSummary = calculateMedalValueSummary(medalsEarned);
         const medalSummary = {
@@ -3078,6 +3098,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             medalInventory: sortedMedals,
             medalContributions,
             monthlyChallenges,
+            monthlyChallengeHistory,
         };
     };
 
@@ -7258,11 +7279,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return listItem;
         };
 
+        const normalizeMonthChallengeLabel = (label = '') => label.replace(/\s+Challenges?$/i, '').trim();
+
         const buildMonthKeyFromLabel = (label) => {
-            if (typeof label !== 'string' || !label.trim()) {
+            const normalizedLabel = normalizeMonthChallengeLabel(label);
+            if (typeof normalizedLabel !== 'string' || !normalizedLabel.trim()) {
                 return null;
             }
-            const parsed = new Date(`${label} 1`);
+            const parsed = new Date(`${normalizedLabel} 1`);
             if (Number.isNaN(parsed.getTime())) {
                 return null;
             }
@@ -7282,7 +7306,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const parseMonthLabelFromName = (name = '') => {
             const match = name.match(/^([A-Za-z]+ \d{4})/);
-            return match ? match[1] : '';
+            return normalizeMonthChallengeLabel(match ? match[1] : '');
         };
 
         const buildMonthlyStarGroups = (medals = []) => {
@@ -7321,8 +7345,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const intro = document.createElement('p');
             intro.className = 'medals-month-group__intro';
-            intro.textContent = 'Toggle a month to browse the star medals collected that period.';
+            intro.textContent = 'Toggle a month to browse the star challenge medals for that period, including recent history.';
             container.appendChild(intro);
+
+            const setListVisibility = (listEl, toggleEl, isOpen) => {
+                const contentHeight = listEl.scrollHeight;
+                listEl.style.maxHeight = isOpen ? `${contentHeight}px` : '0px';
+                listEl.classList.toggle('is-open', isOpen);
+                listEl.setAttribute('aria-hidden', String(!isOpen));
+                listEl.style.opacity = isOpen ? '1' : '0';
+                toggleEl.setAttribute('aria-expanded', String(isOpen));
+                toggleEl.classList.toggle('is-open', isOpen);
+            };
+
+            const toggles = [];
 
             monthGroups.forEach((group, index) => {
                 const monthWrapper = document.createElement('div');
@@ -7331,10 +7367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const toggle = document.createElement('button');
                 toggle.type = 'button';
                 toggle.className = 'medals-month-group__toggle';
-                toggle.setAttribute('aria-expanded', index === 0 ? 'true' : 'false');
-                if (index === 0) {
-                    toggle.classList.add('is-open');
-                }
 
                 const labelSpan = document.createElement('span');
                 labelSpan.className = 'medals-month-group__label';
@@ -7349,7 +7381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const monthList = document.createElement('ol');
                 monthList.className = 'medals-list medals-month-group__list';
-                monthList.hidden = index !== 0;
+                monthList.setAttribute('role', 'list');
 
                 const sortedMonthMedals = group.medals.slice().sort((a, b) => resolveMedalDisplayCount(b) - resolveMedalDisplayCount(a));
                 sortedMonthMedals.forEach((medal) => {
@@ -7357,15 +7389,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
                 toggle.addEventListener('click', () => {
-                    const nextHidden = !monthList.hidden;
-                    monthList.hidden = nextHidden;
-                    toggle.setAttribute('aria-expanded', String(!nextHidden));
-                    toggle.classList.toggle('is-open', !nextHidden);
+                    const currentlyOpen = toggle.classList.contains('is-open');
+                    toggles.forEach(({ list, toggle: otherToggle }) => setListVisibility(list, otherToggle, false));
+                    setListVisibility(monthList, toggle, !currentlyOpen);
                 });
 
                 monthWrapper.appendChild(toggle);
                 monthWrapper.appendChild(monthList);
                 container.appendChild(monthWrapper);
+
+                toggles.push({ list: monthList, toggle });
+                setListVisibility(monthList, toggle, index === 0);
             });
 
             return true;
@@ -12781,18 +12815,86 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    const buildMonthlyChallengeSet = (activityList = [], now = new Date()) => {
-        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const monthLabel = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const selectMonthlyChallengeTemplates = (
+        templates,
+        randomFn,
+        { count = 5, preferKeys = [], deprioritizeKeys = [] } = {},
+    ) => {
+        const preferSet = new Set(preferKeys);
+        const deprioritizeSet = new Set(deprioritizeKeys);
+
+        const prioritized = [];
+        const neutral = [];
+        const depri = [];
+
+        templates.forEach((template) => {
+            if (preferSet.has(template.key)) {
+                prioritized.push(template);
+            } else if (deprioritizeSet.has(template.key)) {
+                depri.push(template);
+            } else {
+                neutral.push(template);
+            }
+        });
+
+        const shuffle = (list) => list.slice().sort(() => (typeof randomFn === 'function' ? randomFn() : Math.random()) - 0.5);
+        const ordered = [
+            ...prioritized,
+            ...shuffle(neutral),
+            ...shuffle(depri),
+        ];
+
+        const unique = [];
+        const seen = new Set();
+        ordered.forEach((template) => {
+            if (template && template.key && !seen.has(template.key)) {
+                seen.add(template.key);
+                unique.push(template);
+            }
+        });
+
+        if (unique.length < count) {
+            const fallback = shuffle(templates).filter(template => !seen.has(template.key));
+            fallback.forEach((template) => {
+                if (unique.length < count) {
+                    unique.push(template);
+                }
+            });
+        }
+
+        return unique.slice(0, count);
+    };
+
+    const buildMonthlyChallengeSet = (activityList = [], referenceDate = new Date(), options = {}) => {
+        const monthKey = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, '0')}`;
+        const baseMonthLabel = referenceDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        const monthLabel = options?.labelSuffix ? `${baseMonthLabel} ${options.labelSuffix}` : baseMonthLabel;
         const stats = buildMonthlyChallengeStats(activityList, monthKey);
         const seededRandom = createSeededRandom(`${monthKey}-star-challenges`);
 
-        const shuffledTemplates = MONTHLY_CHALLENGE_TEMPLATES.slice().sort(() => seededRandom() - 0.5);
-        const selectedTemplates = shuffledTemplates.slice(0, 5);
+        const templatePreferences = options?.templateOptions || {};
+        const selectedTemplates = selectMonthlyChallengeTemplates(
+            MONTHLY_CHALLENGE_TEMPLATES,
+            seededRandom,
+            templatePreferences,
+        );
 
         const challenges = selectedTemplates.map((template) => {
             const rawTarget = template.target(stats, seededRandom, monthLabel);
-            const targetValue = Math.max(1, Math.round(rawTarget * 100) / 100);
+            const streakBiasEnabled = Boolean(options?.streakFocus);
+            const adjustedTarget = (() => {
+                if (!streakBiasEnabled) {
+                    return rawTarget;
+                }
+                if (template.key === 'active-streak') {
+                    return Math.max(rawTarget, 5);
+                }
+                if (template.key === 'activities') {
+                    return Math.max(rawTarget, 14);
+                }
+                return rawTarget;
+            })();
+            const targetValue = Math.max(1, Math.round(adjustedTarget * 100) / 100);
             const currentValue = Math.max(0, Number(template.progress(stats)) || 0);
             const progressPercent = Math.max(0, Math.min(100, Math.round((currentValue / targetValue) * 100)));
 
@@ -12841,7 +12943,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             completedChallenges,
             totalChallenges: challenges.length,
             completionMedal,
+            isHistorical: Boolean(options?.isHistorical),
         };
+    };
+
+    const buildMonthlyChallengeHistory = (activityList = [], now = new Date()) => {
+        const getMonthReference = (offset) => new Date(Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth() - offset,
+            15,
+        ));
+
+        const backlogPreferences = {
+            labelSuffix: 'Challenges',
+            templateOptions: {
+                preferKeys: ['elevation', 'distance-all', 'ride-distance', 'run-distance', 'active-streak', 'activities'],
+                deprioritizeKeys: ['yoga-run-combo', 'multi-discipline', 'yoga-sessions'],
+            },
+            streakFocus: true,
+            isHistorical: true,
+        };
+
+        const months = [0, 1, 2].map((offset) => {
+            const referenceDate = getMonthReference(offset);
+            const options = offset === 0
+                ? { labelSuffix: 'Challenges', streakFocus: true }
+                : backlogPreferences;
+            return buildMonthlyChallengeSet(activityList, referenceDate, options);
+        });
+
+        return months.filter(Boolean);
     };
 
     const computePremiumAchievements = (lifetimeActivities = []) => {

@@ -3227,7 +3227,6 @@ body.is-bottom-nav-active .dashboard-panel .panel-card.panel-card--soft::after {
     gap: 0.2rem;
     flex-direction: column;
     backdrop-filter: blur(8px);
-    transform: translateX(20px);
 }
 
 .wallet-chart__overlay.is-visible {

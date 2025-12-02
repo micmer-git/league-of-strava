@@ -1520,15 +1520,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const overlayHeight = overlay.offsetHeight || 140;
         const canvasWidth = walletChartCanvas.clientWidth || overlayWidth;
         const canvasHeight = walletChartCanvas.clientHeight || overlayHeight;
-        const clampedX = Math.min(Math.max(position.x, overlayWidth / 2), Math.max(overlayWidth / 2, canvasWidth - (overlayWidth / 2)));
-        const verticalGap = 18;
-        const hasRoomAbove = position.y > overlayHeight + verticalGap;
-        const preferredTop = hasRoomAbove
-            ? position.y - overlayHeight - verticalGap
-            : position.y + verticalGap;
-        const maxTop = canvasHeight - overlayHeight - 16;
-        const desiredTop = Math.min(Math.max(12, preferredTop), maxTop);
-        overlay.style.left = `${clampedX - (overlayWidth / 2)}px`;
+        const horizontalGap = 18;
+        const maxLeft = Math.max(0, canvasWidth - overlayWidth - 12);
+        const preferRight = position.x + overlayWidth + horizontalGap <= canvasWidth;
+        const left = preferRight
+            ? Math.min(position.x + horizontalGap, maxLeft)
+            : Math.max(12, Math.min(maxLeft, position.x - overlayWidth - horizontalGap));
+        const centeredTop = position.y - (overlayHeight / 2);
+        const maxTop = Math.max(0, canvasHeight - overlayHeight - 12);
+        const desiredTop = Math.min(Math.max(12, centeredTop), maxTop);
+
+        overlay.style.left = `${left}px`;
         overlay.style.top = `${desiredTop}px`;
     };
 
@@ -13509,43 +13511,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         return tooltipElement;
     };
 
-    const renderEnduranceLegend = (profiles = [], profileColorMap = new Map()) => {
+    const renderEnduranceLegend = () => {
         if (!enduranceLegendContainer) {
             return;
         }
 
-        const fragment = document.createDocumentFragment();
-        let itemCount = 0;
-
-        profiles.forEach((profile, index) => {
-            const key = profile?.key || `profile-${index}`;
-            const label = profile?.label || `Athlete ${index + 1}`;
-            const color = profileColorMap.get(key) || '#0ea5e9';
-            const isActive = activeEnduranceProfiles.has(key);
-
-            const item = document.createElement('div');
-            item.className = 'endurance-legend__item';
-            if (!isActive) {
-                item.classList.add('is-inactive');
-            }
-
-            const swatch = document.createElement('span');
-            swatch.className = 'endurance-legend__swatch';
-            swatch.style.backgroundColor = color;
-
-            const text = document.createElement('span');
-            text.className = 'endurance-legend__label';
-            text.textContent = label;
-
-            item.appendChild(swatch);
-            item.appendChild(text);
-            fragment.appendChild(item);
-            itemCount += 1;
-        });
-
         enduranceLegendContainer.innerHTML = '';
-        enduranceLegendContainer.appendChild(fragment);
-        enduranceLegendContainer.classList.toggle('hidden', itemCount === 0);
+        enduranceLegendContainer.classList.add('hidden');
     };
 
     const buildEnduranceTooltipRenderer = (config, profileColorMap = new Map()) => (context) => {
@@ -13612,8 +13584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const label = document.createElement('span');
             label.className = 'endurance-multiplot__tooltip-label';
             const emoji = dataset.tooltipEmoji || '';
-            const disciplineLabel = dataset.disciplineKey === 'run' ? 'Run' : 'Ride';
-            label.textContent = `${emoji ? `${emoji} ` : ''}${disciplineLabel} · ${profileDisplayName}`;
+            label.textContent = `${emoji ? `${emoji} ` : ''}${profileDisplayName}`;
 
             const valueElement = document.createElement('span');
             valueElement.className = 'endurance-multiplot__tooltip-value';
@@ -14066,12 +14037,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: {
-                        mode: 'nearest',
+                        mode: 'index',
                         intersect: false,
                         axis: 'x',
                     },
                     hover: {
-                        mode: 'nearest',
+                        mode: 'index',
                         intersect: false,
                         axis: 'x',
                     },
@@ -14084,7 +14055,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         },
                         tooltip: {
                             enabled: false,
-                            mode: 'nearest',
+                            mode: 'index',
                             intersect: false,
                             external: tooltipRenderer,
                         },

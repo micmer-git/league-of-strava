@@ -696,6 +696,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         return walletCompactFormatter.format(value);
     };
 
+    const formatMedalBadgeValue = (medal = {}) => {
+        const value = getMedalRarityValue(medal);
+        return Number.isFinite(value) && value > 0 ? formatWalletValue(value) : '';
+    };
+
     const currencyFormatter = { format: formatWalletValue };
     const usdCodeFormatter = { format: formatWalletValue };
     const DASHBOARD_CACHE_VERSION = 'v2';
@@ -2547,14 +2552,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             legacyCategory: medal?.legacyCategory || medal?.category || '',
         });
 
-        const medalsEarned = Array.isArray(summary.medalsEarned)
+        let medalsEarned = Array.isArray(summary.medalsEarned)
             ? summary.medalsEarned.map((medal) => ({
                 ...applyRarityMetadata(medal),
                 count: toNonNegativeInteger(medal?.count),
             }))
             : [];
 
-        const medalInventory = Array.isArray(summary.medalInventory)
+        let medalInventory = Array.isArray(summary.medalInventory)
             ? summary.medalInventory.map((medal) => ({
                 ...applyRarityMetadata(medal),
                 count: toNonNegativeInteger(medal?.count),
@@ -2589,6 +2594,91 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             : monthlyChallengeHistory[0]
                 || { monthKey: '', monthLabel: '', challenges: [], completedChallenges: 0, totalChallenges: 0 };
+
+        const upsertMedal = (collection, medal) => {
+            if (!medal?.name) {
+                return;
+            }
+
+            const incomingCount = toNonNegativeInteger(medal.count);
+            const existingIndex = collection.findIndex(entry => entry?.name === medal.name);
+            if (existingIndex >= 0) {
+                const existing = collection[existingIndex];
+                collection[existingIndex] = {
+                    ...existing,
+                    ...medal,
+                    count: Math.max(toNonNegativeInteger(existing?.count), incomingCount),
+                    monthKey: existing?.monthKey || medal.monthKey || '',
+                    monthLabel: existing?.monthLabel || medal.monthLabel || '',
+                };
+                return;
+            }
+
+            collection.push({ ...medal, count: incomingCount });
+        };
+
+        const syncMonthlyChallengeMedals = () => {
+            const challengeMedals = [];
+            const seenMonths = new Set();
+
+            const appendChallengeSet = (entry) => {
+                if (!entry) {
+                    return;
+                }
+
+                const baseMonthKey = entry?.monthKey || '';
+                const baseMonthLabel = entry?.monthLabel || '';
+                if (baseMonthKey) {
+                    seenMonths.add(baseMonthKey);
+                }
+
+                entry?.challenges?.forEach((challenge) => {
+                    if (!challenge?.medalName) {
+                        return;
+                    }
+
+                    challengeMedals.push({
+                        name: challenge.medalName,
+                        emoji: challenge.emoji || '⭐',
+                        description: challenge.description || '',
+                        count: challenge.completed ? 1 : 0,
+                        category: 'Star Medals',
+                        legacyCategory: 'Star Medals',
+                        rarityKey: 'star',
+                        valueOverride: challenge.rewardValue,
+                        discipline: challenge.discipline || 'multi',
+                        monthKey: challenge.monthKey || baseMonthKey,
+                        monthLabel: challenge.monthLabel || baseMonthLabel,
+                    });
+                });
+
+                if (entry?.completionMedal) {
+                    const completionMedal = {
+                        ...entry.completionMedal,
+                        count: toNonNegativeInteger(entry.completionMedal.count),
+                        monthKey: entry.completionMedal.monthKey || baseMonthKey,
+                        monthLabel: entry.completionMedal.monthLabel || baseMonthLabel,
+                    };
+                    challengeMedals.push(completionMedal);
+                }
+            };
+
+            monthlyChallengeHistory.forEach(appendChallengeSet);
+
+            if (monthlyChallenges && !seenMonths.has(monthlyChallenges.monthKey)) {
+                appendChallengeSet(monthlyChallenges);
+            }
+
+            challengeMedals.forEach((medal) => {
+                const normalized = applyRarityMetadata(medal);
+                upsertMedal(medalInventory, normalized);
+                if (toNonNegativeInteger(normalized.count) > 0) {
+                    upsertMedal(medalsEarned, normalized);
+                }
+            });
+        };
+
+        syncMonthlyChallengeMedals();
 
         const medalValueSummary = calculateMedalValueSummary(medalsEarned);
         const historicalCount = toNonNegativeInteger(
@@ -7337,8 +7427,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const renderStarMonthlyGroups = (container, displayLabel, rarityKey, groupedMedals) => {
-            const earnedMonthlyMedals = groupedMedals.filter(medal => resolveMedalDisplayCount(medal) > 0);
-            const monthGroups = buildMonthlyStarGroups(earnedMonthlyMedals);
+            const monthGroups = buildMonthlyStarGroups(groupedMedals);
             if (monthGroups.length === 0) {
                 return false;
             }
@@ -7370,7 +7459,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const labelSpan = document.createElement('span');
                 labelSpan.className = 'medals-month-group__label';
-                labelSpan.textContent = `${group.label} • ${group.medals.length} medal${group.medals.length === 1 ? '' : 's'}`;
+                const earnedCount = group.medals.reduce((sum, medal) => {
+                    return sum + (resolveMedalDisplayCount(medal) > 0 ? 1 : 0);
+                }, 0);
+                const totalLabel = group.medals.length === 1 ? 'medal' : 'medals';
+                labelSpan.textContent = `${group.label} • ${earnedCount}/${group.medals.length} ${totalLabel}`;
                 toggle.appendChild(labelSpan);
 
                 const chevron = document.createElement('span');
@@ -10048,6 +10141,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                 span.className = ['activity-card__emoji', extraClass].filter(Boolean).join(' ');
                 span.textContent = emoji;
                 return span;
+            };
+
+            const buildMedalBadge = (medal) => {
+                const medalBadge = document.createElement('button');
+                medalBadge.type = 'button';
+                medalBadge.className = 'tooltip-target inline-flex items-center justify-center gap-1 rounded-full bg-yellow-100 px-2.5 py-1 text-base font-semibold text-yellow-700 shadow-sm dark:bg-yellow-900/40 dark:text-yellow-200 activity-card__medal-badge';
+
+                const medalEmoji = createEmojiSpan(medal.emoji);
+                medalBadge.appendChild(medalEmoji);
+
+                const medalValueLabel = formatMedalBadgeValue(medal);
+                if (medalValueLabel) {
+                    const medalValue = document.createElement('span');
+                    medalValue.className = 'activity-card__medal-value';
+                    medalValue.textContent = medalValueLabel;
+                    medalBadge.appendChild(medalValue);
+                }
+
+                const tooltipLines = [medal.name].filter(Boolean);
+                if (medal.description) {
+                    tooltipLines.push(medal.description);
+                }
+                if (medalValueLabel) {
+                    tooltipLines.push(`Worth ${medalValueLabel}`);
+                }
+
+                const tooltipText = tooltipLines.join('\\n');
+                const ariaLabel = tooltipLines.join(' ');
+                medalBadge.setAttribute('aria-label', ariaLabel);
+                attachTooltip(medalBadge, tooltipText);
+
+                return medalBadge;
             };
 
             const statsRow = document.createElement('div');
@@ -17560,6 +17685,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             return span;
         };
 
+        const buildMedalBadge = (medal) => {
+            const medalBadge = document.createElement('button');
+            medalBadge.type = 'button';
+            medalBadge.className = 'tooltip-target inline-flex items-center justify-center gap-1 rounded-full bg-yellow-100 px-2.5 py-1 text-base font-semibold text-yellow-700 shadow-sm dark:bg-yellow-900/40 dark:text-yellow-200 activity-card__medal-badge';
+
+            const medalEmoji = createEmojiSpan(medal.emoji);
+            medalBadge.appendChild(medalEmoji);
+
+            const medalValueLabel = formatMedalBadgeValue(medal);
+            if (medalValueLabel) {
+                const medalValue = document.createElement('span');
+                medalValue.className = 'activity-card__medal-value';
+                medalValue.textContent = medalValueLabel;
+                medalBadge.appendChild(medalValue);
+            }
+
+            const tooltipLines = [medal.name].filter(Boolean);
+            if (medal.description) {
+                tooltipLines.push(medal.description);
+            }
+            if (medalValueLabel) {
+                tooltipLines.push(`Worth ${medalValueLabel}`);
+            }
+
+            const tooltipText = tooltipLines.join('\\n');
+            const ariaLabel = tooltipLines.join(' ');
+            medalBadge.setAttribute('aria-label', ariaLabel);
+            attachTooltip(medalBadge, tooltipText);
+
+            return medalBadge;
+        };
+
         const getActivityKey = (activity) => {
             const key = activity?.id || activity?.external_id;
             return key ? String(key) : null;
@@ -17774,15 +17931,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 rewardRow.className = 'activity-card__reward-row flex flex-wrap items-center gap-2';
 
                 medalRewards.forEach(medal => {
-                    const medalBadge = document.createElement('button');
-                    medalBadge.type = 'button';
-                    medalBadge.className = 'tooltip-target inline-flex items-center justify-center rounded-full bg-yellow-100 px-2.5 py-1 text-base font-semibold text-yellow-700 shadow-sm dark:bg-yellow-900/40 dark:text-yellow-200';
-                    const medalEmoji = createEmojiSpan(medal.emoji);
-                    medalBadge.innerHTML = '';
-                    medalBadge.appendChild(medalEmoji);
-                    medalBadge.setAttribute('aria-label', medal.name);
-                    attachTooltip(medalBadge, `${medal.name} • ${medal.description}`);
-                    rewardRow.appendChild(medalBadge);
+                    rewardRow.appendChild(buildMedalBadge(medal));
                 });
 
                 smallStatsGroup.appendChild(rewardRow);

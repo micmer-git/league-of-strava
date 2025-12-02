@@ -1147,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let countryMapModalReturnFocusTo = null;
     let profilePeriodModalReturnFocusTo = null;
     let profilePeriodModalActiveTrigger = null;
-    let profilePeriodModalActiveKey = 'yearly';
+    let profilePeriodModalActiveKey = 'weekly';
     let activitiesFilterReturnFocusTo = null;
     let pendingActivitiesOptions = null;
     let lastActivitiesRenderOptions = { preserveVisibleCount: false };
@@ -6486,7 +6486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'weekly';
         profilePeriodToggleButtons.forEach((button) => {
             const isActive = button.dataset.profilePeriodOption === normalizedKey;
             button.classList.toggle('is-active', isActive);
@@ -6498,7 +6498,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const setProfilePeriodModalPeriod = (periodKey, { label = '', summary = '' } = {}) => {
         const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey]
             ? periodKey
-            : (PROFILE_PERIOD_OPTIONS_BY_KEY[profilePeriodModalActiveKey] ? profilePeriodModalActiveKey : 'yearly');
+            : (PROFILE_PERIOD_OPTIONS_BY_KEY[profilePeriodModalActiveKey] ? profilePeriodModalActiveKey : 'weekly');
 
         profilePeriodModalActiveKey = normalizedKey;
         updateProfilePeriodToggleState(normalizedKey);
@@ -6519,7 +6519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         profilePeriodModalContentElement.innerHTML = '';
 
-        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'weekly';
         const snapshot = getRankSnapshotForPeriodKey(normalizedKey);
         const metadata = PROFILE_PERIOD_MODAL_METADATA[normalizedKey] || {};
         const titleText = metadata.title
@@ -6546,13 +6546,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        const yearlySnapshot = getRankSnapshotForPeriodKey('yearly');
-        const baselineTotalValue = Number.isFinite(yearlySnapshot?.totalValue)
-            ? yearlySnapshot.totalValue
+        const totalBalanceBaseline = Number.isFinite(walletGrowthStats?.currentTotal)
+            ? walletGrowthStats.currentTotal
             : null;
-        const baselineLabel = yearlySnapshot
-            ? (PROFILE_PERIOD_SHORT_LABELS_BY_KEY[(yearlySnapshot.key || '').toLowerCase()] || yearlySnapshot.label || '1Y')
-            : '1Y';
+        const yearlySnapshot = getRankSnapshotForPeriodKey('yearly');
+        const baselineTotalValue = Number.isFinite(totalBalanceBaseline)
+            ? totalBalanceBaseline
+            : (Number.isFinite(yearlySnapshot?.totalValue) ? yearlySnapshot.totalValue : null);
+        const baselineLabel = Number.isFinite(totalBalanceBaseline)
+            ? 'Total balance'
+            : (yearlySnapshot
+                ? (PROFILE_PERIOD_SHORT_LABELS_BY_KEY[(yearlySnapshot.key || '').toLowerCase()] || yearlySnapshot.label || '1Y')
+                : '1Y');
 
         const slide = createRankSnapshotSlide(snapshot, 0, {
             idPrefix: 'profile-period',
@@ -6592,7 +6597,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const label = trigger?.dataset?.profilePeriodLabel || '';
         const summary = trigger?.dataset?.profilePeriodSummary || '';
-        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[periodKey] ? periodKey : 'yearly';
+        const normalizedKey = PROFILE_PERIOD_OPTIONS_BY_KEY[profilePeriodModalActiveKey]
+            ? profilePeriodModalActiveKey
+            : 'weekly';
 
         setProfilePeriodModalPeriod(normalizedKey, { label, summary });
 
@@ -10636,6 +10643,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             yearColorAssignments = new Map(),
             topActivityIds = new Set(),
             rankUnlocks = [],
+            startingBalance = 0,
         } = {},
     ) => {
         if (!Array.isArray(metrics) || metrics.length === 0) {
@@ -10703,7 +10711,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cumulativeValues = [];
         const periodMeta = [];
         const labels = [];
-        let runningTotal = 0;
+        const initialBalance = Number.isFinite(startingBalance) ? startingBalance : 0;
+        let runningTotal = initialBalance;
+        let lastBucketValue = null;
+
+        if (initialBalance > 0) {
+            perPeriodValues.push(0);
+            cumulativeValues.push(initialBalance);
+            labels.push('Start');
+            periodMeta.push({
+                key: 'starting-balance',
+                label: 'Starting balance',
+                axisLabel: 'Start',
+                year: null,
+                month: null,
+                quarter: null,
+                weekStart: null,
+                bucketType,
+                colors: defaultColors,
+                value: 0,
+                cumulative: initialBalance,
+                previousCumulative: null,
+                cumulativeChangeValue: null,
+                cumulativeChangePercent: null,
+                quarterChangeValue: null,
+                quarterChangePercent: null,
+                periodChangeValue: null,
+                periodChangePercent: null,
+                topActivities: [],
+                hasTopActivity: false,
+                rankUnlocks: [],
+                dateRangeStart: null,
+                dateRangeEnd: null,
+                highlightMetrics: [],
+                highlightReasons: [],
+            });
+        }
         const defaultColors = { border: '#16a34a', background: 'rgba(34, 197, 94, 0.28)', hover: 'rgba(34, 197, 94, 0.32)' };
 
         const quarterCountsByYear = new Map();
@@ -10746,13 +10789,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!bucket) {
                 return;
             }
-            runningTotal += bucket.total;
+            const previousCumulativeValue = cumulativeValues.length > 0
+                ? cumulativeValues[cumulativeValues.length - 1]
+                : initialBalance;
+            const previousPeriodValue = lastBucketValue;
+
+            runningTotal = previousCumulativeValue + bucket.total;
             perPeriodValues.push(bucket.total);
             cumulativeValues.push(runningTotal);
             labels.push(bucket.axisLabel || bucket.label || key);
-
-            const previousPeriodValue = index > 0 ? perPeriodValues[index - 1] : null;
-            const previousCumulativeValue = index > 0 ? cumulativeValues[index - 1] : null;
             const colors = yearColorAssignments.get(bucket.year) || defaultColors;
 
             const meta = {
@@ -10890,6 +10935,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             periodMeta.push(meta);
+            lastBucketValue = bucket.total;
         });
 
         const barBorderColors = periodMeta.map(entry => entry.colors?.border || '#16a34a');
@@ -10971,6 +11017,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     };
 
+    const calculateWalletStartingBalance = (allMetrics = [], filteredMetrics = []) => {
+        if (!Array.isArray(allMetrics) || allMetrics.length === 0) {
+            return 0;
+        }
+
+        const normalizedFiltered = Array.isArray(filteredMetrics)
+            ? filteredMetrics
+                .filter(metric => metric?.date instanceof Date && !Number.isNaN(metric.date.getTime()))
+                .sort((a, b) => a.date - b.date)
+            : [];
+
+        if (normalizedFiltered.length === 0) {
+            return 0;
+        }
+
+        const earliestVisibleDate = normalizedFiltered[0].date;
+
+        return allMetrics.reduce((total, metric) => {
+            if (!(metric?.date instanceof Date) || Number.isNaN(metric.date.getTime())) {
+                return total;
+            }
+
+            if (metric.date < earliestVisibleDate) {
+                const combinedValue = Number(metric.coinValue) + Number(metric.medalValue);
+                return total + (Number.isFinite(combinedValue) ? combinedValue : 0);
+            }
+
+            return total;
+        }, 0);
+    };
+
     const updateWalletChartData = ({
         activities = [],
         lifetimeActivities = [],
@@ -10996,6 +11073,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateHistoricalMedalMonths(latestWalletMetrics);
         populateWalletTimeframeSelect(availableMetrics);
         const metricsForAggregation = filterMetricsForWalletTimeframe(availableMetrics, walletSelectedTimeframe);
+        const startingBalance = calculateWalletStartingBalance(availableMetrics, metricsForAggregation);
 
         if (walletTimeframeSelect && walletTimeframeSelect.value !== walletSelectedTimeframe) {
             walletTimeframeSelect.value = walletSelectedTimeframe;
@@ -11212,6 +11290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             yearColorAssignments,
             topActivityIds,
             rankUnlocks,
+            startingBalance,
         });
 
         walletChartData.balance = {
@@ -15190,6 +15269,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function bindCountryStatButton() {
         if (!countryStatButton) {
+            return;
+        }
+        if (countryStatButton.dataset.countryStatStatic === 'true') {
+            countryStatButton.dataset.countryMapBound = 'true';
             return;
         }
         if (countryStatButton.dataset.countryMapBound === 'true') {

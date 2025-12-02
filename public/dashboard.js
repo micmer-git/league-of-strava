@@ -1420,7 +1420,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         container: document.getElementById('wallet-chart-overlay'),
         label: document.getElementById('wallet-overlay-label'),
         balance: document.getElementById('wallet-overlay-balance'),
-        change: document.getElementById('wallet-overlay-change'),
         value: document.getElementById('wallet-overlay-value'),
     };
     let walletTimeframeSelect = document.getElementById('wallet-timeframe-select');
@@ -1491,7 +1490,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const walletOverlayDefaults = {
         label: 'Wallet insight',
         balance: 'Balance',
-        change: '',
         value: 'Hover or tap a point to inspect it.',
         valueDirection: null,
     };
@@ -1558,12 +1556,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (walletOverlayElements.balance) {
             walletOverlayElements.balance.textContent = nextState.balance;
-        }
-        if (walletOverlayElements.change) {
-            walletOverlayElements.change.textContent = nextState.change || '';
-            walletOverlayElements.change.classList.toggle('hidden', !nextState.change);
-            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--positive', nextState.valueDirection === 'positive');
-            walletOverlayElements.change.classList.toggle('wallet-chart__overlay-change--negative', nextState.valueDirection === 'negative');
         }
         if (walletOverlayElements.value) {
             walletOverlayElements.value.textContent = nextState.value;
@@ -7199,10 +7191,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             const textWrapper = document.createElement('span');
             textWrapper.className = 'medals-list__text';
 
+            const nameRow = document.createElement('span');
+            nameRow.className = 'medals-list__name-row';
+
             const nameSpan = document.createElement('span');
             nameSpan.className = 'medals-list__name';
             nameSpan.textContent = medal.name;
-            textWrapper.appendChild(nameSpan);
+            nameRow.appendChild(nameSpan);
+
+            const medalValue = getMedalRarityValue(medal) * medalCount;
+            const valueTag = document.createElement('span');
+            valueTag.className = 'medals-list__value';
+            const valueInThousands = medalValue / 1000;
+            valueTag.textContent = `$${valueInThousands.toLocaleString()}k`;
+            nameRow.appendChild(valueTag);
+
+            textWrapper.appendChild(nameRow);
 
             const descriptionSnippet = createDescriptionSnippet(medal.description);
             if (descriptionSnippet) {
@@ -7218,13 +7222,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 progressSpan.textContent = `Progress ${progressSummary}`;
                 textWrapper.appendChild(progressSpan);
             }
-
-            const medalValue = getMedalRarityValue(medal) * medalCount;
-            const valueTag = document.createElement('span');
-            valueTag.className = 'medals-list__value';
-            const valueInThousands = medalValue / 1000;
-            valueTag.textContent = `Worth $${valueInThousands.toLocaleString()}k`;
-            textWrapper.appendChild(valueTag);
 
             medalButton.append(countWrapper, textWrapper);
 
@@ -7709,6 +7706,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { percentChange, changeValue };
     };
 
+    const extractRankLevel = (rank = {}) => {
+        const name = typeof rank?.name === 'string' ? rank.name : '';
+        const match = name.match(/(\d+)(?!.*\d)/);
+        return match ? Number(match[1]) : null;
+    };
+
+    const filterFirstLevelRankUnlocks = (unlocks = []) => {
+        const seenEmojis = new Set();
+        return (Array.isArray(unlocks) ? unlocks : []).filter((unlock) => {
+            const emoji = unlock?.rank?.emoji;
+            if (!emoji || seenEmojis.has(emoji)) {
+                return false;
+            }
+            const level = extractRankLevel(unlock.rank);
+            if (level !== null && level !== 1) {
+                return false;
+            }
+            seenEmojis.add(emoji);
+            return true;
+        });
+    };
+
     const formatRankUnlockTooltip = (unlock = {}) => {
         if (!unlock?.rank) {
             return '';
@@ -7796,7 +7815,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             visible: true,
             label: periodMeta?.label || dataset?.label || 'Wallet insight',
             balance: balanceText,
-            change: '',
             value: valueText,
             valueDirection: percentChange > 0 ? 'positive' : percentChange < 0 ? 'negative' : null,
             position: eventPosition,
@@ -10682,7 +10700,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     && unlock.date <= periodEnd
                 ))
                 : [];
-            meta.rankUnlocks = unlocksForBucket;
+            meta.rankUnlocks = filterFirstLevelRankUnlocks(unlocksForBucket);
 
             const priorYearKey = getPriorYearKey(bucket);
             if (priorYearKey && bucketTotals.has(priorYearKey)) {

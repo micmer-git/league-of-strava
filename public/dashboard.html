@@ -203,35 +203,35 @@
   </div>
     <div class="profile-card__season-stats profile-card__stat-rows" data-skeleton="panel">
       <div class="profile-card__world-row profile-card__stat-row">
-        <span class="profile-card__world-stat" id="globe-stat">
+        <span class="profile-card__world-stat tooltip-target" id="globe-stat">
           <span aria-hidden="true" class="profile-card__world-emoji">🌍</span>
           <span class="font-semibold" id="globe-total">0</span>
         </span>
-        <span class="profile-card__world-stat" id="everest-stat">
+        <span class="profile-card__world-stat tooltip-target" id="everest-stat">
           <span aria-hidden="true" class="profile-card__world-emoji">🏔️</span>
           <span class="font-semibold" id="everest-total">0</span>
         </span>
-        <span class="profile-card__world-stat" id="pizza-stat">
+        <span class="profile-card__world-stat tooltip-target" id="pizza-stat">
           <span aria-hidden="true" class="profile-card__world-emoji">🍕</span>
           <span class="font-semibold" id="pizza-total">0</span>
         </span>
-        <span class="profile-card__world-stat" id="likes-stat">
+        <span class="profile-card__world-stat tooltip-target" id="likes-stat">
           <span aria-hidden="true" class="profile-card__world-emoji">👍</span>
           <span class="font-semibold" id="likes-total">0</span>
         </span>
         <div class="stats-card__totals profile-card__wallet-totals profile-card__stat-row profile-card__world-totals">
-          <button aria-label="Open achievements panel" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--coins" data-panel-target="achievements" type="button">
+          <div class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--coins" aria-label="Total coins collected" role="group">
             <span aria-hidden="true" class="wallet-total-pill__icon">🟡</span>
             <span class="wallet-total-pill__value" id="wallet-summary-coins-count">0</span>
-          </button>
-          <button aria-label="Open medals view" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--medals" data-panel-target="medals" type="button">
+          </div>
+          <div class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--medals" aria-label="Total medals collected" role="group">
             <span aria-hidden="true" class="wallet-total-pill__icon">🏅</span>
             <span class="wallet-total-pill__value" id="wallet-summary-medal-count">0</span>
-          </button>
-          <button aria-label="Open country filters" class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--countries" id="country-stat" type="button">
+          </div>
+          <div class="wallet-total-pill profile-metric-pill profile-card__world-pill profile-card__world-pill--countries" aria-label="Countries explored" id="country-stat" role="group" data-country-stat-static="true">
             <span aria-hidden="true" class="wallet-total-pill__icon">🗺️</span>
             <span class="wallet-total-pill__value" id="country-total">0</span>
-          </button>
+          </div>
         </div>
       </div>
     <div class="profile-metrics stats-card__pills profile-card__stat-row" id="profile-discipline-ratios" hidden>
@@ -749,10 +749,10 @@
           </button>
         </header>
         <div class="profile-period-toggle" id="profile-period-toggle" role="group" aria-label="Select Achievement Wallet period">
-          <button class="profile-period-toggle__button is-active" data-profile-period-option="yearly" type="button">1Y</button>
+          <button class="profile-period-toggle__button" data-profile-period-option="yearly" type="button">1Y</button>
           <button class="profile-period-toggle__button" data-profile-period-option="quarter" type="button">3M</button>
           <button class="profile-period-toggle__button" data-profile-period-option="monthly" type="button">1M</button>
-          <button class="profile-period-toggle__button" data-profile-period-option="weekly" type="button">7D</button>
+          <button class="profile-period-toggle__button is-active" data-profile-period-option="weekly" type="button">7D</button>
         </div>
         <div class="rank-modal__content rank-modal__content--period" id="profile-period-modal-content"></div>
       </div>

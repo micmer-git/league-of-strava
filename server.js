@@ -1061,23 +1061,27 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
       if (hydrated) {
         sharedSnapshotCache.set(cacheKey, hydratedCachedPayload);
       }
+      const payloadWithComputedDashboard = ensureComputedDashboard(hydratedCachedPayload);
       const loadingInfo = createLoadingInfo({
         userId,
         cacheTimestamp: cachedEntry.timestamp,
         cacheAgeMs: cachedEntry.ageMs,
-        storedTimestamp: hydratedCachedPayload?.storedTimestamp || hydratedCachedPayload?.loadingInfo?.storedSnapshotTimestamp || null,
+        storedTimestamp: payloadWithComputedDashboard?.storedTimestamp
+          || payloadWithComputedDashboard?.loadingInfo?.storedSnapshotTimestamp
+          || null,
         servedFrom: 'cache',
-        hasActivitiesBackup: Boolean(hydratedCachedPayload?.loadingInfo?.hasActivitiesBackup)
-          || Boolean(Array.isArray(hydratedCachedPayload?.activities) && hydratedCachedPayload.activities.length > 0),
+        hasActivitiesBackup: Boolean(payloadWithComputedDashboard?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(payloadWithComputedDashboard?.activities)
+            && payloadWithComputedDashboard.activities.length > 0),
         stale: false,
         sheetOnly: hydratedCachedPayload?.loadingInfo?.sheetOnly !== undefined
           ? Boolean(hydratedCachedPayload.loadingInfo.sheetOnly)
           : true,
-        mergedWithLiveData: Boolean(hydratedCachedPayload?.loadingInfo?.mergedWithLiveData),
+        mergedWithLiveData: Boolean(payloadWithComputedDashboard?.loadingInfo?.mergedWithLiveData),
       });
-      ensurePayloadCountryMetadata(hydratedCachedPayload);
+      ensurePayloadCountryMetadata(payloadWithComputedDashboard);
       return res.json({
-        ...hydratedCachedPayload,
+        ...payloadWithComputedDashboard,
         rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
         loadingInfo,
         cached: true,
@@ -1101,9 +1105,11 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
       normalizedPayload,
       userId,
     );
-    ensurePayloadCountryMetadata(hydratedPayload);
+    const payloadWithComputedDashboard = ensureComputedDashboard(hydratedPayload);
+    ensurePayloadCountryMetadata(payloadWithComputedDashboard);
     const cacheTimestamp = Date.now();
-    const hasActivitiesBackup = Array.isArray(hydratedPayload.activities) && hydratedPayload.activities.length > 0;
+    const hasActivitiesBackup = Array.isArray(payloadWithComputedDashboard.activities)
+      && payloadWithComputedDashboard.activities.length > 0;
     const loadingInfo = createLoadingInfo({
       userId,
       cacheTimestamp,
@@ -1117,7 +1123,7 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
     });
 
     const payloadWithMetadata = {
-      ...hydratedPayload,
+      ...payloadWithComputedDashboard,
       stored: true,
       storedTimestamp: snapshot.timestamp || null,
       userId,
@@ -1147,25 +1153,27 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
       if (hydrated) {
         sharedSnapshotCache.set(cacheKey, hydratedCachedPayload);
       }
-      ensurePayloadCountryMetadata(hydratedCachedPayload);
+      const payloadWithComputedDashboard = ensureComputedDashboard(hydratedCachedPayload);
+      ensurePayloadCountryMetadata(payloadWithComputedDashboard);
       const loadingInfo = createLoadingInfo({
         userId,
         cacheTimestamp: cachedEntry.timestamp,
         cacheAgeMs: cachedEntry.ageMs,
-        storedTimestamp: hydratedCachedPayload?.storedTimestamp
-          ?? hydratedCachedPayload?.loadingInfo?.storedSnapshotTimestamp
+        storedTimestamp: payloadWithComputedDashboard?.storedTimestamp
+          ?? payloadWithComputedDashboard?.loadingInfo?.storedSnapshotTimestamp
           ?? null,
         servedFrom: 'cache',
-        hasActivitiesBackup: Boolean(hydratedCachedPayload?.loadingInfo?.hasActivitiesBackup)
-          || Boolean(Array.isArray(hydratedCachedPayload?.activities) && hydratedCachedPayload.activities.length > 0),
+        hasActivitiesBackup: Boolean(payloadWithComputedDashboard?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(payloadWithComputedDashboard?.activities)
+            && payloadWithComputedDashboard.activities.length > 0),
         stale: true,
-        sheetOnly: hydratedCachedPayload?.loadingInfo?.sheetOnly !== undefined
-          ? Boolean(hydratedCachedPayload.loadingInfo.sheetOnly)
+        sheetOnly: payloadWithComputedDashboard?.loadingInfo?.sheetOnly !== undefined
+          ? Boolean(payloadWithComputedDashboard.loadingInfo.sheetOnly)
           : true,
-        mergedWithLiveData: Boolean(hydratedCachedPayload?.loadingInfo?.mergedWithLiveData),
+        mergedWithLiveData: Boolean(payloadWithComputedDashboard?.loadingInfo?.mergedWithLiveData),
       });
       return res.status(200).json({
-        ...hydratedCachedPayload,
+        ...payloadWithComputedDashboard,
         rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
         loadingInfo,
         cached: true,
@@ -1173,7 +1181,7 @@ app.get('/api/user-snapshot/:userId', async (req, res) => {
         cacheTimestamp: cachedEntry.timestamp,
         cacheAgeMs: cachedEntry.ageMs,
         stored: true,
-        storedTimestamp: hydratedCachedPayload?.storedTimestamp ?? null,
+        storedTimestamp: payloadWithComputedDashboard?.storedTimestamp ?? null,
         message: 'Returning cached snapshot because the data source is temporarily unavailable. Please try again later.',
       });
     }
@@ -1461,24 +1469,27 @@ app.get('/api/strava-data', async (req, res) => {
           prefetchedRequests: storedContactRequests,
         });
 
+        const payloadWithComputedDashboard = ensureComputedDashboard(storedPayload);
+
         try {
           const historyResult = await loadStoredActivitiesForUser(requestedUserIdParam);
           if (Array.isArray(historyResult.activities) && historyResult.activities.length > 0) {
-            storedPayload.activities = historyResult.activities;
-            storedPayload.activityHistorySource = historyResult.source;
-            storedPayload.activityHistoryCached = historyResult.cached;
-          } else if (!Array.isArray(storedPayload.activities)) {
-            storedPayload.activities = [];
+            payloadWithComputedDashboard.activities = historyResult.activities;
+            payloadWithComputedDashboard.activityHistorySource = historyResult.source;
+            payloadWithComputedDashboard.activityHistoryCached = historyResult.cached;
+          } else if (!Array.isArray(payloadWithComputedDashboard.activities)) {
+            payloadWithComputedDashboard.activities = [];
           }
         } catch (historyError) {
           console.warn(`Unable to hydrate stored snapshot activities for athlete ${requestedUserIdParam}:`, historyError.message);
-          if (!Array.isArray(storedPayload.activities)) {
-            storedPayload.activities = [];
+          if (!Array.isArray(payloadWithComputedDashboard.activities)) {
+            payloadWithComputedDashboard.activities = [];
           }
         }
 
         const cacheTimestamp = Date.now();
-        const hasBackupActivities = Array.isArray(storedPayload.activities) && storedPayload.activities.length > 0;
+        const hasBackupActivities = Array.isArray(payloadWithComputedDashboard.activities)
+          && payloadWithComputedDashboard.activities.length > 0;
         const loadingInfo = createLoadingInfo({
           userId: requestedUserIdParam,
           cacheTimestamp,
@@ -1490,7 +1501,7 @@ app.get('/api/strava-data', async (req, res) => {
         });
 
         const normalizedPayload = {
-          ...storedPayload,
+          ...ensureComputedDashboard(payloadWithComputedDashboard),
           rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
           loadingInfo,
           stored: true,
@@ -2016,6 +2027,8 @@ app.get('/api/strava-data', async (req, res) => {
 
     ensurePayloadCountryMetadata(responsePayload);
 
+    responsePayload = ensureComputedDashboard(responsePayload);
+
     if (updatedMetadata.lastSuccessfulPage !== undefined) {
       responsePayload.pageInfo.lastSuccessfulPage = updatedMetadata.lastSuccessfulPage;
     }
@@ -2125,21 +2138,22 @@ app.get('/api/strava-data', async (req, res) => {
         }
 
         console.log(`Returning cached data for athlete ${userId} after rate limit response.`);
-        const cachedHasBackup = Boolean(hydratedCachedPayload?.loadingInfo?.hasActivitiesBackup)
-          || Boolean(Array.isArray(hydratedCachedPayload?.activities) && hydratedCachedPayload.activities.length > 0);
+        const payloadWithComputedDashboard = ensureComputedDashboard(hydratedCachedPayload);
+        const cachedHasBackup = Boolean(payloadWithComputedDashboard?.loadingInfo?.hasActivitiesBackup)
+          || Boolean(Array.isArray(payloadWithComputedDashboard?.activities) && payloadWithComputedDashboard.activities.length > 0);
         const fallbackLoadingInfo = createLoadingInfo({
           userId,
           cacheTimestamp: cachedEntry.timestamp,
           cacheAgeMs: cachedEntry.ageMs,
-          storedTimestamp: hydratedCachedPayload?.loadingInfo?.storedSnapshotTimestamp || existingSnapshot?.timestamp || null,
+          storedTimestamp: payloadWithComputedDashboard?.loadingInfo?.storedSnapshotTimestamp || existingSnapshot?.timestamp || null,
           servedFrom: 'cache',
           hasActivitiesBackup: cachedHasBackup,
           stale: true,
-          sheetOnly: Boolean(hydratedCachedPayload?.loadingInfo?.sheetOnly),
-          mergedWithLiveData: Boolean(hydratedCachedPayload?.loadingInfo?.mergedWithLiveData),
+          sheetOnly: Boolean(payloadWithComputedDashboard?.loadingInfo?.sheetOnly),
+          mergedWithLiveData: Boolean(payloadWithComputedDashboard?.loadingInfo?.mergedWithLiveData),
         });
         return res.status(200).json({
-          ...hydratedCachedPayload,
+          ...payloadWithComputedDashboard,
           rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
           loadingInfo: fallbackLoadingInfo,
           cached: true,
@@ -2169,7 +2183,7 @@ app.get('/api/strava-data', async (req, res) => {
         const storedSnapshot = await getLatestUserSnapshot(userId);
         if (storedSnapshot?.payload) {
           console.log(`Returning stored snapshot for athlete ${userId} after live fetch failure.`);
-          const normalizedStored = recalculateSnapshotTotals(storedSnapshot.payload);
+          const normalizedStored = ensureComputedDashboard(recalculateSnapshotTotals(storedSnapshot.payload));
           const cacheTimestamp = Date.now();
           const storedActivityMetadata = mergeActivityMetadata(
             normalizeActivityMetadata(normalizedStored.activityMetadata),
@@ -3020,12 +3034,13 @@ async function persistSnapshotFromActivities({
   };
 
   ensurePayloadCountryMetadata(snapshotPayload);
+  const snapshotWithComputedDashboard = ensureComputedDashboard(snapshotPayload);
 
   let snapshotResult = null;
   try {
     snapshotResult = await appendUserSnapshot({
       userId: normalizedUserId,
-      payload: snapshotPayload,
+      payload: snapshotWithComputedDashboard,
       source,
     });
   } catch (error) {
@@ -3058,7 +3073,7 @@ async function persistSnapshotFromActivities({
   });
 
   const cachePayload = {
-    ...snapshotPayload,
+    ...snapshotWithComputedDashboard,
     rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
     loadingInfo,
     cached: false,
@@ -4214,6 +4229,89 @@ function recalculateSnapshotTotals(payload = {}) {
       ...(payload.totals || {}),
       ...recalculatedTotals,
     },
+  };
+}
+
+function buildComputedDashboardKey({
+  activityCount = 0,
+  latestActivityTimestamp = null,
+  rewardDefinitionDigest: digest = REWARD_DEFINITION_DIGEST,
+} = {}) {
+  const normalizedCount = Number.isFinite(activityCount) && activityCount > 0 ? Number(activityCount) : 0;
+  const normalizedTimestamp = Number.isFinite(latestActivityTimestamp) && latestActivityTimestamp > 0
+    ? Number(latestActivityTimestamp)
+    : 'none';
+
+  return `${normalizedCount}:${normalizedTimestamp}:${digest || ''}`;
+}
+
+function computeDashboardSummary(payload = {}, { key: providedKey = null } = {}) {
+  const activities = Array.isArray(payload.activities) ? payload.activities : [];
+  const latestActivityTimestamp = extractLatestActivityTimestamp(payload);
+  const activityCount = activities.length;
+  const rewardDefinitionDigest = payload.rewardDefinitionDigest || REWARD_DEFINITION_DIGEST;
+  const summaryKey = providedKey || buildComputedDashboardKey({
+    activityCount,
+    latestActivityTimestamp,
+    rewardDefinitionDigest,
+  });
+
+  const derivedMetrics = computeLeaderboardMetrics(activities);
+  const normalizedTotals = calculateTotals(activities);
+  const existingCoinTotals = normalizeCoinTotals(payload.coinBreakdown || payload.wallet || payload);
+  const coinTotals = COIN_EMOJIS.some(emoji => existingCoinTotals[emoji] > 0)
+    ? existingCoinTotals
+    : derivedMetrics.coinTotals;
+
+  return {
+    key: summaryKey,
+    computedAt: new Date().toISOString(),
+    activityCount,
+    latestActivityTimestamp: latestActivityTimestamp || null,
+    rewardDefinitionDigest,
+    totals: {
+      ...normalizedTotals,
+      calories: Number.isFinite(payload?.totals?.calories)
+        ? Number(payload.totals.calories)
+        : normalizedTotals.calories,
+    },
+    coinTotals,
+    worldTrips: derivedMetrics.worldTrips,
+    everestSummits: derivedMetrics.everestSummits,
+    pizzas: derivedMetrics.pizzas,
+  };
+}
+
+function ensureComputedDashboard(payload = {}) {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  const activityCount = Array.isArray(payload.activities) ? payload.activities.length : 0;
+  const latestActivityTimestamp = extractLatestActivityTimestamp(payload);
+  const rewardDefinitionDigest = payload.rewardDefinitionDigest || REWARD_DEFINITION_DIGEST;
+  const targetKey = buildComputedDashboardKey({
+    activityCount,
+    latestActivityTimestamp,
+    rewardDefinitionDigest,
+  });
+
+  const existingDashboard = payload.computedDashboard;
+  if (existingDashboard?.key === targetKey) {
+    return {
+      ...payload,
+      computedDashboard: {
+        ...existingDashboard,
+        key: targetKey,
+        rewardDefinitionDigest: REWARD_DEFINITION_DIGEST,
+      },
+    };
+  }
+
+  const computedDashboard = computeDashboardSummary(payload, { key: targetKey });
+  return {
+    ...payload,
+    computedDashboard,
   };
 }
 

@@ -14257,7 +14257,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const alignSeriesForDiscipline = (activities, disciplineKey) => {
             const disciplineActivities = disciplineKey === 'all'
-                ? activities || []
+                ? (activities || []).filter((activity) => {
+                    const activityDiscipline = resolveActivityDiscipline(activity);
+                    return activityDiscipline === 'ride' || activityDiscipline === 'run' || activityDiscipline === 'swim';
+                })
                 : (activities || []).filter((activity) => resolveActivityDiscipline(activity) === disciplineKey);
             const series = buildDailyEnduranceSeries(disciplineActivities);
             const seriesMap = new Map(series.map((entry) => [entry.date.toISOString().slice(0, 10), entry]));

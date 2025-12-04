@@ -14255,6 +14255,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const rawSeriesMap = new Map();
         const firstValidIndices = [];
 
+        const sumDisciplineSeries = (runSeries = [], rideSeries = []) => {
+            const maxLength = Math.max(runSeries.length, rideSeries.length);
+            const getEntry = (series, index) => series?.[index] || {};
+
+            return Array.from({ length: maxLength }, (_, index) => {
+                const runEntry = getEntry(runSeries, index);
+                const rideEntry = getEntry(rideSeries, index);
+
+                return {
+                    distanceKm: Number(((runEntry?.distanceKm ?? 0) + (rideEntry?.distanceKm ?? 0)).toFixed(2)),
+                    elevationGain: Number(((runEntry?.elevationGain ?? 0) + (rideEntry?.elevationGain ?? 0)).toFixed(0)),
+                    movingHours: Number(((runEntry?.movingHours ?? 0) + (rideEntry?.movingHours ?? 0)).toFixed(2)),
+                };
+            });
+        };
+
         const alignSeriesForDiscipline = (activities, disciplineKey) => {
             const disciplineActivities = disciplineKey === 'all'
                 ? (activities || []).filter((activity) => {
@@ -14279,13 +14295,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             movingAverageSeries.set(profileKey, new Map());
             rawSeriesMap.set(profileKey, new Map());
 
+            const alignedSeriesCache = new Map();
+            const getAlignedSeries = (disciplineKey) => {
+                if (!alignedSeriesCache.has(disciplineKey)) {
+                    alignedSeriesCache.set(disciplineKey, alignSeriesForDiscipline(profile.activities, disciplineKey));
+                }
+                return alignedSeriesCache.get(disciplineKey);
+            };
+
             enabledDisciplines.forEach((discipline) => {
-                const alignedSeries = alignSeriesForDiscipline(profile.activities, discipline.key);
+                const baseSeries = discipline.key === 'all'
+                    ? sumDisciplineSeries(getAlignedSeries('run'), getAlignedSeries('ride'))
+                    : getAlignedSeries(discipline.key);
                 const disciplineMovingAverage = new Map();
                 const disciplineRaw = new Map();
 
                 metricConfig.forEach((config) => {
-                    const values = alignedSeries.map((entry) => {
+                    const values = baseSeries.map((entry) => {
                         if (config.key === 'distance') {
                             return entry.distanceKm;
                         }

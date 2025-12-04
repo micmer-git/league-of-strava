@@ -11,73 +11,15 @@
 
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="stylesheet" href="/site-header.css">
+    <link rel="stylesheet" href="/marketing.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
 
     <script src="/site-header.js" defer></script>
     <script src="/install.js" defer></script>
-
-    <style>
-        body { font-family: 'Google Sans', 'Inter', system-ui, sans-serif; background-color: #FAFAFA; color: #1f2937; overflow-x: hidden; }
-        h1, h2, h3, .font-heading { font-family: 'Google Sans', 'Inter', system-ui, sans-serif; }
-        
-        /* Theme Utilities */
-        .text-strava { color: #fc4c02; }
-        .bg-strava { background-color: #fc4c02; }
-        .border-strava { border-color: #fc4c02; }
-        
-        .text-gradient-orange {
-            background: linear-gradient(135deg, #fc4c02, #ff8c00);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        /* Bento Card Styles */
-        .bento-card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .bento-card:hover {
-            box-shadow: 0 20px 25px -5px rgba(252, 76, 2, 0.15);
-            transform: translateY(-5px);
-            border-color: #fed7aa;
-        }
-
-        /* Balance Bar Animations */
-        .balance-bar-bg {
-            background-color: #f3f4f6;
-            border-radius: 999px;
-            overflow: hidden;
-            height: 10px;
-        }
-        .balance-bar-fill {
-            height: 100%;
-            border-radius: 999px;
-            width: 0%; /* JS will animate this */
-        }
-
-        /* Medal Rarity Badges (Based on your color map) */
-        .rarity-verdant { background: #ecfdf5; color: #10b981; border: 1px solid #10b981; }
-        .rarity-cerulean { background: #f0f9ff; color: #0ea5e9; border: 1px solid #0ea5e9; }
-        .rarity-amethyst { background: #faf5ff; color: #a855f7; border: 1px solid #a855f7; }
-        .rarity-auric { background: #fffbeb; color: #fbbf24; border: 1px solid #fbbf24; }
-        .rarity-obsidian { background: #f8fafc; color: #0f172a; border: 1px solid #0f172a; }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #fc4c02, #ea3e00);
-            color: white;
-            transition: transform 0.2s;
-        }
-        .btn-primary:hover { transform: scale(1.02); }
-    </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="marketing-body min-h-screen flex flex-col">
 
     <header class="site-header nav-item">
         <div class="site-header__inner">
@@ -103,31 +45,31 @@
         </div>
     </header>
 
-    <main class="container mx-auto px-4 py-12 md:py-16 max-w-7xl">
+    <main class="page-shell px-4 md:px-6">
         
         <div class="text-center mb-16">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-widest mb-6 opacity-0 hero-elem">
+            <div class="pill-badge mb-6 inline-flex items-center opacity-0 hero-elem">
                 <span class="w-2 h-2 rounded-full bg-strava animate-pulse"></span>
                 Season 2025 Active
             </div>
-            <h1 class="text-5xl md:text-7xl font-heading font-extrabold mb-6 leading-[1.1] opacity-0 hero-elem text-gray-900">
+            <h1 class="page-title opacity-0 hero-elem text-gray-900">
                 Your Sweat.<br>
-                <span class="text-gradient-orange">Ranked & Rewarded.</span>
+                <span class="text-gradient-orange">Ranked &amp; Rewarded.</span>
             </h1>
-            <p class="text-lg text-gray-500 max-w-2xl mx-auto mb-10 opacity-0 hero-elem leading-relaxed">
+            <p class="page-subtitle opacity-0 hero-elem">
                 Turn miles into <span class="font-bold text-gray-700">Coins</span>, unlock <span class="font-bold text-gray-700">Obsidian Medals</span>, and climb from <span class="font-bold text-gray-700">Wood</span> to <span class="font-bold text-gray-700">Prestige 👑</span>.
             </p>
-            <div class="flex flex-col sm:flex-row gap-4 justify-center opacity-0 hero-elem">
-                <a href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh" class="btn-primary px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-orange-500/30">
+            <div class="hero-actions opacity-0 hero-elem">
+                <a href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh" class="btn-primary text-lg px-6">
                     Enter the League
                 </a>
-                <a href="/leaderboard" class="px-8 py-4 rounded-xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors shadow-sm">
+                <a href="/leaderboard" class="btn-secondary text-lg px-6">
                     View Standings
                 </a>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 w-full">
+        <div class="hero-grid gap-6 w-full">
             
             <div class="bento-card col-span-1 md:col-span-2 lg:col-span-7 p-8 rounded-3xl opacity-0 grid-card">
                 <div class="flex justify-between items-start mb-6">
@@ -161,7 +103,7 @@
                 </div>
             </div>
 
-            <div class="bento-card col-span-1 md:col-span-1 lg:col-span-5 p-8 rounded-3xl opacity-0 grid-card bg-gray-900 text-white border-gray-800">
+            <div class="bento-card bento-card--dark col-span-1 md:col-span-1 lg:col-span-5 p-8 rounded-3xl opacity-0 grid-card">
                 <div class="flex items-center justify-between mb-6">
                     <h3 class="text-xl font-heading font-bold text-yellow-400">Mint Coins</h3>
                     <span class="text-xs font-mono bg-white/10 px-2 py-1 rounded">ECONOMY 2.0</span>

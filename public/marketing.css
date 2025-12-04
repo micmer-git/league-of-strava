@@ -1,0 +1,283 @@
+:root {
+  --lo-font: 'Google Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --lo-accent: #fc4c02;
+  --lo-accent-strong: #ea3e00;
+  --lo-surface: #ffffff;
+  --lo-surface-muted: #f8fafc;
+  --lo-border: #e5e7eb;
+  --lo-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+  --lo-shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --lo-radius-lg: 24px;
+  --lo-radius-md: 18px;
+  --lo-radius-sm: 12px;
+  --lo-text: #0f172a;
+  --lo-muted: #6b7280;
+  --lo-contrast: #ffffff;
+  --lo-gradient: linear-gradient(170deg, #fdf7f2 0%, #eef2ff 55%, #f7f9ff 100%);
+}
+
+body.marketing-body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--lo-font);
+  color: var(--lo-text);
+  background:
+    radial-gradient(880px circle at 18% -12%, rgba(255, 189, 128, 0.16), transparent 62%),
+    radial-gradient(760px circle at 82% 8%, rgba(163, 196, 255, 0.18), transparent 65%),
+    var(--lo-gradient);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.page-shell {
+  width: min(1180px, calc(100% - 2.75rem));
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 2.75rem) 0 clamp(2.5rem, 6vw, 3.5rem);
+}
+
+.page-title {
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.75rem;
+}
+
+.page-subtitle {
+  font-size: clamp(1rem, 3vw, 1.25rem);
+  color: var(--lo-muted);
+  max-width: 48rem;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(252, 76, 2, 0.1);
+  color: #c2410c;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  border: 1px solid rgba(252, 76, 2, 0.18);
+}
+
+.btn-primary,
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  border: 1px solid transparent;
+  box-shadow: var(--lo-shadow-soft);
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--lo-accent), var(--lo-accent-strong));
+  color: var(--lo-contrast);
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--lo-border);
+  color: var(--lo-text);
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--lo-shadow);
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+@media (min-width: 640px) {
+  .hero-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+.bento-card {
+  background: var(--lo-surface);
+  border: 1px solid var(--lo-border);
+  border-radius: var(--lo-radius-lg);
+  box-shadow: var(--lo-shadow);
+  transition: transform 200ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  position: relative;
+}
+
+.bento-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(252, 76, 2, 0.35);
+  box-shadow: 0 28px 52px rgba(252, 76, 2, 0.12);
+}
+
+.bento-card--dark {
+  background: #0b1224;
+  color: #e2e8f0;
+  border-color: #111827;
+  box-shadow: 0 22px 44px rgba(8, 15, 30, 0.48);
+}
+
+.text-gradient-orange {
+  background: linear-gradient(135deg, #fc4c02, #ff8c00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-strava { color: #fc4c02; }
+.bg-strava { background-color: #fc4c02; }
+.border-strava { border-color: #fc4c02; }
+
+.balance-bar-bg {
+  background-color: #f3f4f6;
+  border-radius: 999px;
+  overflow: hidden;
+  height: 10px;
+}
+
+.balance-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  width: 0%;
+}
+
+.rarity-verdant { background: #ecfdf5; color: #10b981; border: 1px solid #10b981; }
+.rarity-cerulean { background: #f0f9ff; color: #0ea5e9; border: 1px solid #0ea5e9; }
+.rarity-amethyst { background: #faf5ff; color: #a855f7; border: 1px solid #a855f7; }
+.rarity-auric { background: #fffbeb; color: #fbbf24; border: 1px solid #fbbf24; }
+.rarity-obsidian { background: #f8fafc; color: #0f172a; border: 1px solid #0f172a; }
+
+.table-card {
+  padding: clamp(1.5rem, 4vw, 2rem);
+}
+
+.leaderboard-table-wrapper {
+  border: 1px solid var(--lo-border);
+  border-radius: var(--lo-radius-md);
+  overflow: hidden;
+  background: var(--lo-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+#leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+#leaderboard-table thead th {
+  background-color: #f9fafb;
+  color: var(--lo-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--lo-border);
+}
+
+#leaderboard-table tbody tr {
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.2s;
+}
+
+#leaderboard-table tbody tr:hover {
+  background-color: #fff7ed;
+}
+
+#leaderboard-table td {
+  padding: 0.9rem 1rem;
+  font-size: 0.95rem;
+  color: #1f2937;
+  vertical-align: middle;
+}
+
+#leaderboard-table td.stat-cell,
+#leaderboard-table td:nth-child(n+4) {
+  text-align: center;
+}
+
+.leaderboard-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: inherit;
+  color: inherit;
+  text-transform: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+}
+
+.leaderboard-sort-button:hover {
+  color: var(--lo-accent);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.1rem;
+}
+
+@media (min-width: 768px) {
+  .hero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    width: min(720px, calc(100% - 1.5rem));
+    padding: 1.5rem 0 2.25rem;
+  }
+
+  #leaderboard-table {
+    min-width: 640px;
+  }
+
+  #leaderboard-table thead th,
+  #leaderboard-table td {
+    padding: 0.75rem 0.85rem;
+  }
+}
+
+@media (max-width: 540px) {
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+  }
+
+  .bento-card {
+    border-radius: var(--lo-radius-md);
+  }
+}

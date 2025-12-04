@@ -118,20 +118,6 @@ img {
   border: 0;
 }
 
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 80;
-  width: 100%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(244, 247, 255, 0.75));
-  border-bottom: 1px solid rgba(20, 28, 48, 0.08);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(16px);
-  padding-top: var(--app-safe-area-top);
-  max-height: 500px;
-  transition: transform var(--transition-base), opacity var(--transition-base), max-height 0.3s ease, padding 0.3s ease, box-shadow var(--transition-base), border-color var(--transition-base);
-}
-
 body.rank-modal-open .site-header {
   opacity: 0;
   transform: translateY(-1.5rem);

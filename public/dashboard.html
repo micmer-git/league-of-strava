@@ -6,6 +6,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <title>Strava Dashboard</title>
+<link href="/manifest.webmanifest" rel="manifest"/>
 <link href="/assets/tailwind.css" rel="stylesheet"/>
 <link href="/styles.css" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet"/>
@@ -19,13 +20,14 @@
 <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script defer="" src="/site-header.js"></script>
+<script defer="" src="/install.js"></script>
 <link href="/dashboard.css" rel="stylesheet"/>
 </head>
 <body class="dashboard-body is-loading" data-dashboard-shell="">
 <header class="site-header">
 <div class="site-header__inner">
 <a class="site-header__brand" href="/">
-<img alt="League of Strava logo" src="/static/league-of-strava.png"/>
+<img alt="League of Strava logo" onerror="this.src='/static/league-of-strava.png'" src="/logo.png"/>
 <span class="site-header__brand-text">League of Strava</span>
 </a>
 <button aria-controls="site-primary-nav" aria-expanded="false" class="site-header__toggle" id="site-nav-toggle" type="button">
@@ -38,9 +40,24 @@
 <a aria-current="page" href="/dashboard">Dashboard</a>
 <a href="/leaderboard">Leaderboard</a>
 <a href="/contact">Contact</a>
+<button class="site-header__install" data-install-trigger type="button">Install app</button>
+<a class="site-header__cta" href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh">Connect Strava</a>
 </nav>
 </div>
 </header>
+<div class="install-banner" data-install-banner hidden>
+<div class="install-banner__meta">
+<img alt="League of Strava" onerror="this.src='/static/league-of-strava.png'" src="/logo.png"/>
+<div class="install-banner__text">
+<p class="install-banner__eyebrow">Install</p>
+<p class="install-banner__title">League of Strava</p>
+</div>
+</div>
+<div class="install-banner__actions">
+<button data-install-trigger type="button">Install app</button>
+<button data-install-dismiss type="button">Maybe later</button>
+</div>
+</div>
 <!-- Loading Spinner -->
 <div aria-hidden="true" class="weekly-snapshot hidden" id="weekly-snapshot-modal">
 <section aria-labelledby="weekly-snapshot-title" aria-modal="true" class="weekly-snapshot__dialog" role="dialog" tabindex="-1">

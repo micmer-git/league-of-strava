@@ -6,16 +6,18 @@
   <title>League of Strava – Contact & Requests</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="manifest" href="/manifest.webmanifest">
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <script src="/site-header.js" defer></script>
+  <script src="/install.js" defer></script>
   <script src="/contact.js" defer></script>
 </head>
 <body class="contact-body">
   <header class="site-header">
     <div class="site-header__inner">
-      <a class="site-header__brand" href="/">
-        <img src="/static/league-of-strava.png" alt="League of Strava logo">
+        <a class="site-header__brand" href="/">
+          <img src="/logo.png" alt="League of Strava logo" onerror="this.src='/static/league-of-strava.png'">
         <span class="site-header__brand-text">League of Strava</span>
       </a>
       <button id="site-nav-toggle" class="site-header__toggle" type="button" aria-expanded="false" aria-controls="site-primary-nav">
@@ -28,9 +30,25 @@
         <a href="/dashboard">Dashboard</a>
         <a href="/leaderboard">Leaderboard</a>
         <a href="/contact" aria-current="page">Contact</a>
+        <button type="button" class="site-header__install" data-install-trigger>Install app</button>
+        <a href="/auth/strava?redirect=%2Fdashboard%3Fsync%3Drefresh" class="site-header__cta">Connect Strava</a>
       </nav>
     </div>
   </header>
+
+  <div class="install-banner" data-install-banner hidden>
+    <div class="install-banner__meta">
+      <img src="/logo.png" alt="League of Strava" onerror="this.src='/static/league-of-strava.png'">
+      <div class="install-banner__text">
+        <p class="install-banner__eyebrow">Install</p>
+        <p class="install-banner__title">League of Strava</p>
+      </div>
+    </div>
+    <div class="install-banner__actions">
+      <button type="button" data-install-trigger>Install app</button>
+      <button type="button" data-install-dismiss>Maybe later</button>
+    </div>
+  </div>
 
   <main class="contact-main">
     <section class="contact-card contact-intro">

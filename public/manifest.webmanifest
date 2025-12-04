@@ -1,0 +1,20 @@
+{
+  "name": "League of Strava",
+  "short_name": "LoS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#ff6d1d",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/league-of-strava.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

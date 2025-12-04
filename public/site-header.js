@@ -15,7 +15,7 @@
     toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   });
 
-  nav.querySelectorAll('a').forEach(link => {
-    link.addEventListener('click', closeNav);
+  nav.querySelectorAll('a, button').forEach(control => {
+    control.addEventListener('click', closeNav);
   });
 })();

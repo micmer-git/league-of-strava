@@ -4,15 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>League of Strava - Leaderboard</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/site-header.css">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
 
     <script src="/site-header.js" defer></script>
+    <script src="/install.js" defer></script>
     <script src="/leaderboard.js" defer></script>
 
     <style>
@@ -102,26 +106,43 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <nav class="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 p-4 px-6 flex justify-between items-center opacity-0 nav-item">
-        <div class="flex items-center gap-3">
-            <a href="/" class="flex items-center gap-3">
-                <img src="/static/league-of-strava.png" alt="Logo" class="w-8 h-8 rounded-full">
-                <span class="text-xl font-heading font-bold italic tracking-tighter text-gray-900">LEAGUE OF STRAVA</span>
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a class="site-header__brand" href="/">
+                <img src="/logo.png" alt="League of Strava logo" onerror="this.src='/static/league-of-strava.png'">
+                <span class="site-header__brand-text">League of Strava</span>
             </a>
+            <button aria-controls="site-primary-nav" aria-expanded="false" class="site-header__toggle" id="site-nav-toggle" type="button">
+                <span class="sr-only">Toggle navigation</span>
+                <span aria-hidden="true" class="site-header__toggle-bars"></span>
+                <span aria-hidden="true">Menu</span>
+            </button>
+            <nav aria-label="Primary navigation" class="site-header__nav" id="site-primary-nav">
+                <a href="/">Home</a>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/leaderboard" aria-current="page">Leaderboard</a>
+                <a href="/contact">Contact</a>
+                <button type="button" class="site-header__install" data-install-trigger>Install app</button>
+                <a href="/auth/strava?redirect=%2Fleaderboard" class="site-header__cta">
+                    Connect Strava
+                </a>
+            </nav>
         </div>
-        <div class="flex gap-4 items-center">
-            <a href="/" class="hidden md:block text-sm font-semibold text-gray-600 hover:text-strava transition-colors">
-                Home
-            </a>
-            <a href="/dashboard" class="hidden md:block text-sm font-semibold text-gray-600 hover:text-strava transition-colors">
-                Dashboard
-            </a>
-            <a href="/auth/strava?redirect=%2Fleaderboard" class="btn-primary px-5 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-2">
-                <img src="/static/strava-logo.png" class="w-4 h-4 brightness-0 invert" alt="">
-                Connect
-            </a>
+    </header>
+
+    <div class="install-banner" data-install-banner hidden>
+        <div class="install-banner__meta">
+            <img src="/logo.png" alt="League of Strava" onerror="this.src='/static/league-of-strava.png'">
+            <div class="install-banner__text">
+                <p class="install-banner__eyebrow">Install</p>
+                <p class="install-banner__title">League of Strava</p>
+            </div>
         </div>
-    </nav>
+        <div class="install-banner__actions">
+            <button type="button" data-install-trigger>Install app</button>
+            <button type="button" data-install-dismiss>Maybe later</button>
+        </div>
+    </div>
 
     <main class="container mx-auto px-4 py-12 md:py-16 max-w-7xl flex-grow">
         

@@ -149,13 +149,6 @@ h3,
     letter-spacing: -0.01em;
 }
 
-.site-header__brand-text {
-    text-transform: uppercase;
-    font-weight: 800;
-    font-style: italic;
-    letter-spacing: -0.03em;
-}
-
 @keyframes skeletonPulse {
     0% {
         background-position: -200% 0;

@@ -133,6 +133,11 @@ body {
     color: var(--color-text-primary);
 }
 
+.dashboard-body {
+    background: linear-gradient(145deg, #f8fafc 0%, #eef1fb 50%, #f8fafc 100%);
+    color: #111827;
+}
+
 h1,
 h2,
 h3,
@@ -142,6 +147,13 @@ h3,
 .site-header__brand-text {
     font-family: 'Google Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     letter-spacing: -0.01em;
+}
+
+.site-header__brand-text {
+    text-transform: uppercase;
+    font-weight: 800;
+    font-style: italic;
+    letter-spacing: -0.03em;
 }
 
 @keyframes skeletonPulse {
@@ -1431,6 +1443,11 @@ to { opacity: 1; transform: translateY(0); }
     flex: 1 1 clamp(5.75rem, 12vw, 8rem);
     min-width: clamp(5rem, 10vw, 7.25rem);
     justify-content: center;
+}
+
+#pizza-stat,
+#likes-stat {
+    cursor: default;
 }
 
 .profile-card__world-stat + .profile-card__world-stat::before {

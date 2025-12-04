@@ -355,7 +355,7 @@
 </div>
 <div class="wallet-chart wallet-chart--secondary" id="endurance-chart">
   <div class="wallet-chart__top-bar wallet-chart__top-bar--metrics" role="toolbar" aria-label="Endurance metric selector">
-    <p class="wallet-chart__hint wallet-chart__hint--compact">50-day moving averages for Run &amp; Ride</p>
+    <p class="wallet-chart__hint wallet-chart__hint--compact">50-day moving averages for All, Run &amp; Ride</p>
   </div>
   <div class="wallet-chart__body">
       <div aria-hidden="true" class="wallet-chart__skeleton" id="endurance-chart-skeleton">
@@ -386,6 +386,7 @@
         <p class="endurance-compare__help" id="endurance-compare-help">Type or pick a shared leaderboard name or Strava athlete ID to plot 50-day moving averages.</p>
         <p class="endurance-compare__status" id="endurance-compare-status" role="status" aria-live="polite"></p>
         <div class="endurance-compare__discipline-toggles" id="endurance-discipline-toggles" aria-label="Toggle disciplines">
+          <button type="button" class="endurance-compare__discipline-toggle is-active" data-discipline="all">✨ All</button>
           <button type="button" class="endurance-compare__discipline-toggle is-active" data-discipline="run">🏃 Run</button>
           <button type="button" class="endurance-compare__discipline-toggle is-active" data-discipline="ride">🚴 Ride</button>
         </div>

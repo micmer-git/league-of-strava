@@ -1375,10 +1375,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let enduranceFullscreenPlot = null;
     const enduranceFullscreenMediaQuery = window.matchMedia('(max-width: 768px)');
     const enduranceComparisonProfiles = new Map();
-    const activeEnduranceDisciplines = new Set(['run', 'ride']);
+    const activeEnduranceDisciplines = new Set(['all', 'run', 'ride']);
     const activeEnduranceProfiles = new Set(['self']);
     const knownEnduranceProfiles = new Set(['self']);
-    const enduranceDisciplineEmojis = { run: '🏃', ride: '🚴' };
+    const enduranceDisciplineEmojis = { all: '✨', run: '🏃', ride: '🚴' };
     let enduranceOrientationLocked = false;
     const leaderboardComparisonOptions = new Map();
     const leaderboardNameToIdMap = new Map();
@@ -14183,6 +14183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const metricConfigMap = new Map(metricConfig.map((config) => [config.key, config]));
         const disciplines = [
+            { key: 'all', label: 'All', paletteKey: 'all' },
             { key: 'run', label: 'Run', paletteKey: 'run' },
             { key: 'ride', label: 'Ride', paletteKey: 'ride' },
         ];
@@ -14255,7 +14256,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const firstValidIndices = [];
 
         const alignSeriesForDiscipline = (activities, disciplineKey) => {
-            const disciplineActivities = (activities || []).filter((activity) => resolveActivityDiscipline(activity) === disciplineKey);
+            const disciplineActivities = disciplineKey === 'all'
+                ? activities || []
+                : (activities || []).filter((activity) => resolveActivityDiscipline(activity) === disciplineKey);
             const series = buildDailyEnduranceSeries(disciplineActivities);
             const seriesMap = new Map(series.map((entry) => [entry.date.toISOString().slice(0, 10), entry]));
             return masterKeys.map((key) => {
@@ -14348,6 +14351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const axisColor = isDarkMode ? '#e2e8f0' : '#0f172a';
         const gridColor = isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.35)';
         const tickFont = { family: '"Google Sans", "Inter", system-ui, -apple-system, sans-serif', size: 12, weight: '600' };
+        let allPlotActive = false;
         let runPlotActive = false;
         let ridePlotActive = false;
 
@@ -14390,8 +14394,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     const baseColor = profileColorMap.get(profileKey) || config.palette.base;
                     const isRunDiscipline = discipline.key === 'run';
+                    const isRideDiscipline = discipline.key === 'ride';
+                    const isAllDiscipline = discipline.key === 'all';
                     const lineColor = isRunDiscipline ? lightenHexColor(baseColor, 0.28) : baseColor;
                     const fillColor = hexToRgba(lineColor, 0.18);
+                    const yAxisID = isAllDiscipline ? 'yAll' : (isRunDiscipline ? 'yRun' : 'yRide');
 
                     datasets.push({
                         label: `${config.label} · ${discipline.label} · ${profileLabel} · ${movingAverageWindow}d MA`,
@@ -14409,7 +14416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         pointBorderColor: lineColor,
                         pointBorderWidth: 0,
                         rawSeries: rawSeries.slice(visibleStart),
-                        yAxisID: isRunDiscipline ? 'yRun' : 'yRide',
+                        yAxisID,
                         tooltipEmoji: enduranceDisciplineEmojis[discipline.key] || '',
                         profileLabel,
                         profileKey,
@@ -14417,9 +14424,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         profileFirstName: getFirstName(profileLabel),
                     });
 
-                    if (isRunDiscipline) {
+                    if (isAllDiscipline) {
+                        allPlotActive = true;
+                    } else if (isRunDiscipline) {
                         runPlotActive = true;
-                    } else {
+                    } else if (isRideDiscipline) {
                         ridePlotActive = true;
                     }
                 });
@@ -14537,6 +14546,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                             beginAtZero: true,
                             title: { display: false },
                         },
+                        yAll: {
+                            position: 'left',
+                            display: allPlotActive,
+                            grid: {
+                                color: gridColor,
+                            },
+                            ticks: {
+                                color: axisColor,
+                                font: tickFont,
+                                callback(value) {
+                                    return config.tickFormatter ? config.tickFormatter(value) : value;
+                                },
+                            },
+                            beginAtZero: true,
+                            title: { display: false },
+                        },
                         yRun: {
                             position: 'right',
                             grid: {
@@ -14558,6 +14583,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (enduranceChartElement) {
+            enduranceChartElement.dataset.allActive = allPlotActive ? 'true' : 'false';
             enduranceChartElement.dataset.runActive = runPlotActive ? 'true' : 'false';
             enduranceChartElement.dataset.rideActive = ridePlotActive ? 'true' : 'false';
         }
@@ -15388,7 +15414,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const message = hasActivities
                 ? `Energy burned ${formatCalories(stats.calories)} ≈ ${formatPizzas(stats.pizzas)}.`
                 : 'No heart rate data to estimate calories for this period.';
-            attachTooltip(pizzaStatButton, message);
+            pizzaStatButton.setAttribute('aria-label', message);
+            pizzaStatButton.setAttribute('title', message);
         }
             if (countryStatButton) {
                 const countryCount = Number.isFinite(stats.countryCount) ? stats.countryCount : 0;
@@ -15417,7 +15444,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? `${formatCount(totalLikes)} kudos collected across all visible activities.`
                 : 'No kudos recorded for the selected period.';
             likesStatButton.setAttribute('aria-label', message);
-            attachTooltip(likesStatButton, message);
+            likesStatButton.setAttribute('title', message);
         }
     };
 

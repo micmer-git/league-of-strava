@@ -422,6 +422,10 @@ body.rank-modal-open .site-header__inner {
 
 .site-header__brand-text {
   font-size: 1.15rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
 }
 
 .site-header__nav {

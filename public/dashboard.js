@@ -105,6 +105,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         const mix = (channel) => channel + ((255 - channel) * factor);
         return `#${toHex(mix(r))}${toHex(mix(g))}${toHex(mix(b))}`;
     };
+    const blendHexWithBlack = (hex, factor = 0.65) => {
+        const normalized = typeof hex === 'string' ? hex.replace('#', '') : '';
+        if (![3, 6].includes(normalized.length)) {
+            return hex;
+        }
+
+        const fullHex = normalized.length === 3
+            ? normalized.split('').map((char) => char + char).join('')
+            : normalized;
+        const intValue = Number.parseInt(fullHex, 16);
+        const r = (intValue >> 16) & 255;
+        const g = (intValue >> 8) & 255;
+        const b = intValue & 255;
+        const blend = (channel) => channel * (1 - clamp01(factor));
+
+        return `#${toHex(blend(r))}${toHex(blend(g))}${toHex(blend(b))}`;
+    };
     const isTouchCapable = ('ontouchstart' in window)
         || (navigator.maxTouchPoints > 0)
         || (navigator.msMaxTouchPoints > 0);
@@ -14425,9 +14442,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const isRunDiscipline = discipline.key === 'run';
                     const isRideDiscipline = discipline.key === 'ride';
                     const isAllDiscipline = discipline.key === 'all';
-                    const lineColor = isRunDiscipline ? lightenHexColor(baseColor, 0.28) : baseColor;
+                    const lineColor = isAllDiscipline
+                        ? blendHexWithBlack(baseColor, 0.78)
+                        : (isRunDiscipline ? lightenHexColor(baseColor, 0.28) : baseColor);
                     const fillColor = hexToRgba(lineColor, 0.18);
-                    const yAxisID = isAllDiscipline ? 'yAll' : (isRunDiscipline ? 'yRun' : 'yRide');
+                    const yAxisID = 'y';
 
                     datasets.push({
                         label: `${config.label} · ${discipline.label} · ${profileLabel} · ${movingAverageWindow}d MA`,
@@ -14560,41 +14579,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 display: false,
                             },
                         },
-                        yRide: {
+                        y: {
                             position: 'left',
                             grid: {
                                 color: gridColor,
-                            },
-                            ticks: {
-                                color: axisColor,
-                                font: tickFont,
-                                callback(value) {
-                                    return config.tickFormatter ? config.tickFormatter(value) : value;
-                                },
-                            },
-                            beginAtZero: true,
-                            title: { display: false },
-                        },
-                        yAll: {
-                            position: 'left',
-                            display: allPlotActive,
-                            grid: {
-                                color: gridColor,
-                            },
-                            ticks: {
-                                color: axisColor,
-                                font: tickFont,
-                                callback(value) {
-                                    return config.tickFormatter ? config.tickFormatter(value) : value;
-                                },
-                            },
-                            beginAtZero: true,
-                            title: { display: false },
-                        },
-                        yRun: {
-                            position: 'right',
-                            grid: {
-                                drawOnChartArea: false,
                             },
                             ticks: {
                                 color: axisColor,

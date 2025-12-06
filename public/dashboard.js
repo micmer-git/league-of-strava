@@ -1082,6 +1082,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         totalValue: document.getElementById('weekly-snapshot-total-value'),
         totalDetail: document.getElementById('weekly-snapshot-total-detail'),
     };
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedUserIdParam = (urlParams.get('userId') || '').trim();
+    const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
+    const isSharedView = Boolean(sharedUserId);
+    let primaryAthleteLabel = isSharedView ? 'Athlete' : 'You';
+
+    document.body.classList.toggle('is-shared-view', isSharedView);
+
+    const resolveAthleteLabel = (athlete = {}) => {
+        const firstName = typeof athlete.firstname === 'string' ? athlete.firstname.trim() : '';
+        const lastName = typeof athlete.lastname === 'string' ? athlete.lastname.trim() : '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        const username = typeof athlete.username === 'string' ? athlete.username.trim() : '';
+        const preferredLabel = fullName || username;
+
+        if (isSharedView) {
+            return preferredLabel || 'Athlete';
+        }
+
+        return 'You';
+    };
+
+    const syncPrimaryAthleteLabel = (athlete = {}) => {
+        primaryAthleteLabel = resolveAthleteLabel(athlete);
+    };
+
     const loadingStepElements = Array.from(document.querySelectorAll('[data-loading-step]'));
     const loadingStepLookup = new Map();
     loadingStepElements.forEach((step, index) => {
@@ -1245,6 +1271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let pendingWalletRender = false;
     const manualSyncButton = document.getElementById('fetch-strava-button');
+    const profileSyncSection = document.querySelector('.profile-card__sync');
     const setManualSyncButtonState = (isLoading) => {
         if (!manualSyncButton) {
             return;
@@ -1259,6 +1286,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             manualSyncButton.removeAttribute('aria-busy');
         }
     };
+
+    if (isSharedView) {
+        if (manualSyncButton) {
+            manualSyncButton.classList.add('profile-card__sync-button--hidden');
+            manualSyncButton.setAttribute('aria-hidden', 'true');
+            manualSyncButton.setAttribute('tabindex', '-1');
+            manualSyncButton.disabled = true;
+        }
+        if (profileSyncSection) {
+            profileSyncSection.classList.add('profile-card__sync--hidden');
+        }
+    }
     const shouldFallbackToManualSync = async () => {
         if (!window.dashboardMobile?.refresh) {
             return true;
@@ -1727,7 +1766,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         enduranceProfileToggleContainer = document.getElementById('endurance-profile-toggles');
         enduranceLegendContainer = document.getElementById('endurance-legend');
         syncEnduranceDisciplineToggles();
-        syncEnduranceProfileToggles([{ key: 'self', label: 'You', activities: [] }]);
+        syncEnduranceProfileToggles([{ key: 'self', label: primaryAthleteLabel, activities: [] }]);
         setEnduranceChartSkeletonVisible(isShellLoading());
         bindEnduranceCompareForm();
         bindEnduranceFullscreenControls();
@@ -1975,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let shareCopyResetTimeout = null;
 
     let activePanelName = null;
-    const sharedViewParam = new URLSearchParams(window.location.search).get('userId') || '';
+    const sharedViewParam = sharedUserId || '';
     const initialPanelFromUrl = readPanelFromUrl();
     const shouldForceProfilePanel = sharedViewParam.trim().length > 0;
     const initialPanelFromMarkup = dashboardTabButtons.find(button => button.classList.contains('is-active'))?.dataset?.dashboardTab ?? null;
@@ -2134,10 +2173,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const sharedUserIdParam = (urlParams.get('userId') || '').trim();
-    const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
-    const isSharedView = Boolean(sharedUserId);
     const syncParamRaw = (urlParams.get('sync') || '').toLowerCase();
     const shouldForceAuthSync = !isSharedView && ['1', 'true', 'yes', 'refresh'].includes(syncParamRaw);
 
@@ -14227,7 +14262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const profiles = [
-            { key: 'self', label: 'You', activities: activitySource },
+            { key: 'self', label: primaryAthleteLabel, activities: activitySource },
             ...Array.from(enduranceComparisonProfiles.values()),
         ];
 
@@ -20707,6 +20742,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             ...(allData.athlete || {}),
             ...athlete,
         };
+
+        syncPrimaryAthleteLabel(mergedAthlete);
 
         const mergedPageInfo = mergePageInfo(existingPageInfo, data.pageInfo);
 

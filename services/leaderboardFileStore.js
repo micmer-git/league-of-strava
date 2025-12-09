@@ -28,6 +28,10 @@ async function readLeaderboardFile() {
       return parsed;
     }
 
+    if (parsed && Array.isArray(parsed.leaderboard)) {
+      return parsed.leaderboard;
+    }
+
     return [];
   } catch (error) {
     if (error.code === 'ENOENT') {

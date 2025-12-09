@@ -20809,6 +20809,61 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const buildStoredFallbackNotice = (payload) => {
+        if (!payload || typeof payload !== 'object') {
+            return '';
+        }
+
+        const storedTimestamp = payload.storedTimestamp || payload?.loadingInfo?.storedTimestamp;
+        const formattedTimestamp = storedTimestamp ? new Date(storedTimestamp).toLocaleString() : '';
+        const stravaWarning = Array.isArray(payload?.activityMetadata?.warnings)
+            ? payload.activityMetadata.warnings.find((warning) => typeof warning === 'string'
+                && warning.toLowerCase().includes('strava'))
+            : '';
+        const fallbackMessage = payload.message || stravaWarning || '';
+        const showingStored = Boolean(
+            payload?.loadingInfo?.sheetOnly
+            || payload?.loadingInfo?.servedFrom === 'snapshot'
+            || payload.stored
+        );
+
+        if (!showingStored && !fallbackMessage && !payload.stale) {
+            return '';
+        }
+
+        if (fallbackMessage && formattedTimestamp) {
+            return `${fallbackMessage} Last saved snapshot: ${formattedTimestamp}.`;
+        }
+
+        if (fallbackMessage) {
+            return `${fallbackMessage} Showing your saved snapshot instead of live Strava data.`;
+        }
+
+        if (showingStored) {
+            return formattedTimestamp
+                ? `Strava is unreachable right now, so we're showing your saved snapshot from ${formattedTimestamp}.`
+                : 'Strava is unreachable right now, so we loaded your saved snapshot.';
+        }
+
+        return '';
+    };
+
+    const renderStoredFallbackNotice = (payload) => {
+        if (!errorMessage) {
+            return;
+        }
+
+        const notice = buildStoredFallbackNotice(payload);
+
+        if (notice) {
+            errorMessage.classList.remove('hidden');
+            errorMessage.textContent = notice;
+        } else {
+            errorMessage.classList.add('hidden');
+            errorMessage.textContent = '';
+        }
+    };
+
     const loadStoredSnapshotIfAvailable = async () => {
         if (isSharedView) {
             return false;
@@ -20842,10 +20897,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             ingestResponseData(storedData, { isLoadMore: false });
             requestActivitiesRender({ preserveVisibleCount: false });
             console.log('Loaded stored snapshot from Google Sheets.');
-            if (errorMessage) {
-                errorMessage.classList.add('hidden');
-                errorMessage.textContent = '';
-            }
+            renderStoredFallbackNotice(storedData);
             updateInitialLoadingState('snapshot', 'complete', 'Synced your latest saved snapshot');
             updateInitialLoadingState('finalize', 'active', 'Polishing your saved insights');
             return true;
@@ -21019,10 +21071,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             requestActivitiesRender({ preserveVisibleCount: isLoadMore });
             updateInitialLoadingState('fetch', 'complete', 'Live Strava data synced');
             updateInitialLoadingState('finalize', 'active', 'Curating achievements and leaderboards');
-            if (errorMessage) {
-                errorMessage.classList.add('hidden');
-                errorMessage.textContent = '';
-            }
+            renderStoredFallbackNotice(data);
             if (!isLoadMore && leaderboardBody) {
                 try {
                     await loadLeaderboard();

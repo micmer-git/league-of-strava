@@ -1450,48 +1450,51 @@ app.get('/api/strava-data', async (req, res) => {
     : Number.MAX_SAFE_INTEGER;
   const perPage = Math.min(Math.max(Number.parseInt(req.query.perPage, 10) || 200, 1), 200);
   const requestedUserIdParam = typeof req.query.userId === 'string' ? req.query.userId.trim() : '';
+  const signedAthlete = resolveSignedAthleteFromRequest(req);
+  const signedAthleteUserId = signedAthlete?.userId ? String(signedAthlete.userId) : '';
+  const storedSnapshotUserId = requestedUserIdParam || signedAthleteUserId;
 
   if (!accessToken) {
     console.warn('No access token found in cookies');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  if (loadStored && requestedUserIdParam) {
+  if (loadStored && storedSnapshotUserId) {
     try {
-      const existingSnapshot = await getLatestUserSnapshot(requestedUserIdParam);
+      const existingSnapshot = await getLatestUserSnapshot(storedSnapshotUserId);
 
       if (existingSnapshot?.payload && isValidSnapshotPayload(existingSnapshot.payload)) {
-        console.log(`Serving stored snapshot for athlete ${requestedUserIdParam} without contacting Strava.`);
+        console.log(`Serving stored snapshot for athlete ${storedSnapshotUserId} without contacting Strava.`);
         const storedPayload = recalculateSnapshotTotals(existingSnapshot.payload);
 
-        const storedContactRequests = await safeGetContactRequests(requestedUserIdParam);
-        await attachContactRequestsToPayload(storedPayload, requestedUserIdParam, {
+        const storedContactRequests = await safeGetContactRequests(storedSnapshotUserId);
+        await attachContactRequestsToPayload(storedPayload, storedSnapshotUserId, {
           prefetchedRequests: storedContactRequests,
         });
 
         const payloadWithComputedDashboard = ensureComputedDashboard(storedPayload);
 
-        try {
-          const historyResult = await loadStoredActivitiesForUser(requestedUserIdParam);
-          if (Array.isArray(historyResult.activities) && historyResult.activities.length > 0) {
-            payloadWithComputedDashboard.activities = historyResult.activities;
-            payloadWithComputedDashboard.activityHistorySource = historyResult.source;
-            payloadWithComputedDashboard.activityHistoryCached = historyResult.cached;
-          } else if (!Array.isArray(payloadWithComputedDashboard.activities)) {
-            payloadWithComputedDashboard.activities = [];
+          try {
+            const historyResult = await loadStoredActivitiesForUser(storedSnapshotUserId);
+            if (Array.isArray(historyResult.activities) && historyResult.activities.length > 0) {
+              payloadWithComputedDashboard.activities = historyResult.activities;
+              payloadWithComputedDashboard.activityHistorySource = historyResult.source;
+              payloadWithComputedDashboard.activityHistoryCached = historyResult.cached;
+            } else if (!Array.isArray(payloadWithComputedDashboard.activities)) {
+              payloadWithComputedDashboard.activities = [];
+            }
+          } catch (historyError) {
+            console.warn(`Unable to hydrate stored snapshot activities for athlete ${storedSnapshotUserId}:`, historyError.message);
+            if (!Array.isArray(payloadWithComputedDashboard.activities)) {
+              payloadWithComputedDashboard.activities = [];
+            }
           }
-        } catch (historyError) {
-          console.warn(`Unable to hydrate stored snapshot activities for athlete ${requestedUserIdParam}:`, historyError.message);
-          if (!Array.isArray(payloadWithComputedDashboard.activities)) {
-            payloadWithComputedDashboard.activities = [];
-          }
-        }
 
         const cacheTimestamp = Date.now();
         const hasBackupActivities = Array.isArray(payloadWithComputedDashboard.activities)
           && payloadWithComputedDashboard.activities.length > 0;
         const loadingInfo = createLoadingInfo({
-          userId: requestedUserIdParam,
+          userId: storedSnapshotUserId,
           cacheTimestamp,
           cacheAgeMs: 0,
           storedTimestamp: existingSnapshot.timestamp || null,
@@ -1508,14 +1511,14 @@ app.get('/api/strava-data', async (req, res) => {
           storedTimestamp: existingSnapshot.timestamp || null,
         };
 
-        await attachContactRequestsToPayload(normalizedPayload, requestedUserIdParam, {
+        await attachContactRequestsToPayload(normalizedPayload, storedSnapshotUserId, {
           prefetchedRequests: storedPayload.contactRequests,
         });
 
         ensurePayloadCountryMetadata(normalizedPayload);
 
         const cacheKeyForStored = buildUserDataCacheKey({
-          userId: requestedUserIdParam,
+          userId: storedSnapshotUserId,
           startPage,
           pageCount: requestedPageCount,
           perPage,
@@ -2178,11 +2181,13 @@ app.get('/api/strava-data', async (req, res) => {
       });
     }
 
-    if (userId) {
+    const fallbackSnapshotUserId = userId || signedAthleteUserId || requestedUserIdParam;
+
+    if (fallbackSnapshotUserId) {
       try {
-        const storedSnapshot = await getLatestUserSnapshot(userId);
+        const storedSnapshot = await getLatestUserSnapshot(fallbackSnapshotUserId);
         if (storedSnapshot?.payload) {
-          console.log(`Returning stored snapshot for athlete ${userId} after live fetch failure.`);
+          console.log(`Returning stored snapshot for athlete ${fallbackSnapshotUserId} after live fetch failure.`);
           const normalizedStored = ensureComputedDashboard(recalculateSnapshotTotals(storedSnapshot.payload));
           const cacheTimestamp = Date.now();
           const storedActivityMetadata = mergeActivityMetadata(
@@ -2212,7 +2217,7 @@ app.get('/api/strava-data', async (req, res) => {
 
           const hasStoredActivities = Array.isArray(normalizedStored.activities) && normalizedStored.activities.length > 0;
           const loadingInfo = createLoadingInfo({
-            userId,
+            userId: fallbackSnapshotUserId,
             cacheTimestamp,
             cacheAgeMs: 0,
             storedTimestamp: storedSnapshot.timestamp || null,
@@ -2230,6 +2235,11 @@ app.get('/api/strava-data', async (req, res) => {
             activityMetadata: storedActivityMetadata,
             pageInfo: storedPageInfo,
           };
+
+          const storedContactRequests = await safeGetContactRequests(fallbackSnapshotUserId);
+          await attachContactRequestsToPayload(enrichedStoredPayload, fallbackSnapshotUserId, {
+            prefetchedRequests: storedContactRequests,
+          });
 
           ensurePayloadCountryMetadata(enrichedStoredPayload);
 

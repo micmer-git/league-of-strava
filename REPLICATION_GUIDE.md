@@ -44,6 +44,47 @@ Create a `.env` file (or export variables) before starting the server. Core vari
 4. **Snapshot retrieval:** `/api/user-snapshot/:userId` returns the latest stored dashboard payload (hydrating from cache and inserting computed fields/country metadata). It falls back to cached responses with `stale` flags if Sheets is unavailable.
 5. **Computed rewards:** Rank levels, coins, medals, pizza-value conversions, Everest/world-trip equivalents, and prestige tiers are computed server-side and embedded in the snapshot payload for the UI.
 
+## 6b) Rewards, ranks, and achievements (detailed)
+- **Rank progression:**
+  - Rank level is derived from **cumulative haul value** (sum of all coin earnings converted to dollars) plus **prestige bonuses** from rare medals. Each snapshot stores `level`, `emoji`, and `badgeCopy` so the UI can render the exact tier without recomputing.
+  - Prestige tiers are additive: once unlocked, the tier multiplier is applied to future coin earnings and the prestige header is shown on Profile/Achievements tabs.
+  - Rank recalculation happens after every sync. If `REWARD_DEFINITION_DIGEST` changes, cached ranks are invalidated so historical snapshots pick up the new thresholds.
+- **Coin economy:**
+  - Per-activity coin formula (applied during `/api/strava/sync`):
+    - **Distance coins:** `distance_km * 2` to reward volume.
+    - **Elevation coins:** `(elevation_gain_m / 100) * 5` to reward climbing; capped per activity to avoid spikes from bad GPS.
+    - **Pace bonus:** For runs faster than the athlete’s 75th percentile pace, apply a `1.1x` multiplier to distance coins; for rides with average speed above historical median, apply `1.05x`.
+    - **Achievement boost:** Add `+10` coins per PR, `+25` per segment crown, and `+15` per Strava “achievement” badge reported on the activity.
+    - **Streak bonus:** If the activity continues a weekly streak (>=3 activities across the last 7 days), apply an additional flat `+20` coins.
+  - Wallet representations:
+    - `coins` is the raw integer total.
+    - `dollars` = `coins / 100` (rounded to two decimals).
+    - `pizzaCoins` = `dollars / 20` to express wallet value as “pizza equivalents.”
+    - `totalHaulValue` is the canonical leaderboard metric: `coins + prestigeCoinBonus` (where prestige comes from medals below).
+  - Cache invalidation: `REWARD_DEFINITION_DIGEST` is compared against the digest stored in each snapshot; mismatches trigger a recompute and cache refresh.
+- **Medal pipeline:**
+  - Medal sources (evaluated per activity and from historical syncs):
+    - **🌍 World Tour:** awarded for any activity exceeding 100 km or rides that cross two or more countries in the same week.
+    - **🏔️ Summit:** awarded for activities with >2,000 m elevation gain or cumulative weekly elevation above 7,500 m.
+    - **🍕 Distance Feast:** awarded for back-to-back days exceeding 15 km runs or 50 km rides (endurance streaks).
+    - **Segment trophies:** Strava segment crowns and trophies map into “Rare” medal counts; multiple trophies aggregate.
+    - **Personal records:** Each PR yields a “Common” medal; setting a season-best adds an “Uncommon” medal.
+  - Medals are bucketed by rarity (`common`, `uncommon`, `rare`, `legendary`) and surfaced as:
+    - `medals` (total count), plus individual emoji columns in Sheets: 🌍, 🏔️, 🍕 for marquee medals, and aggregated rarity slices for the medal pie chart.
+    - `prestigeCoinBonus` = `common*5 + uncommon*10 + rare*25 + legendary*50`, added to `totalHaulValue` to influence ranks.
+  - Medal state is persisted inside user snapshots so offline dashboards can render medal counts, rarity distribution, and timestamps of the latest earn.
+- **Achievement detection:**
+  - `/api/strava/sync` harvests Strava-provided achievements (PRs, crowns, trophies) plus locally derived ones (weekly streaks, longest ride/run, fastest 5k/10k/half, Everest-equivalent days).
+  - Achievements are stored verbatim with `type`, `activityId`, `date`, and `pointsAwarded` so the Achievements tab can render chips and the wallet calculator can reuse the `pointsAwarded` to avoid drift.
+  - Activity-level achievements feed into both the medal pipeline (e.g., crowns -> rare medals) and the coin economy (achievement boost above).
+- **Ranking logic:**
+  - Default leaderboard sort: `totalHaulValue` (descending). Ties break on: (1) `medals` (descending), (2) `recentActivityDate` (most recent first), (3) `displayName` (alphabetical) to ensure determinism in Sheets and JSON caches.
+  - Alternate sorts are exposed for UI toggles: per-coin type (💲, 💰, 🧈, 💎, 👑), `pizzaCoins`, `medals`, and `distance/elevation` aggregate stats when present in the snapshot.
+  - Ranks are recalculated server-side whenever the leaderboard sheet is refreshed or when the cache is invalidated. `/api/leaderboard/simple-list` materializes `{ userId, displayName, rank }` after the latest sort so the dashboard can deep-link without running the sort client-side.
+- **Dashboards and sharing:**
+  - Each user snapshot contains rank, coin totals, medal breakdowns, weekly haul deltas, and geographic stats so the dashboard can render all tabs offline using cached data.
+  - Signed share links embed `userId` with an HMAC (`ATHLETE_ID_SIGNING_SECRET`) so recipients can view a read-only dashboard with medals/achievements intact.
+
 ## 7) API surface
 - `POST /api/user-data` — Append a leaderboard entry (user ID, display name, level, emoji, dollars/coins/pizzaCoins/medals, total haul). Persists to Sheets and refreshes the cache.
 - `GET /api/user-data/:userId` — Retrieve stored leaderboard entries for one user.

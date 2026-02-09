@@ -1,5 +1,8 @@
 // public/contact.js
 
+const STORAGE_KEY = 'league_contact_autosave';
+const STORAGE_TIMESTAMP_KEY = 'league_contact_timestamp';
+
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('contact-request-form');
   if (!form) {
@@ -11,6 +14,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const requestGroups = Array.from(document.querySelectorAll('[data-request-group]'));
   const infoPanels = Array.from(document.querySelectorAll('[data-request-info]'));
   const submitButton = form.querySelector('button[type="submit"]');
+
+  // Autosave functionality
+  const saveFormState = () => {
+    const formData = new FormData(form);
+    const state = {};
+    formData.forEach((value, key) => {
+      state[key] = value;
+    });
+    state.requestType = requestTypeSelect?.value || 'medal';
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
+  };
+
+  const loadFormState = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const timestamp = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
+      if (!saved || !timestamp) {
+        return false;
+      }
+
+      const state = JSON.parse(saved);
+      Object.keys(state).forEach(key => {
+        const field = form.elements[key];
+        if (field) {
+          field.value = state[key];
+        }
+      });
+
+      // Show restore notification if form was partially filled
+      const timeAgo = Math.round((Date.now() - parseInt(timestamp)) / 60000);
+      const timeLabel = timeAgo < 60 ? `${timeAgo}m` : `${Math.round(timeAgo / 60)}h`;
+      setFeedback(`Form restored from ${timeLabel} ago`, 'info');
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const clearFormState = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
+  };
 
   const setFeedback = (message, status = '') => {
     if (!feedbackElement) {
@@ -43,9 +89,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  // Initialize autosave
+  loadFormState();
   toggleRequestGroups();
+
+  // Attach autosave listeners to all form fields
+  form.querySelectorAll('input, textarea, select').forEach(field => {
+    field.addEventListener('input', saveFormState);
+    field.addEventListener('change', saveFormState);
+  });
+
   if (requestTypeSelect) {
-    requestTypeSelect.addEventListener('change', toggleRequestGroups);
+    requestTypeSelect.addEventListener('change', () => {
+      toggleRequestGroups();
+      saveFormState();
+    });
   }
 
   const buildPayload = () => {
@@ -98,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setFeedback(data?.message || 'Request submitted.', 'success');
       form.reset();
+      clearFormState();
       toggleRequestGroups();
     } catch (error) {
       setFeedback(error.message || 'Unable to submit your request.', 'error');

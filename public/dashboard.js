@@ -1086,9 +1086,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sharedUserIdParam = (urlParams.get('userId') || '').trim();
     const sharedUserId = sharedUserIdParam.length > 0 ? sharedUserIdParam : null;
     const isSharedView = Boolean(sharedUserId);
+    const LAST_SHARED_USER_STORAGE_KEY = 'league:lastSharedUserId';
     let primaryAthleteLabel = isSharedView ? 'Athlete' : 'You';
 
     document.body.classList.toggle('is-shared-view', isSharedView);
+
+    const resumeSharedBanner = document.getElementById('resume-shared-banner');
+    const resumeSharedDetail = document.getElementById('resume-shared-detail');
+    const resumeSharedLink = document.getElementById('resume-shared-link');
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+        if (isSharedView && sharedUserId) {
+            try {
+                window.localStorage.setItem(LAST_SHARED_USER_STORAGE_KEY, sharedUserId);
+            } catch (error) {
+                console.warn('Unable to persist shared userId to localStorage:', error);
+            }
+        }
+
+        if (!isSharedView && resumeSharedBanner && resumeSharedLink) {
+            try {
+                const lastSharedUserId = (window.localStorage.getItem(LAST_SHARED_USER_STORAGE_KEY) || '').trim();
+                if (lastSharedUserId) {
+                    const label = `userId=${lastSharedUserId}`;
+                    if (resumeSharedDetail) {
+                        resumeSharedDetail.textContent = `Last shared view: ${label}`;
+                    }
+                    resumeSharedLink.href = `${window.location.pathname}?userId=${encodeURIComponent(lastSharedUserId)}`;
+                    resumeSharedBanner.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.warn('Unable to access localStorage for resume shared banner:', error);
+            }
+        }
+    }
 
     const resolveAthleteLabel = (athlete = {}) => {
         const firstName = typeof athlete.firstname === 'string' ? athlete.firstname.trim() : '';

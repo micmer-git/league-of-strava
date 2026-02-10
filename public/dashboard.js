@@ -21377,6 +21377,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const medalsEarned = lifetimeRewardSummary.medalsEarned;
         const medalSummary = lifetimeRewardSummary.medalSummary;
 
+        // Update medals tab badge with count
+        // (supports ?mock=1 to make UI QA/screenshots easier without Strava data)
+        const medalsTabBadge = document.getElementById('medals-tab-badge');
+        if (medalsTabBadge) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isMockMode = urlParams.get('mock') === '1';
+
+            const earnedCount = medalsEarned?.length || 0;
+            const displayCount = isMockMode && earnedCount === 0 ? 12 : earnedCount;
+
+            medalsTabBadge.textContent = displayCount;
+            medalsTabBadge.hidden = displayCount === 0;
+        }
+
         const completeMedalInventory = ensureCompleteMedalInventory(lifetimeRewardSummary.medalInventory);
         const fullMedalInventory = completeMedalInventory.map(medal => {
             const hydratedMedal = hydrateMedalFromDefinition(medal);

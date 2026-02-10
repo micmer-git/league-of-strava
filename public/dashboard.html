@@ -136,6 +136,15 @@
 </div>
 <main class="dashboard-shell">
 <div class="hidden bg-red-100 text-red-700 p-4 rounded mb-4" id="error-message"></div>
+<div class="hidden bg-amber-50 text-amber-900 p-4 rounded mb-4 border border-amber-200" id="resume-shared-banner">
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <strong>Resume shared athlete</strong>
+      <div class="text-sm opacity-90" id="resume-shared-detail">Open the last shared profile you viewed.</div>
+    </div>
+    <a class="inline-flex items-center justify-center px-3 py-2 rounded bg-amber-600 text-white hover:bg-amber-700 transition" id="resume-shared-link" href="#">Open</a>
+  </div>
+</div>
 <div class="dashboard-onepage">
 <div aria-orientation="horizontal" class="dashboard-tabs" role="tablist">
 <button aria-controls="panel-profile" aria-selected="true" class="dashboard-tab is-active" data-dashboard-tab="profile" id="tab-profile" role="tab" type="button">

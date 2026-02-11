@@ -1517,6 +1517,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
+    const copyPanelLinkButton = document.getElementById('copy-panel-link');
+    const copyPanelLinkLabel = document.querySelector('[data-copy-panel-link-label]');
     const WALLET_PAN_THROTTLE_MS = 100;
     const WALLET_DOUBLE_TAP_WINDOW_MS = 320;
     const WALLET_DOUBLE_TAP_DISTANCE_PX = 28;
@@ -2012,6 +2014,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     let topFilterShortcutActive = false;
     let lastShareData = null;
     let shareCopyResetTimeout = null;
+
+    const copyTextToClipboard = async (text) => {
+        const safeText = typeof text === 'string' ? text : '';
+        if (!safeText) {
+            return false;
+        }
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            try {
+                await navigator.clipboard.writeText(safeText);
+                return true;
+            } catch (error) {
+                // fall through
+            }
+        }
+
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = safeText;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.top = '0';
+            textarea.style.left = '0';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            const didCopy = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            return Boolean(didCopy);
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const flashCopyPanelLinkState = (didCopy) => {
+        if (!copyPanelLinkButton) {
+            return;
+        }
+
+        if (shareCopyResetTimeout) {
+            window.clearTimeout(shareCopyResetTimeout);
+            shareCopyResetTimeout = null;
+        }
+
+        const copied = Boolean(didCopy);
+        copyPanelLinkButton.classList.toggle('is-copied', copied);
+        if (copyPanelLinkLabel) {
+            copyPanelLinkLabel.textContent = copied ? 'Copied!' : 'Copy link';
+        }
+
+        shareCopyResetTimeout = window.setTimeout(() => {
+            copyPanelLinkButton.classList.remove('is-copied');
+            if (copyPanelLinkLabel) {
+                copyPanelLinkLabel.textContent = 'Copy link';
+            }
+            shareCopyResetTimeout = null;
+        }, copied ? 1500 : 900);
+    };
+
+    if (copyPanelLinkButton) {
+        copyPanelLinkButton.addEventListener('click', async () => {
+            const url = window.location.href;
+            const didCopy = await copyTextToClipboard(url);
+            flashCopyPanelLinkState(didCopy);
+        });
+    }
 
     let activePanelName = null;
     const sharedViewParam = sharedUserId || '';

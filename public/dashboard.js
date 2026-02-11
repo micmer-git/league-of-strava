@@ -1701,7 +1701,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dashboardPanelsContainer = document.querySelector('[data-dashboard-panels]');
     const mobilePanelChangeCallbacks = new Set();
     const DASHBOARD_PANEL_STORAGE_KEY = 'los:dashboard:active-panel';
+    const DASHBOARD_PANEL_SCROLL_STORAGE_PREFIX = 'los:dashboard:panel-scroll:';
     let canPersistPanelState = true;
+    let canPersistPanelScrollState = true;
+
+    const readStoredPanelScrollY = (panelName) => {
+        if (!canPersistPanelScrollState || !panelName) {
+            return null;
+        }
+
+        try {
+            const storedValue = sessionStorage.getItem(`${DASHBOARD_PANEL_SCROLL_STORAGE_PREFIX}${panelName}`);
+            const parsed = storedValue == null ? NaN : Number(storedValue);
+            return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+        } catch (error) {
+            console.warn('Unable to access sessionStorage for dashboard panel scroll state:', error);
+            canPersistPanelScrollState = false;
+            return null;
+        }
+    };
+
+    const persistPanelScrollY = (panelName, scrollY) => {
+        if (!canPersistPanelScrollState || !panelName || !Number.isFinite(scrollY) || scrollY < 0) {
+            return;
+        }
+
+        try {
+            sessionStorage.setItem(`${DASHBOARD_PANEL_SCROLL_STORAGE_PREFIX}${panelName}`, String(Math.round(scrollY)));
+        } catch (error) {
+            console.warn('Unable to persist dashboard panel scroll state:', error);
+            canPersistPanelScrollState = false;
+        }
+    };
+
+    const restorePanelScrollY = (panelName) => {
+        const storedScrollY = readStoredPanelScrollY(panelName);
+        const targetScrollY = storedScrollY ?? 0;
+
+        // Two rAFs gives the DOM a tick to swap panels + compute layout.
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+                try {
+                    window.scrollTo({ top: targetScrollY, left: 0, behavior: 'auto' });
+                } catch (error) {
+                    window.scrollTo(0, targetScrollY);
+                }
+            });
+        });
+    };
 
     const refreshPanelReferences = () => {
         globeStatButton = document.getElementById('globe-stat');
@@ -2066,6 +2113,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        if (activePanelName) {
+            persistPanelScrollY(activePanelName, window.scrollY);
+        }
+
         activePanelName = panelName;
         persistActivePanel(panelName);
 
@@ -2105,6 +2156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         notifyPanelChange(panelName);
+        restorePanelScrollY(panelName);
 
         if (!skipUrlSync) {
             syncPanelUrl(panelName);

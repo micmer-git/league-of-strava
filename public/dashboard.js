@@ -1449,6 +1449,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const leaderboardSortButtons = Array.from(document.querySelectorAll('.leaderboard-sort'));
     let panelShortcutButtons = Array.from(document.querySelectorAll('[data-panel-target]'));
     const dashboardTabButtons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
+    const copyDashboardLinkButton = document.getElementById('copy-dashboard-link');
+    const dashboardLinkFeedback = document.getElementById('dashboard-link-feedback');
+    let dashboardLinkFeedbackTimeout = null;
     const mobileDashboardNavButtons = Array.from(document.querySelectorAll('[data-dashboard-nav]'));
     const WALLET_PAN_THROTTLE_MS = 100;
     const WALLET_DOUBLE_TAP_WINDOW_MS = 320;
@@ -1877,6 +1880,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const setDashboardLinkFeedback = (message = '', { durationMs = 2500 } = {}) => {
+        if (!dashboardLinkFeedback) {
+            return;
+        }
+
+        dashboardLinkFeedback.textContent = message;
+        const isVisible = Boolean(message);
+        dashboardLinkFeedback.classList.toggle('is-visible', isVisible);
+
+        if (dashboardLinkFeedbackTimeout) {
+            clearTimeout(dashboardLinkFeedbackTimeout);
+            dashboardLinkFeedbackTimeout = null;
+        }
+
+        if (isVisible) {
+            dashboardLinkFeedbackTimeout = setTimeout(() => {
+                dashboardLinkFeedback.textContent = '';
+                dashboardLinkFeedback.classList.remove('is-visible');
+                dashboardLinkFeedbackTimeout = null;
+            }, Math.max(500, Number(durationMs) || 0));
+        }
+    };
+
+    const buildDashboardPanelLink = (panelName) => {
+        try {
+            const url = new URL(window.location.href);
+            if (isValidPanelName(panelName)) {
+                url.searchParams.set('panel', panelName);
+            }
+            return url.toString();
+        } catch (error) {
+            console.warn('Unable to build dashboard link:', error);
+            return window.location.href;
+        }
+    };
+
     const readStoredPanelName = () => {
         if (!canPersistPanelState) {
             return null;
@@ -2057,6 +2096,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             mapsTo(targetPanel, { skipUrlSync: true });
         }
     });
+
+    if (copyDashboardLinkButton) {
+        copyDashboardLinkButton.addEventListener('click', async () => {
+            const link = buildDashboardPanelLink(activePanelName);
+            try {
+                if (!navigator.clipboard?.writeText) {
+                    throw new Error('Clipboard API unavailable');
+                }
+                await navigator.clipboard.writeText(link);
+                setDashboardLinkFeedback('Link copied.');
+            } catch (error) {
+                console.warn('Unable to copy dashboard link:', error);
+                setDashboardLinkFeedback('Copy not available on this device.');
+            }
+        });
+    }
 
     const moveToRelativePanel = (direction) => {
         if (!Number.isInteger(direction) || dashboardTabButtons.length === 0) {

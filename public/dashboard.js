@@ -2081,6 +2081,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const isEditableTarget = (target) => {
+        if (!(target instanceof Element)) {
+            return false;
+        }
+
+        const tagName = (target.tagName || '').toLowerCase();
+        if (['input', 'textarea', 'select', 'button'].includes(tagName)) {
+            return true;
+        }
+
+        if (target.isContentEditable) {
+            return true;
+        }
+
+        return Boolean(target.closest('[contenteditable="true"]'));
+    };
+
+    window.addEventListener('keydown', (event) => {
+        if (!event || event.defaultPrevented) {
+            return;
+        }
+
+        // Avoid hijacking shortcuts while typing / editing.
+        if (isEditableTarget(event.target)) {
+            return;
+        }
+
+        // Ctrl+Shift+ArrowLeft / ArrowRight cycles between dashboard panels.
+        if (event.ctrlKey && event.shiftKey && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
+            event.preventDefault();
+            const direction = event.key === 'ArrowRight' ? 1 : -1;
+            moveToRelativePanel(direction);
+        }
+    });
+
     dashboardTabButtons.forEach((button) => {
         if (button.dataset.dashboardTab !== activePanelName) {
             button.setAttribute('tabindex', '-1');

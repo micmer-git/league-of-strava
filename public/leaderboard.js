@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const DEFAULT_SORT_KEY = 'overall';
   const DEFAULT_SORT_DIRECTION = 'desc';
+  const SORT_QUERY_PARAM = 'sort';
+  const SORT_DIRECTION_QUERY_PARAM = 'dir';
   const leaderboardState = {
     rawEntries: [],
     sortedEntries: [],
@@ -167,9 +169,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       leaderboardState.rawEntries = entries;
-      sortEntries(DEFAULT_SORT_KEY, DEFAULT_SORT_DIRECTION);
+      const initialSortState = resolveInitialSortStateFromUrl();
+      sortEntries(initialSortState.sortKey, initialSortState.sortDirection);
       renderLeaderboard(leaderboardState.sortedEntries);
       updateSortIndicators();
+      persistSortStateToUrl();
     } catch (error) {
       console.error('Failed to load leaderboard', error);
       const message = error?.message
@@ -284,6 +288,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getSortComparator(sortKey) {
     return sortComparators.get(sortKey) || sortComparators.get(DEFAULT_SORT_KEY);
+  }
+
+  function resolveInitialSortStateFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const requestedSortKey = params.get(SORT_QUERY_PARAM);
+    const requestedDirection = params.get(SORT_DIRECTION_QUERY_PARAM);
+    const hasRequestedKey = typeof requestedSortKey === 'string' && requestedSortKey.length > 0;
+    const hasValidSortKey = hasRequestedKey && sortComparators.has(requestedSortKey);
+    const hasValidDirection = requestedDirection === 'asc' || requestedDirection === 'desc';
+
+    return {
+      sortKey: hasValidSortKey ? requestedSortKey : DEFAULT_SORT_KEY,
+      sortDirection: hasValidDirection ? requestedDirection : DEFAULT_SORT_DIRECTION,
+    };
+  }
+
+  function persistSortStateToUrl() {
+    const url = new URL(window.location.href);
+
+    if (leaderboardState.sortKey === DEFAULT_SORT_KEY) {
+      url.searchParams.delete(SORT_QUERY_PARAM);
+    } else {
+      url.searchParams.set(SORT_QUERY_PARAM, leaderboardState.sortKey);
+    }
+
+    if (leaderboardState.sortDirection === DEFAULT_SORT_DIRECTION) {
+      url.searchParams.delete(SORT_DIRECTION_QUERY_PARAM);
+    } else {
+      url.searchParams.set(SORT_DIRECTION_QUERY_PARAM, leaderboardState.sortDirection);
+    }
+
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
   }
 
   function updateSortIndicators() {
@@ -708,6 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sortEntries(sortKey, nextDirection);
       renderLeaderboard(leaderboardState.sortedEntries);
       updateSortIndicators();
+      persistSortStateToUrl();
     });
   });
 

@@ -689,35 +689,60 @@
             const categoryButtons = document.querySelectorAll('.category-btn');
             const leaderboardTables = document.querySelectorAll('.leaderboard-table-wrapper');
             const searchInput = document.getElementById('search-input');
-            let currentCategory = 'distance-run';
-            let currentPage = 1;
+            const url = new URL(window.location.href);
+            const initialCategory = url.searchParams.get('category') || 'distance-run';
+            const initialSearch = url.searchParams.get('search') || '';
+            const initialPage = parseInt(url.searchParams.get('page') || '1', 10);
+            let currentCategory = initialCategory;
+            let currentPage = Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1;
             const rowsPerPage = 10;
+
+            function updateUrlState() {
+                const stateUrl = new URL(window.location.href);
+                stateUrl.searchParams.set('category', currentCategory);
+                stateUrl.searchParams.set('page', String(currentPage));
+                if (searchInput.value.trim()) {
+                    stateUrl.searchParams.set('search', searchInput.value.trim());
+                } else {
+                    stateUrl.searchParams.delete('search');
+                }
+
+                const activeTable = document.getElementById(currentCategory);
+                const activeSortHeader = activeTable ? activeTable.querySelector('th[data-dir]') : null;
+                if (activeSortHeader) {
+                    stateUrl.searchParams.set('sort', activeSortHeader.dataset.sort);
+                    stateUrl.searchParams.set('dir', activeSortHeader.getAttribute('data-dir'));
+                } else {
+                    stateUrl.searchParams.delete('sort');
+                    stateUrl.searchParams.delete('dir');
+                }
+
+                window.history.replaceState({}, '', stateUrl.toString());
+            }
+
+            function activateCategory(category) {
+                const safeCategory = document.getElementById(category) ? category : 'distance-run';
+                categoryButtons.forEach(btn => {
+                    btn.classList.toggle('active', btn.getAttribute('data-category') === safeCategory);
+                });
+                leaderboardTables.forEach(table => table.classList.remove('active'));
+                document.getElementById(safeCategory).classList.add('active');
+                currentCategory = safeCategory;
+            }
 
             categoryButtons.forEach(button => {
                 button.addEventListener('click', function() {
-                    // Remove active class from all buttons
-                    categoryButtons.forEach(btn => btn.classList.remove('active'));
-                    // Add active class to clicked button
-                    this.classList.add('active');
-
-                    // Hide all tables
-                    leaderboardTables.forEach(table => table.classList.remove('active'));
-
-                    // Show the selected table
-                    const selectedCategory = this.getAttribute('data-category');
-                    document.getElementById(selectedCategory).classList.add('active');
-                    currentCategory = selectedCategory;
-
-                    // Reset search input
-                    searchInput.value = '';
+                    activateCategory(this.getAttribute('data-category'));
                     currentPage = 1;
-                    paginateTable(currentCategory);
+                    filterTable();
+                    updateUrlState();
                 });
             });
 
-            // Initialize: Show the first category
+            // Initialize with URL state (fallback: distance-run)
             if (categoryButtons.length > 0) {
-                categoryButtons[0].click();
+                activateCategory(initialCategory);
+                searchInput.value = initialSearch;
             }
 
             // Hamburger Menu Toggle
@@ -781,6 +806,7 @@
                     // Reset pagination after sorting
                     currentPage = 1;
                     paginateTable(currentCategory);
+                    updateUrlState();
                 });
             });
 
@@ -810,7 +836,11 @@
             });
 
             // Search Functionality
-            searchInput.addEventListener('keyup', filterTable);
+            searchInput.addEventListener('input', () => {
+                currentPage = 1;
+                filterTable();
+                updateUrlState();
+            });
 
             function filterTable() {
                 const filter = searchInput.value.toLowerCase();
@@ -857,14 +887,15 @@
                 nextPageBtn.disabled = currentPage === totalPages || totalPages === 0;
             }
 
-            // Initial Pagination Setup
-            paginateTable('distance-run');
+            // Initial Pagination Setup (with URL-restored category/search)
+            filterTable();
 
             // Event Listeners for Pagination Buttons
             prevPageBtn.addEventListener('click', function() {
                 if (currentPage > 1) {
                     currentPage--;
                     paginateTable(currentCategory);
+                    updateUrlState();
                 }
             });
 
@@ -877,6 +908,7 @@
                 if (currentPage < totalPages) {
                     currentPage++;
                     paginateTable(currentCategory);
+                    updateUrlState();
                 }
             });
 
@@ -885,22 +917,32 @@
                 button.addEventListener('click', function() {
                     currentPage = 1;
                     paginateTable(this.getAttribute('data-category'));
+                    updateUrlState();
                 });
             });
                         // Timeframe Buttons Logic
 
 
-            // Trigger initial sorting on 'Total Achievements' column
+            // Trigger initial sorting from URL state (fallback: total achievements desc)
             function initialSort() {
                 const activeTable = document.getElementById(currentCategory);
-                const totalAchievementsHeader = activeTable.querySelector('th[data-sort="total_achievements"]');
-                if (totalAchievementsHeader) {
-                    // Simulate a click on the header to sort the table
-                    totalAchievementsHeader.click();
+                const sortKeyFromUrl = url.searchParams.get('sort') || 'total_achievements';
+                const dirFromUrl = url.searchParams.get('dir') || 'desc';
+                const header = activeTable.querySelector(`th[data-sort="${sortKeyFromUrl}"]`) || activeTable.querySelector('th[data-sort="total_achievements"]');
+
+                if (header) {
+                    // click toggles direction, so pre-seed opposite direction to land on requested dir
+                    header.setAttribute('data-dir', dirFromUrl === 'asc' ? 'desc' : 'asc');
+                    header.click();
                 }
             }
 
             initialSort();
+            filterTable();
+            if (currentPage > 1) {
+                paginateTable(currentCategory);
+            }
+            updateUrlState();
 
             const timeframeButtons = document.querySelectorAll('.timeframe-btn');
 

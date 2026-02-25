@@ -34,6 +34,12 @@
   <main class="leaderboard-main">
     <section class="leaderboard-container" aria-labelledby="leaderboard-heading">
       <h1 id="leaderboard-heading" class="sr-only">Global Leaderboard</h1>
+      <div class="leaderboard-controls">
+        <label for="leaderboard-search" class="leaderboard-controls__label">Find athlete</label>
+        <input id="leaderboard-search" type="search" class="leaderboard-controls__input" placeholder="Search by name or Strava ID" autocomplete="off">
+        <button id="leaderboard-search-clear" type="button" class="leaderboard-controls__clear" aria-label="Clear search" hidden>Clear</button>
+        <p id="leaderboard-search-meta" class="leaderboard-controls__meta" aria-live="polite"></p>
+      </div>
       <div class="leaderboard-table-wrapper" role="region" aria-labelledby="leaderboard-heading" tabindex="0">
         <table class="leaderboard-table">
           <thead>

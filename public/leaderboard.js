@@ -3,6 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const cardsContainer = document.getElementById('leaderboard-cards');
   const tableElement = document.querySelector('.leaderboard-table');
   const leaderboardSortButtons = Array.from(document.querySelectorAll('[data-sort-key]'));
+  const leaderboardSearchInput = document.getElementById('leaderboard-search');
+  const leaderboardSearchClearButton = document.getElementById('leaderboard-search-clear');
+  const leaderboardSearchMeta = document.getElementById('leaderboard-search-meta');
   const tableColumnCount = tableElement ? tableElement.querySelectorAll('thead th').length : 1;
   const NAME_COLUMN_PROPERTY = '--leaderboard-name-column-width';
   let nameMeasurementElement = null;
@@ -20,11 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const DEFAULT_SORT_DIRECTION = 'desc';
   const SORT_QUERY_PARAM = 'sort';
   const SORT_DIRECTION_QUERY_PARAM = 'dir';
+  const FILTER_QUERY_PARAM = 'q';
   const leaderboardState = {
     rawEntries: [],
     sortedEntries: [],
     sortKey: DEFAULT_SORT_KEY,
     sortDirection: DEFAULT_SORT_DIRECTION,
+    filterQuery: '',
   };
   const sortComparators = new Map([
     [DEFAULT_SORT_KEY, defaultComparator],
@@ -170,9 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       leaderboardState.rawEntries = entries;
       const initialSortState = resolveInitialSortStateFromUrl();
+      leaderboardState.filterQuery = initialSortState.filterQuery;
+      if (leaderboardSearchInput) {
+        leaderboardSearchInput.value = initialSortState.filterQuery;
+      }
       sortEntries(initialSortState.sortKey, initialSortState.sortDirection);
       renderLeaderboard(leaderboardState.sortedEntries);
       updateSortIndicators();
+      updateSearchMeta();
       persistSortStateToUrl();
     } catch (error) {
       console.error('Failed to load leaderboard', error);
@@ -270,7 +280,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function sortEntries(sortKey = leaderboardState.sortKey, direction = leaderboardState.sortDirection) {
-    if (!leaderboardState.rawEntries.length) {
+    const visibleEntries = getVisibleEntries();
+    if (!visibleEntries.length) {
       leaderboardState.sortedEntries = [];
       leaderboardState.sortKey = sortKey;
       leaderboardState.sortDirection = direction;
@@ -279,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const comparator = getSortComparator(sortKey);
     const multiplier = direction === 'asc' ? -1 : 1;
-    const sorted = leaderboardState.rawEntries.slice().sort((a, b) => comparator(a, b) * multiplier);
+    const sorted = visibleEntries.slice().sort((a, b) => comparator(a, b) * multiplier);
     leaderboardState.sortedEntries = sorted;
     leaderboardState.sortKey = sortKey;
     leaderboardState.sortDirection = direction;
@@ -294,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const requestedSortKey = params.get(SORT_QUERY_PARAM);
     const requestedDirection = params.get(SORT_DIRECTION_QUERY_PARAM);
+    const requestedFilter = params.get(FILTER_QUERY_PARAM) || '';
     const hasRequestedKey = typeof requestedSortKey === 'string' && requestedSortKey.length > 0;
     const hasValidSortKey = hasRequestedKey && sortComparators.has(requestedSortKey);
     const hasValidDirection = requestedDirection === 'asc' || requestedDirection === 'desc';
@@ -301,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return {
       sortKey: hasValidSortKey ? requestedSortKey : DEFAULT_SORT_KEY,
       sortDirection: hasValidDirection ? requestedDirection : DEFAULT_SORT_DIRECTION,
+      filterQuery: requestedFilter.trim(),
     };
   }
 
@@ -319,7 +332,49 @@ document.addEventListener('DOMContentLoaded', () => {
       url.searchParams.set(SORT_DIRECTION_QUERY_PARAM, leaderboardState.sortDirection);
     }
 
+    if (!leaderboardState.filterQuery) {
+      url.searchParams.delete(FILTER_QUERY_PARAM);
+    } else {
+      url.searchParams.set(FILTER_QUERY_PARAM, leaderboardState.filterQuery);
+    }
+
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+
+  function getVisibleEntries() {
+    const query = leaderboardState.filterQuery.trim().toLowerCase();
+    if (!query) {
+      return leaderboardState.rawEntries;
+    }
+
+    return leaderboardState.rawEntries.filter((entry) => {
+      const displayName = String(entry?.displayName || '').toLowerCase();
+      const userId = String(entry?.userId || '').toLowerCase();
+      return displayName.includes(query) || userId.includes(query);
+    });
+  }
+
+  function updateSearchMeta() {
+    if (!leaderboardSearchMeta) {
+      return;
+    }
+
+    const totalCount = leaderboardState.rawEntries.length;
+    const visibleCount = leaderboardState.sortedEntries.length;
+    const hasQuery = leaderboardState.filterQuery.trim().length > 0;
+
+    if (!totalCount) {
+      leaderboardSearchMeta.textContent = '';
+    } else if (!hasQuery) {
+      leaderboardSearchMeta.textContent = `${totalCount} athletes`;
+    } else {
+      leaderboardSearchMeta.textContent = `${visibleCount} of ${totalCount} athletes`;
+    }
+
+    if (leaderboardSearchClearButton) {
+      leaderboardSearchClearButton.hidden = !hasQuery;
+    }
   }
 
   function updateSortIndicators() {
@@ -744,11 +799,45 @@ document.addEventListener('DOMContentLoaded', () => {
       sortEntries(sortKey, nextDirection);
       renderLeaderboard(leaderboardState.sortedEntries);
       updateSortIndicators();
+      updateSearchMeta();
       persistSortStateToUrl();
     });
   });
 
   updateSortIndicators();
+  updateSearchMeta();
+
+
+  if (leaderboardSearchInput) {
+    leaderboardSearchInput.addEventListener('input', () => {
+      leaderboardState.filterQuery = leaderboardSearchInput.value.trim();
+      sortEntries(leaderboardState.sortKey, leaderboardState.sortDirection);
+      if (leaderboardState.rawEntries.length > 0 && leaderboardState.sortedEntries.length === 0) {
+        renderMessageRow('No athletes match your search yet.');
+        renderLeaderboardCards([]);
+      } else {
+        renderLeaderboard(leaderboardState.sortedEntries);
+      }
+      updateSortIndicators();
+      updateSearchMeta();
+      persistSortStateToUrl();
+    });
+  }
+
+  if (leaderboardSearchClearButton) {
+    leaderboardSearchClearButton.addEventListener('click', () => {
+      leaderboardState.filterQuery = '';
+      if (leaderboardSearchInput) {
+        leaderboardSearchInput.value = '';
+        leaderboardSearchInput.focus();
+      }
+      sortEntries(leaderboardState.sortKey, leaderboardState.sortDirection);
+      renderLeaderboard(leaderboardState.sortedEntries);
+      updateSortIndicators();
+      updateSearchMeta();
+      persistSortStateToUrl();
+    });
+  }
 
   let resizeRafId = null;
   window.addEventListener('resize', () => {

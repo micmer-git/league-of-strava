@@ -219,6 +219,20 @@ button, [role="button"] { touch-action: manipulation; }
     box-shadow: 0 4px 12px rgba(252, 76, 2, 0.3);
 }
 
+.dashboard-tab.dashboard-tab--utility {
+    margin-left: auto;
+}
+
+.dashboard-link-feedback {
+    margin-left: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+}
+
+.dashboard-link-feedback.is-visible {
+    color: var(--color-text-primary);
+}
+
 /* --- Bento Panels (The Core Card Style) --- */
 .dashboard-panels { position: relative; }
 .dashboard-panel { display: none; animation: panelFade 0.4s ease; flex-direction: column; gap: 1.5rem; width: 100%; }
